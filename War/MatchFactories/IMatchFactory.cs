@@ -1,4 +1,4 @@
-﻿namespace War
+﻿namespace War.MatchFactories
 {
     public interface IMatchFactory
     {

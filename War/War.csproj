@@ -42,11 +42,12 @@
   <ItemGroup>
     <Compile Include="Contestant.cs" />
     <Compile Include="IContestantRepository.cs" />
-    <Compile Include="IMatchFactory.cs" />
+    <Compile Include="MatchFactories\IMatchFactory.cs" />
     <Compile Include="IWarRepository.cs" />
-    <Compile Include="MatchWithContestants.cs" />
+    <Compile Include="MatchFactories\MatchWithContestants.cs" />
+    <Compile Include="MatchRequest.cs" />
     <Compile Include="VoteChoice.cs" />
-    <Compile Include="RandomMatchFactory.cs" />
+    <Compile Include="MatchFactories\RandomMatchFactory.cs" />
     <Compile Include="RankingServices\ContestantWithScore.cs" />
     <Compile Include="RankingServices\IRankingService.cs" />
     <Compile Include="Match.cs" />

@@ -3,6 +3,7 @@ using Autofac.Integration.WebApi;
 using System.Reflection;
 using System.Web.Http;
 using War;
+using War.MatchFactories;
 using War.RankingServices;
 using War.Sql;
 using WarApi.Mappers;

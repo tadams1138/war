@@ -3,6 +3,7 @@ using System.Linq;
 using System.Web.Http;
 using System.Web.Http.Description;
 using War;
+using War.MatchFactories;
 using War.RankingServices;
 using WarApi.Mappers;
 
@@ -16,14 +17,16 @@ namespace WarApi.Controllers
         private readonly IWarRepository _warRepo;
         private readonly IMatchFactory _matchFactory;
         private readonly IMatchRepository _matchRepository;
+        private readonly IContestantRepository _contestantRepository;
 
-        public WarController(IMapper mapper, IRankingService rankingService, IWarRepository warRepo, IMatchFactory matchFactory, IMatchRepository matchRepository)
+        public WarController(IMapper mapper, IRankingService rankingService, IWarRepository warRepo, IMatchFactory matchFactory, IMatchRepository matchRepository, IContestantRepository contestantRepository)
         {
             _mapper = mapper;
             _rankingService = rankingService;
             _warRepo = warRepo;
             _matchFactory = matchFactory;
             _matchRepository = matchRepository;
+            _contestantRepository = contestantRepository;
         }
 
         [Route("{warId}/CreateMatch")]
@@ -36,12 +39,16 @@ namespace WarApi.Controllers
                 return NotFound();
             }
 
+            if (_contestantRepository.GetCount(warId) < 2)
+            {
+                return Conflict();
+            }
+
             var match = _matchFactory.Create(warId);
             var matchModel = _mapper.Map<MatchWithContestants, Models.Match>(match);
-            return Ok(matchModel);
+            return Created("", matchModel);
         }
-
-
+        
         [Route("{warId}/Vote")]
         [HttpPost]
         public IHttpActionResult Vote(int warId, Models.VoteRequest request)
@@ -56,20 +63,10 @@ namespace WarApi.Controllers
                 return NotFound();
             }
 
-            var existingMatch = _matchRepository.Get(request.MatchId);
-            if (existingMatch == null)
-            {
-                ModelState.AddModelError($"{nameof(request.MatchId)}", $"'{request.MatchId}' is not valid.");
-            }
+            ValidateRequest(request);
 
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState);
-            }
-
-            if (existingMatch.Result != VoteChoice.None)
-            {
-                ModelState.AddModelError($"{nameof(request.MatchId)}", "Match is already assigned a vote.");
                 return BadRequest(ModelState);
             }
 
@@ -77,7 +74,7 @@ namespace WarApi.Controllers
             _matchRepository.Update(voteRequest);
             return StatusCode(System.Net.HttpStatusCode.NoContent);
         }
-
+        
         [Route("{warId}/Contestants")]
         [ResponseType(typeof(IEnumerable<ContestantWithScore>))]
         [HttpGet]
@@ -91,6 +88,19 @@ namespace WarApi.Controllers
             var contestants = _rankingService.GetRankings(warId);
             var contestantModels = contestants.Select(c => _mapper.Map<War.RankingServices.ContestantWithScore, ContestantWithScore>(c));
             return Ok(contestantModels);
+        }
+
+        private void ValidateRequest(Models.VoteRequest request)
+        {
+            var existingMatch = _matchRepository.Get(request.MatchId);
+            if (existingMatch == null)
+            {
+                ModelState.AddModelError($"{nameof(request.MatchId)}", $"'{request.MatchId}' is not valid.");
+            }
+            else if (existingMatch.Result != VoteChoice.None)
+            {
+                ModelState.AddModelError($"{nameof(request.MatchId)}", "Match is already assigned a vote.");
+            }
         }
 
         private bool IsValidWarId(int warId)

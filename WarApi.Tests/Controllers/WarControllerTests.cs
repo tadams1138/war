@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Web.Http.Results;
 using War;
+using War.MatchFactories;
 using War.RankingServices;
 using WarApi.Mappers;
 
@@ -22,16 +23,18 @@ namespace WarApi.Controllers
         private Mock<IWarRepository> _stubWarRepo;
         private Mock<IMatchFactory> _stubMatchFactory;
         private Mock<IMatchRepository> _stubMatchRepository;
+        private Mock<IContestantRepository> _stubContestantRepository;
 
         [TestInitialize]
         public void InitializeTests()
         {
+            _stubContestantRepository = new Mock<IContestantRepository>();
             _stubWarRepo = new Mock<IWarRepository>();
             _stubRankingService = new Mock<IRankingService>();
             _stubMapper = new Mock<IMapper>();
             _stubMatchFactory = new Mock<IMatchFactory>();
             _stubMatchRepository = new Mock<IMatchRepository>();
-            _controller = new WarController(_stubMapper.Object, _stubRankingService.Object, _stubWarRepo.Object, _stubMatchFactory.Object, _stubMatchRepository.Object);
+            _controller = new WarController(_stubMapper.Object, _stubRankingService.Object, _stubWarRepo.Object, _stubMatchFactory.Object, _stubMatchRepository.Object, _stubContestantRepository.Object);
             _stubWarRepo.Setup(x => x.Get(ValidWarId)).Returns(new War.War());
             _stubWarRepo.Setup(x => x.Get(InvalidWarId)).Returns((War.War)null);
         }
@@ -43,14 +46,22 @@ namespace WarApi.Controllers
             var match = new MatchWithContestants();
             _stubMatchFactory.Setup(x => x.Create(ValidWarId)).Returns(match);
             var matchModel = new Models.Match();
-            _stubMapper.Setup(x => x.Map<War.MatchWithContestants, Models.Match>(match)).Returns(matchModel);
+            _stubMapper.Setup(x => x.Map<MatchWithContestants, Models.Match>(match)).Returns(matchModel);
+            _stubContestantRepository.Setup(x => x.GetCount(ValidWarId)).Returns(2);
 
             // Act
             var result = _controller.CreateMatch(ValidWarId);
 
             // Assert
-            result.Should().BeOfType<OkNegotiatedContentResult<Models.Match>>();
-            ((OkNegotiatedContentResult<Models.Match>)result).Content.Should().Be(matchModel);
+            result.Should().BeOfType<CreatedNegotiatedContentResult<Models.Match>>();
+            ((CreatedNegotiatedContentResult<Models.Match>)result).Content.Should().Be(matchModel);
+        }
+
+        [TestMethod()]
+        public void GivenFewerThan2Contestants_CreateMatch_ReturnsConflict()
+        {
+            VerifyConflictReturned(0);
+            VerifyConflictReturned(1);
         }
 
         [TestMethod()]
@@ -176,6 +187,18 @@ namespace WarApi.Controllers
             VerifyVoteReturnsExpectedResult(VoteChoice.Contestant2Won, false);
             VerifyVoteReturnsExpectedResult(VoteChoice.Pass, false);
             VerifyVoteReturnsExpectedResult(VoteChoice.None, true);
+        }
+
+        private void VerifyConflictReturned(int count)
+        {
+            // Arrange
+            _stubContestantRepository.Setup(x => x.GetCount(ValidWarId)).Returns(count);
+
+            // Act
+            var result = _controller.CreateMatch(ValidWarId);
+
+            // Assert
+            result.Should().BeOfType<ConflictResult>();
         }
 
         private void VerifyVoteReturnsExpectedResult(VoteChoice existingVoteChoice, bool shouldSucceed)

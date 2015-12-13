@@ -8,5 +8,6 @@ namespace War
         void Update(VoteRequest voteRequest);
         IEnumerable<Match> GetAll(int warId);
         Match Get(Guid matchId);
+        Guid Create(MatchRequest matchRequest);
     }
 }

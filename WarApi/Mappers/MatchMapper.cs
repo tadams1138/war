@@ -1,6 +1,6 @@
 ﻿namespace WarApi.Mappers
 {
-    class MatchMapper : ITypedMapper<War.MatchWithContestants, Models.Match>
+    class MatchMapper : ITypedMapper<War.MatchFactories.MatchWithContestants, Models.Match>
     {
         private readonly ITypedMapper<War.Contestant, Models.Contestant> _contestantMapper;
 
@@ -9,7 +9,7 @@
             _contestantMapper = contestantMapper;
         }
 
-        public Models.Match Map(War.MatchWithContestants source)
+        public Models.Match Map(War.MatchFactories.MatchWithContestants source)
         {
             var contestant1 = _contestantMapper.Map(source.Contestant1);
             var contestant2 = _contestantMapper.Map(source.Contestant2);

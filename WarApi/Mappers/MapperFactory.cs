@@ -11,7 +11,7 @@ namespace WarApi.Mappers
                 var result = (ITypedMapper < S, T> )CreateContestantWithScoreMapper();
                 return result;
             }
-            else if (typeof(S) == typeof(War.MatchWithContestants) && typeof(T) == typeof(Models.Match))
+            else if (typeof(S) == typeof(War.MatchFactories.MatchWithContestants) && typeof(T) == typeof(Models.Match))
             {
                 var result = (ITypedMapper<S, T>)CreateMatchMapper();
                 return result;

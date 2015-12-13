@@ -12,6 +12,11 @@ namespace War.Sql
             _connectionString = connectionString;
         }
 
+        public Guid Create(MatchRequest matchRequest)
+        {
+            throw new NotImplementedException();
+        }
+
         public Match Get(Guid matchId)
         {
             throw new NotImplementedException();

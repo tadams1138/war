@@ -12,7 +12,17 @@ namespace War.Sql
             _connectionString = connectionString;
         }
 
+        public Contestant Get(int index)
+        {
+            throw new NotImplementedException();
+        }
+
         public IEnumerable<Contestant> GetAll(int warId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public int GetCount(int warId)
         {
             throw new NotImplementedException();
         }

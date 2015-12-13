@@ -13,7 +13,7 @@ namespace WarApi.Mappers
         {
             // Arrange
             var mapper = new Mapper();
-            var source = new War.MatchWithContestants
+            var source = new War.MatchFactories.MatchWithContestants
             {
                 Id= Guid.NewGuid(),
                 Contestant1 = ContestantMapperTests.CreateTestContestant(),
@@ -21,7 +21,7 @@ namespace WarApi.Mappers
             };
 
             // Act
-            var target = mapper.Map<War.MatchWithContestants, Match>(source);
+            var target = mapper.Map<War.MatchFactories.MatchWithContestants, Match>(source);
 
             // Assert
             target.Id.Should().Be(source.Id);
