@@ -6,7 +6,7 @@
     <ProjectGuid>{59AECE5C-3375-43BD-BC1C-4E7E49A91737}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>WarApi.Tests</RootNamespace>
+    <RootNamespace>WarApi</RootNamespace>
     <AssemblyName>WarApi.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -75,6 +75,11 @@
   <ItemGroup>
     <Compile Include="Controllers\WarControllerSanityTests.cs" />
     <Compile Include="Controllers\WarControllerTests.cs" />
+    <Compile Include="Mappers\ContestantMapperTests.cs" />
+    <Compile Include="Mappers\MatchMapperTests.cs" />
+    <Compile Include="Mappers\ContestantWithScoreMapperTests.cs" />
+    <Compile Include="Mappers\VoteRequestMapperTests.cs" />
+    <Compile Include="Models\VoteRequestTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

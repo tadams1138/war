@@ -1,4 +1,4 @@
-﻿namespace War
+﻿namespace War.RankingServices
 {
     public class ContestantWithScore
     {

@@ -24,28 +24,28 @@ namespace War.RankingServices
             var stubMatchRepo = new Mock<IMatchRepository>();
             var stubContestantRepo = new Mock<IContestantRepository>();
             var matches = new List<Match> {
-                new Match { Contestant1 = _aNewHope, Contestant2 = _returnOfTheJedi, Result = MatchResult.Contestant2Won },
-                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _empireStrikesBack, Result = MatchResult.Contestant1Won },
-                new Match { Contestant1 = _phantomMenace, Contestant2 = _returnOfTheJedi, Result = MatchResult.Contestant2Won },
-                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _attackOfTheClones, Result = MatchResult.Contestant1Won },
-                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _revengeOfTheSith, Result = MatchResult.Contestant1Won },
+                new Match { Contestant1 = _aNewHope, Contestant2 = _returnOfTheJedi, Result = VoteChoice.Contestant2Won },
+                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant1Won },
+                new Match { Contestant1 = _phantomMenace, Contestant2 = _returnOfTheJedi, Result = VoteChoice.Contestant2Won },
+                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _attackOfTheClones, Result = VoteChoice.Contestant1Won },
+                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _revengeOfTheSith, Result = VoteChoice.Contestant1Won },
 
-                new Match { Contestant1 = _aNewHope, Contestant2 = _empireStrikesBack, Result = MatchResult.Contestant2Won },
-                new Match { Contestant1 = _revengeOfTheSith, Contestant2 = _empireStrikesBack, Result = MatchResult.Contestant2Won },
-                new Match { Contestant1 = _phantomMenace, Contestant2 = _empireStrikesBack, Result = MatchResult.Contestant2Won },
-                new Match { Contestant1 = _attackOfTheClones, Contestant2 = _empireStrikesBack, Result = MatchResult.Contestant2Won },
+                new Match { Contestant1 = _aNewHope, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
+                new Match { Contestant1 = _revengeOfTheSith, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
+                new Match { Contestant1 = _phantomMenace, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
+                new Match { Contestant1 = _attackOfTheClones, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
 
-                new Match { Contestant1 = _aNewHope, Contestant2 = _phantomMenace, Result = MatchResult.Contestant1Won },
-                new Match { Contestant1 = _aNewHope, Contestant2 = _attackOfTheClones, Result = MatchResult.Contestant1Won },
-                new Match { Contestant1 = _aNewHope, Contestant2 = _revengeOfTheSith, Result = MatchResult.Contestant1Won },
+                new Match { Contestant1 = _aNewHope, Contestant2 = _phantomMenace, Result = VoteChoice.Contestant1Won },
+                new Match { Contestant1 = _aNewHope, Contestant2 = _attackOfTheClones, Result = VoteChoice.Contestant1Won },
+                new Match { Contestant1 = _aNewHope, Contestant2 = _revengeOfTheSith, Result = VoteChoice.Contestant1Won },
 
-                new Match { Contestant1 = _revengeOfTheSith, Contestant2 = _phantomMenace, Result = MatchResult.Pass },
-                new Match { Contestant1 = _attackOfTheClones, Contestant2 = _revengeOfTheSith, Result = MatchResult.Pass },
+                new Match { Contestant1 = _revengeOfTheSith, Contestant2 = _phantomMenace, Result = VoteChoice.Pass },
+                new Match { Contestant1 = _attackOfTheClones, Contestant2 = _revengeOfTheSith, Result = VoteChoice.Pass },
 
-                new Match { Contestant1 = _attackOfTheClones, Contestant2 = _phantomMenace, Result = MatchResult.None },
+                new Match { Contestant1 = _attackOfTheClones, Contestant2 = _phantomMenace, Result = VoteChoice.None },
 
-                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _empireStrikesBack, Result = MatchResult.Contestant1Won }, // Duplicate
-                new Match { Contestant1 = _empireStrikesBack, Contestant2 = _returnOfTheJedi, Result = MatchResult.Contestant2Won }, // Inverted Order Duplicate
+                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant1Won }, // Duplicate
+                new Match { Contestant1 = _empireStrikesBack, Contestant2 = _returnOfTheJedi, Result = VoteChoice.Contestant2Won }, // Inverted Order Duplicate
             };
 
             var contestants = new List<Contestant> {

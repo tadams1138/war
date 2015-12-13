@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace War.RankingServices
@@ -20,10 +19,10 @@ namespace War.RankingServices
             var matches = _matchRepository.GetAll(warId);
 
             var scores = matches
-                .Where(x => x.Result == MatchResult.Contestant1Won)
+                .Where(x => x.Result == VoteChoice.Contestant1Won)
                 .Select(x => x.Contestant1)
                 .Concat(matches
-                    .Where(x => x.Result == MatchResult.Contestant2Won)
+                    .Where(x => x.Result == VoteChoice.Contestant2Won)
                     .Select(x => x.Contestant2))
                 .GroupBy(x => x)
                 .Select(group => new { Id = group.Key, Score = group.Count() });

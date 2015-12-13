@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "War", "War\War.csproj", "{7
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "War.Tests", "War.Tests\War.Tests.csproj", "{F120C543-BBF4-4BDB-85CD-DA877DC3BCA3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "War.Sql", "War.Sql\War.Sql.csproj", "{40350233-E033-4C92-8CD8-7CD84E35DFE5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{F120C543-BBF4-4BDB-85CD-DA877DC3BCA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F120C543-BBF4-4BDB-85CD-DA877DC3BCA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F120C543-BBF4-4BDB-85CD-DA877DC3BCA3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{40350233-E033-4C92-8CD8-7CD84E35DFE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{40350233-E033-4C92-8CD8-7CD84E35DFE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{40350233-E033-4C92-8CD8-7CD84E35DFE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{40350233-E033-4C92-8CD8-7CD84E35DFE5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

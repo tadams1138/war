@@ -106,6 +106,15 @@
   <ItemGroup>
     <Compile Include="App_Start\SwaggerConfig.cs" />
     <Compile Include="App_Start\WebApiConfig.cs" />
+    <Compile Include="Mappers\ContestantMapper.cs" />
+    <Compile Include="Mappers\ContestantWithScoreMapper.cs" />
+    <Compile Include="Mappers\ITypedMapper.cs" />
+    <Compile Include="Mappers\Mapper.cs" />
+    <Compile Include="Mappers\MapperFactory.cs" />
+    <Compile Include="Mappers\MatchMapper.cs" />
+    <Compile Include="Mappers\VoteRequestMapper.cs" />
+    <Compile Include="Models\Contestant.cs" />
+    <Compile Include="Models\VoteChoice.cs" />
     <Compile Include="Models\VoteRequest.cs" />
     <Compile Include="Models\ContestantWithScore.cs" />
     <Compile Include="Mappers\IMapper.cs" />
@@ -135,6 +144,10 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\War.Sql\War.Sql.csproj">
+      <Project>{40350233-e033-4c92-8cd8-7cd84e35dfe5}</Project>
+      <Name>War.Sql</Name>
+    </ProjectReference>
     <ProjectReference Include="..\War\War.csproj">
       <Project>{7ac0b4e7-ceae-45bd-919e-2637af009df2}</Project>
       <Name>War</Name>

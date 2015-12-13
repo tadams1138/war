@@ -32,7 +32,7 @@ namespace WarApi.Tests.Controllers
 
             await TestEndpoint(request, responseVerification);
         }
-
+        
         private static async Task TestEndpoint(HttpRequestMessage request, Func<HttpResponseMessage, Task> verifyResponse)
         {
             using (var httpRequestMessage = request)

@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("WarApi")]
+[assembly: AssemblyTitle("War.Sql")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("T & I Soft")]
-[assembly: AssemblyProduct("WarApi")]
-[assembly: AssemblyCopyright("Copyright © T & I Soft 2015")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("War.Sql")]
+[assembly: AssemblyCopyright("Copyright ©  2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -20,9 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("bc17dc30-fd23-466e-a302-94c1280ea744")]
-[assembly: InternalsVisibleTo("WarApi.Tests")]
-[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
+[assembly: Guid("40350233-e033-4c92-8cd8-7cd84e35dfe5")]
 
 // Version information for an assembly consists of the following four values:
 //
@@ -31,9 +29,8 @@ using System.Runtime.InteropServices;
 //      Build Number
 //      Revision
 //
-// You can specify all the values or you can default the Revision and Build Numbers 
+// You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
+// [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
-
-

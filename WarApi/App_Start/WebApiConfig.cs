@@ -2,11 +2,11 @@
 using Autofac.Integration.WebApi;
 using System.Reflection;
 using System.Web.Http;
-using WarApi.Mappers;
-using System;
 using War;
 using War.RankingServices;
-using System.Collections.Generic;
+using War.Sql;
+using WarApi.Mappers;
+using WarApi.Properties;
 
 namespace WarApi
 {
@@ -34,8 +34,13 @@ namespace WarApi
             builder.RegisterApiControllers(Assembly.GetExecutingAssembly());
             builder.RegisterWebApiFilterProvider(config);
 
-            builder.RegisterType<SumDistinctWinsRankingService>().As<IRankingService>();
+            builder.RegisterType<Mapper>().As<IMapper>();
 
+            builder.RegisterType<SumDistinctWinsRankingService>().As<IRankingService>();
+            builder.RegisterType<RandomMatchFactory>().As<IMatchFactory>();
+            builder.Register(c => new ContestantRepository(Settings.Default.WarDb)).As<IContestantRepository>();
+            builder.Register(c => new MatchRepository(Settings.Default.WarDb)).As<IMatchRepository>();
+            builder.Register(c => new WarRepository(Settings.Default.WarDb)).As<IWarRepository>();
 
             var container = builder.Build();
             config.DependencyResolver = new AutofacWebApiDependencyResolver(container);

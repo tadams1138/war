@@ -2,6 +2,6 @@
 {
     public interface IMapper
     {
-        T Map<T>(object source);
+        T Map<S, T>(S source);
     }
 }
