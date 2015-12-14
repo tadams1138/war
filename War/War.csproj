@@ -56,6 +56,7 @@
     <Compile Include="RankingServices\SumDistinctWinsRankingService.cs" />
     <Compile Include="VoteRequest.cs" />
     <Compile Include="War.cs" />
+    <Compile Include="WarRequest.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

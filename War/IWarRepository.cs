@@ -1,7 +1,9 @@
-﻿namespace War
+﻿using System.Threading.Tasks;
+
+namespace War
 {
     public interface IWarRepository
     {
-        War Get(int id);
+        Task<War> Get(int id);
     }
 }

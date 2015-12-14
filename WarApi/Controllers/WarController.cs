@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Web.Http;
 using System.Web.Http.Description;
 using War;
@@ -32,9 +33,9 @@ namespace WarApi.Controllers
         [Route("{warId}/CreateMatch")]
         [HttpPost]
         [ResponseType(typeof(Match))]
-        public IHttpActionResult CreateMatch(int warId)
+        public async Task<IHttpActionResult> CreateMatch(int warId)
         {
-            if (!IsValidWarId(warId))
+            if (!await IsValidWarId(warId))
             {
                 return NotFound();
             }
@@ -51,14 +52,14 @@ namespace WarApi.Controllers
         
         [Route("{warId}/Vote")]
         [HttpPost]
-        public IHttpActionResult Vote(int warId, Models.VoteRequest request)
+        public async Task<IHttpActionResult> Vote(int warId, Models.VoteRequest request)
         {
             if (request == null)
             {
                 return BadRequest("Could not deserialize request.");
             }
 
-            if (!IsValidWarId(warId))
+            if (!await IsValidWarId(warId))
             {
                 return NotFound();
             }
@@ -78,9 +79,9 @@ namespace WarApi.Controllers
         [Route("{warId}/Contestants")]
         [ResponseType(typeof(IEnumerable<ContestantWithScore>))]
         [HttpGet]
-        public IHttpActionResult GetContestants(int warId)
+        public async Task<IHttpActionResult> GetContestants(int warId)
         {
-            if (!IsValidWarId(warId))
+            if (!await IsValidWarId(warId))
             {
                 return NotFound();
             }
@@ -103,9 +104,9 @@ namespace WarApi.Controllers
             }
         }
 
-        private bool IsValidWarId(int warId)
+        private async Task<bool> IsValidWarId(int warId)
         {
-            return _warRepo.Get(warId) != null;
+            return await _warRepo.Get(warId) != null;
         }
     }
 }
