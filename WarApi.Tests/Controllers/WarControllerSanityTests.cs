@@ -25,14 +25,18 @@ namespace WarApi.Tests.Controllers
 
             Func<HttpResponseMessage, Task> responseVerification = async (response) =>
             {
-                var content = await response.Content.ReadAsStringAsync();
-                Console.WriteLine(content);
+                var content = response.Content;
+                if (content != null)
+                {
+                    var contentAsString = await content.ReadAsStringAsync();
+                    Console.WriteLine(contentAsString);
+                }
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
             };
 
             await TestEndpoint(request, responseVerification);
         }
-        
+
         private static async Task TestEndpoint(HttpRequestMessage request, Func<HttpResponseMessage, Task> verifyResponse)
         {
             using (var httpRequestMessage = request)
