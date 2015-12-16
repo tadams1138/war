@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace War.RankingServices
 {
     public interface IRankingService
     {
-        IEnumerable<ContestantWithScore> GetRankings(int warId);
+        Task<IEnumerable<ContestantWithScore>> GetRankings(int warId);
     }
 }

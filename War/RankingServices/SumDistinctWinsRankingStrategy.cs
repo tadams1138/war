@@ -1,22 +1,23 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace War.RankingServices
 {
-    public class SumDistinctWinsRankingService : IRankingService
+    public class SumDistinctWinsRankingStrategy : IRankingService
     {
         private readonly IContestantRepository _contestantRepository;
         private readonly IMatchRepository _matchRepository;
 
-        public SumDistinctWinsRankingService(IMatchRepository matchRepository, IContestantRepository constestantRepository)
+        public SumDistinctWinsRankingStrategy(IMatchRepository matchRepository, IContestantRepository constestantRepository)
         {
             _matchRepository = matchRepository;
             _contestantRepository = constestantRepository;
         }
-        public IEnumerable<ContestantWithScore> GetRankings(int warId)
+        public async Task<IEnumerable<ContestantWithScore>> GetRankings(int warId)
         {
             var contestants = _contestantRepository.GetAll(warId);
-            var matches = _matchRepository.GetAll(warId);
+            var matches = await _matchRepository.GetAll(warId);
 
             var scores = matches
                 .Where(x => x.Result == VoteChoice.Contestant1Won)

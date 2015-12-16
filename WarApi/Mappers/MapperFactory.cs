@@ -8,7 +8,7 @@ namespace WarApi.Mappers
         {
             if (typeof(S) == typeof(War.RankingServices.ContestantWithScore) && typeof(T) == typeof(Models.ContestantWithScore))
             {
-                var result = (ITypedMapper < S, T> )CreateContestantWithScoreMapper();
+                var result = (ITypedMapper<S, T>)CreateContestantWithScoreMapper();
                 return result;
             }
             else if (typeof(S) == typeof(War.MatchFactories.MatchWithContestants) && typeof(T) == typeof(Models.Match))

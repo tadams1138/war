@@ -37,8 +37,8 @@ namespace WarApi
 
             builder.RegisterType<Mapper>().As<IMapper>();
 
-            builder.RegisterType<SumDistinctWinsRankingService>().As<IRankingService>();
-            builder.RegisterType<RandomMatchFactory>().As<IMatchFactory>();
+            builder.RegisterType<SumDistinctWinsRankingStrategy>().As<IRankingService>();
+            builder.RegisterType<RandomMatchStrategy>().As<IMatchFactory>();
             builder.Register(c => new ContestantRepository(Settings.Default.WarDb)).As<IContestantRepository>();
             builder.Register(c => new MatchRepository(Settings.Default.WarDb)).As<IMatchRepository>();
             builder.Register(c => new WarRepository(Settings.Default.WarDb)).As<IWarRepository>();

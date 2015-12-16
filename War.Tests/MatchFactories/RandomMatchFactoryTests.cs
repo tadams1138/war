@@ -3,6 +3,7 @@ using Moq;
 using System.Collections.Generic;
 using System;
 using FluentAssertions;
+using System.Threading.Tasks;
 
 namespace War.MatchFactories
 {
@@ -11,7 +12,7 @@ namespace War.MatchFactories
     {
         private Mock<IContestantRepository> _stubContestantRepository;
         private Mock<IMatchRepository> _stubMatchRepository;
-        private RandomMatchFactory factory;
+        private RandomMatchStrategy factory;
         private Queue<int> randomNumbers;
         const int WardId = 1234;
         const int ContestantCount = 8765;
@@ -28,13 +29,16 @@ namespace War.MatchFactories
             _stubContestantRepository = new Mock<IContestantRepository>();
             _stubContestantRepository.Setup(x => x.GetCount(WardId)).Returns(ContestantCount);
             _stubMatchRepository = new Mock<IMatchRepository>();
-            _stubMatchRepository.Setup(x => x.Create(It.Is<MatchRequest>(m => m.Contestant1 == _contestant1.Id && m.Contestant2 == _contestant2.Id))).Returns(_matchId);
+            _stubMatchRepository.Setup(x => x.Create(WardId,
+                                                    It.Is<MatchRequest>(m => m.Contestant1 == _contestant1.Id
+                                                                            && m.Contestant2 == _contestant2.Id)))
+                                .Returns(Task.FromResult(_matchId));
             randomNumbers = new Queue<int>();
-            factory = new RandomMatchFactory(_stubMatchRepository.Object, _stubContestantRepository.Object, GenerateRandomNumber);
+            factory = new RandomMatchStrategy(_stubMatchRepository.Object, _stubContestantRepository.Object, GenerateRandomNumber);
         }
 
         [TestMethod()]
-        public void GivenRandomNumbers_Create_ReturnsMatchWithContestants()
+        public async Task GivenRandomNumbers_Create_ReturnsMatchWithContestants()
         {
             // Arrange
             int contestant1Index = 5;
@@ -45,14 +49,14 @@ namespace War.MatchFactories
             _stubContestantRepository.Setup(x => x.Get(contestant2Index)).Returns(_contestant2);
 
             // Act
-            var result = factory.Create(WardId);
+            var result = await factory.Create(WardId);
 
             // Assert
             VerifyResult(result);
         }
 
         [TestMethod()]
-        public void GivenIdenticalRandomNumbers_Create_ReturnsMatchWithNextContestant()
+        public async Task GivenIdenticalRandomNumbers_Create_ReturnsMatchWithNextContestant()
         {
             // Arrange
             int contestant1Index = 5;
@@ -63,14 +67,14 @@ namespace War.MatchFactories
             _stubContestantRepository.Setup(x => x.Get(contestant2Index + 1)).Returns(_contestant2);
 
             // Act
-            var result = factory.Create(WardId);
+            var result = await factory.Create(WardId);
 
             // Assert
             VerifyResult(result);
         }
 
         [TestMethod()]
-        public void GivenUpperlimitTwice_Create_ReturnsMatchWithFirstContestant()
+        public async Task GivenUpperlimitTwice_Create_ReturnsMatchWithFirstContestant()
         {
             // Arrange
             int contestant1Index = ContestantCount - 1;
@@ -81,7 +85,7 @@ namespace War.MatchFactories
             _stubContestantRepository.Setup(x => x.Get(0)).Returns(_contestant2);
 
             // Act
-            var result = factory.Create(WardId);
+            var result = await factory.Create(WardId);
 
             // Assert
             VerifyResult(result);

@@ -47,13 +47,13 @@
     <Compile Include="MatchFactories\MatchWithContestants.cs" />
     <Compile Include="MatchRequest.cs" />
     <Compile Include="VoteChoice.cs" />
-    <Compile Include="MatchFactories\RandomMatchFactory.cs" />
+    <Compile Include="MatchFactories\RandomMatchStrategy.cs" />
     <Compile Include="RankingServices\ContestantWithScore.cs" />
     <Compile Include="RankingServices\IRankingService.cs" />
     <Compile Include="Match.cs" />
     <Compile Include="IMatchRepository.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RankingServices\SumDistinctWinsRankingService.cs" />
+    <Compile Include="RankingServices\SumDistinctWinsRankingStrategy.cs" />
     <Compile Include="VoteRequest.cs" />
     <Compile Include="War.cs" />
     <Compile Include="WarRequest.cs" />

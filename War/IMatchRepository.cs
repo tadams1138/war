@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace War
 {
     public interface IMatchRepository
     {
-        void Update(VoteRequest voteRequest);
-        IEnumerable<Match> GetAll(int warId);
-        Match Get(Guid matchId);
-        Guid Create(MatchRequest matchRequest);
+        Task Update(int warId, VoteRequest voteRequest);
+        Task<IEnumerable<Match>> GetAll(int warId);
+        Task<Match> Get(int warId, Guid matchId);
+        Task<Guid> Create(int warId, MatchRequest matchRequest);
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace War.RankingServices
 {
@@ -17,7 +18,7 @@ namespace War.RankingServices
         private Guid _revengeOfTheSith = Guid.NewGuid();
 
         [TestMethod()]
-        public void GivenMatches_GetRankings_ReturnsExpectedRankings()
+        public async Task GivenMatches_GetRankings_ReturnsExpectedRankings()
         {
             // Arrange
             int warId = 1234;
@@ -56,11 +57,11 @@ namespace War.RankingServices
                 new Contestant { Id = _attackOfTheClones } ,
                 new Contestant { Id = _revengeOfTheSith } };
             stubContestantRepo.Setup(x => x.GetAll(warId)).Returns(contestants);
-            stubMatchRepo.Setup(x => x.GetAll(warId)).Returns(matches);
-            var service = new SumDistinctWinsRankingService(stubMatchRepo.Object, stubContestantRepo.Object);
+            stubMatchRepo.Setup(x => x.GetAll(warId)).Returns(Task.FromResult((IEnumerable<Match>)matches));
+            var service = new SumDistinctWinsRankingStrategy(stubMatchRepo.Object, stubContestantRepo.Object);
 
             // Act
-            var result = service.GetRankings(warId);
+            var result = await service.GetRankings(warId);
 
             // Assert
             result.Should().Contain(x => x.Contestant.Id == _returnOfTheJedi && x.Score == 7);

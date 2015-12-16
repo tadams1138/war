@@ -45,7 +45,7 @@ namespace WarApi.Controllers
         {
             // Arrange
             var match = new MatchWithContestants();
-            _stubMatchFactory.Setup(x => x.Create(ValidWarId)).Returns(match);
+            _stubMatchFactory.Setup(x => x.Create(ValidWarId)).Returns(Task.FromResult(match));
             var matchModel = new Models.Match();
             _stubMapper.Setup(x => x.Map<MatchWithContestants, Models.Match>(match)).Returns(matchModel);
             _stubContestantRepository.Setup(x => x.GetCount(ValidWarId)).Returns(2);
@@ -83,7 +83,7 @@ namespace WarApi.Controllers
             // Arrange
             var contestants = new[] { new ContestantWithScore(), new ContestantWithScore() };
             var contestantRankingModels = new[] { new ContestantWithScore(), new ContestantWithScore() };
-            _stubRankingService.Setup(x => x.GetRankings(ValidWarId)).Returns(contestants);
+            _stubRankingService.Setup(x => x.GetRankings(ValidWarId)).Returns(Task.FromResult((IEnumerable<ContestantWithScore>)contestants));
             for (var i = 0; i < contestants.Length; i++)
             {
                 _stubMapper.Setup(x => x.Map<ContestantWithScore, ContestantWithScore>(contestants[i])).Returns(contestantRankingModels[i]);
@@ -117,13 +117,13 @@ namespace WarApi.Controllers
             var voteRequest = new VoteRequest();
             var existingMatch = new War.Match();
             _stubMapper.Setup(x => x.Map<Models.VoteRequest, VoteRequest>(voteRequestModel)).Returns(voteRequest);
-            _stubMatchRepository.Setup(x => x.Get(voteRequestModel.MatchId)).Returns(existingMatch);
+            _stubMatchRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).Returns(Task.FromResult(existingMatch));
 
             // Act
             var result = await _controller.Vote(ValidWarId, voteRequestModel);
 
             // Assert
-            VerifySuccess(voteRequest, result);
+            VerifySuccess(ValidWarId, voteRequest, result);
         }
 
         [TestMethod()]
@@ -171,7 +171,7 @@ namespace WarApi.Controllers
         {
             // Arrange
             var voteRequestModel = new Models.VoteRequest();
-            _stubMatchRepository.Setup(x => x.Get(voteRequestModel.MatchId)).Returns((War.Match)null);
+            _stubMatchRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).Returns(Task.FromResult((War.Match)null));
 
             // Act
             var result = await _controller.Vote(ValidWarId, voteRequestModel);
@@ -209,7 +209,7 @@ namespace WarApi.Controllers
             var voteRequestModel = new Models.VoteRequest { MatchId = Guid.NewGuid(), Choice = Models.VoteChoice.Contestant2 };
             var voteRequest = new VoteRequest();
             var match = new War.Match { Result = existingVoteChoice };
-            _stubMatchRepository.Setup(x => x.Get(voteRequestModel.MatchId)).Returns(match);
+            _stubMatchRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).Returns(Task.FromResult(match));
             _stubMapper.Setup(x => x.Map<Models.VoteRequest, VoteRequest>(voteRequestModel)).Returns(voteRequest);
 
             // Act
@@ -218,7 +218,7 @@ namespace WarApi.Controllers
             // Assert            
             if (shouldSucceed)
             {
-                VerifySuccess(voteRequest, result);
+                VerifySuccess(ValidWarId, voteRequest, result);
             }
             else
             {
@@ -226,11 +226,11 @@ namespace WarApi.Controllers
             }
         }
 
-        private void VerifySuccess(VoteRequest voteRequest, System.Web.Http.IHttpActionResult result)
+        private void VerifySuccess(int warId, VoteRequest voteRequest, System.Web.Http.IHttpActionResult result)
         {
             result.Should().BeOfType<StatusCodeResult>();
             ((StatusCodeResult)result).StatusCode.Should().Be(HttpStatusCode.NoContent);
-            _stubMatchRepository.Verify(x => x.Update(voteRequest), Times.Once);
+            _stubMatchRepository.Verify(x => x.Update(warId, voteRequest), Times.Once);
         }
 
         private static void VerifyFailure(System.Web.Http.IHttpActionResult result)

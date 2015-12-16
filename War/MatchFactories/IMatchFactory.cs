@@ -1,7 +1,9 @@
-﻿namespace War.MatchFactories
+﻿using System.Threading.Tasks;
+
+namespace War.MatchFactories
 {
     public interface IMatchFactory
     {
-        MatchWithContestants Create(int warId);
+        Task<MatchWithContestants> Create(int warId);
     }
 }

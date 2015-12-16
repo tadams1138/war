@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data;
+﻿using System.Data;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
 
@@ -59,7 +58,7 @@ namespace War.Sql
         private SqlCommand CreateGetCommand(int id, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT [Id], [Title] FROM [dbo].[War] WHERE [Id] = @Id;";
+            command.CommandText = "SELECT [Id], [Title] FROM [dbo].[Wars] WHERE [Id] = @Id;";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@Id", id);
             return command;
@@ -68,7 +67,7 @@ namespace War.Sql
         private SqlCommand CreateDeleteCommand(int id, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM [dbo].[War] WHERE [Id] = @Id;";
+            command.CommandText = "DELETE FROM [dbo].[Wars] WHERE [Id] = @Id;";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@Id", id);
             return command;
@@ -77,7 +76,7 @@ namespace War.Sql
         private static SqlCommand CreateInsertCommand(WarRequest request, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO [dbo].[War] (Title) OUTPUT inserted.[Id] VALUES (@Title)";
+            command.CommandText = "INSERT INTO [dbo].[Wars] (Title) OUTPUT inserted.[Id] VALUES (@Title)";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@Title", request.Title);
             return command;

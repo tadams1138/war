@@ -45,7 +45,7 @@ namespace WarApi.Controllers
                 return Conflict();
             }
 
-            var match = _matchFactory.Create(warId);
+            var match = await _matchFactory.Create(warId);
             var matchModel = _mapper.Map<MatchWithContestants, Models.Match>(match);
             return Created("", matchModel);
         }
@@ -64,7 +64,7 @@ namespace WarApi.Controllers
                 return NotFound();
             }
 
-            ValidateRequest(request);
+            await ValidateRequest(warId, request);
 
             if (!ModelState.IsValid)
             {
@@ -72,7 +72,7 @@ namespace WarApi.Controllers
             }
 
             var voteRequest = _mapper.Map<Models.VoteRequest, VoteRequest>(request);
-            _matchRepository.Update(voteRequest);
+            await _matchRepository.Update(warId, voteRequest);
             return StatusCode(System.Net.HttpStatusCode.NoContent);
         }
         
@@ -86,14 +86,14 @@ namespace WarApi.Controllers
                 return NotFound();
             }
 
-            var contestants = _rankingService.GetRankings(warId);
+            var contestants = await _rankingService.GetRankings(warId);
             var contestantModels = contestants.Select(c => _mapper.Map<War.RankingServices.ContestantWithScore, ContestantWithScore>(c));
             return Ok(contestantModels);
         }
 
-        private void ValidateRequest(Models.VoteRequest request)
+        private async Task ValidateRequest(int warId, Models.VoteRequest request)
         {
-            var existingMatch = _matchRepository.Get(request.MatchId);
+            var existingMatch = await _matchRepository.Get(warId, request.MatchId);
             if (existingMatch == null)
             {
                 ModelState.AddModelError($"{nameof(request.MatchId)}", $"'{request.MatchId}' is not valid.");
