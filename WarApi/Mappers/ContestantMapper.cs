@@ -6,7 +6,8 @@
         {
             var target = new Models.Contestant
             {
-                Id = source.Id
+                Id = source.Id,
+                Definition = source.Definition
             };
             return target;
         }

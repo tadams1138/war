@@ -56,7 +56,7 @@ namespace War.RankingServices
                 new Contestant { Id = _phantomMenace } ,
                 new Contestant { Id = _attackOfTheClones } ,
                 new Contestant { Id = _revengeOfTheSith } };
-            stubContestantRepo.Setup(x => x.GetAll(warId)).Returns(contestants);
+            stubContestantRepo.Setup(x => x.GetAll(warId)).Returns(Task.FromResult<IEnumerable<Contestant>>(contestants));
             stubMatchRepo.Setup(x => x.GetAll(warId)).Returns(Task.FromResult((IEnumerable<Match>)matches));
             var service = new SumDistinctWinsRankingStrategy(stubMatchRepo.Object, stubContestantRepo.Object);
 

@@ -16,7 +16,7 @@ namespace War.RankingServices
         }
         public async Task<IEnumerable<ContestantWithScore>> GetRankings(int warId)
         {
-            var contestants = _contestantRepository.GetAll(warId);
+            var contestants = await _contestantRepository.GetAll(warId);
             var matches = await _matchRepository.GetAll(warId);
 
             var scores = matches

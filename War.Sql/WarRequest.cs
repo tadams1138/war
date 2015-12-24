@@ -1,6 +1,6 @@
-﻿namespace War
+﻿namespace War.Sql
 {
-    public class WarRequest
+    internal class WarRequest
     {
         public string Title { get; set; }
     }

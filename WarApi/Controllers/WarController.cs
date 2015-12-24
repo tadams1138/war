@@ -32,7 +32,7 @@ namespace WarApi.Controllers
 
         [Route("{warId}/CreateMatch")]
         [HttpPost]
-        [ResponseType(typeof(Match))]
+        [ResponseType(typeof(Models.Match))]
         public async Task<IHttpActionResult> CreateMatch(int warId)
         {
             if (!await IsValidWarId(warId))
@@ -40,7 +40,7 @@ namespace WarApi.Controllers
                 return NotFound();
             }
 
-            if (_contestantRepository.GetCount(warId) < 2)
+            if (await _contestantRepository.GetCount(warId) < 2)
             {
                 return Conflict();
             }
@@ -49,7 +49,7 @@ namespace WarApi.Controllers
             var matchModel = _mapper.Map<MatchWithContestants, Models.Match>(match);
             return Created("", matchModel);
         }
-        
+
         [Route("{warId}/Vote")]
         [HttpPost]
         public async Task<IHttpActionResult> Vote(int warId, Models.VoteRequest request)
@@ -75,9 +75,9 @@ namespace WarApi.Controllers
             await _matchRepository.Update(warId, voteRequest);
             return StatusCode(System.Net.HttpStatusCode.NoContent);
         }
-        
+
         [Route("{warId}/Contestants")]
-        [ResponseType(typeof(IEnumerable<ContestantWithScore>))]
+        [ResponseType(typeof(IEnumerable<Models.ContestantWithScore>))]
         [HttpGet]
         public async Task<IHttpActionResult> GetContestants(int warId)
         {
@@ -87,7 +87,7 @@ namespace WarApi.Controllers
             }
 
             var contestants = await _rankingService.GetRankings(warId);
-            var contestantModels = contestants.Select(c => _mapper.Map<War.RankingServices.ContestantWithScore, ContestantWithScore>(c));
+            var contestantModels = contestants.Select(c => _mapper.Map<ContestantWithScore, Models.ContestantWithScore>(c));
             return Ok(contestantModels);
         }
 

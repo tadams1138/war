@@ -41,9 +41,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ContestantRepository.cs" />
+    <Compile Include="ContestantRequest.cs" />
     <Compile Include="MatchRepository.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WarRepository.cs" />
+    <Compile Include="WarRequest.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\War\War.csproj">

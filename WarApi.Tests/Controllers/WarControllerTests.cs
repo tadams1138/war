@@ -48,7 +48,7 @@ namespace WarApi.Controllers
             _stubMatchFactory.Setup(x => x.Create(ValidWarId)).Returns(Task.FromResult(match));
             var matchModel = new Models.Match();
             _stubMapper.Setup(x => x.Map<MatchWithContestants, Models.Match>(match)).Returns(matchModel);
-            _stubContestantRepository.Setup(x => x.GetCount(ValidWarId)).Returns(2);
+            _stubContestantRepository.Setup(x => x.GetCount(ValidWarId)).Returns(Task.FromResult(2));
 
             // Act
             var result = await _controller.CreateMatch(ValidWarId);
@@ -82,19 +82,19 @@ namespace WarApi.Controllers
         {
             // Arrange
             var contestants = new[] { new ContestantWithScore(), new ContestantWithScore() };
-            var contestantRankingModels = new[] { new ContestantWithScore(), new ContestantWithScore() };
+            var contestantRankingModels = new[] { new Models.ContestantWithScore(), new Models.ContestantWithScore() };
             _stubRankingService.Setup(x => x.GetRankings(ValidWarId)).Returns(Task.FromResult((IEnumerable<ContestantWithScore>)contestants));
             for (var i = 0; i < contestants.Length; i++)
             {
-                _stubMapper.Setup(x => x.Map<ContestantWithScore, ContestantWithScore>(contestants[i])).Returns(contestantRankingModels[i]);
+                _stubMapper.Setup(x => x.Map<ContestantWithScore, Models.ContestantWithScore>(contestants[i])).Returns(contestantRankingModels[i]);
             }
 
             // Act
             var result = await _controller.GetContestants(ValidWarId);
 
             // Assert
-            result.Should().BeOfType<OkNegotiatedContentResult<IEnumerable<ContestantWithScore>>>();
-            ((OkNegotiatedContentResult<IEnumerable<ContestantWithScore>>)result).Content.Should().ContainInOrder(contestantRankingModels);
+            result.Should().BeOfType<OkNegotiatedContentResult<IEnumerable<Models.ContestantWithScore>>>();
+            ((OkNegotiatedContentResult<IEnumerable<Models.ContestantWithScore>>)result).Content.Should().ContainInOrder(contestantRankingModels);
         }
 
         [TestMethod()]
@@ -153,7 +153,7 @@ namespace WarApi.Controllers
         }
 
         [TestMethod()]
-        public async Task GivenValidWarIdAndBadModel_Valid_ReturnsBadRequest()
+        public async Task GivenValidWarIdAndBadModel_Vote_ReturnsBadRequest()
         {
             // Arrange
             var voteRequestModel = new Models.VoteRequest();
@@ -167,7 +167,7 @@ namespace WarApi.Controllers
         }
 
         [TestMethod()]
-        public async Task GivenValidWarIdAndInvalidMatchId_Valid_ReturnsBadRequest()
+        public async Task GivenValidWarIdAndInvalidMatchId_Vote_ReturnsBadRequest()
         {
             // Arrange
             var voteRequestModel = new Models.VoteRequest();
@@ -193,7 +193,7 @@ namespace WarApi.Controllers
         private async Task VerifyConflictReturned(int count)
         {
             // Arrange
-            _stubContestantRepository.Setup(x => x.GetCount(ValidWarId)).Returns(count);
+            _stubContestantRepository.Setup(x => x.GetCount(ValidWarId)).Returns(Task.FromResult(count));
 
             // Act
             var result = await _controller.CreateMatch(ValidWarId);

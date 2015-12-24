@@ -23,13 +23,13 @@ namespace War.MatchFactories
 
         public async Task<MatchWithContestants> Create(int warId)
         {
-            var contestantCount = _contestantRepository.GetCount(warId);
+            var contestantCount = await _contestantRepository.GetCount(warId);
             var upperLimit = contestantCount - 1;
             var contestant1Index = _generateRandomNumber(0, upperLimit);
             var contestant2Index = GetContestant2Index(contestantCount, upperLimit, contestant1Index);
 
-            var contestant1 = _contestantRepository.Get(contestant1Index);
-            var contestant2 = _contestantRepository.Get(contestant2Index);
+            var contestant1 = await _contestantRepository.Get(warId, contestant1Index);
+            var contestant2 = await _contestantRepository.Get(warId, contestant2Index);
 
             Guid matchId = await CreateMatch(warId, contestant1, contestant2);
 

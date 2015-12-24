@@ -14,7 +14,7 @@ namespace War.MatchFactories
         private Mock<IMatchRepository> _stubMatchRepository;
         private RandomMatchStrategy factory;
         private Queue<int> randomNumbers;
-        const int WardId = 1234;
+        const int WarId = 1234;
         const int ContestantCount = 8765;
         private Contestant _contestant1;
         private Contestant _contestant2;
@@ -27,9 +27,9 @@ namespace War.MatchFactories
             _contestant2 = new Contestant { Id = Guid.NewGuid() };
             _matchId = Guid.NewGuid();
             _stubContestantRepository = new Mock<IContestantRepository>();
-            _stubContestantRepository.Setup(x => x.GetCount(WardId)).Returns(ContestantCount);
+            _stubContestantRepository.Setup(x => x.GetCount(WarId)).Returns(Task.FromResult(ContestantCount));
             _stubMatchRepository = new Mock<IMatchRepository>();
-            _stubMatchRepository.Setup(x => x.Create(WardId,
+            _stubMatchRepository.Setup(x => x.Create(WarId,
                                                     It.Is<MatchRequest>(m => m.Contestant1 == _contestant1.Id
                                                                             && m.Contestant2 == _contestant2.Id)))
                                 .Returns(Task.FromResult(_matchId));
@@ -45,11 +45,11 @@ namespace War.MatchFactories
             int contestant2Index = 3;
             randomNumbers.Enqueue(contestant1Index);
             randomNumbers.Enqueue(contestant2Index);
-            _stubContestantRepository.Setup(x => x.Get(contestant1Index)).Returns(_contestant1);
-            _stubContestantRepository.Setup(x => x.Get(contestant2Index)).Returns(_contestant2);
+            _stubContestantRepository.Setup(x => x.Get(WarId, contestant1Index)).Returns(Task.FromResult(_contestant1));
+            _stubContestantRepository.Setup(x => x.Get(WarId, contestant2Index)).Returns(Task.FromResult(_contestant2));
 
             // Act
-            var result = await factory.Create(WardId);
+            var result = await factory.Create(WarId);
 
             // Assert
             VerifyResult(result);
@@ -63,11 +63,11 @@ namespace War.MatchFactories
             int contestant2Index = 5;
             randomNumbers.Enqueue(contestant1Index);
             randomNumbers.Enqueue(contestant2Index);
-            _stubContestantRepository.Setup(x => x.Get(contestant1Index)).Returns(_contestant1);
-            _stubContestantRepository.Setup(x => x.Get(contestant2Index + 1)).Returns(_contestant2);
+            _stubContestantRepository.Setup(x => x.Get(WarId, contestant1Index)).Returns(Task.FromResult(_contestant1));
+            _stubContestantRepository.Setup(x => x.Get(WarId, contestant2Index + 1)).Returns(Task.FromResult(_contestant2));
 
             // Act
-            var result = await factory.Create(WardId);
+            var result = await factory.Create(WarId);
 
             // Assert
             VerifyResult(result);
@@ -81,11 +81,11 @@ namespace War.MatchFactories
             int contestant2Index = ContestantCount - 1;
             randomNumbers.Enqueue(contestant1Index);
             randomNumbers.Enqueue(contestant2Index);
-            _stubContestantRepository.Setup(x => x.Get(contestant1Index)).Returns(_contestant1);
-            _stubContestantRepository.Setup(x => x.Get(0)).Returns(_contestant2);
+            _stubContestantRepository.Setup(x => x.Get(WarId, contestant1Index)).Returns(Task.FromResult(_contestant1));
+            _stubContestantRepository.Setup(x => x.Get(WarId, 0)).Returns(Task.FromResult(_contestant2));
 
             // Act
-            var result = await factory.Create(WardId);
+            var result = await factory.Create(WarId);
 
             // Assert
             VerifyResult(result);

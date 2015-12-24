@@ -26,7 +26,7 @@ namespace War.Sql
             }
         }
         
-        public async Task<int> Create(WarRequest request)
+        internal async Task<int> Create(WarRequest request)
         {
             using (var connection = await CreateOpenConnection())
             using (var command = CreateInsertCommand(request, connection))
