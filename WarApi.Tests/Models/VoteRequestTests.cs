@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -12,21 +13,20 @@ namespace WarApi.Models
         [TestMethod]
         public void GivenChoice_Validate_ReturnsValidationResultIfNecessary()
         {
-            ValidateModel(new VoteRequest(), false);
-            ValidateModel(new VoteRequest { Choice = VoteChoice.Contestant2 }, true);
+            ShouldFailValidation(new VoteRequest(), nameof(VoteRequest.Choice));
+            ShouldPassValidation(new VoteRequest { Choice = VoteChoice.Contestant2 }, nameof(VoteRequest.Choice));
         }
 
-        private void ValidateModel(VoteRequest voteRequest, bool shouldBeValid)
+        private void ShouldFailValidation(VoteRequest voteRequest, string propertyName)
         {
             var result = ValidateModel(voteRequest);
-            if (shouldBeValid)
-            {
-                result.Should().NotContain(x => x.MemberNames.Contains($"{nameof(VoteRequest.Choice)}"));
-            }
-            else
-            {
-                result.Should().Contain(x => x.MemberNames.Contains($"{nameof(VoteRequest.Choice)}"));
-            }
+            result.Should().Contain(x => x.MemberNames.Contains($"{propertyName}"));
+        }
+
+        private void ShouldPassValidation(VoteRequest voteRequest, string propertyName)
+        {
+            var result = ValidateModel(voteRequest);
+            result.Should().NotContain(x => x.MemberNames.Contains($"{propertyName}"));
         }
 
         private IList<ValidationResult> ValidateModel(object model)
