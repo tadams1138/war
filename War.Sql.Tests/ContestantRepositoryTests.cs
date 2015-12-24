@@ -41,7 +41,7 @@ namespace War.Sql
 
         [TestMethod()]
         [TestCategory("Integration")]
-        public async Task ContestantRepository_CRD_Test()
+        public async Task ContestantRepository_CRUD_Test()
         {
             await CleanupRepository();
             await VerifyWarIsEmpty(WarId);
@@ -56,7 +56,25 @@ namespace War.Sql
             await VerifyAllRequestsMatchContestant(contestantRequests);
             await VerifyAllContestantMatchRequest(contestantRequests);
 
+            await VerifyUpdate();
+
             await CleanupRepository();
+        }
+
+        private async Task VerifyUpdate()
+        {
+            // Arrange
+            const int index = 0;
+            var contestant = await _repository.Get(WarId, index);
+            contestant.Definition[contestant.Definition.Keys.First()] = "new updated value";
+
+            // Act
+            await _repository.Update(WarId, contestant);
+
+            // Assert
+            var updatedContestant = await _repository.Get(WarId, index);
+            updatedContestant.Id.Should().Be(contestant.Id);
+            updatedContestant.Definition.Should().Equal(contestant.Definition);
         }
 
         private async Task VerifyGetThrowsArgumentOutOfRangeException(int index)

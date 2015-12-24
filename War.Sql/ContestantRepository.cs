@@ -58,20 +58,16 @@ namespace War.Sql
             return contestants;
         }
 
-        private Contestant CreateContestant(SqlDataReader reader)
+        public async Task Update(int warId, Contestant c)
         {
-            var id = reader.GetGuid(0);
-            var sqlXml = reader.GetSqlXml(1);
-            var dictionary = CreateDictionary(sqlXml);
-            var contestant = new Contestant
+            using (var connection = await CreateOpenConnection())
+            using (var command = CreateUpdateCommand(connection, c))
             {
-                Id = id,
-                Definition = dictionary
-            };
-            return contestant;
+                await command.ExecuteScalarAsync();
+            }
         }
 
-        internal async Task Create(int warId, ContestantRequest c)
+        public async Task Create(int warId, ContestantRequest c)
         {
             using (var connection = await CreateOpenConnection())
             using (var command = CreateInsertCommand(warId, connection, c))
@@ -99,6 +95,19 @@ namespace War.Sql
             }
         }
 
+        private Contestant CreateContestant(SqlDataReader reader)
+        {
+            var id = reader.GetGuid(0);
+            var sqlXml = reader.GetSqlXml(1);
+            var dictionary = CreateDictionary(sqlXml);
+            var contestant = new Contestant
+            {
+                Id = id,
+                Definition = dictionary
+            };
+            return contestant;
+        }
+
         private static SqlCommand CreateSelectCommand(int warId, SqlConnection connection, int index)
         {
             var command = connection.CreateCommand();
@@ -115,6 +124,16 @@ namespace War.Sql
             command.CommandText = "SELECT [Id], [Definition] FROM [dbo].[Contestants] WHERE [WarId] = @WarId;";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@WarId", warId);
+            return command;
+        }
+
+        private static SqlCommand CreateUpdateCommand(SqlConnection connection, Contestant contestant)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = "UPDATE [dbo].[Contestants] SET [Definition] = @Definition WHERE [Id] = @Id;";
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@Id", contestant.Id);
+            AddDefinitionParameter(command, contestant.Definition);
             return command;
         }
 
