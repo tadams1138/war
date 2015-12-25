@@ -69,6 +69,8 @@ namespace War.Sql
             matchAfterUpdate.Contestant1.Should().Be(matchAfterCreation.Contestant1);
             matchAfterUpdate.Contestant2.Should().Be(matchAfterCreation.Contestant2);
             matchAfterUpdate.Result.Should().Be(voteChoice);
+            matchAfterUpdate.CreatedDate.Should().Be(matchAfterCreation.CreatedDate);
+            matchAfterUpdate.VoteDate.Should().BeAfter(matchAfterCreation.CreatedDate);
         }
 
         private static MatchRequest CreateTestMatch()
@@ -87,6 +89,8 @@ namespace War.Sql
             match.Contestant1.Should().Be(request.Contestant1);
             match.Contestant2.Should().Be(request.Contestant2);
             match.Result.Should().Be(VoteChoice.None);
+            match.VoteDate.HasValue.Should().BeFalse();
+            match.CreatedDate.Should().BeCloseTo(DateTime.UtcNow, 1000);
         }
 
         private static void VerifyMatchInCollection(System.Collections.Generic.IEnumerable<Match> matchCollection, Match match)
@@ -99,12 +103,12 @@ namespace War.Sql
             matchCollection.Should().NotContain(x => MatchIsEquivalent(match, x));
         }
 
-        private static bool MatchIsEquivalent(Match match, Match x)
+        private static bool MatchIsEquivalent(Match match1, Match match2)
         {
-            return x.Id == match.Id
-                        && x.Contestant1 == match.Contestant1
-                        && x.Contestant2 == match.Contestant2
-                        && x.Result == match.Result;
+            return match2.Id == match1.Id
+                        && match2.Contestant1 == match1.Contestant1
+                        && match2.Contestant2 == match1.Contestant2
+                        && match2.Result == match1.Result;
         }
     }
 }

@@ -8,5 +8,7 @@ namespace War
         public Guid Contestant1 { get; set; }
         public Guid Contestant2 { get; set; }
         public VoteChoice Result { get; set; }
+        public DateTime CreatedDate { get; set; }
+        public DateTime? VoteDate { get; set; }
     }
 }

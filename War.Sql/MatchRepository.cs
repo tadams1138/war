@@ -63,8 +63,10 @@ namespace War.Sql
                 await command.ExecuteNonQueryAsync();
         }
 
-        private Match CreateMatch(SqlDataReader reader)
+        private async Task<Match> CreateMatch(SqlDataReader reader)
         {
+            DateTime? voteDate = await GetVoteDate(reader);
+            var createdDate = reader.GetDateTime(4);
             var voteChoice = (VoteChoice)reader.GetInt16(3);
             var contestant2 = reader.GetGuid(2);
             var contestant1 = reader.GetGuid(1);
@@ -74,15 +76,28 @@ namespace War.Sql
                 Id = id,
                 Contestant1 = contestant1,
                 Contestant2 = contestant2,
-                Result = voteChoice
+                Result = voteChoice,
+                CreatedDate = createdDate,
+                VoteDate = voteDate
             };
             return result;
         }
-        
+
+        private static async Task<DateTime?> GetVoteDate(SqlDataReader reader)
+        {
+            DateTime? voteDate = null;
+            if (!await reader.IsDBNullAsync(5))
+            {
+                voteDate = reader.GetDateTime(5);
+            }
+
+            return voteDate;
+        }
+
         private SqlCommand CreateGetAllCommand(int warId, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT [Id], [Contestant1], [Contestant2], [Result] FROM [dbo].[Matches] WHERE [WarId] = @WarId;";
+            command.CommandText = "SELECT [Id], [Contestant1], [Contestant2], [Result], [CreatedDate], [VoteDate] FROM [dbo].[Matches] WHERE [WarId] = @WarId;";
             command.Parameters.AddWithValue("@WarId", warId);
             return command;
         }
@@ -92,7 +107,7 @@ namespace War.Sql
             var results = new List<Match>();
             while (await reader.ReadAsync())
             {
-                var match = CreateMatch(reader);
+                var match = await CreateMatch(reader);
                 results.Add(match);
             }
             return results;
@@ -101,7 +116,7 @@ namespace War.Sql
         private static SqlCommand CreateGetCommand(int warId, Guid matchId, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT [Id], [Contestant1], [Contestant2], [Result] FROM [dbo].[Matches] WHERE [WarId] = @WarId AND [Id] = @Id;";
+            command.CommandText = "SELECT [Id], [Contestant1], [Contestant2], [Result], [CreatedDate], [VoteDate] FROM [dbo].[Matches] WHERE [WarId] = @WarId AND [Id] = @Id;";
             command.Parameters.AddWithValue("@WarId", warId);
             command.Parameters.AddWithValue("@Id", matchId);
             return command;
@@ -110,7 +125,7 @@ namespace War.Sql
         private static SqlCommand CreateUpdateCommand(int warId, VoteRequest request, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "UPDATE [dbo].[Matches] SET [Result] = @Result WHERE [WarId] = @WarId AND [Id] = @Id;";
+            command.CommandText = "UPDATE [dbo].[Matches] SET [Result] = @Result, [VoteDate] = SYSUTCDATETIME() WHERE [WarId] = @WarId AND [Id] = @Id;";
             command.Parameters.AddWithValue("@WarId", warId);
             command.Parameters.AddWithValue("@Id", request.MatchId);
             command.Parameters.AddWithValue("@Result", request.Choice);
@@ -130,7 +145,7 @@ namespace War.Sql
         private static SqlCommand CreateInsertCommand(int warId, MatchRequest request, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO [dbo].[Matches] (Contestant1, Contestant2, WarId, Result, Id) OUTPUT inserted.[Id] VALUES (@Contestant1, @Contestant2, @WarId, @Result, NEWID());";
+            command.CommandText = "INSERT INTO [dbo].[Matches] (Contestant1, Contestant2, WarId, Result, Id, CreatedDate) OUTPUT inserted.[Id] VALUES (@Contestant1, @Contestant2, @WarId, @Result, NEWID(), SYSUTCDATETIME());";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@Contestant1", request.Contestant1);
             command.Parameters.AddWithValue("@Contestant2", request.Contestant2);
