@@ -15,7 +15,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "War.Sql", "War.Sql\War.Sql.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "War.Sql.Tests", "War.Sql.Tests\War.Sql.Tests.csproj", "{F94E7184-B7C4-494B-910C-D5DC36660F8E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CandidateWar2016", "CandidateWar2016\CandidateWar2016.csproj", "{BCE13572-D770-44F2-8FA9-AE7327744F01}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CandidateWar2016.ContestantCreator", "CandidateWar2016.ContestantCreator\CandidateWar2016.ContestantCreator.csproj", "{BCE13572-D770-44F2-8FA9-AE7327744F01}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CandidateWar2016", "CandidateWar2016\CandidateWar2016.csproj", "{184D9E03-2552-4F77-B0D6-C09A1A105EDC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,10 @@ Global
 		{BCE13572-D770-44F2-8FA9-AE7327744F01}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BCE13572-D770-44F2-8FA9-AE7327744F01}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BCE13572-D770-44F2-8FA9-AE7327744F01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{184D9E03-2552-4F77-B0D6-C09A1A105EDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{184D9E03-2552-4F77-B0D6-C09A1A105EDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{184D9E03-2552-4F77-B0D6-C09A1A105EDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{184D9E03-2552-4F77-B0D6-C09A1A105EDC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
