@@ -1,4 +1,4 @@
-﻿using CandidateWar2016.Properties;
+﻿using CandidateWar2016.ContestantCreator.Properties;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;

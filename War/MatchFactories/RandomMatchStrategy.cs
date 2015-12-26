@@ -8,12 +8,13 @@ namespace War.MatchFactories
         private readonly IContestantRepository _contestantRepository;
         private readonly Func<int, int, int> _generateRandomNumber;
         private readonly IMatchRepository _matchRepository;
+        private static readonly Random numberGenerator = new Random(DateTime.UtcNow.Millisecond);
 
         public RandomMatchStrategy(IMatchRepository matchRepository, IContestantRepository contestantRepository)
             : this(matchRepository, contestantRepository, GenerateRandomNumber)
         {
         }
-        
+
         internal RandomMatchStrategy(IMatchRepository matchRepository, IContestantRepository contestantRepository, Func<int, int, int> generateRandomNumber)
         {
             _matchRepository = matchRepository;
@@ -24,9 +25,8 @@ namespace War.MatchFactories
         public async Task<MatchWithContestants> Create(int warId)
         {
             var contestantCount = await _contestantRepository.GetCount(warId);
-            var upperLimit = contestantCount - 1;
-            var contestant1Index = _generateRandomNumber(0, upperLimit);
-            var contestant2Index = GetContestant2Index(contestantCount, upperLimit, contestant1Index);
+            var contestant1Index = _generateRandomNumber(0, contestantCount);
+            var contestant2Index = GetContestant2Index(contestantCount, contestant1Index);
 
             var contestant1 = await _contestantRepository.Get(warId, contestant1Index);
             var contestant2 = await _contestantRepository.Get(warId, contestant2Index);
@@ -42,18 +42,13 @@ namespace War.MatchFactories
             return result;
         }
 
-        private int GetContestant2Index(int contestantCount, int upperLimit, int contestant1Index)
+        private int GetContestant2Index(int contestantCount, int contestant1Index)
         {
-            var contestant2Index = _generateRandomNumber(0, upperLimit);
+            var contestant2Index = _generateRandomNumber(0, contestantCount - 1);
 
             if (contestant1Index == contestant2Index)
             {
-                contestant2Index++;
-            }
-
-            if (contestant2Index == contestantCount)
-            {
-                contestant2Index = 0;
+                contestant2Index = contestantCount - 1;
             }
 
             return contestant2Index;
@@ -72,7 +67,6 @@ namespace War.MatchFactories
 
         private static int GenerateRandomNumber(int lowerBound, int upperBound)
         {
-            var numberGenerator = new Random(DateTime.UtcNow.Millisecond);
             var randomNumber = numberGenerator.Next(lowerBound, upperBound);
             return randomNumber;
         }

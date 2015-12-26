@@ -1,10 +1,27 @@
 ﻿<!DOCTYPE html>
-<html>
+<html ng-app="app">
 <head>
     <title>Candidate War 2016</title>
-	<meta charset="utf-8" />
+    <meta charset="utf-8" />
+    <base href="/" />
+    <link rel="stylesheet" type="text/css" href="style.css" /> 
 </head>
 <body>
-    Welcome!
+    <h1>Candidate War 2016</h1>
+    <div class="menu">
+        <a ng-href="/">New Match</a>
+        <br/>
+        <a ng-href="/scores">Scores</a>
+    </div>
+
+    <ng-view></ng-view>
+
+    <script src="Scripts/angular.js"></script>
+    <script src="Scripts/angular-route.js"></script>
+    <script src="app.module.js"></script>
+    <script src="routes.js"></script>
+    <script src="match.controller.js"></script>
+    <script src="scores.controller.js"></script>
+    <script src="war.service.js"></script>
 </body>
 </html>

@@ -90,7 +90,7 @@ namespace War.Sql
             match.Contestant2.Should().Be(request.Contestant2);
             match.Result.Should().Be(VoteChoice.None);
             match.VoteDate.HasValue.Should().BeFalse();
-            match.CreatedDate.Should().BeCloseTo(DateTime.UtcNow, 1000);
+            match.CreatedDate.Should().BeCloseTo(DateTime.UtcNow, 10000);
         }
 
         private static void VerifyMatchInCollection(System.Collections.Generic.IEnumerable<Match> matchCollection, Match match)

@@ -60,9 +60,19 @@
     <Reference Include="System.EnterpriseServices" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="match.controller.js" />
+    <Content Include="match.html" />
     <Content Include="packages.config" />
+    <Content Include="app.module.js" />
     <None Include="Properties\PublishProfiles\CandidateWar2016.pubxml" />
+    <Content Include="scores.controller.js" />
+    <Content Include="scores.html" />
+    <Content Include="style.css" />
+    <Content Include="war.service.js" />
+    <Content Include="Scripts\angular-route.js" />
+    <Content Include="Scripts\angular-route.min.js" />
     <Content Include="Scripts\angular.min.js.map" />
+    <Content Include="Scripts\angular-route.min.js.map" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
@@ -75,6 +85,7 @@
     <Content Include="Scripts\angular-mocks.js" />
     <Content Include="Scripts\angular.js" />
     <Content Include="Scripts\angular.min.js" />
+    <Content Include="routes.js" />
     <Content Include="Web.config" />
   </ItemGroup>
   <ItemGroup>
