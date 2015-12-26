@@ -1,23 +1,30 @@
 ﻿<!DOCTYPE html>
-<html ng-app="app">
+<html ng-app="app" lang="en">
 <head>
     <title>Candidate War 2016</title>
     <meta charset="utf-8" />
     <base href="/" />
-    <link rel="stylesheet" type="text/css" href="style.css" /> 
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
-    <h1>Candidate War 2016</h1>
-    <div class="menu">
-        <a ng-href="/">New Match</a>
-        <br/>
-        <a ng-href="/scores">Scores</a>
+    <div class="container">
+        <h1>Candidate War 2016</h1>
+        <div class="row">
+            <div class="col-sm-8"></div>
+            <div class="col-sm-2"><a ng-href="/">New Match</a></div>
+            <div class="col-sm-2"><a ng-href="/scores">Scores</a></div>
+        </div>
+        <br />
+        <div ng-view class="view-animate"></div>
     </div>
 
-    <ng-view></ng-view>
-
-    <script src="Scripts/angular.js"></script>
-    <script src="Scripts/angular-route.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-route.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-animate.min.js"></script>
     <script src="app.module.js"></script>
     <script src="routes.js"></script>
     <script src="match.controller.js"></script>
