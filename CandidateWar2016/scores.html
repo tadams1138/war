@@ -1,0 +1,32 @@
+﻿<div class="row">
+    <div class="col-sm-12">
+        The candidates in order of who has the most votes to who has the least votes.
+        <br />
+        Click <a ng-href="/">New Match</a> to compare candidates.
+    </div>
+</div>
+<div class="row">
+    <div class="col-sm-12">
+        <div class="panel panel-primary" ng-repeat="contestant in vm.contestants | orderBy: '-Score'">
+            <div class="panel-heading">{{contestant.Contestant.Definition['FirstName']}} {{contestant.Contestant.Definition['LastName']}}</div>
+            <div class="panel-body">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <center><image ng-src="{{contestant.Contestant.Definition['WikipediaImageUrl']}}" /></center>
+                    </div>
+                    <div class="col-sm-6">
+                        {{contestant.Contestant.Definition['Party']}} Party Candidate
+                        <br />
+                        Occupation: {{contestant.Contestant.Definition['Occupation']}}
+                        <br />
+                        <a href="{{contestant.Contestant.Definition['CampaignUrl']}}">Campaign site</a>
+                        <br />
+                        <a href="{{contestant.Contestant.Definition['WikipediaUrl']}}">Wikipedia</a>
+                        <br />
+                        Score: {{contestant.Score}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
