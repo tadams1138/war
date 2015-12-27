@@ -2,12 +2,10 @@
     'use strict';
 
     angular.module('app')
-    .factory('WarService', WarService);
+        .factory('WarService', WarService);
 
-    WarService.$inject = ['$http', '$q'];
-    function WarService($http, $q) {
-        //const serviceRoot = 'http://tandisoftwarapi.azurewebsites.net/api/War/2/';
-        const serviceRoot = 'http://localhost:6903/api/War/2/';
+    WarService.$inject = ['$http', '$q', 'serviceRoot'];
+    function WarService($http, $q, serviceRoot) {
 
         var service = {
             getContestants: getContestants,
@@ -16,7 +14,7 @@
         };
 
         return service;
-        
+
         function getContestants() {
             return $http
             .get(serviceRoot + 'Contestants')
@@ -24,7 +22,7 @@
             .catch(onFail);
 
             function onFail(err) {
-                var msg = 'Could not retieve list of contestants.';
+                var msg = 'Could not retrieve list of contestants.';
                 console.log(msg);
                 return $q.reject(msg);
             }
@@ -42,7 +40,7 @@
             .catch(onFail);
 
             function onFail(err) {
-                var msg = 'Could not retieve new match.';
+                var msg = 'Could not retrieve new match.';
                 console.log(msg);
                 return $q.reject(msg);
             }
