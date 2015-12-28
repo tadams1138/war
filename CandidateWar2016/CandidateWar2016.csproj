@@ -72,6 +72,7 @@
     <Content Include="scores.html" />
     <Content Include="style.css" />
     <Content Include="war.service.js" />
+    <None Include="Properties\PublishProfiles\CandidateWar2016Test - Web Deploy.pubxml" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
