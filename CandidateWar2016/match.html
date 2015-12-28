@@ -1,8 +1,8 @@
 ﻿<div class="row">
     <div class="col-sm-6">
-        Select the candidate you'd prefer to be the next President of the United States of America. If If both candidates are equally appealing (or appalling), click Pass.
+        Click the candidate you'd prefer to be the next President of the United States of America. If both candidates are equally appealing (or appalling), click Pass.
         <br />
-        Click <a ng-href="scores">Scores</a> to see the candidates in order of who has the most votes to who has the least votes.
+        Click <a ng-href="scores">Scores</a> to see the candidates in order of who has the most votes to who has the least votes and to learn a little bit more about them.
     </div>
     <div class="col-sm-6">
         <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
@@ -26,7 +26,13 @@
                         <div class="panel panel-primary" ng-click="vm.voteContestant1()">
                             <div class="panel-heading"><center>{{vm.match.Contestant1.Definition['FirstName']}} {{vm.match.Contestant1.Definition['LastName']}}</center></div>
                             <div class="panel-body"><center><image ng-src="{{vm.match.Contestant1.Definition['WikipediaImageUrl']}}" height="160px" /></center></div>
-                            <div class="panel-footer"><center>{{vm.match.Contestant1.Definition['Party']}} Party Candidate</center></div>
+                            <div class="panel-footer">
+                                <center>
+                                    {{vm.match.Contestant1.Definition['Party']}} Party Candidate
+                                    <br />
+                                    {{vm.match.Contestant1.Definition['Occupation']}}
+                                </center>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -34,7 +40,13 @@
                     <div class="panel panel-primary" ng-click="vm.voteContestant2()">
                         <div class="panel-heading"><center>{{vm.match.Contestant2.Definition['FirstName']}} {{vm.match.Contestant2.Definition['LastName']}}</center></div>
                         <div class="panel-body"><center><image ng-src="{{vm.match.Contestant2.Definition['WikipediaImageUrl']}}" height="160px" /></center></div>
-                        <div class="panel-footer"><center>{{vm.match.Contestant2.Definition['Party']}} Party Candidate</center></div>
+                        <div class="panel-footer">
+                            <center>
+                                {{vm.match.Contestant2.Definition['Party']}} Party Candidate
+                                <br />
+                                {{vm.match.Contestant2.Definition['Occupation']}}
+                            </center>
+                        </div>
                     </div>
                 </div>
             </div>
