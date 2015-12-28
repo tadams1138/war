@@ -11,6 +11,7 @@ using WarApi.Mappers;
 namespace WarApi.Controllers
 {
     [RoutePrefix("api/War")]
+    [Authorize]
     public class WarController : ApiController
     {
         private readonly IMapper _mapper;
