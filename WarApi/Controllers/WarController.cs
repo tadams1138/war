@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web.Http;
+using System.Web.Http.Cors;
 using System.Web.Http.Description;
 using War;
 using War.MatchFactories;
@@ -11,7 +12,8 @@ using WarApi.Mappers;
 namespace WarApi.Controllers
 {
     [RoutePrefix("api/War")]
-    [Authorize]
+    //[Authorize]
+    [EnableCors(origins: "https://candidatewar2016test.azurewebsites.net", headers: "*", methods: "*", SupportsCredentials = true)]
     public class WarController : ApiController
     {
         private readonly IMapper _mapper;
@@ -33,6 +35,7 @@ namespace WarApi.Controllers
 
         [Route("{warId}/CreateMatch")]
         [HttpPost]
+        [HttpGet]
         [ResponseType(typeof(Models.Match))]
         public async Task<IHttpActionResult> CreateMatch(int warId)
         {
@@ -53,6 +56,7 @@ namespace WarApi.Controllers
 
         [Route("{warId}/Vote")]
         [HttpPost]
+        [HttpPut]
         public async Task<IHttpActionResult> Vote(int warId, Models.VoteRequest request)
         {
             if (request == null)

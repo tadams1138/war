@@ -15,6 +15,7 @@ namespace WarApi
     {
         public static void Register(HttpConfiguration config)
         {
+            config.EnableCors();
             ConfigureDependencyInjection(config);
             ConfigureRouting(config);
         }

@@ -35,7 +35,7 @@
 
         function getMatch() {
             return $http
-            .post(serviceRoot + 'CreateMatch')
+            .get(serviceRoot + 'CreateMatch')
             .then(itWorked)
             .catch(onFail);
 
@@ -53,7 +53,7 @@
 
         function vote(matchId, choice) {
             return $http
-            .post(serviceRoot + 'Vote', { MatchId: matchId, Choice: choice })
+            .put(serviceRoot + 'Vote', { MatchId: matchId, Choice: choice })
             .then(itWorked)
             .catch(onFail);
 
