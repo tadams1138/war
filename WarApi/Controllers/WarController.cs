@@ -11,8 +11,11 @@ using WarApi.Mappers;
 
 namespace WarApi.Controllers
 {
+    /// <summary>
+    /// War endpoints let you vote on a pair and view the rankings.
+    /// </summary>
     [RoutePrefix("api/War")]
-    //[Authorize]
+    [Authorize]
     [EnableCors(origins: "https://candidatewar2016test.azurewebsites.net", headers: "*", methods: "*", SupportsCredentials = true)]
     public class WarController : ApiController
     {
@@ -33,6 +36,12 @@ namespace WarApi.Controllers
             _contestantRepository = contestantRepository;
         }
 
+        /// <summary>
+        /// Create a pair to compare.
+        /// </summary>
+        /// <param name="warId">The War ID.</param>
+        /// <returns>Two contestants and a match ID so that you can select the winner of this match by submitting your 
+        /// choice to the Vote endpoint.</returns>
         [Route("{warId}/CreateMatch")]
         [HttpPost]
         [HttpGet]
@@ -54,6 +63,12 @@ namespace WarApi.Controllers
             return Created("", matchModel);
         }
 
+        /// <summary>
+        /// Submit your choice of a match to this endpoint.
+        /// </summary>
+        /// <param name="warId">The War ID.</param>
+        /// <param name="request">The vote choice made from the match given by the CreateMatch endpoint.</param>
+        /// <returns>No content.</returns>
         [Route("{warId}/Vote")]
         [HttpPost]
         [HttpPut]
@@ -81,6 +96,11 @@ namespace WarApi.Controllers
             return StatusCode(System.Net.HttpStatusCode.NoContent);
         }
 
+        /// <summary>
+        /// Gets a list of all contestants and their associated scores.
+        /// </summary>
+        /// <param name="warId">The War ID.</param>
+        /// <returns>A list of contestants paired with their scores.</returns>
         [Route("{warId}/Contestants")]
         [ResponseType(typeof(IEnumerable<Models.ContestantWithScore>))]
         [HttpGet]
