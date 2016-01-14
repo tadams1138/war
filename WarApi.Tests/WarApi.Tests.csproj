@@ -41,7 +41,9 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
-    <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework" />
+    <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework">
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Moq, Version=4.2.1510.2205, Culture=neutral, PublicKeyToken=69f491c39445e920, processorArchitecture=MSIL">
       <HintPath>..\packages\Moq.4.2.1510.2205\lib\net40\Moq.dll</HintPath>
       <Private>True</Private>
@@ -78,6 +80,7 @@
     <Compile Include="Mappers\ContestantMapperTests.cs" />
     <Compile Include="Mappers\MatchMapperTests.cs" />
     <Compile Include="Mappers\ContestantWithScoreMapperTests.cs" />
+    <Compile Include="Mappers\ClaimsPrincipalMapperTests.cs" />
     <Compile Include="Mappers\VoteRequestMapperTests.cs" />
     <Compile Include="Models\VoteRequestTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

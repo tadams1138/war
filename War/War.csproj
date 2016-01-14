@@ -40,22 +40,25 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Contestant.cs" />
-    <Compile Include="IContestantRepository.cs" />
-    <Compile Include="MatchFactories\IMatchFactory.cs" />
-    <Compile Include="IWarRepository.cs" />
-    <Compile Include="MatchFactories\MatchWithContestants.cs" />
-    <Compile Include="MatchRequest.cs" />
-    <Compile Include="VoteChoice.cs" />
-    <Compile Include="MatchFactories\RandomMatchStrategy.cs" />
+    <Compile Include="Contestants\Contestant.cs" />
+    <Compile Include="Contestants\IContestantRepository.cs" />
+    <Compile Include="Users\IUserRepository.cs" />
+    <Compile Include="Matches\Factories\IMatchFactory.cs" />
+    <Compile Include="Wars\IWarRepository.cs" />
+    <Compile Include="Matches\Factories\MatchWithContestants.cs" />
+    <Compile Include="Matches\MatchRequest.cs" />
+    <Compile Include="Users\User.cs" />
+    <Compile Include="Users\UserIdentifier.cs" />
+    <Compile Include="Matches\VoteChoice.cs" />
+    <Compile Include="Matches\Factories\RandomMatchStrategy.cs" />
     <Compile Include="RankingServices\ContestantWithScore.cs" />
     <Compile Include="RankingServices\IRankingService.cs" />
-    <Compile Include="Match.cs" />
-    <Compile Include="IMatchRepository.cs" />
+    <Compile Include="Matches\Match.cs" />
+    <Compile Include="Matches\IMatchRepository.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RankingServices\SumDistinctWinsRankingStrategy.cs" />
-    <Compile Include="VoteRequest.cs" />
-    <Compile Include="War.cs" />
+    <Compile Include="Matches\VoteRequest.cs" />
+    <Compile Include="Wars\War.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

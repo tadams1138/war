@@ -22,7 +22,7 @@ namespace War.MatchFactories
             _generateRandomNumber = generateRandomNumber;
         }
 
-        public async Task<MatchWithContestants> Create(int warId)
+        public async Task<MatchWithContestants> Create(int warId, UserIdentifier userId)
         {
             var contestantCount = await _contestantRepository.GetCount(warId);
             var contestant1Index = _generateRandomNumber(0, contestantCount);
@@ -31,7 +31,7 @@ namespace War.MatchFactories
             var contestant1 = await _contestantRepository.Get(warId, contestant1Index);
             var contestant2 = await _contestantRepository.Get(warId, contestant2Index);
 
-            Guid matchId = await CreateMatch(warId, contestant1, contestant2);
+            Guid matchId = await CreateMatch(warId, contestant1, contestant2, userId);
 
             var result = new MatchWithContestants
             {
@@ -54,12 +54,13 @@ namespace War.MatchFactories
             return contestant2Index;
         }
 
-        private async Task<Guid> CreateMatch(int warId, Contestant contestant1, Contestant contestant2)
+        private async Task<Guid> CreateMatch(int warId, Contestant contestant1, Contestant contestant2, UserIdentifier userId)
         {
             var matchRequest = new MatchRequest
             {
                 Contestant1 = contestant1.Id,
-                Contestant2 = contestant2.Id
+                Contestant2 = contestant2.Id,
+                UserIdentifier = userId
             };
             var matchId = await _matchRepository.Create(warId, matchRequest);
             return matchId;

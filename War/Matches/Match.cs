@@ -10,5 +10,7 @@ namespace War
         public VoteChoice Result { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? VoteDate { get; set; }
+
+        public UserIdentifier UserId { get; set; }
     }
 }

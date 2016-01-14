@@ -2,12 +2,12 @@
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web.Http;
-using System.Web.Http.Cors;
 using System.Web.Http.Description;
 using War;
 using War.MatchFactories;
 using War.RankingServices;
 using WarApi.Mappers;
+using System.Security.Claims;
 
 namespace WarApi.Controllers
 {
@@ -16,8 +16,7 @@ namespace WarApi.Controllers
     /// </summary>
     [RoutePrefix("api/War")]
     [Authorize]
-    [EnableCors(origins: "https://candidatewar2016test.azurewebsites.net", headers: "*", methods: "*", SupportsCredentials = true)]
-    public class WarController : ApiController
+    public class WarController : ApiController, IWarController
     {
         private readonly IMapper _mapper;
         private readonly IRankingService _rankingService;
@@ -25,8 +24,9 @@ namespace WarApi.Controllers
         private readonly IMatchFactory _matchFactory;
         private readonly IMatchRepository _matchRepository;
         private readonly IContestantRepository _contestantRepository;
+        private readonly IUserRepository _userRepository;
 
-        public WarController(IMapper mapper, IRankingService rankingService, IWarRepository warRepo, IMatchFactory matchFactory, IMatchRepository matchRepository, IContestantRepository contestantRepository)
+        public WarController(IMapper mapper, IRankingService rankingService, IWarRepository warRepo, IMatchFactory matchFactory, IMatchRepository matchRepository, IContestantRepository contestantRepository, IUserRepository userRepository)
         {
             _mapper = mapper;
             _rankingService = rankingService;
@@ -34,6 +34,7 @@ namespace WarApi.Controllers
             _matchFactory = matchFactory;
             _matchRepository = matchRepository;
             _contestantRepository = contestantRepository;
+            _userRepository = userRepository;
         }
 
         /// <summary>
@@ -58,7 +59,10 @@ namespace WarApi.Controllers
                 return Conflict();
             }
 
-            var match = await _matchFactory.Create(warId);
+            var user = _mapper.Map<ClaimsPrincipal, User>(User as ClaimsPrincipal);
+            await _userRepository.Upsert(user);
+
+            var match = await _matchFactory.Create(warId, user.Id);
             var matchModel = _mapper.Map<MatchWithContestants, Models.Match>(match);
             return Created("", matchModel);
         }
@@ -84,11 +88,23 @@ namespace WarApi.Controllers
                 return NotFound();
             }
 
-            await ValidateRequest(warId, request);
+            var existingMatch = await _matchRepository.Get(warId, request.MatchId);
 
+            ValidateModel(request, existingMatch);
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
+            }
+
+            var user = _mapper.Map<ClaimsPrincipal, User>(User as ClaimsPrincipal);
+            if (!IsUserWhoCreatedMatch(existingMatch, user))
+            {
+                return Unauthorized();
+            }
+
+            if (existingMatch.Result != VoteChoice.None)
+            {
+                return Conflict();
             }
 
             var voteRequest = _mapper.Map<Models.VoteRequest, VoteRequest>(request);
@@ -116,16 +132,17 @@ namespace WarApi.Controllers
             return Ok(contestantModels);
         }
 
-        private async Task ValidateRequest(int warId, Models.VoteRequest request)
+        private static bool IsUserWhoCreatedMatch(Match existingMatch, User user)
         {
-            var existingMatch = await _matchRepository.Get(warId, request.MatchId);
+            return existingMatch.UserId.AuthenticationType == user.Id.AuthenticationType
+                            && existingMatch.UserId.NameIdentifier == user.Id.NameIdentifier;
+        }
+
+        private void ValidateModel(Models.VoteRequest request, Match existingMatch)
+        {
             if (existingMatch == null)
             {
                 ModelState.AddModelError($"{nameof(request.MatchId)}", $"'{request.MatchId}' is not valid.");
-            }
-            else if (existingMatch.Result != VoteChoice.None)
-            {
-                ModelState.AddModelError($"{nameof(request.MatchId)}", "Match is already assigned a vote.");
             }
         }
 

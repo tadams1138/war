@@ -13,7 +13,7 @@ namespace WarApi.Tests.Controllers
     public class WarControllerSanityTests
     {
         [TestMethod]
-        [TestCategory("Integration")]
+        [TestCategory("Manual")]
         public async Task Contestants_SmokeTest()
         {
             var request = new HttpRequestMessage

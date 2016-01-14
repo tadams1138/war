@@ -6,7 +6,7 @@ using War.Sql.Tests.Properties;
 
 namespace War.Sql
 {
-    [TestClass()]
+    [TestClass]
     public class MatchRepositoryTests
     {
         [TestMethod]
@@ -71,6 +71,9 @@ namespace War.Sql
             matchAfterUpdate.Result.Should().Be(voteChoice);
             matchAfterUpdate.CreatedDate.Should().Be(matchAfterCreation.CreatedDate);
             matchAfterUpdate.VoteDate.Should().BeAfter(matchAfterCreation.CreatedDate);
+            matchAfterUpdate.UserId.Should().NotBeNull();
+            matchAfterUpdate.UserId.AuthenticationType.Should().Be(matchAfterCreation.UserId.AuthenticationType);
+            matchAfterUpdate.UserId.NameIdentifier.Should().Be(matchAfterCreation.UserId.NameIdentifier);
         }
 
         private static MatchRequest CreateTestMatch()
@@ -78,7 +81,12 @@ namespace War.Sql
             return new MatchRequest
             {
                 Contestant1 = Guid.NewGuid(),
-                Contestant2 = Guid.NewGuid()
+                Contestant2 = Guid.NewGuid(),
+                UserIdentifier = new UserIdentifier
+                {
+                    NameIdentifier = Guid.NewGuid().ToString(),
+                    AuthenticationType = Guid.NewGuid().ToString(),
+                }
             };
         }
 
@@ -91,6 +99,9 @@ namespace War.Sql
             match.Result.Should().Be(VoteChoice.None);
             match.VoteDate.HasValue.Should().BeFalse();
             match.CreatedDate.Should().BeCloseTo(DateTime.UtcNow, 10000);
+            match.UserId.Should().NotBeNull();
+            match.UserId.AuthenticationType.Should().Be(request.UserIdentifier.AuthenticationType);
+            match.UserId.NameIdentifier.Should().Be(request.UserIdentifier.NameIdentifier);
         }
 
         private static void VerifyMatchInCollection(System.Collections.Generic.IEnumerable<Match> matchCollection, Match match)
@@ -108,7 +119,10 @@ namespace War.Sql
             return match2.Id == match1.Id
                         && match2.Contestant1 == match1.Contestant1
                         && match2.Contestant2 == match1.Contestant2
-                        && match2.Result == match1.Result;
+                        && match2.Result == match1.Result
+                        && match2.UserId != null
+                        && match2.UserId.NameIdentifier == match1.UserId.NameIdentifier
+                        && match2.UserId.AuthenticationType == match1.UserId.AuthenticationType;
         }
     }
 }

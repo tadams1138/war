@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Security.Claims;
+using War;
 
 namespace WarApi.Mappers
 {
@@ -16,15 +18,26 @@ namespace WarApi.Mappers
                 var result = (ITypedMapper<S, T>)CreateMatchMapper();
                 return result;
             }
-            else if (typeof(S) == typeof(Models.VoteRequest) && typeof(T) == typeof(War.VoteRequest))
+            else if (typeof(S) == typeof(Models.VoteRequest) && typeof(T) == typeof(VoteRequest))
             {
                 var result = (ITypedMapper<S, T>)CreateVoteRequestMapper();
+                return result;
+            }
+            else if (typeof(S) == typeof(ClaimsPrincipal) && typeof(T) == typeof(User))
+            {
+                var result = (ITypedMapper<S, T>)CreateClaimsPrincipalMapper();
                 return result;
             }
             else
             {
                 throw new MapperNotDefinedException(typeof(S), typeof(T));
             }
+        }
+
+        private ClaimsPrincipalMapper CreateClaimsPrincipalMapper()
+        {
+            var mapper = new ClaimsPrincipalMapper();
+            return mapper;
         }
 
         private VoteRequestMapper CreateVoteRequestMapper()

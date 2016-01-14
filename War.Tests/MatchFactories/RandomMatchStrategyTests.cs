@@ -23,10 +23,12 @@ namespace War.MatchFactories
         private Guid _matchId;
         private int firstRandomNumber;
         private int secondRandomNumber;
+        private UserIdentifier _userId;
 
         [TestInitialize]
         public void InitializeTests()
         {
+            _userId = new UserIdentifier();
             _contestant1 = new Contestant { Id = Guid.NewGuid() };
             _contestant2 = new Contestant { Id = Guid.NewGuid() };
             _matchId = Guid.NewGuid();
@@ -35,7 +37,8 @@ namespace War.MatchFactories
             _stubMatchRepository = new Mock<IMatchRepository>();
             _stubMatchRepository.Setup(x => x.Create(WarId,
                                                     It.Is<MatchRequest>(m => m.Contestant1 == _contestant1.Id
-                                                                            && m.Contestant2 == _contestant2.Id)))
+                                                                            && m.Contestant2 == _contestant2.Id
+                                                                            && m.UserIdentifier == _userId)))
                                 .Returns(Task.FromResult(_matchId));
             randomNumbers = new Queue<int>();
             _factory = new RandomMatchStrategy(_stubMatchRepository.Object, _stubContestantRepository.Object, GenerateRandomNumber);
@@ -51,7 +54,7 @@ namespace War.MatchFactories
             _stubContestantRepository.Setup(x => x.Get(WarId, secondRandomNumber)).Returns(Task.FromResult(_contestant2));
 
             // Act
-            var result = await _factory.Create(WarId);
+            var result = await _factory.Create(WarId, _userId);
 
             // Assert
             VerifyResult(result);
@@ -67,7 +70,7 @@ namespace War.MatchFactories
             _stubContestantRepository.Setup(x => x.Get(WarId, ContestantCount - 1)).Returns(Task.FromResult(_contestant2));
 
             // Act
-            var result = await _factory.Create(WarId);
+            var result = await _factory.Create(WarId, _userId);
 
             // Assert
             VerifyResult(result);
@@ -91,7 +94,7 @@ namespace War.MatchFactories
             // Act
             for (var i = 0; i < iterations; i++)
             {
-                var match = await factory.Create(warId);
+                var match = await factory.Create(warId, _userId);
                 matches.Add(match);
             }
 

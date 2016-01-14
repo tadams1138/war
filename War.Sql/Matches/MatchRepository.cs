@@ -9,6 +9,7 @@ namespace War.Sql
 {
     public class MatchRepository : IMatchRepository
     {
+        const string GetFieldList = "[Id], [Contestant1], [Contestant2], [Result], [CreatedDate], [VoteDate], [AuthenticationType], [NameIdentifier]";
         private readonly string _connectionString;
 
         public MatchRepository(string connectionString)
@@ -71,6 +72,13 @@ namespace War.Sql
             var contestant2 = reader.GetGuid(2);
             var contestant1 = reader.GetGuid(1);
             var id = reader.GetGuid(0);
+            var authenticationType = reader.GetString(6);
+            var nameIdentidier = reader.GetString(7);
+            var userId = new UserIdentifier
+            {
+                AuthenticationType = authenticationType,
+                NameIdentifier = nameIdentidier
+            };
             var result = new Match
             {
                 Id = id,
@@ -78,7 +86,8 @@ namespace War.Sql
                 Contestant2 = contestant2,
                 Result = voteChoice,
                 CreatedDate = createdDate,
-                VoteDate = voteDate
+                VoteDate = voteDate,
+                UserId = userId
             };
             return result;
         }
@@ -97,11 +106,11 @@ namespace War.Sql
         private SqlCommand CreateGetAllCommand(int warId, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT [Id], [Contestant1], [Contestant2], [Result], [CreatedDate], [VoteDate] FROM [dbo].[Matches] WHERE [WarId] = @WarId;";
+            command.CommandText = $"SELECT {GetFieldList} FROM [dbo].[Matches] WHERE [WarId] = @WarId;";
             command.Parameters.AddWithValue("@WarId", warId);
             return command;
         }
-        
+
         private async Task<IEnumerable<Match>> GetAll(SqlDataReader reader)
         {
             var results = new List<Match>();
@@ -116,7 +125,7 @@ namespace War.Sql
         private static SqlCommand CreateGetCommand(int warId, Guid matchId, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT [Id], [Contestant1], [Contestant2], [Result], [CreatedDate], [VoteDate] FROM [dbo].[Matches] WHERE [WarId] = @WarId AND [Id] = @Id;";
+            command.CommandText = $"SELECT {GetFieldList} FROM [dbo].[Matches] WHERE [WarId] = @WarId AND [Id] = @Id;";
             command.Parameters.AddWithValue("@WarId", warId);
             command.Parameters.AddWithValue("@Id", matchId);
             return command;
@@ -145,12 +154,14 @@ namespace War.Sql
         private static SqlCommand CreateInsertCommand(int warId, MatchRequest request, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO [dbo].[Matches] (Contestant1, Contestant2, WarId, Result, Id, CreatedDate) OUTPUT inserted.[Id] VALUES (@Contestant1, @Contestant2, @WarId, @Result, NEWID(), SYSUTCDATETIME());";
+            command.CommandText = "INSERT INTO [dbo].[Matches] (Contestant1, Contestant2, WarId, Result, Id, CreatedDate, AuthenticationType, NameIdentifier) OUTPUT inserted.[Id] VALUES (@Contestant1, @Contestant2, @WarId, @Result, NEWID(), SYSUTCDATETIME(), @AuthenticationType, @NameIdentifier);";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@Contestant1", request.Contestant1);
             command.Parameters.AddWithValue("@Contestant2", request.Contestant2);
             command.Parameters.AddWithValue("@WarId", warId);
             command.Parameters.AddWithValue("@Result", VoteChoice.None);
+            command.Parameters.AddWithValue("@AuthenticationType", request.UserIdentifier.AuthenticationType);
+            command.Parameters.AddWithValue("@NameIdentifier", request.UserIdentifier.NameIdentifier);
             return command;
         }
 

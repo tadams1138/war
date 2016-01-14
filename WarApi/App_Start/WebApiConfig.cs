@@ -43,6 +43,7 @@ namespace WarApi
             builder.Register(c => new ContestantRepository(Settings.Default.WarDb)).As<IContestantRepository>();
             builder.Register(c => new MatchRepository(Settings.Default.WarDb)).As<IMatchRepository>();
             builder.Register(c => new WarRepository(Settings.Default.WarDb)).As<IWarRepository>();
+            builder.Register(c => new UserRepository(Settings.Default.WarDb)).As<IUserRepository>();
 
             var container = builder.Build();
             config.DependencyResolver = new AutofacWebApiDependencyResolver(container);

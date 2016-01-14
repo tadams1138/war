@@ -4,6 +4,6 @@ namespace War.MatchFactories
 {
     public interface IMatchFactory
     {
-        Task<MatchWithContestants> Create(int warId);
+        Task<MatchWithContestants> Create(int warId, UserIdentifier userId);
     }
 }
