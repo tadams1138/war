@@ -1,18 +1,21 @@
 ﻿(function () {
-    //angular.module('app').value('serviceRoot' , 'https://tandisoftwarapi.azurewebsites.net/api/War/2/');
-    angular.module('app').value('serviceRoot', 'https://tandisoftwarapitest.azurewebsites.net/api/War/2/');
-    //angular.module('app').constant('serviceRoot', 'http://localhost:6903/api/War/2/')
+    //var domain = 'https://tandisoftwarapi.azurewebsites.net';
+    var domain = 'https://tandisoftwarapitest.azurewebsites.net';
+    //var domain = 'http://localhost:6903/api/War/2/';
+
+    var serviceRoot = domain + '/api/War/2/';
+    var logoutUrl = domain + '/.auth/logout?post_logout_redirect_uri=http://google.com';
 
     angular.module('app')
-        .config(['$httpProvider', function ($httpProvider) {
-            //$httpProvider.defaults.useXDomain = true;
-            //delete $httpProvider.defaults.headers.common['X-Requested-With'];
-            //delete $httpProvider.defaults.headers.common['User-Agent'];
-            $httpProvider.defaults.withCredentials = true;
-        }])
-    //angular.module('myApp', ['ngCookies'])
-    //    .run(['$http', '$cookies', function ($http, $cookies) {
-    //        $http.defaults.headers.post['X-CSRFToken'] = $cookies.csrftoken;
-    //    }]);
+        .config(configure)
+        .value('serviceRoot', serviceRoot)
+        .value('domain', domain)
+        .value('logoutUrl', logoutUrl);
+
+    configure.$inject = ['$httpProvider'];
+    function configure($httpProvider) {
+        $httpProvider.defaults.withCredentials = true;
+        $httpProvider.interceptors.push('httpInterceptor');
+    }
 })()
 

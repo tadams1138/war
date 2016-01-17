@@ -4,9 +4,10 @@
         .module('app')
         .controller('MatchController', MatchController);
 
-    function MatchController(WarService) {
+    function MatchController(WarService, logoutUrl) {
         var vm = this;
         vm.showMatch = true;
+        vm.logoutUrl = logoutUrl;
 
         refreshMatch();
 

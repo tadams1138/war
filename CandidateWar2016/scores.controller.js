@@ -4,8 +4,9 @@
         .module('app')
         .controller('ScoresController', ScoresController);
 
-    function ScoresController(WarService) {
+    function ScoresController(WarService, logoutUrl) {
         var vm = this;
+        vm.logoutUrl = logoutUrl;
 
         activate();
 

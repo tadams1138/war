@@ -1,7 +1,8 @@
 ﻿(function () {
     'use strict';
 
-    angular.module('app')
+    angular
+        .module('app')
         .factory('WarService', WarService);
 
     WarService.$inject = ['$http', '$q', 'serviceRoot'];

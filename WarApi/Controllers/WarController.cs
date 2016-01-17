@@ -15,7 +15,7 @@ namespace WarApi.Controllers
     /// <summary>
     /// War endpoints let you vote on a pair and view the rankings.
     /// </summary>
-    [EnableCors(origins: "https://candidatewar2016test.azurewebsites.net", headers: "*", methods: "*", SupportsCredentials = true)]
+    [EnableCors(origins: "*", headers: "*", methods: "*", SupportsCredentials = true)]
     [RoutePrefix("api/War")]
     [Authorize]
     public class WarController : ApiController, IWarController
