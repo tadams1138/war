@@ -1,5 +1,4 @@
-﻿using CandidateWar2016.ContestantCreator.Properties;
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
 using System.Linq;
@@ -286,9 +285,10 @@ namespace CandidateWar2016
         [TestMethod]
         public async Task SyncContestants()
         {
-            await VerifyThatTheWarIdIsCorrect();
-
-            var repository = new ContestantRepository(Settings.Default.WarDb);
+            var sqlServerConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["WarDb"].ConnectionString;
+            await VerifyThatTheWarIdIsCorrect(sqlServerConnectionString);
+            
+            var repository = new ContestantRepository(sqlServerConnectionString);
             var existingContestants = await repository.GetAll(WarId);
 
             await UpdateExistingCandidates(repository, existingContestants, contestants);
@@ -330,9 +330,9 @@ namespace CandidateWar2016
             return c2.Definition[LastName] == c1.Definition[LastName] && c2.Definition[FirstName] == c1.Definition[FirstName];
         }
 
-        private static async Task VerifyThatTheWarIdIsCorrect()
+        private static async Task VerifyThatTheWarIdIsCorrect(string connectionString)
         {
-            var warRepo = new WarRepository(Settings.Default.WarDb);
+            var warRepo = new WarRepository(connectionString);
             var war = await warRepo.Get(WarId);
             war.Title.Should().Be("Presidential Candidate War 2016", "you may have set the wrong War ID");
         }
