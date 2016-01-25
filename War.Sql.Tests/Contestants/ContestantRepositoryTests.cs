@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using War.Sql.Tests.Properties;
 using FluentAssertions;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -18,7 +17,8 @@ namespace War.Contestants.Sql
         [TestInitialize]
         public void InitializeTests()
         {
-            _repository = new ContestantRepository(Settings.Default.WarDb);
+            var sqlServerConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["WarDb"].ConnectionString;
+            _repository = new ContestantRepository(sqlServerConnectionString);
         }
 
         [TestMethod()]

@@ -79,6 +79,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\ConnectionStrings.config">
+      <Link>ConnectionStrings.config</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="app.config">
       <SubType>Designer</SubType>
     </None>

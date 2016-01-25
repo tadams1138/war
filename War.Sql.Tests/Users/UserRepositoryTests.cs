@@ -1,7 +1,6 @@
 ﻿using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Threading.Tasks;
-using War.Sql.Tests.Properties;
 
 namespace War.Users.Sql
 {
@@ -15,7 +14,8 @@ namespace War.Users.Sql
         [TestCategory("Integration")]
         public async Task UpsertTest()
         {
-            _repository = new UserRepository(Settings.Default.WarDb);
+            var sqlServerConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["WarDb"].ConnectionString;
+            _repository = new UserRepository(sqlServerConnectionString);
             _userIdentifier = new UserIdentifier { AuthenticationType = "test Authentication", NameIdentifier = "test NameIdentifier" };
             
             await VerifyInsertWorks();

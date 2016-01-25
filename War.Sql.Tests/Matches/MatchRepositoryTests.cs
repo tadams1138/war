@@ -2,7 +2,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Threading.Tasks;
-using War.Sql.Tests.Properties;
 using War.Users;
 
 namespace War.Matches.Sql
@@ -16,7 +15,8 @@ namespace War.Matches.Sql
         {
             const int firstWarId = 1234;
             const int secondWarId = 5678;
-            var repository = new MatchRepository(Settings.Default.WarDb);
+            var sqlServerConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["WarDb"].ConnectionString;
+            var repository = new MatchRepository(sqlServerConnectionString);
 
             var firstMatch = await CreateMatch(repository, firstWarId);
 

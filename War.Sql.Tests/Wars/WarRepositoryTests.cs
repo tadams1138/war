@@ -1,7 +1,6 @@
 ﻿using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Threading.Tasks;
-using War.Sql.Tests.Properties;
 
 namespace War.Wars.Sql
 {
@@ -12,7 +11,8 @@ namespace War.Wars.Sql
         [TestCategory("Integration")]
         public async Task WarRepository_CRD_Test()
         {
-            var repository = new WarRepository(Settings.Default.WarDb);
+            var sqlServerConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["WarDb"].ConnectionString;
+            var repository = new WarRepository(sqlServerConnectionString);
 
             var request = new WarRequest
             {

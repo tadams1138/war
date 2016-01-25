@@ -13,7 +13,6 @@ using War.Users.Sql;
 using War.Wars;
 using War.Wars.Sql;
 using WarApi.Mappers;
-using WarApi.Properties;
 
 namespace WarApi
 {
@@ -38,6 +37,7 @@ namespace WarApi
 
         private static void ConfigureDependencyInjection(HttpConfiguration config)
         {
+            var sqlServerConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["WarDb"].ConnectionString;
             var builder = new ContainerBuilder();
             builder.RegisterApiControllers(Assembly.GetExecutingAssembly());
             builder.RegisterWebApiFilterProvider(config);
@@ -46,13 +46,13 @@ namespace WarApi
 
             builder.RegisterType<SumDistinctWinsRankingStrategy>().As<IRankingService>();
             builder.RegisterType<RandomMatchStrategy>().As<IMatchFactory>();
-            builder.Register(c => new ContestantRepository(Settings.Default.WarDb)).As<IContestantRepository>();
-            builder.Register(c => new MatchRepository(Settings.Default.WarDb)).As<IMatchRepository>();
-            builder.Register(c => new WarRepository(Settings.Default.WarDb)).As<IWarRepository>();
-            builder.Register(c => new UserRepository(Settings.Default.WarDb)).As<IUserRepository>();
+            builder.Register(c => new ContestantRepository(sqlServerConnectionString)).As<IContestantRepository>();
+            builder.Register(c => new MatchRepository(sqlServerConnectionString)).As<IMatchRepository>();
+            builder.Register(c => new WarRepository(sqlServerConnectionString)).As<IWarRepository>();
+            builder.Register(c => new UserRepository(sqlServerConnectionString)).As<IUserRepository>();
 
             var container = builder.Build();
             config.DependencyResolver = new AutofacWebApiDependencyResolver(container);
-        }        
+        }
     }
 }
