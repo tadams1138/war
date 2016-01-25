@@ -1,15 +1,23 @@
 ﻿(function () {
-    // register the controller with the module
     angular
         .module('app')
         .controller('MatchController', MatchController);
 
-    function MatchController(WarService, logoutUrl) {
+    function MatchController(WarService, $location) {
         var vm = this;
         vm.showMatch = true;
-        vm.logoutUrl = logoutUrl;
 
+        getUserInfo();
         refreshMatch();
+
+        function getUserInfo() {
+            WarService.getUserInfo().then(function (userInfo) {
+                vm.userInfo = userInfo;
+            })
+            .catch(function (err) {
+                $location.url('/login');
+            });
+        }
 
         function refreshMatch() {
             WarService.getMatch().then(function (match) {

@@ -5,13 +5,14 @@
         .module('app')
         .factory('WarService', WarService);
 
-    WarService.$inject = ['$http', '$q', 'serviceRoot'];
-    function WarService($http, $q, serviceRoot) {
+    WarService.$inject = ['$http', '$q', 'serviceRoot', 'domain'];
+    function WarService($http, $q, serviceRoot, domain) {
 
         var service = {
             getContestants: getContestants,
             getMatch: getMatch,
-            vote: vote
+            vote: vote,
+            getUserInfo: getUserInfo
         };
 
         return service;
@@ -67,6 +68,25 @@
             function itWorked(response) {
                 var contestants = response.data;
                 return contestants;
+            }
+        }
+
+        function getUserInfo()
+        {
+            return $http
+            .get(domain + 'api/User')
+            .then(itWorked)
+            .catch(onFail);
+
+            function onFail(err) {
+                var msg = 'Could not get user info.';
+                console.log(msg);
+                return $q.reject(msg);
+            }
+
+            function itWorked(response) {
+                var user = response.data;
+                return user;
             }
         }
     }

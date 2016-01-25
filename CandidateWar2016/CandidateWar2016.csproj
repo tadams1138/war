@@ -70,7 +70,6 @@
     <Content Include="match.html" />
     <Content Include="app.module.js" />
     <None Include="Properties\PublishProfiles\CandidateWar2016.pubxml" />
-    <Content Include="responseInterceptor.js" />
     <Content Include="scores.controller.js" />
     <Content Include="scores.html" />
     <Content Include="style.css" />
