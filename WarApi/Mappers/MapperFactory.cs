@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Security.Claims;
-using War;
+using War.Matches;
+using War.Matches.Factories;
+using War.RankingServices;
 
 namespace WarApi.Mappers
 {
@@ -8,12 +10,12 @@ namespace WarApi.Mappers
     {
         public ITypedMapper<S, T> Get<S, T>()
         {
-            if (typeof(S) == typeof(War.RankingServices.ContestantWithScore) && typeof(T) == typeof(Models.ContestantWithScore))
+            if (typeof(S) == typeof(ContestantWithScore) && typeof(T) == typeof(Models.ContestantWithScore))
             {
                 var result = (ITypedMapper<S, T>)CreateContestantWithScoreMapper();
                 return result;
             }
-            else if (typeof(S) == typeof(War.MatchFactories.MatchWithContestants) && typeof(T) == typeof(Models.Match))
+            else if (typeof(S) == typeof(MatchWithContestants) && typeof(T) == typeof(Models.Match))
             {
                 var result = (ITypedMapper<S, T>)CreateMatchMapper();
                 return result;
@@ -23,9 +25,14 @@ namespace WarApi.Mappers
                 var result = (ITypedMapper<S, T>)CreateVoteRequestMapper();
                 return result;
             }
-            else if (typeof(S) == typeof(ClaimsPrincipal) && typeof(T) == typeof(User))
+            else if (typeof(S) == typeof(ClaimsPrincipal) && typeof(T) == typeof(War.Users.User))
             {
-                var result = (ITypedMapper<S, T>)CreateClaimsPrincipalMapper();
+                var result = (ITypedMapper<S, T>)CreateClaimsPrincipalToWarUserMapper();
+                return result;
+            }
+            else if (typeof(S) == typeof(ClaimsPrincipal) && typeof(T) == typeof(User.Models.User))
+            {
+                var result = (ITypedMapper<S, T>)CreateClaimsPrincipalToModelsUserMapper();
                 return result;
             }
             else
@@ -34,9 +41,15 @@ namespace WarApi.Mappers
             }
         }
 
-        private ClaimsPrincipalMapper CreateClaimsPrincipalMapper()
+        private ClaimsPrincipalMapper CreateClaimsPrincipalToWarUserMapper()
         {
             var mapper = new ClaimsPrincipalMapper();
+            return mapper;
+        }
+
+        private User.Mappers.ClaimsPrincipalMapper CreateClaimsPrincipalToModelsUserMapper()
+        {
+            var mapper = new User.Mappers.ClaimsPrincipalMapper();
             return mapper;
         }
 

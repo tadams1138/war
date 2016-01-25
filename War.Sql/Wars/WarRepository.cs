@@ -2,7 +2,7 @@
 using System.Data.SqlClient;
 using System.Threading.Tasks;
 
-namespace War.Sql
+namespace War.Wars.Sql
 {
     public class WarRepository : IWarRepository
     {
@@ -13,7 +13,7 @@ namespace War.Sql
             _connectionString = connectionString;
         }
 
-        public async Task<War> Get(int id)
+        public async Task<Wars.War> Get(int id)
         {
             using (var connection = await CreateOpenConnection())
             using (var command = CreateGetCommand(id, connection))
@@ -45,10 +45,10 @@ namespace War.Sql
             }
         }
 
-        private War CreateWar(SqlDataReader reader)
+        private Wars.War CreateWar(SqlDataReader reader)
         {
             var title = reader.GetString(1);
-            var result = new War
+            var result = new Wars.War
             {
                 Title = title
             };

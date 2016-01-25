@@ -1,6 +1,7 @@
 ﻿using System;
+using War.Users;
 
-namespace War
+namespace War.Matches
 {
     public class Match
     {

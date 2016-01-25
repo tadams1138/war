@@ -1,16 +1,16 @@
 ﻿using System.Security.Claims;
-using War;
+using War.Users;
 
 namespace WarApi.Mappers
 {
-    class ClaimsPrincipalMapper : ITypedMapper<ClaimsPrincipal, User>
+    class ClaimsPrincipalMapper : ITypedMapper<ClaimsPrincipal, War.Users.User>
     {
-        public User Map(ClaimsPrincipal source)
+        public War.Users.User Map(ClaimsPrincipal source)
         {
             string nameIdentifier = source.FindFirst(ClaimTypes.NameIdentifier).Value;
             string authenticationType = source.Identity.AuthenticationType;
             string name = source.Identity.Name;
-            var target = new User
+            var target = new War.Users.User
             {
                 Id = new UserIdentifier
                 {

@@ -2,6 +2,7 @@
 using System;
 using FluentAssertions;
 using WarApi.Models;
+using War.Matches.Factories;
 
 namespace WarApi.Mappers
 {
@@ -13,7 +14,7 @@ namespace WarApi.Mappers
         {
             // Arrange
             var mapper = new Mapper();
-            var source = new War.MatchFactories.MatchWithContestants
+            var source = new MatchWithContestants
             {
                 Id= Guid.NewGuid(),
                 Contestant1 = ContestantMapperTests.CreateTestContestant(),
@@ -21,7 +22,7 @@ namespace WarApi.Mappers
             };
 
             // Act
-            var target = mapper.Map<War.MatchFactories.MatchWithContestants, Match>(source);
+            var target = mapper.Map<MatchWithContestants, Match>(source);
 
             // Assert
             target.Id.Should().Be(source.Id);

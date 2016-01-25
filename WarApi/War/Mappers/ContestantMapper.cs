@@ -1,8 +1,10 @@
-﻿namespace WarApi.Mappers
+﻿using War.Contestants;
+
+namespace WarApi.Mappers
 {
-    class ContestantMapper : ITypedMapper<War.Contestant, Models.Contestant>
+    class ContestantMapper : ITypedMapper<Contestant, Models.Contestant>
     {
-        public Models.Contestant Map(War.Contestant source)
+        public Models.Contestant Map(Contestant source)
         {
             var target = new Models.Contestant
             {

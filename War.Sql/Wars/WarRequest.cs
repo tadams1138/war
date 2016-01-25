@@ -1,4 +1,4 @@
-﻿namespace War.Sql
+﻿namespace War.Wars.Sql
 {
     internal class WarRequest
     {

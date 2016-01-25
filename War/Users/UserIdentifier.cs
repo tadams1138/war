@@ -1,4 +1,4 @@
-﻿namespace War
+﻿namespace War.Users
 {
     public class UserIdentifier
     {

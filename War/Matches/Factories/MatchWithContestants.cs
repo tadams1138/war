@@ -1,6 +1,7 @@
 ﻿using System;
+using War.Contestants;
 
-namespace War.MatchFactories
+namespace War.Matches.Factories
 {
     public class MatchWithContestants
     {

@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Threading.Tasks;
+using War.Contestants;
+using War.Users;
 
-namespace War.MatchFactories
+namespace War.Matches.Factories
 {
     public class RandomMatchStrategy : IMatchFactory
     {

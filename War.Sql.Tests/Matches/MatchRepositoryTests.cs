@@ -3,8 +3,9 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Threading.Tasks;
 using War.Sql.Tests.Properties;
+using War.Users;
 
-namespace War.Sql
+namespace War.Matches.Sql
 {
     [TestClass]
     public class MatchRepositoryTests

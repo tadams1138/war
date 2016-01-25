@@ -2,7 +2,7 @@
 using System.Data.SqlClient;
 using System.Threading.Tasks;
 
-namespace War.Sql
+namespace War.Users.Sql
 {
     public class UserRepository : IUserRepository
     {

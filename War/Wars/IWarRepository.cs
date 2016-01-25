@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace War
+namespace War.Wars
 {
     public interface IWarRepository
     {

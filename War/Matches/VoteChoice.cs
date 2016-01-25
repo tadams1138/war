@@ -1,4 +1,4 @@
-﻿namespace War
+﻿namespace War.Matches
 {
     public enum VoteChoice
     {

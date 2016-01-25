@@ -4,6 +4,8 @@ using Moq;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using War.Contestants;
+using War.Matches;
 
 namespace War.RankingServices
 {
@@ -24,29 +26,29 @@ namespace War.RankingServices
             int warId = 1234;
             var stubMatchRepo = new Mock<IMatchRepository>();
             var stubContestantRepo = new Mock<IContestantRepository>();
-            var matches = new List<Match> {
-                new Match { Contestant1 = _aNewHope, Contestant2 = _returnOfTheJedi, Result = VoteChoice.Contestant2Won },
-                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant1Won },
-                new Match { Contestant1 = _phantomMenace, Contestant2 = _returnOfTheJedi, Result = VoteChoice.Contestant2Won },
-                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _attackOfTheClones, Result = VoteChoice.Contestant1Won },
-                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _revengeOfTheSith, Result = VoteChoice.Contestant1Won },
+            var matches = new List<Matches.Match> {
+                new Matches.Match { Contestant1 = _aNewHope, Contestant2 = _returnOfTheJedi, Result = VoteChoice.Contestant2Won },
+                new Matches.Match { Contestant1 = _returnOfTheJedi, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant1Won },
+                new Matches.Match { Contestant1 = _phantomMenace, Contestant2 = _returnOfTheJedi, Result = VoteChoice.Contestant2Won },
+                new Matches.Match { Contestant1 = _returnOfTheJedi, Contestant2 = _attackOfTheClones, Result = VoteChoice.Contestant1Won },
+                new Matches.Match { Contestant1 = _returnOfTheJedi, Contestant2 = _revengeOfTheSith, Result = VoteChoice.Contestant1Won },
 
-                new Match { Contestant1 = _aNewHope, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
-                new Match { Contestant1 = _revengeOfTheSith, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
-                new Match { Contestant1 = _phantomMenace, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
-                new Match { Contestant1 = _attackOfTheClones, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
+                new Matches.Match { Contestant1 = _aNewHope, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
+                new Matches.Match { Contestant1 = _revengeOfTheSith, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
+                new Matches.Match { Contestant1 = _phantomMenace, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
+                new Matches.Match { Contestant1 = _attackOfTheClones, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant2Won },
 
-                new Match { Contestant1 = _aNewHope, Contestant2 = _phantomMenace, Result = VoteChoice.Contestant1Won },
-                new Match { Contestant1 = _aNewHope, Contestant2 = _attackOfTheClones, Result = VoteChoice.Contestant1Won },
-                new Match { Contestant1 = _aNewHope, Contestant2 = _revengeOfTheSith, Result = VoteChoice.Contestant1Won },
+                new Matches.Match { Contestant1 = _aNewHope, Contestant2 = _phantomMenace, Result = VoteChoice.Contestant1Won },
+                new Matches.Match { Contestant1 = _aNewHope, Contestant2 = _attackOfTheClones, Result = VoteChoice.Contestant1Won },
+                new Matches.Match { Contestant1 = _aNewHope, Contestant2 = _revengeOfTheSith, Result = VoteChoice.Contestant1Won },
 
-                new Match { Contestant1 = _revengeOfTheSith, Contestant2 = _phantomMenace, Result = VoteChoice.Pass },
-                new Match { Contestant1 = _attackOfTheClones, Contestant2 = _revengeOfTheSith, Result = VoteChoice.Pass },
+                new Matches.Match { Contestant1 = _revengeOfTheSith, Contestant2 = _phantomMenace, Result = VoteChoice.Pass },
+                new Matches.Match { Contestant1 = _attackOfTheClones, Contestant2 = _revengeOfTheSith, Result = VoteChoice.Pass },
 
-                new Match { Contestant1 = _attackOfTheClones, Contestant2 = _phantomMenace, Result = VoteChoice.None },
+                new Matches.Match { Contestant1 = _attackOfTheClones, Contestant2 = _phantomMenace, Result = VoteChoice.None },
 
-                new Match { Contestant1 = _returnOfTheJedi, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant1Won }, // Duplicate
-                new Match { Contestant1 = _empireStrikesBack, Contestant2 = _returnOfTheJedi, Result = VoteChoice.Contestant2Won }, // Inverted Order Duplicate
+                new Matches.Match { Contestant1 = _returnOfTheJedi, Contestant2 = _empireStrikesBack, Result = VoteChoice.Contestant1Won }, // Duplicate
+                new Matches.Match { Contestant1 = _empireStrikesBack, Contestant2 = _returnOfTheJedi, Result = VoteChoice.Contestant2Won }, // Inverted Order Duplicate
             };
 
             var contestants = new List<Contestant> {
@@ -57,7 +59,7 @@ namespace War.RankingServices
                 new Contestant { Id = _attackOfTheClones } ,
                 new Contestant { Id = _revengeOfTheSith } };
             stubContestantRepo.Setup(x => x.GetAll(warId)).Returns(Task.FromResult<IEnumerable<Contestant>>(contestants));
-            stubMatchRepo.Setup(x => x.GetAll(warId)).Returns(Task.FromResult((IEnumerable<Match>)matches));
+            stubMatchRepo.Setup(x => x.GetAll(warId)).Returns(Task.FromResult((IEnumerable<Matches.Match>)matches));
             var service = new SumDistinctWinsRankingStrategy(stubMatchRepo.Object, stubContestantRepo.Object);
 
             // Act

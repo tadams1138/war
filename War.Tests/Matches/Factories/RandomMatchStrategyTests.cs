@@ -6,8 +6,10 @@ using FluentAssertions;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Text;
+using War.Users;
+using War.Contestants;
 
-namespace War.MatchFactories
+namespace War.Matches.Factories
 {
     [TestClass()]
     public class RandomMatchStrategyTests

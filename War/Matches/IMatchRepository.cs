@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace War
+namespace War.Matches
 {
     public interface IMatchRepository
     {

@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Threading.Tasks;
 using War.Sql.Tests.Properties;
 
-namespace War.Sql
+namespace War.Wars.Sql
 {
     [TestClass()]
     public class WarRepositoryTests

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace War
+namespace War.Contestants
 {
     public class Contestant
     {

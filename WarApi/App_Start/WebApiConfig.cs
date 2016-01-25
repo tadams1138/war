@@ -2,10 +2,16 @@
 using Autofac.Integration.WebApi;
 using System.Reflection;
 using System.Web.Http;
-using War;
-using War.MatchFactories;
+using War.Contestants;
+using War.Contestants.Sql;
+using War.Matches;
+using War.Matches.Factories;
+using War.Matches.Sql;
 using War.RankingServices;
-using War.Sql;
+using War.Users;
+using War.Users.Sql;
+using War.Wars;
+using War.Wars.Sql;
 using WarApi.Mappers;
 using WarApi.Properties;
 

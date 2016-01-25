@@ -6,7 +6,7 @@ using FluentAssertions;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-namespace War.Sql
+namespace War.Contestants.Sql
 {
     [TestClass()]
     public class ContestantRepositoryTests

@@ -138,22 +138,24 @@
   <ItemGroup>
     <Compile Include="App_Start\SwaggerConfig.cs" />
     <Compile Include="App_Start\WebApiConfig.cs" />
-    <Compile Include="Controllers\IWarController.cs" />
-    <Compile Include="Mappers\ClaimsPrincipalMapper.cs" />
-    <Compile Include="Mappers\ContestantMapper.cs" />
-    <Compile Include="Mappers\ContestantWithScoreMapper.cs" />
+    <Compile Include="User\Mappers\ClaimsPrincipalMapper.cs" />
+    <Compile Include="User\Models\User.cs" />
+    <Compile Include="User\UserController.cs" />
+    <Compile Include="War\Mappers\ClaimsPrincipalMapper.cs" />
+    <Compile Include="War\Mappers\ContestantMapper.cs" />
+    <Compile Include="War\Mappers\ContestantWithScoreMapper.cs" />
     <Compile Include="Mappers\ITypedMapper.cs" />
     <Compile Include="Mappers\Mapper.cs" />
     <Compile Include="Mappers\MapperFactory.cs" />
-    <Compile Include="Mappers\MatchMapper.cs" />
-    <Compile Include="Mappers\VoteRequestMapper.cs" />
-    <Compile Include="Models\Contestant.cs" />
-    <Compile Include="Models\VoteChoice.cs" />
-    <Compile Include="Models\VoteRequest.cs" />
-    <Compile Include="Models\ContestantWithScore.cs" />
+    <Compile Include="War\Mappers\MatchMapper.cs" />
+    <Compile Include="War\Mappers\VoteRequestMapper.cs" />
+    <Compile Include="War\Models\Contestant.cs" />
+    <Compile Include="War\Models\VoteChoice.cs" />
+    <Compile Include="War\Models\VoteRequest.cs" />
+    <Compile Include="War\Models\ContestantWithScore.cs" />
     <Compile Include="Mappers\IMapper.cs" />
-    <Compile Include="Models\Match.cs" />
-    <Compile Include="Controllers\WarController.cs" />
+    <Compile Include="War\Models\Match.cs" />
+    <Compile Include="War\WarController.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>

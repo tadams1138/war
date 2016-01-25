@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace War
+namespace War.Matches
 {
     public class VoteRequest
     {

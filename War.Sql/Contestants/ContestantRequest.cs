@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace War.Sql
+namespace War.Contestants.Sql
 {
     public class ContestantRequest
     {

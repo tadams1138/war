@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace War
+namespace War.Contestants
 {
     public interface IContestantRepository
     {

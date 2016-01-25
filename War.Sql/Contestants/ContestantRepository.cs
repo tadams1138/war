@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
-namespace War.Sql
+namespace War.Contestants.Sql
 {
     public class ContestantRepository : IContestantRepository
     {

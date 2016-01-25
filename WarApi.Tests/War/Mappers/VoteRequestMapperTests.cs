@@ -19,7 +19,7 @@ namespace WarApi.Mappers
             };
 
             // Act
-            var target = mapper.Map<Models.VoteRequest, War.VoteRequest>(source);
+            var target = mapper.Map<Models.VoteRequest, War.Matches.VoteRequest>(source);
 
             // Assert
             target.MatchId.Should().Be(source.MatchId);

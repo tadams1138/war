@@ -4,7 +4,9 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using War.Sql;
+using War.Contestants;
+using War.Contestants.Sql;
+using War.Wars.Sql;
 
 namespace CandidateWar2016
 {
@@ -293,10 +295,10 @@ namespace CandidateWar2016
             await InsertNewCandidates(repository, existingContestants, contestants);
         }
 
-        private static async Task UpdateExistingCandidates(ContestantRepository repository, IEnumerable<War.Contestant> existingContestants, ContestantRequest[] contestants)
+        private static async Task UpdateExistingCandidates(ContestantRepository repository, IEnumerable<Contestant> existingContestants, ContestantRequest[] contestants)
         {
             var updates = contestants.Where(c1 => existingContestants.Any(c2 => IsTheSame(c2, c1)))
-                                    .Select(c => new War.Contestant
+                                    .Select(c => new Contestant
                                     {
                                         Definition = c.Definition,
                                         Id = existingContestants.Single(c1 => IsTheSame(c1, c)).Id
@@ -310,7 +312,7 @@ namespace CandidateWar2016
             await Task.WhenAll(tasks);
         }
 
-        private static async Task InsertNewCandidates(ContestantRepository repository, IEnumerable<War.Contestant> existingContestants, ContestantRequest[] contestants)
+        private static async Task InsertNewCandidates(ContestantRepository repository, IEnumerable<Contestant> existingContestants, ContestantRequest[] contestants)
         {
             var additions = contestants.Where(c1 => !existingContestants.Any(c2 => IsTheSame(c2, c1)));
 
@@ -323,7 +325,7 @@ namespace CandidateWar2016
             await Task.WhenAll(tasks);
         }
 
-        private static bool IsTheSame(War.Contestant c1, ContestantRequest c2)
+        private static bool IsTheSame(Contestant c1, ContestantRequest c2)
         {
             return c2.Definition[LastName] == c1.Definition[LastName] && c2.Definition[FirstName] == c1.Definition[FirstName];
         }

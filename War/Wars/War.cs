@@ -1,4 +1,4 @@
-﻿namespace War
+﻿namespace War.Wars
 {
     public class War
     {

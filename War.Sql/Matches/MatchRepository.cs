@@ -4,8 +4,9 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
 using System.Linq;
+using War.Users;
 
-namespace War.Sql
+namespace War.Matches.Sql
 {
     public class MatchRepository : IMatchRepository
     {
@@ -154,7 +155,7 @@ namespace War.Sql
         private static SqlCommand CreateInsertCommand(int warId, MatchRequest request, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO [dbo].[Matches] (Contestant1, Contestant2, WarId, Result, Id, CreatedDate, AuthenticationType, NameIdentifier) OUTPUT inserted.[Id] VALUES (@Contestant1, @Contestant2, @WarId, @Result, NEWID(), SYSUTCDATETIME(), @AuthenticationType, @NameIdentifier);";
+            command.CommandText = "INSERT INTO [dbo].[Matches] (Contestant1, Contestant2, WarId, Result, Id, CreatedDate, AuthenticationType, NameIdentifier) OUTPUT inserted.[Id] VALUES (@Contestant1, @Contestant2, @WarId, @Result, NEWID(), @CreatedDateTime, @AuthenticationType, @NameIdentifier);";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@Contestant1", request.Contestant1);
             command.Parameters.AddWithValue("@Contestant2", request.Contestant2);
@@ -162,6 +163,7 @@ namespace War.Sql
             command.Parameters.AddWithValue("@Result", VoteChoice.None);
             command.Parameters.AddWithValue("@AuthenticationType", request.UserIdentifier.AuthenticationType);
             command.Parameters.AddWithValue("@NameIdentifier", request.UserIdentifier.NameIdentifier);
+            command.Parameters.AddWithValue("@CreatedDateTime", DateTime.UtcNow);
             return command;
         }
 

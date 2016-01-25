@@ -3,14 +3,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Web.Http;
 using System.Web.Http.Description;
-using War;
-using War.MatchFactories;
 using War.RankingServices;
 using WarApi.Mappers;
 using System.Security.Claims;
 using System.Web.Http.Cors;
+using War.Users;
+using War.Wars;
+using War.Matches.Factories;
+using War.Matches;
+using War.Contestants;
 
-namespace WarApi.Controllers
+namespace WarApi
 {
     /// <summary>
     /// War endpoints let you vote on a pair and view the rankings.
@@ -18,7 +21,7 @@ namespace WarApi.Controllers
     [EnableCors(origins: "*", headers: "*", methods: "*", SupportsCredentials = true)]
     [RoutePrefix("api/War")]
     [Authorize]
-    public class WarController : ApiController, IWarController
+    public class WarController : ApiController
     {
         private readonly IMapper _mapper;
         private readonly IRankingService _rankingService;
@@ -61,7 +64,7 @@ namespace WarApi.Controllers
                 return Conflict();
             }
 
-            var user = _mapper.Map<ClaimsPrincipal, User>(User as ClaimsPrincipal);
+            var user = _mapper.Map<ClaimsPrincipal, War.Users.User>(User as ClaimsPrincipal);
             await _userRepository.Upsert(user);
 
             var match = await _matchFactory.Create(warId, user.Id);
@@ -98,7 +101,7 @@ namespace WarApi.Controllers
                 return BadRequest(ModelState);
             }
 
-            var user = _mapper.Map<ClaimsPrincipal, User>(User as ClaimsPrincipal);
+            var user = _mapper.Map<ClaimsPrincipal, War.Users.User>(User as ClaimsPrincipal);
             if (!IsUserWhoCreatedMatch(existingMatch, user))
             {
                 return Unauthorized();
@@ -134,7 +137,7 @@ namespace WarApi.Controllers
             return Ok(contestantModels);
         }
 
-        private static bool IsUserWhoCreatedMatch(Match existingMatch, User user)
+        private static bool IsUserWhoCreatedMatch(Match existingMatch, War.Users.User user)
         {
             return existingMatch.UserId.AuthenticationType == user.Id.AuthenticationType
                             && existingMatch.UserId.NameIdentifier == user.Id.NameIdentifier;

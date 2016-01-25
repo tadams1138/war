@@ -1,15 +1,18 @@
-﻿namespace WarApi.Mappers
-{
-    class MatchMapper : ITypedMapper<War.MatchFactories.MatchWithContestants, Models.Match>
-    {
-        private readonly ITypedMapper<War.Contestant, Models.Contestant> _contestantMapper;
+﻿using War.Contestants;
+using War.Matches.Factories;
 
-        public MatchMapper(ITypedMapper<War.Contestant, Models.Contestant> contestantMapper)
+namespace WarApi.Mappers
+{
+    class MatchMapper : ITypedMapper<MatchWithContestants, Models.Match>
+    {
+        private readonly ITypedMapper<Contestant, Models.Contestant> _contestantMapper;
+
+        public MatchMapper(ITypedMapper<Contestant, Models.Contestant> contestantMapper)
         {
             _contestantMapper = contestantMapper;
         }
 
-        public Models.Match Map(War.MatchFactories.MatchWithContestants source)
+        public Models.Match Map(MatchWithContestants source)
         {
             var contestant1 = _contestantMapper.Map(source.Contestant1);
             var contestant2 = _contestantMapper.Map(source.Contestant2);
