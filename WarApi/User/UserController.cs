@@ -20,9 +20,13 @@ namespace WarApi.User
             _mapper = mapper;
         }
 
-        public User.Models.User Get()
+        /// <summary>
+        /// Get information about the authenticated user.
+        /// </summary>
+        /// <returns>User information.</returns>
+        public Models.User Get()
         {
-            var user = _mapper.Map<ClaimsPrincipal, User.Models.User>(User as ClaimsPrincipal);
+            var user = _mapper.Map<ClaimsPrincipal, Models.User>(User as ClaimsPrincipal);
             return user;
         }
     }

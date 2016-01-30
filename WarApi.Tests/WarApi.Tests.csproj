@@ -75,6 +75,8 @@
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Redirect\RedirectControllerTests.cs" />
+    <Compile Include="Redirect\RedirectControllerSanityTests.cs" />
     <Compile Include="TestHelper.cs" />
     <Compile Include="User\Mappers\ClaimsPrincipalMapperTests.cs" />
     <Compile Include="User\UserControllerSanityTests.cs" />

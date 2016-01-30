@@ -142,6 +142,7 @@
   <ItemGroup>
     <Compile Include="App_Start\SwaggerConfig.cs" />
     <Compile Include="App_Start\WebApiConfig.cs" />
+    <Compile Include="Redirect\RedirectController.cs" />
     <Compile Include="User\Mappers\ClaimsPrincipalMapper.cs" />
     <Compile Include="User\Models\User.cs" />
     <Compile Include="User\UserController.cs" />
