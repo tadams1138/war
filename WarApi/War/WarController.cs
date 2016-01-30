@@ -19,8 +19,7 @@ namespace WarApi
     /// War endpoints let you vote on a pair and view the rankings.
     /// </summary>
     [EnableCors(origins: "*", headers: "*", methods: "*", SupportsCredentials = true)]
-    [RoutePrefix("api/War")]
-    [Authorize]
+    [RoutePrefix("api/War")]    
     public class WarController : ApiController
     {
         private readonly IMapper _mapper;
@@ -48,6 +47,7 @@ namespace WarApi
         /// <param name="warId">The War ID.</param>
         /// <returns>Two contestants and a match ID so that you can select the winner of this match by submitting your 
         /// choice to the Vote endpoint.</returns>
+        [Authorize]
         [Route("{warId}/CreateMatch")]
         [HttpPost]
         [HttpGet]
@@ -78,6 +78,7 @@ namespace WarApi
         /// <param name="warId">The War ID.</param>
         /// <param name="request">The vote choice made from the match given by the CreateMatch endpoint.</param>
         /// <returns>No content.</returns>
+        [Authorize]
         [Route("{warId}/Vote")]
         [HttpPost]
         [HttpPut]
