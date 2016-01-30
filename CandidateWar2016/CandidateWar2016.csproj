@@ -64,6 +64,10 @@
     <Content Include="favicon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Images\facebook login.png" />
+    <Content Include="Images\google login.png" />
+    <Content Include="Images\microsoft login.jpg" />
+    <Content Include="Images\twitter login.png" />
     <Content Include="login.controller.js" />
     <Content Include="login.html" />
     <Content Include="match.controller.js" />
