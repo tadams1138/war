@@ -1,7 +1,7 @@
 ﻿using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -13,7 +13,7 @@ namespace WarApi
     public class WarControllerSanityTests
     {
         [TestMethod]
-        [TestCategory("Smoke")]
+        [TestCategory("Sanity")]
         public async Task Contestants_ReturnsOK()
         {
             var principal = TestHelper.CreateStubUnauthenticatedClaimsPrincipal();
@@ -24,21 +24,15 @@ namespace WarApi
         }
 
         [TestMethod]
-        [TestCategory("Smoke")]
-        public async Task GivenUnauthenticatedUser_Contestants_ReturnsUnauthorized()
+        [TestCategory("Sanity")]
+        public async Task GivenUnauthenticatedUser_SecuredEndpoints_ReturnUnauthorized()
         {
             var requests = new[] {
                 CreateRequest(HttpMethod.Post, "api/War/2/Vote"),
                 CreateRequest(HttpMethod.Post, "api/War/2/CreateMatch")
             };
 
-            var tasks = new List<Task>();
-            foreach (var r in requests)
-            {
-                var task = VerifyUnauthorizedReturned(r);
-                tasks.Add(task);
-            }
-
+            var tasks = requests.Select(VerifyUnauthorizedReturned);
             await Task.WhenAll(tasks);
         }
 
@@ -52,18 +46,19 @@ namespace WarApi
 
         private static HttpRequestMessage CreateRequest(HttpMethod httpMethod, string relativeUrl)
         {
+            var requestUri = TestHelper.CreateRelativeUri(relativeUrl);
             var request = new HttpRequestMessage
             {
-                RequestUri = TestHelper.CreateRelativeUri(relativeUrl),
+                RequestUri = requestUri,
                 Method = httpMethod
             };
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             return request;
         }
-        
+
         private static Func<HttpResponseMessage, Task> CreateResponseVerification(HttpStatusCode expectedStatusCode)
         {
-            return (response) =>
+            return response =>
             {
                 response.StatusCode.Should().Be(expectedStatusCode);
                 return Task.FromResult(0);

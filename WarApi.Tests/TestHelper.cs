@@ -23,7 +23,7 @@ namespace WarApi
             stubClaimsPrincipal.Setup(x => x.FindFirst(ClaimTypes.NameIdentifier)).Returns(nameIdentifierClaim);
             return stubClaimsPrincipal.Object;
         }
-        
+
         public static ClaimsPrincipal CreateStubUnauthenticatedClaimsPrincipal()
         {
             var identity = new Mock<IIdentity>();
@@ -34,14 +34,12 @@ namespace WarApi
 
         public static Uri CreateRelativeUri(string url)
         {
-            string _url = "http://warserver/";
-            var uri = new Uri(_url + url);
+            var uri = new Uri("http://warserver/" + url);
             return uri;
         }
 
         public static async Task TestEndpoint(HttpRequestMessage request, IPrincipal principal, Func<HttpResponseMessage, Task> verifyResponse)
         {
-            using (var httpRequestMessage = request)
             using (var config = CreateHttpConfig(principal))
             using (var server = CreateServer(config))
             using (var client = new HttpClient(server))
@@ -77,41 +75,22 @@ namespace WarApi
 
         private static HttpConfiguration CreateHttpConfig(IPrincipal principal)
         {
-            var authenticationFilter = new StubAuthenticationFilter(principal);
             var config = new HttpConfiguration();
             WebApiConfig.Register(config);
-            config.Filters.Add(authenticationFilter);
+            AddAuthenticationFilter(principal, config);
             config.IncludeErrorDetailPolicy = IncludeErrorDetailPolicy.Always;
             return config;
         }
 
-        private class StubAuthenticationFilter : IAuthenticationFilter
+        private static void AddAuthenticationFilter(IPrincipal principal, HttpConfiguration config)
         {
-            private readonly IPrincipal _principal;
-
-            public StubAuthenticationFilter(IPrincipal principal)
-            {
-                _principal = principal;
-            }
-
-            public bool AllowMultiple
-            {
-                get
-                {
-                    return true;
-                }
-            }
-
-            public Task AuthenticateAsync(HttpAuthenticationContext context, CancellationToken cancellationToken)
-            {
-                context.Principal = _principal;
-                return Task.FromResult(0);
-            }
-
-            public Task ChallengeAsync(HttpAuthenticationChallengeContext context, CancellationToken cancellationToken)
-            {
-                return Task.FromResult(0);
-            }
+            var stubAuthenticationFilter = new Mock<IAuthenticationFilter>();
+            stubAuthenticationFilter
+                .Setup(x => x.AuthenticateAsync(It.IsAny<HttpAuthenticationContext>(), It.IsAny<CancellationToken>()))
+                .Callback<HttpAuthenticationContext, CancellationToken>(
+                    (context, cancellationToken) => context.Principal = principal)
+                .Returns(Task.CompletedTask);
+            config.Filters.Add(stubAuthenticationFilter.Object);
         }
     }
 }
