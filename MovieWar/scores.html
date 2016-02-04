@@ -1,14 +1,14 @@
 ﻿<div class="row">
     <div class="col-sm-12">
-        The 2016 US Presidential candidates in order of who has the most votes to who has the least votes.
+        The movies in order of which one has the most votes to the one with the least votes.
         <br />
-        Click <a ng-href="/">New Match</a> to vote for the better candidate in a random match up.
+        Click <a ng-href="/">New Match</a> to vote for the better movie in a random match up.
     </div>
 </div>
 <br />
 <div class="row">
     <div class="col-sm-12">
-        <div class="panel panel-primary" ng-repeat="contestant in vm.contestants | orderBy: '-Score'">
+        <div class="panel panel-danger" ng-repeat="contestant in vm.contestants | orderBy: '-Score'">
             <div class="panel-heading">{{contestant.Contestant.Definition['FirstName']}} {{contestant.Contestant.Definition['LastName']}}</div>
             <div class="panel-body">
                 <div class="row">
