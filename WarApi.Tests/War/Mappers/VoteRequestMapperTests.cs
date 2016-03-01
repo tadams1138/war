@@ -23,7 +23,7 @@ namespace WarApi.Mappers
 
             // Assert
             target.MatchId.Should().Be(source.MatchId);
-            ((int)target.Choice).Should().Be((int)source.Choice);
+            ((int)target.Choice).Should().Be(((int)source.Choice) - 1);
         }
     }
 }

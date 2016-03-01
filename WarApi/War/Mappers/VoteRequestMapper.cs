@@ -9,7 +9,7 @@ namespace WarApi.Mappers
             var target = new VoteRequest
             {
                 MatchId = source.MatchId,
-                Choice = (VoteChoice)((int)source.Choice)
+                Choice = (VoteChoice)((int)source.Choice - 1)
             };
             return target;
         }

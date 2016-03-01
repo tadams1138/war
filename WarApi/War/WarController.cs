@@ -118,6 +118,7 @@ namespace WarApi
             }
 
             var voteRequest = _mapper.Map<Models.VoteRequest, VoteRequest>(request);
+            voteRequest.UserIdentifier = user.Id;
             await _voteRepository.Add(warId, voteRequest);
             return StatusCode(System.Net.HttpStatusCode.NoContent);
         }

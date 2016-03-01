@@ -231,7 +231,7 @@ namespace WarApi
             // Arrange
             _controller.ModelState.Clear();
             var voteRequestModel = new Models.VoteRequest { MatchId = Guid.NewGuid(), Choice = Models.VoteChoice.Contestant2 };
-            var votes = new List<War.Votes.Vote> { new War.Votes.Vote() };
+            var votes = new List<Vote> { new Vote() };
             var match = new War.Matches.Match { UserId = _stubUser.Id };
             _stubMatchRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).ReturnsAsync(match);
             _stubVoteRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).ReturnsAsync(votes);
@@ -262,6 +262,7 @@ namespace WarApi
         {
             result.Should().BeOfType<StatusCodeResult>();
             ((StatusCodeResult)result).StatusCode.Should().Be(HttpStatusCode.NoContent);
+            voteRequest.UserIdentifier.Should().Be(_stubUser.Id);
             _stubVoteRepository.Verify(x => x.Add(warId, voteRequest), Times.Once);
         }
     }
