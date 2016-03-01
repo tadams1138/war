@@ -11,7 +11,7 @@ namespace War.Matches.Sql
     {
         [TestMethod]
         [TestCategory("Integration")]
-        public async Task MatchRepository_CRUD_Tests()
+        public async Task MatchRepository_CRD_Tests()
         {
             const int firstWarId = 1234;
             const int secondWarId = 5678;
@@ -23,22 +23,16 @@ namespace War.Matches.Sql
             var firstMatchWrongWarId = await repository.Get(secondWarId, firstMatch.Id);
             firstMatchWrongWarId.Should().BeNull();
 
-            const VoteChoice voteChoice = VoteChoice.Contestant2Won;
-            var voteRequest = new VoteRequest { MatchId = firstMatch.Id, Choice = voteChoice };
-            await repository.Update(firstWarId, voteRequest);
-            var firstMatchAfterUpdate = await repository.Get(firstWarId, firstMatch.Id);
-            VerifyMatchAfterUpdate(voteChoice, firstMatch, firstMatchAfterUpdate);
-
             var secondMatch = await CreateMatch(repository, firstWarId);
             var thirdMatch = await CreateMatch(repository, secondWarId);
 
             var firstWarCollection = await repository.GetAll(firstWarId);
-            VerifyMatchInCollection(firstWarCollection, firstMatchAfterUpdate);
+            VerifyMatchInCollection(firstWarCollection, firstMatch);
             VerifyMatchInCollection(firstWarCollection, secondMatch);
             VerifyMatchNotInCollection(firstWarCollection, thirdMatch);
 
             var secondWarCollection = await repository.GetAll(secondWarId);
-            VerifyMatchNotInCollection(secondWarCollection, firstMatchAfterUpdate);
+            VerifyMatchNotInCollection(secondWarCollection, firstMatch);
             VerifyMatchNotInCollection(secondWarCollection, secondMatch);
             VerifyMatchInCollection(secondWarCollection, thirdMatch);
 
@@ -63,20 +57,6 @@ namespace War.Matches.Sql
             afterDelete.Should().BeNull();
         }
 
-        private static void VerifyMatchAfterUpdate(VoteChoice voteChoice, Match matchAfterCreation, Match matchAfterUpdate)
-        {
-            matchAfterUpdate.Should().NotBeNull();
-            matchAfterUpdate.Id.Should().Be(matchAfterCreation.Id);
-            matchAfterUpdate.Contestant1.Should().Be(matchAfterCreation.Contestant1);
-            matchAfterUpdate.Contestant2.Should().Be(matchAfterCreation.Contestant2);
-            matchAfterUpdate.Result.Should().Be(voteChoice);
-            matchAfterUpdate.CreatedDate.Should().Be(matchAfterCreation.CreatedDate);
-            matchAfterUpdate.VoteDate.Should().BeAfter(matchAfterCreation.CreatedDate);
-            matchAfterUpdate.UserId.Should().NotBeNull();
-            matchAfterUpdate.UserId.AuthenticationType.Should().Be(matchAfterCreation.UserId.AuthenticationType);
-            matchAfterUpdate.UserId.NameIdentifier.Should().Be(matchAfterCreation.UserId.NameIdentifier);
-        }
-
         private static MatchRequest CreateTestMatch()
         {
             return new MatchRequest
@@ -97,8 +77,6 @@ namespace War.Matches.Sql
             match.Id.Should().Be(id);
             match.Contestant1.Should().Be(request.Contestant1);
             match.Contestant2.Should().Be(request.Contestant2);
-            match.Result.Should().Be(VoteChoice.None);
-            match.VoteDate.HasValue.Should().BeFalse();
             match.CreatedDate.Should().BeCloseTo(DateTime.UtcNow, 10000);
             match.UserId.Should().NotBeNull();
             match.UserId.AuthenticationType.Should().Be(request.UserIdentifier.AuthenticationType);
@@ -120,7 +98,6 @@ namespace War.Matches.Sql
             return match2.Id == match1.Id
                         && match2.Contestant1 == match1.Contestant1
                         && match2.Contestant2 == match1.Contestant2
-                        && match2.Result == match1.Result
                         && match2.UserId != null
                         && match2.UserId.NameIdentifier == match1.UserId.NameIdentifier
                         && match2.UserId.AuthenticationType == match1.UserId.AuthenticationType;

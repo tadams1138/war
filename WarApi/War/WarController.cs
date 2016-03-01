@@ -12,6 +12,7 @@ using War.Wars;
 using War.Matches.Factories;
 using War.Matches;
 using War.Contestants;
+using War.Votes;
 
 namespace WarApi
 {
@@ -29,8 +30,9 @@ namespace WarApi
         private readonly IMatchRepository _matchRepository;
         private readonly IContestantRepository _contestantRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IVoteRepository _voteRepository;
 
-        public WarController(IMapper mapper, IRankingService rankingService, IWarRepository warRepo, IMatchFactory matchFactory, IMatchRepository matchRepository, IContestantRepository contestantRepository, IUserRepository userRepository)
+        public WarController(IMapper mapper, IRankingService rankingService, IWarRepository warRepo, IMatchFactory matchFactory, IMatchRepository matchRepository, IContestantRepository contestantRepository, IUserRepository userRepository, IVoteRepository voteRepository)
         {
             _mapper = mapper;
             _rankingService = rankingService;
@@ -39,6 +41,7 @@ namespace WarApi
             _matchRepository = matchRepository;
             _contestantRepository = contestantRepository;
             _userRepository = userRepository;
+            _voteRepository = voteRepository;
         }
 
         /// <summary>
@@ -108,13 +111,14 @@ namespace WarApi
                 return Unauthorized();
             }
 
-            if (existingMatch.Result != VoteChoice.None)
+            var votes = await _voteRepository.Get(warId, request.MatchId);
+            if (votes.Any())
             {
                 return Conflict();
             }
 
             var voteRequest = _mapper.Map<Models.VoteRequest, VoteRequest>(request);
-            await _matchRepository.Update(warId, voteRequest);
+            await _voteRepository.Add(warId, voteRequest);
             return StatusCode(System.Net.HttpStatusCode.NoContent);
         }
 

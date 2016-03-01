@@ -53,7 +53,7 @@ namespace War.Users.Sql
             command.CommandText =
 @"IF EXISTS (   
                 SELECT [NameIdentifier] 
-                FROM [dbo].[Users] 
+                FROM [dbo].[Users] WITH (NOLOCK) 
                 WHERE 
                     [NameIdentifier] = @nameIdentifier 
                     AND [AuthenticationType] = @authenticationType
@@ -102,7 +102,7 @@ ELSE
         private SqlCommand CreateSelectCommand(UserIdentifier userIdentifier, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT [Name] FROM [dbo].[Users] WHERE [AuthenticationType] = @authenticationType AND [NameIdentifier] = @nameIdentifier;";
+            command.CommandText = "SELECT [Name] FROM [dbo].[Users] WITH (NOLOCK) WHERE [AuthenticationType] = @authenticationType AND [NameIdentifier] = @nameIdentifier;";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@authenticationType", userIdentifier.AuthenticationType);
             command.Parameters.AddWithValue("@nameIdentifier", userIdentifier.NameIdentifier);

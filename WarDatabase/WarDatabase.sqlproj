@@ -109,6 +109,7 @@
     <Folder Include="Properties" />
     <Folder Include="dbo\" />
     <Folder Include="dbo\Tables\" />
+    <Folder Include="Scripts" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="dbo\Tables\Wars.sql">
@@ -127,9 +128,11 @@
       <AnsiNulls>On</AnsiNulls>
       <QuotedIdentifier>On</QuotedIdentifier>
     </Build>
+    <Build Include="dbo\Tables\Votes.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="WarDatabase.publish.xml" />
     <None Include="WarDatabaseTest.publish.xml" />
+    <None Include="Scripts\CopyVotesIntoVoteTable.sql" />
   </ItemGroup>
 </Project>

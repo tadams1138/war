@@ -3,44 +3,41 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
-using System.Linq;
 using War.Users;
 
-namespace War.Matches.Sql
+namespace War.Votes.Sql
 {
-    public class MatchRepository : IMatchRepository
+    public class VoteRepository : IVoteRepository
     {
-        const string GetFieldList = "[Id], [Contestant1], [Contestant2], [CreatedDate], [AuthenticationType], [NameIdentifier]";
+        const string GetFieldList = "[MatchId], [Choice], [Created], [AuthenticationType], [NameIdentifier]";
         private readonly string _connectionString;
 
-        public MatchRepository(string connectionString)
+        public VoteRepository(string connectionString)
         {
             _connectionString = connectionString;
         }
 
-        public async Task<Guid> Create(int warId, MatchRequest request)
+        public async Task Add(int warId, VoteRequest request)
         {
             using (var connection = await CreateOpenConnection())
             using (var command = CreateInsertCommand(warId, request, connection))
             {
-                var id = (Guid)await command.ExecuteScalarAsync();
-                return id;
+                await command.ExecuteNonQueryAsync();
             }
         }
 
-        public async Task<Match> Get(int warId, Guid matchId)
+        public async Task<IEnumerable<Vote>> Get(int warId, Guid matchId)
         {
             using (var connection = await CreateOpenConnection())
             using (var command = CreateGetCommand(warId, matchId, connection))
             using (var reader = await command.ExecuteReaderAsync())
             {
                 var results = await GetAll(reader);
-                var result = results.SingleOrDefault();
-                return result;
+                return results;
             }
         }
 
-        public async Task<IEnumerable<Match>> GetAll(int warId)
+        public async Task<IEnumerable<Vote>> GetAll(int warId)
         {
             using (var connection = await CreateOpenConnection())
             using (var command = CreateGetAllCommand(warId, connection))
@@ -51,51 +48,49 @@ namespace War.Matches.Sql
             }
         }
 
-        public async Task Delete(int warId, Guid id)
+        public async Task Delete(int warId, Guid matchId)
         {
             using (var connection = await CreateOpenConnection())
-            using (var command = CreateDeleteCommand(warId, id, connection))
+            using (var command = CreateDeleteCommand(warId, matchId, connection))
                 await command.ExecuteNonQueryAsync();
         }
 
-        private Match CreateMatch(SqlDataReader reader)
+        private Vote CreateVote(SqlDataReader reader)
         {
-            var createdDate = reader.GetDateTime(3);
-            var contestant2 = reader.GetGuid(2);
-            var contestant1 = reader.GetGuid(1);
             var id = reader.GetGuid(0);
-            var authenticationType = reader.GetString(4);
-            var nameIdentidier = reader.GetString(5);
+            var choice = (VoteChoice)reader.GetInt16(1);
+            var createdDate = reader.GetDateTime(2);
+            var authenticationType = reader.GetString(3);
+            var nameIdentidier = reader.GetString(4);
             var userId = new UserIdentifier
             {
                 AuthenticationType = authenticationType,
                 NameIdentifier = nameIdentidier
             };
-            var result = new Match
+            var result = new Vote
             {
-                Id = id,
-                Contestant1 = contestant1,
-                Contestant2 = contestant2,
+                MatchId = id,
+                Choice = choice,
                 CreatedDate = createdDate,
                 UserId = userId
             };
             return result;
         }
-        
+
         private SqlCommand CreateGetAllCommand(int warId, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = $"SELECT {GetFieldList} FROM [dbo].[Matches] WITH (NOLOCK) WHERE [WarId] = @WarId;";
+            command.CommandText = $"SELECT {GetFieldList} FROM [dbo].[Votes] WITH (NOLOCK) WHERE [WarId] = @WarId;";
             command.Parameters.AddWithValue("@WarId", warId);
             return command;
         }
 
-        private async Task<IEnumerable<Match>> GetAll(SqlDataReader reader)
+        private async Task<IEnumerable<Vote>> GetAll(SqlDataReader reader)
         {
-            var results = new List<Match>();
+            var results = new List<Vote>();
             while (await reader.ReadAsync())
             {
-                var match = CreateMatch(reader);
+                var match = CreateVote(reader);
                 results.Add(match);
             }
             return results;
@@ -104,30 +99,30 @@ namespace War.Matches.Sql
         private static SqlCommand CreateGetCommand(int warId, Guid matchId, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = $"SELECT {GetFieldList} FROM [dbo].[Matches] WITH (NOLOCK) WHERE [WarId] = @WarId AND [Id] = @Id;";
+            command.CommandText = $"SELECT {GetFieldList} FROM [dbo].[Votes] WITH (NOLOCK) WHERE [WarId] = @WarId AND [MatchId] = @MatchId;";
             command.Parameters.AddWithValue("@WarId", warId);
-            command.Parameters.AddWithValue("@Id", matchId);
+            command.Parameters.AddWithValue("@MatchId", matchId);
             return command;
         }
-        
+
         private static SqlCommand CreateDeleteCommand(int warId, Guid id, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM [dbo].[Matches] WHERE [Id] = @Id AND [WarId] = @WarId;";
+            command.CommandText = "DELETE FROM [dbo].[Votes] WHERE [MatchId] = @MatchId AND [WarId] = @WarId;";
             command.CommandType = CommandType.Text;
-            command.Parameters.AddWithValue("@Id", id);
+            command.Parameters.AddWithValue("@MatchId", id);
             command.Parameters.AddWithValue("@WarId", warId);
             return command;
         }
 
-        private static SqlCommand CreateInsertCommand(int warId, MatchRequest request, SqlConnection connection)
+        private static SqlCommand CreateInsertCommand(int warId, VoteRequest request, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO [dbo].[Matches] (Contestant1, Contestant2, WarId, Id, CreatedDate, AuthenticationType, NameIdentifier) OUTPUT inserted.[Id] VALUES (@Contestant1, @Contestant2, @WarId, NEWID(), @CreatedDateTime, @AuthenticationType, @NameIdentifier);";
+            command.CommandText = "INSERT INTO [dbo].[Votes] (WarId, Choice, MatchId, Created, AuthenticationType, NameIdentifier) VALUES (@WarId, @Choice, @MatchId, @CreatedDateTime, @AuthenticationType, @NameIdentifier);";
             command.CommandType = CommandType.Text;
-            command.Parameters.AddWithValue("@Contestant1", request.Contestant1);
-            command.Parameters.AddWithValue("@Contestant2", request.Contestant2);
             command.Parameters.AddWithValue("@WarId", warId);
+            command.Parameters.AddWithValue("@Choice", request.Choice);
+            command.Parameters.AddWithValue("@MatchId", request.MatchId);
             command.Parameters.AddWithValue("@AuthenticationType", request.UserIdentifier.AuthenticationType);
             command.Parameters.AddWithValue("@NameIdentifier", request.UserIdentifier.NameIdentifier);
             command.Parameters.AddWithValue("@CreatedDateTime", DateTime.UtcNow);

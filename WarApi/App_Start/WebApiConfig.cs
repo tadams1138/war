@@ -10,6 +10,8 @@ using War.Matches.Sql;
 using War.RankingServices;
 using War.Users;
 using War.Users.Sql;
+using War.Votes;
+using War.Votes.Sql;
 using War.Wars;
 using War.Wars.Sql;
 using WarApi.Mappers;
@@ -50,6 +52,7 @@ namespace WarApi
             builder.Register(c => new MatchRepository(sqlServerConnectionString)).As<IMatchRepository>();
             builder.Register(c => new WarRepository(sqlServerConnectionString)).As<IWarRepository>();
             builder.Register(c => new UserRepository(sqlServerConnectionString)).As<IUserRepository>();
+            builder.Register(c => new VoteRepository(sqlServerConnectionString)).As<IVoteRepository>();
 
             var container = builder.Build();
             config.DependencyResolver = new AutofacWebApiDependencyResolver(container);

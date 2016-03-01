@@ -12,6 +12,7 @@ using War.Matches;
 using War.Matches.Factories;
 using War.RankingServices;
 using War.Users;
+using War.Votes;
 using War.Wars;
 using WarApi.Mappers;
 
@@ -31,10 +32,12 @@ namespace WarApi
         private Mock<IContestantRepository> _stubContestantRepository;
         private War.Users.User _stubUser;
         private Mock<IUserRepository> _stubUserRepository;
+        private Mock<IVoteRepository> _stubVoteRepository;
 
         [TestInitialize]
         public void InitializeTests()
         {
+            _stubVoteRepository = new Mock<IVoteRepository>();
             _stubContestantRepository = new Mock<IContestantRepository>();
             _stubWarRepo = new Mock<IWarRepository>();
             _stubRankingService = new Mock<IRankingService>();
@@ -45,7 +48,7 @@ namespace WarApi
             _stubUser = new War.Users.User { Id = new UserIdentifier { AuthenticationType = Guid.NewGuid().ToString(), NameIdentifier = Guid.NewGuid().ToString() } };
             _stubMapper = new Mock<IMapper>();
             _stubMapper.Setup(x => x.Map<ClaimsPrincipal, War.Users.User>(stubClaimsPrincipal)).Returns(_stubUser);
-            _controller = new WarController(_stubMapper.Object, _stubRankingService.Object, _stubWarRepo.Object, _stubMatchFactory.Object, _stubMatchRepository.Object, _stubContestantRepository.Object, _stubUserRepository.Object)
+            _controller = new WarController(_stubMapper.Object, _stubRankingService.Object, _stubWarRepo.Object, _stubMatchFactory.Object, _stubMatchRepository.Object, _stubContestantRepository.Object, _stubUserRepository.Object, _stubVoteRepository.Object)
             {
                 User = stubClaimsPrincipal
             };
@@ -213,7 +216,7 @@ namespace WarApi
             var voteRequest = new VoteRequest();
             var existingMatch = new War.Matches.Match { UserId = new UserIdentifier { AuthenticationType = Guid.NewGuid().ToString(), NameIdentifier = Guid.NewGuid().ToString() } };
             _stubMapper.Setup(x => x.Map<Models.VoteRequest, VoteRequest>(voteRequestModel)).Returns(voteRequest);
-            _stubMatchRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).Returns(Task.FromResult(existingMatch));
+            _stubMatchRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).ReturnsAsync(existingMatch);
 
             // Act
             var result = await _controller.Vote(ValidWarId, voteRequestModel);
@@ -223,12 +226,21 @@ namespace WarApi
         }
 
         [TestMethod()]
-        public async Task GivenValidWarIdAndExistingMatch_Vote_ReturnsExpectedResult()
+        public async Task GivenValidWarIdAndExistingVote_Vote_ReturnsExpectedResult()
         {
-            await VerifyVoteReturnsConflict(VoteChoice.Contestant1Won, false);
-            await VerifyVoteReturnsConflict(VoteChoice.Contestant2Won, false);
-            await VerifyVoteReturnsConflict(VoteChoice.Pass, false);
-            await VerifyVoteReturnsNoContent(VoteChoice.None, true);
+            // Arrange
+            _controller.ModelState.Clear();
+            var voteRequestModel = new Models.VoteRequest { MatchId = Guid.NewGuid(), Choice = Models.VoteChoice.Contestant2 };
+            var votes = new List<War.Votes.Vote> { new War.Votes.Vote() };
+            var match = new War.Matches.Match { UserId = _stubUser.Id };
+            _stubMatchRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).ReturnsAsync(match);
+            _stubVoteRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).ReturnsAsync(votes);
+
+            // Act
+            var result = await _controller.Vote(ValidWarId, voteRequestModel);
+
+            // Assert            
+            result.Should().BeOfType<ConflictResult>();
         }
 
         #endregion
@@ -245,46 +257,12 @@ namespace WarApi
             _stubUserRepository.Verify(x => x.Upsert(_stubUser), Times.Never);
             result.Should().BeOfType<ConflictResult>();
         }
-
-        private async Task VerifyVoteReturnsConflict(VoteChoice existingVoteChoice, bool shouldSucceed)
-        {
-            // Arrange
-            _controller.ModelState.Clear();
-            var voteRequestModel = new Models.VoteRequest { MatchId = Guid.NewGuid(), Choice = Models.VoteChoice.Contestant2 };
-            var voteRequest = new VoteRequest();
-            var match = new War.Matches.Match { Result = existingVoteChoice, UserId = _stubUser.Id };
-            _stubMatchRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).Returns(Task.FromResult(match));
-            _stubMapper.Setup(x => x.Map<Models.VoteRequest, VoteRequest>(voteRequestModel)).Returns(voteRequest);
-
-            // Act
-            var result = await _controller.Vote(ValidWarId, voteRequestModel);
-
-            // Assert            
-            result.Should().BeOfType<ConflictResult>();
-        }
-
-        private async Task VerifyVoteReturnsNoContent(VoteChoice existingVoteChoice, bool shouldSucceed)
-        {
-            // Arrange
-            _controller.ModelState.Clear();
-            var voteRequestModel = new Models.VoteRequest { MatchId = Guid.NewGuid(), Choice = Models.VoteChoice.Contestant2 };
-            var voteRequest = new VoteRequest();
-            var match = new War.Matches.Match { Result = existingVoteChoice, UserId = _stubUser.Id };
-            _stubMatchRepository.Setup(x => x.Get(ValidWarId, voteRequestModel.MatchId)).Returns(Task.FromResult(match));
-            _stubMapper.Setup(x => x.Map<Models.VoteRequest, VoteRequest>(voteRequestModel)).Returns(voteRequest);
-
-            // Act
-            var result = await _controller.Vote(ValidWarId, voteRequestModel);
-
-            // Assert            
-            VerifyReturnsNoContent(ValidWarId, voteRequest, result);
-        }
-
+        
         private void VerifyReturnsNoContent(int warId, VoteRequest voteRequest, System.Web.Http.IHttpActionResult result)
         {
             result.Should().BeOfType<StatusCodeResult>();
             ((StatusCodeResult)result).StatusCode.Should().Be(HttpStatusCode.NoContent);
-            _stubMatchRepository.Verify(x => x.Update(warId, voteRequest), Times.Once);
+            _stubVoteRepository.Verify(x => x.Add(warId, voteRequest), Times.Once);
         }
     }
 }

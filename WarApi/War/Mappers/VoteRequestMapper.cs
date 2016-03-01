@@ -1,4 +1,4 @@
-﻿using War.Matches;
+﻿using War.Votes;
 
 namespace WarApi.Mappers
 {

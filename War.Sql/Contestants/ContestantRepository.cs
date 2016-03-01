@@ -111,7 +111,7 @@ namespace War.Contestants.Sql
         private static SqlCommand CreateSelectCommand(int warId, SqlConnection connection, int index)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT [Id], [Definition] FROM [dbo].[Contestants] WHERE [WarId] = @WarId ORDER BY [Id] OFFSET @Index ROWS FETCH NEXT 1 ROWS ONLY;";
+            command.CommandText = "SELECT [Id], [Definition] FROM [dbo].[Contestants] WITH (NOLOCK) WHERE [WarId] = @WarId ORDER BY [Id] OFFSET @Index ROWS FETCH NEXT 1 ROWS ONLY;";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@WarId", warId);
             command.Parameters.AddWithValue("@Index", index);
@@ -121,7 +121,7 @@ namespace War.Contestants.Sql
         private static SqlCommand CreateSelectAllCommand(int warId, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT [Id], [Definition] FROM [dbo].[Contestants] WHERE [WarId] = @WarId;";
+            command.CommandText = "SELECT [Id], [Definition] FROM [dbo].[Contestants] WITH (NOLOCK) WHERE [WarId] = @WarId;";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@WarId", warId);
             return command;
@@ -159,7 +159,7 @@ namespace War.Contestants.Sql
         private static SqlCommand CreateGetCountCommand(int warId, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT COUNT(*) FROM [dbo].[Contestants] WHERE [WarId] = @WarId;";
+            command.CommandText = "SELECT COUNT(*) FROM [dbo].[Contestants] WITH (NOLOCK) WHERE [WarId] = @WarId;";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@WarId", warId);
             return command;

@@ -45,6 +45,7 @@
     <Compile Include="Matches\MatchRepository.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Users\UserRepository.cs" />
+    <Compile Include="Votes\VoteRepository.cs" />
     <Compile Include="Wars\WarRepository.cs" />
     <Compile Include="Wars\WarRequest.cs" />
   </ItemGroup>

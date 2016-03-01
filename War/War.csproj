@@ -42,14 +42,16 @@
   <ItemGroup>
     <Compile Include="Contestants\Contestant.cs" />
     <Compile Include="Contestants\IContestantRepository.cs" />
+    <Compile Include="Votes\IVoteRepository.cs" />
     <Compile Include="Users\IUserRepository.cs" />
     <Compile Include="Matches\Factories\IMatchFactory.cs" />
+    <Compile Include="Votes\Vote.cs" />
     <Compile Include="Wars\IWarRepository.cs" />
     <Compile Include="Matches\Factories\MatchWithContestants.cs" />
     <Compile Include="Matches\MatchRequest.cs" />
     <Compile Include="Users\User.cs" />
     <Compile Include="Users\UserIdentifier.cs" />
-    <Compile Include="Matches\VoteChoice.cs" />
+    <Compile Include="Votes\VoteChoice.cs" />
     <Compile Include="Matches\Factories\RandomMatchStrategy.cs" />
     <Compile Include="RankingServices\ContestantWithScore.cs" />
     <Compile Include="RankingServices\IRankingService.cs" />
@@ -57,7 +59,7 @@
     <Compile Include="Matches\IMatchRepository.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RankingServices\SumDistinctWinsRankingStrategy.cs" />
-    <Compile Include="Matches\VoteRequest.cs" />
+    <Compile Include="Votes\VoteRequest.cs" />
     <Compile Include="Wars\War.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

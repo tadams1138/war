@@ -3,6 +3,7 @@ using System.Security.Claims;
 using War.Matches;
 using War.Matches.Factories;
 using War.RankingServices;
+using War.Votes;
 
 namespace WarApi.Mappers
 {

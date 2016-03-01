@@ -13,7 +13,7 @@ namespace War.Wars.Sql
             _connectionString = connectionString;
         }
 
-        public async Task<Wars.War> Get(int id)
+        public async Task<War> Get(int id)
         {
             using (var connection = await CreateOpenConnection())
             using (var command = CreateGetCommand(id, connection))
@@ -45,10 +45,10 @@ namespace War.Wars.Sql
             }
         }
 
-        private Wars.War CreateWar(SqlDataReader reader)
+        private War CreateWar(SqlDataReader reader)
         {
             var title = reader.GetString(1);
-            var result = new Wars.War
+            var result = new War
             {
                 Title = title
             };
@@ -58,7 +58,7 @@ namespace War.Wars.Sql
         private SqlCommand CreateGetCommand(int id, SqlConnection connection)
         {
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT [Id], [Title] FROM [dbo].[Wars] WHERE [Id] = @Id;";
+            command.CommandText = "SELECT [Id], [Title] FROM [dbo].[Wars] WITH (NOLOCK) WHERE [Id] = @Id;";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@Id", id);
             return command;

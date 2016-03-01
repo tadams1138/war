@@ -66,6 +66,7 @@
     <Compile Include="Matches\MatchRepositoryTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Users\UserRepositoryTests.cs" />
+    <Compile Include="Votes\VoteRepositoryTests.cs" />
     <Compile Include="Wars\WarRepositoryTests.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -6,7 +6,6 @@ namespace War.Matches
 {
     public interface IMatchRepository
     {
-        Task Update(int warId, VoteRequest voteRequest);
         Task<IEnumerable<Match>> GetAll(int warId);
         Task<Match> Get(int warId, Guid matchId);
         Task<Guid> Create(int warId, MatchRequest matchRequest);
