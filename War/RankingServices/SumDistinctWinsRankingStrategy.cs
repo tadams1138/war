@@ -25,19 +25,23 @@ namespace War.RankingServices
             var matches = await _matchRepository.GetAll(warId);
             var votes = await _voteRepository.GetAll(warId);
 
-            var scores = (from v in votes.Where(v => v.Choice != VoteChoice.Pass)
-                         from m in matches.Where(m => m.Id == v.MatchId)
-                         select (v.Choice == VoteChoice.Contestant1Won ? m.Contestant1 : m.Contestant2))
-                         .GroupBy(x => x)
-                         .Select(group => new { Id = group.Key, Score = group.Count() });
+            var winners = from v in votes
+                          join m in matches on v.MatchId equals m.Id
+                          where v.Choice != VoteChoice.Pass                                                
+                          select (v.Choice == VoteChoice.Contestant1Won ? m.Contestant1 : m.Contestant2);
+
+            var scores = from w in winners
+                         group w by w into g
+                         select new { Id = g.Key, Score = g.Count() };
 
             var results = from c in contestants
-                         from s in scores.Where(s => s.Id == c.Id).DefaultIfEmpty()
-                         select new ContestantWithScore
-                         {
-                             Contestant = c,
-                             Score = s == null ? 0 : s.Score
-                         };
+                          join s in scores on c.Id equals s.Id into scoredGroup
+                          from score in scoredGroup.DefaultIfEmpty()
+                          select new ContestantWithScore
+                          {
+                              Contestant = c,
+                              Score = score == null ? 0 : score.Score
+                          };
             return results;
         }
     }
