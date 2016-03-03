@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using War.Contestants;
 using War.Matches;
@@ -13,21 +14,32 @@ namespace War.RankingServices
     [TestClass()]
     public class SumDistinctWinsRankingServiceTests
     {
-        private Guid _aNewHope = Guid.NewGuid();
-        private Guid _empireStrikesBack = Guid.NewGuid();
-        private Guid _returnOfTheJedi = Guid.NewGuid();
-        private Guid _phantomMenace = Guid.NewGuid();
-        private Guid _attackOfTheClones = Guid.NewGuid();
-        private Guid _revengeOfTheSith = Guid.NewGuid();
+        private SumDistinctWinsRankingStrategy service;
+        private Mock<IContestantRepository> _stubContestantRepo;
+        private Mock<IMatchRepository> _stubMatchRepo;
+        private Mock<IVoteRepository> _stubVoteRepo;
+        const int WarId = 1234;
+
+        [TestInitialize]
+        public void InitializeTests()
+        {
+            _stubContestantRepo = new Mock<IContestantRepository>();
+            _stubMatchRepo = new Mock<IMatchRepository>();
+            _stubVoteRepo = new Mock<IVoteRepository>();
+            service = new SumDistinctWinsRankingStrategy(_stubMatchRepo.Object, _stubContestantRepo.Object, _stubVoteRepo.Object);
+        }
 
         [TestMethod()]
         public async Task GivenMatches_GetRankings_ReturnsExpectedRankings()
         {
             // Arrange
-            int warId = 1234;
-            var stubMatchRepo = new Mock<IMatchRepository>();
-            var stubContestantRepo = new Mock<IContestantRepository>();
-            var stubVoteRepo = new Mock<IVoteRepository>();
+            var _aNewHope = Guid.NewGuid();
+            var _empireStrikesBack = Guid.NewGuid();
+            var _returnOfTheJedi = Guid.NewGuid();
+            var _phantomMenace = Guid.NewGuid();
+            var _attackOfTheClones = Guid.NewGuid();
+            var _revengeOfTheSith = Guid.NewGuid();
+
             var matches = new List<Matches.Match> {
                 new Matches.Match { Id = Guid.NewGuid(), Contestant1 = _aNewHope, Contestant2 = _returnOfTheJedi },
                 new Matches.Match { Id = Guid.NewGuid(), Contestant1 = _returnOfTheJedi, Contestant2 = _empireStrikesBack },
@@ -86,13 +98,12 @@ namespace War.RankingServices
                 new Contestant { Id = _phantomMenace } ,
                 new Contestant { Id = _attackOfTheClones } ,
                 new Contestant { Id = _revengeOfTheSith } };
-            stubContestantRepo.Setup(x => x.GetAll(warId)).Returns(Task.FromResult<IEnumerable<Contestant>>(contestants));
-            stubMatchRepo.Setup(x => x.GetAll(warId)).Returns(Task.FromResult((IEnumerable<Matches.Match>)matches));
-            stubVoteRepo.Setup(x => x.GetAll(warId)).ReturnsAsync(votes);
-            var service = new SumDistinctWinsRankingStrategy(stubMatchRepo.Object, stubContestantRepo.Object, stubVoteRepo.Object);
+            _stubContestantRepo.Setup(x => x.GetAll(WarId)).Returns(Task.FromResult<IEnumerable<Contestant>>(contestants));
+            _stubMatchRepo.Setup(x => x.GetAll(WarId)).Returns(Task.FromResult((IEnumerable<Matches.Match>)matches));
+            _stubVoteRepo.Setup(x => x.GetAll(WarId)).ReturnsAsync(votes);
 
             // Act
-            var result = await service.GetRankings(warId);
+            var result = await service.GetRankings(WarId);
 
             // Assert
             result.Should().Contain(x => x.Contestant.Id == _returnOfTheJedi && x.Score == 7);
@@ -101,6 +112,72 @@ namespace War.RankingServices
             result.Should().Contain(x => x.Contestant.Id == _revengeOfTheSith && x.Score == 0);
             result.Should().Contain(x => x.Contestant.Id == _attackOfTheClones && x.Score == 0);
             result.Should().Contain(x => x.Contestant.Id == _phantomMenace && x.Score == 0);
+        }
+
+        [TestMethod]
+        public async Task GetRankings_LoadTest()
+        {
+            // Arrange
+            List<Contestant> contestants = CreateTestContestants(24);
+            List<Matches.Match> matches = CreateTestMatches(contestants, 1000000);
+            List<Vote> votes = CreateTestVotes(matches);
+            _stubContestantRepo.Setup(x => x.GetAll(WarId)).ReturnsAsync(contestants);
+            _stubMatchRepo.Setup(x => x.GetAll(WarId)).ReturnsAsync(matches);
+            _stubVoteRepo.Setup(x => x.GetAll(WarId)).ReturnsAsync(votes);
+            var stopWatch = new Stopwatch();
+
+            // Act
+            stopWatch.Start();
+            var results = await service.GetRankings(WarId);
+            foreach (var c in results)
+            {
+                Console.WriteLine($"{c.Contestant.Id} {c.Score}");
+            }
+            stopWatch.Stop();
+            Console.WriteLine($"ElapsedMilliseconds = {stopWatch.ElapsedMilliseconds}");
+
+            // Assert
+            stopWatch.ElapsedMilliseconds.Should().BeLessThan(3000);
+        }
+
+        private static List<Vote> CreateTestVotes(List<Matches.Match> matches)
+        {
+            var votes = new List<Vote>();
+            var count = 0;
+            foreach (var m in matches)
+            {
+                var vote = new Vote { MatchId = m.Id, Choice = (VoteChoice)(count % 3) };
+                votes.Add(vote);
+                count++;
+            }
+
+            return votes;
+        }
+
+        private static List<Matches.Match> CreateTestMatches(List<Contestant> contestants, int count)
+        {
+            var matches = new List<Matches.Match>();
+            var contestantCount = contestants.Count;
+            for (var i = 0; i < count; i++)
+            {
+                var contestant = contestants[i % contestantCount];
+                var match = new Matches.Match { Id = Guid.NewGuid(), Contestant1 = contestant.Id, Contestant2 = contestant.Id };
+                matches.Add(match);
+            }
+
+            return matches;
+        }
+
+        private static List<Contestant> CreateTestContestants(int count)
+        {
+            var contestants = new List<Contestant>();
+            for (var i = 0; i < count - 1; i++)
+            {
+                var contestant = new Contestant { Id = Guid.NewGuid() };
+                contestants.Add(contestant);
+            }
+
+            return contestants;
         }
     }
 }
