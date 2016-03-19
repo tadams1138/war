@@ -282,6 +282,7 @@ namespace CandidateWar2016
             LindseyGraham
         };
 
+        [Ignore]
         [TestMethod]
         public async Task SyncContestants()
         {
