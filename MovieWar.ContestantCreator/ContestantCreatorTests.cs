@@ -3,7 +3,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
 using FluentAssertions;
 using System.Threading.Tasks;
-using System;
 using System.Collections.Generic;
 using War.Contestants.Sql;
 
@@ -12,6 +11,7 @@ namespace MovieWar.ContestantCreator
     [TestClass]
     public class ContestantCreatorTests
     {
+        [Ignore]
         [TestMethod]
         public async Task GivenMovieIdentifiers_Create_ReturnsContestantRequests()
         {

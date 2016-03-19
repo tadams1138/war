@@ -1,18 +1,15 @@
-﻿using FluentAssertions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using War.Contestants;
 using War.Contestants.Sql;
-using War.Wars.Sql;
+using War.Sql.Contestants;
 
 namespace CandidateWar2016
 {
     [TestClass]
     public class ContestantsCreator
     {
-        const int WarId = 2;
         const string LastName = "LastName";
         const string FirstName = "FirstName";
 
@@ -287,55 +284,13 @@ namespace CandidateWar2016
         public async Task SyncContestants()
         {
             var sqlServerConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["WarDb"].ConnectionString;
-            await VerifyThatTheWarIdIsCorrect(sqlServerConnectionString);
-            
-            var repository = new ContestantRepository(sqlServerConnectionString);
-            var existingContestants = await repository.GetAll(WarId);
-
-            await UpdateExistingCandidates(repository, existingContestants, contestants);
-            await InsertNewCandidates(repository, existingContestants, contestants);
-        }
-
-        private static async Task UpdateExistingCandidates(ContestantRepository repository, IEnumerable<Contestant> existingContestants, ContestantRequest[] contestants)
-        {
-            var updates = contestants.Where(c1 => existingContestants.Any(c2 => IsTheSame(c2, c1)))
-                                    .Select(c => new Contestant
-                                    {
-                                        Definition = c.Definition,
-                                        Id = existingContestants.Single(c1 => IsTheSame(c1, c)).Id
-                                    });
-            var tasks = new List<Task>();
-            foreach (var c in updates)
-            {
-                var task = repository.Update(WarId, c);
-                tasks.Add(task);
-            }
-            await Task.WhenAll(tasks);
-        }
-
-        private static async Task InsertNewCandidates(ContestantRepository repository, IEnumerable<Contestant> existingContestants, ContestantRequest[] contestants)
-        {
-            var additions = contestants.Where(c1 => !existingContestants.Any(c2 => IsTheSame(c2, c1)));
-
-            var tasks = new List<Task>();
-            foreach (var c in additions)
-            {
-                var task = repository.Create(WarId, c);
-                tasks.Add(task);
-            }
-            await Task.WhenAll(tasks);
+            var synchronizer = new ContestantSynchronizer();
+            await synchronizer.SyncContestants(sqlServerConnectionString, contestants, 2, "Presidential Candidate War 2016", IsTheSame);
         }
 
         private static bool IsTheSame(Contestant c1, ContestantRequest c2)
         {
             return c2.Definition[LastName] == c1.Definition[LastName] && c2.Definition[FirstName] == c1.Definition[FirstName];
-        }
-
-        private static async Task VerifyThatTheWarIdIsCorrect(string connectionString)
-        {
-            var warRepo = new WarRepository(connectionString);
-            var war = await warRepo.Get(WarId);
-            war.Title.Should().Be("Presidential Candidate War 2016", "you may have set the wrong War ID");
         }
     }
 }
