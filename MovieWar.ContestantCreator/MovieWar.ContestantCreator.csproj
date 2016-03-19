@@ -83,6 +83,7 @@
       <Link>ConnectionStrings.config</Link>
     </None>
     <None Include="App.config" />
+    <None Include="MovieContestants.json" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
