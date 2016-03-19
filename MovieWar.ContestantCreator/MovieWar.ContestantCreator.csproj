@@ -87,7 +87,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="MovieIdentifiers.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
   <ItemGroup>
