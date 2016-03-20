@@ -21,7 +21,7 @@ namespace MovieWar.ContestantCreator
                 {
                     failures.Add(m);
                 }
-                else
+                else if (movieContestant.Definition["Poster"] != null)
                 {
                     contestants.Add(movieContestant);
                 }
