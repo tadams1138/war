@@ -145,10 +145,7 @@
     <Content Include="packages.config">
       <SubType>Designer</SubType>
     </Content>
-    <Content Include="..\..\ConnectionStrings.config">
-      <Link>ConnectionStrings.config</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <Content Include="SecretConnectionStrings.config" />
     <None Include="Project_Readme.html" />
   </ItemGroup>
   <ItemGroup>
@@ -167,6 +164,8 @@
     <Compile Include="War\Mappers\MatchMapper.cs" />
     <Compile Include="War\Mappers\VoteRequestMapper.cs" />
     <Compile Include="War\Models\Contestant.cs" />
+    <Compile Include="War\Models\ContestantSearchRequest.cs" />
+    <Compile Include="War\Models\ContestantSearchResults.cs" />
     <Compile Include="War\Models\VoteChoice.cs" />
     <Compile Include="War\Models\VoteRequest.cs" />
     <Compile Include="War\Models\ContestantWithScore.cs" />

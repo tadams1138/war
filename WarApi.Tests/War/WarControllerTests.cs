@@ -134,6 +134,54 @@ namespace WarApi
 
         #endregion
 
+        #region SearchContestants Tests
+        [TestMethod()]
+        public async Task GivenValidWarId_SearchContestants_ReturnsRankings()
+        {
+            // Arrange
+            var contestant1 = new ContestantWithScore { Score = 1 };
+            var contestant2 = new ContestantWithScore { Score = 2 };
+            var contestant3 = new ContestantWithScore { Score = 3 };
+            var contestant4 = new ContestantWithScore { Score = 4 };
+            var contestantRankingModel1 = new Models.ContestantWithScore();
+            var contestantRankingModel2 = new Models.ContestantWithScore();
+            var contestants = new[] { contestant1, contestant2, contestant3, contestant4 };
+            var contestantRankingModels = new List<Models.ContestantWithScore> { contestantRankingModel2, contestantRankingModel1 };
+            _stubRankingService.Setup(x => x.GetRankings(ValidWarId)).Returns(Task.FromResult((IEnumerable<ContestantWithScore>)contestants));
+            _stubMapper.Setup(x => x.Map<ContestantWithScore, Models.ContestantWithScore>(contestant2)).Returns(contestantRankingModel1);
+            _stubMapper.Setup(x => x.Map<ContestantWithScore, Models.ContestantWithScore>(contestant3)).Returns(contestantRankingModel2);
+            var request = new Models.ContestantSearchRequest
+            {
+                OrderByScoreDesc = true,
+                Take = 2,
+                Skip = 1
+            };
+
+            // Act
+            var result = await _controller.SearchContestants(ValidWarId, request);
+
+            // Assert
+            result.Should().BeOfType<OkNegotiatedContentResult<IEnumerable<Models.ContestantWithScore>>>();
+            ((OkNegotiatedContentResult<IEnumerable<Models.ContestantWithScore>>)result).Content.Should().ContainInOrder(contestantRankingModels);
+            ((OkNegotiatedContentResult<IEnumerable<Models.ContestantWithScore>>)result).Content.Should().OnlyContain(x => contestantRankingModels.Contains(x));
+        }
+
+        [TestMethod()]
+        public async Task GivenInvalidWarId_SearchContestants_ReturnsNotFound()
+        {
+            // Arrange
+            var request = new Models.ContestantSearchRequest();
+
+            // Act
+            var result = await _controller.SearchContestants(InvalidWarId, request);
+
+            // Assert
+            result.Should().BeOfType<NotFoundResult>();
+        }
+
+        #endregion
+
+
         #region Vote Tests
 
         [TestMethod()]
@@ -257,7 +305,7 @@ namespace WarApi
             _stubUserRepository.Verify(x => x.Upsert(_stubUser), Times.Never);
             result.Should().BeOfType<ConflictResult>();
         }
-        
+
         private void VerifyReturnsNoContent(int warId, VoteRequest voteRequest, System.Web.Http.IHttpActionResult result)
         {
             result.Should().BeOfType<StatusCodeResult>();

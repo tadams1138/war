@@ -25,6 +25,17 @@ namespace WarApi
 
         [TestMethod]
         [TestCategory("Sanity")]
+        public async Task Contestants_ReturnsBadRequest()
+        {
+            var principal = TestHelper.CreateStubUnauthenticatedClaimsPrincipal();
+            var request = CreateRequest(HttpMethod.Post, "api/War/2/Contestants/Search");
+            var responseVerification = CreateResponseVerification(HttpStatusCode.BadRequest);
+
+            await TestHelper.TestEndpoint(request, principal, responseVerification);
+        }
+
+        [TestMethod]
+        [TestCategory("Sanity")]
         public async Task GivenUnauthenticatedUser_SecuredEndpoints_ReturnUnauthorized()
         {
             var requests = new[] {

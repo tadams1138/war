@@ -143,6 +143,33 @@ namespace WarApi
             return Ok(contestantModels);
         }
 
+        /// <summary>
+        /// Gets a list of all contestants and their associated scores.
+        /// </summary>
+        /// <param name="warId">The War ID.</param>
+        /// <returns>A list of contestants paired with their scores.</returns>
+        [Route("{warId}/Contestants/Search")]
+        [ResponseType(typeof(IEnumerable<Models.ContestantWithScore>))]
+        [HttpPost]
+        public async Task<IHttpActionResult> SearchContestants(int warId, Models.ContestantSearchRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest();
+            }
+
+            if (!await IsValidWarId(warId))
+            {
+                return NotFound();
+            }
+
+            var contestants = await _rankingService.GetRankings(warId);
+            var orderedContestants = request.OrderByScoreDesc ? contestants.OrderByDescending(c => c.Score) : contestants.OrderBy(c => c.Score);
+            var paginatedContestants = orderedContestants.Skip(request.Skip).Take(request.Take);
+            var contestantModels = paginatedContestants.Select(c => _mapper.Map<ContestantWithScore, Models.ContestantWithScore>(c));
+            return Ok(contestantModels);
+        }
+
         private static bool IsUserWhoCreatedMatch(Match existingMatch, War.Users.User user)
         {
             return existingMatch.UserId.AuthenticationType == user.Id.AuthenticationType
