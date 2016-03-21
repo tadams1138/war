@@ -6,7 +6,7 @@
     </div>
     <div class="col-sm-6">
         Welcome {{vm.userInfo.Name}}!
-        <br/>
+        <br />
         <a ng-href="login">Login with a different account.</a>
     </div>
 </div>
@@ -15,30 +15,32 @@
         <div class="animate-show" ng-show="vm.showMatch">
             <div class="row">
                 <div class="col-sm-6">
-                    <div>
-                        <div class="panel panel-danger" ng-click="vm.voteContestant1()">
-                            <div class="panel-heading"><center>{{vm.match.Contestant1.Definition['FirstName']}} {{vm.match.Contestant1.Definition['LastName']}}</center></div>
-                            <div class="panel-body"><center><image ng-src="{{vm.match.Contestant1.Definition['WikipediaImageUrl']}}" height="160px" /></center></div>
-                            <div class="panel-footer">
-                                <center>
-                                    {{vm.match.Contestant1.Definition['Party']}}
-                                    <br />
-                                    {{vm.match.Contestant1.Definition['Occupation']}}
-                                </center>
-                            </div>
+                    <div class="panel panel-danger" ng-click="vm.voteContestant1()">
+                        <div class="panel-heading"><center>{{vm.match.Contestant1.Definition['Title']}} ({{vm.match.Contestant1.Definition['Year']}})</center></div>
+                        <div class="panel-body"><center><image ng-src="{{vm.match.Contestant1.Definition['Poster']}}" height="300px" /></center></div>
+                        <div class="panel-footer">
+                            <b>Directed by:</b> {{vm.match.Contestant1.Definition['Director']}}
+                            <br />
+                            <b>Written by:</b> {{vm.match.Contestant1.Definition['Writer']}}
+                            <br />
+                            <b>Starring:</b> {{vm.match.Contestant1.Definition['Actors']}}
+                            <br />
+                            <b>Plot:</b> {{vm.match.Contestant1.Definition['Plot']}}
                         </div>
                     </div>
                 </div>
                 <div class="col-sm-6">
                     <div class="panel panel-danger" ng-click="vm.voteContestant2()">
-                        <div class="panel-heading"><center>{{vm.match.Contestant2.Definition['FirstName']}} {{vm.match.Contestant2.Definition['LastName']}}</center></div>
-                        <div class="panel-body"><center><image ng-src="{{vm.match.Contestant2.Definition['WikipediaImageUrl']}}" height="160px" /></center></div>
+                        <div class="panel-heading"><center>{{vm.match.Contestant2.Definition['Title']}} ({{vm.match.Contestant2.Definition['Year']}})</center></div>
+                        <div class="panel-body"><center><image ng-src="{{vm.match.Contestant2.Definition['Poster']}}" height="300px" /></center></div>
                         <div class="panel-footer">
-                            <center>
-                                {{vm.match.Contestant2.Definition['Party']}}
-                                <br />
-                                {{vm.match.Contestant2.Definition['Occupation']}}
-                            </center>
+                            <b>Directed by:</b> {{vm.match.Contestant2.Definition['Director']}}
+                            <br />
+                            <b>Written by:</b> {{vm.match.Contestant2.Definition['Writer']}}
+                            <br />
+                            <b>Starring:</b> {{vm.match.Contestant2.Definition['Actors']}}
+                            <br />
+                            <b>Plot:</b> {{vm.match.Contestant2.Definition['Plot']}}
                         </div>
                     </div>
                 </div>
@@ -46,11 +48,10 @@
             <div class="row row-centered">
                 <div class="col-sm-12">
                     <center>
-                        <button type="button" class="btn btn-success" ng-click="vm.votePass()">Pass</button>
+                        <button type="button" class="btn btn-success" ng-click="vm.votePass()">I don't know</button>
                     </center>
                 </div>
             </div>
         </div>
     </div>
 </div>
-    

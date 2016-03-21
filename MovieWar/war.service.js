@@ -17,9 +17,18 @@
 
         return service;
 
-        function getContestants() {
-            return $http
-            .get(serviceRoot + 'Contestants')
+        function getContestants(take, skip) {
+            var postData = { OrderByScoreDesc : true,
+                Skip : skip,
+                Take : take
+            };
+
+            return $http({
+                url: serviceRoot + 'Contestants/Search',
+                method: "PUT",
+                data: postData,
+                headers: { 'Content-Type': 'application/json' }
+            })
             .then(itWorked)
             .catch(onFail);
 
@@ -30,8 +39,8 @@
             }
 
             function itWorked(response) {
-                var contestants = response.data;
-                return contestants;
+                var paginatedContestants = response.data;
+                return paginatedContestants;
             }
         }
 

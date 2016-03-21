@@ -161,9 +161,13 @@ namespace WarApi
             var result = await _controller.SearchContestants(ValidWarId, request);
 
             // Assert
-            result.Should().BeOfType<OkNegotiatedContentResult<IEnumerable<Models.ContestantWithScore>>>();
-            ((OkNegotiatedContentResult<IEnumerable<Models.ContestantWithScore>>)result).Content.Should().ContainInOrder(contestantRankingModels);
-            ((OkNegotiatedContentResult<IEnumerable<Models.ContestantWithScore>>)result).Content.Should().OnlyContain(x => contestantRankingModels.Contains(x));
+            result.Should().BeOfType<OkNegotiatedContentResult<Models.ContestantSearchResults>>();
+            var response = (OkNegotiatedContentResult<Models.ContestantSearchResults>)result;
+            response.Content.Content.Should().ContainInOrder(contestantRankingModels);
+            response.Content.Content.Should().OnlyContain(x => contestantRankingModels.Contains(x));
+            response.Content.Count.Should().Be(contestants.Length);
+            response.Content.Take.Should().Be(request.Take);
+            response.Content.Skip.Should().Be(request.Skip);
         }
 
         [TestMethod()]

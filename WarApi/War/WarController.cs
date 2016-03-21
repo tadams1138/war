@@ -20,7 +20,7 @@ namespace WarApi
     /// War endpoints let you vote on a pair and view the rankings.
     /// </summary>
     [EnableCors(origins: "*", headers: "*", methods: "*", SupportsCredentials = true)]
-    [RoutePrefix("api/War")]    
+    [RoutePrefix("api/War")]
     public class WarController : ApiController
     {
         private readonly IMapper _mapper;
@@ -149,8 +149,9 @@ namespace WarApi
         /// <param name="warId">The War ID.</param>
         /// <returns>A list of contestants paired with their scores.</returns>
         [Route("{warId}/Contestants/Search")]
-        [ResponseType(typeof(IEnumerable<Models.ContestantWithScore>))]
+        [ResponseType(typeof(IEnumerable<Models.ContestantSearchResults>))]
         [HttpPost]
+        [HttpPut]
         public async Task<IHttpActionResult> SearchContestants(int warId, Models.ContestantSearchRequest request)
         {
             if (request == null)
@@ -167,7 +168,14 @@ namespace WarApi
             var orderedContestants = request.OrderByScoreDesc ? contestants.OrderByDescending(c => c.Score) : contestants.OrderBy(c => c.Score);
             var paginatedContestants = orderedContestants.Skip(request.Skip).Take(request.Take);
             var contestantModels = paginatedContestants.Select(c => _mapper.Map<ContestantWithScore, Models.ContestantWithScore>(c));
-            return Ok(contestantModels);
+            var result = new Models.ContestantSearchResults
+            {
+                Content = contestantModels,
+                Count = orderedContestants.Count(),
+                Take = request.Take,
+                Skip = request.Skip
+            };
+            return Ok(result);
         }
 
         private static bool IsUserWhoCreatedMatch(Match existingMatch, War.Users.User user)
