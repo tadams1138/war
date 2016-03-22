@@ -40,7 +40,7 @@
         <div class="pagination-div">
             <ul class="pagination">
                 <li ng-class="vm.prevPageDisabled()">
-                    <a href ng-click="vm.prevPage()"> Prev</a>
+                    <a ng-click="vm.prevPage()"> Prev</a>
                 </li>
                 <li ng-repeat="n in vm.range()"
                     ng-class="{active: n == vm.currentPage}"
@@ -48,7 +48,7 @@
                     <a href="#">{{n+1}}</a>
                 </li>
                 <li ng-class="vm.nextPageDisabled()">
-                    <a href ng-click="vm.nextPage()">Next </a>
+                    <a ng-click="vm.nextPage()">Next </a>
                 </li>
             </ul>
         </div>

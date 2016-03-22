@@ -17,7 +17,7 @@ namespace MovieWar.ContestantCreator
         [TestMethod]
         public async Task SyncContestants()
         {
-            var contestants = GetMovieContestantsFromFile();
+            var contestants = FileContestantRequestFactory.GetContestants();
             var sqlServerConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["WarDb"].ConnectionString;
             var synchronizer = new ContestantSynchronizer();
             await synchronizer.SyncContestants(sqlServerConnectionString, contestants, 1, "Movie War", IsTheSame);
@@ -26,18 +26,6 @@ namespace MovieWar.ContestantCreator
         private static bool IsTheSame(Contestant c1, ContestantRequest c2)
         {
             return c2.Definition[ImdbId] == c1.Definition[ImdbId];
-        }
-
-        private static ContestantRequest[] GetMovieContestantsFromFile()
-        {
-            ContestantRequest[] items = null;
-            using (var r = new StreamReader("MovieContestants.json"))
-            {
-                string json = r.ReadToEnd();
-                items = JsonConvert.DeserializeObject<ContestantRequest[]>(json);
-            }
-
-            return items;
         }
     }
 }

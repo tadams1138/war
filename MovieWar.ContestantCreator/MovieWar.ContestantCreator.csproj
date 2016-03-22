@@ -72,10 +72,12 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="FileContestantRequestFactory.cs" />
     <Compile Include="MovieContestantSynchronizer.cs" />
     <Compile Include="MovieIdentifier.cs" />
     <Compile Include="ContestantCreatorTests.cs" />
     <Compile Include="OmdbApiMovieContestantRequestFactory.cs" />
+    <Compile Include="PosterDownloader.cs" />
     <Compile Include="WikipediaTopGrossingMoviesMovieIdFactory.cs" />
     <Compile Include="MovieIdFactoryTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
