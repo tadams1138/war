@@ -86,6 +86,15 @@ namespace War.Contestants.Sql
             }
         }
 
+        internal async Task Delete(int warId, Contestant c)
+        {
+            using (var connection = await CreateOpenConnection())
+            using (var command = CreateDeleteCommand(warId, c, connection))
+            {
+                await command.ExecuteScalarAsync();
+            }
+        }
+
         internal async Task DeleteAll(int warId)
         {
             using (var connection = await CreateOpenConnection())
@@ -153,6 +162,16 @@ namespace War.Contestants.Sql
             command.CommandText = "DELETE FROM [dbo].[Contestants] WHERE [WarId] = @WarId;";
             command.CommandType = CommandType.Text;
             command.Parameters.AddWithValue("@WarId", warId);
+            return command;
+        }
+
+        private static SqlCommand CreateDeleteCommand(int warId, Contestant contestant, SqlConnection connection)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM [dbo].[Contestants] WHERE [WarId] = @WarId AND [Id] = @Id;";
+            command.CommandType = CommandType.Text;
+            command.Parameters.AddWithValue("@WarId", warId);
+            command.Parameters.AddWithValue("@Id", contestant.Id);
             return command;
         }
 

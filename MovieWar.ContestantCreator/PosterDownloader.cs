@@ -10,14 +10,13 @@ namespace MovieWar.ContestantCreator
     [TestClass]
     public class PosterDownloader
     {
+        [Ignore]
         [TestMethod]
-        public async Task GivenMovieContestantsAndPath_DownloadPosters_SavesThemToThePath()
+        public async Task GivenMovieContestantsAndPath_DownloadPostersAndSaveThem()
         {
-            // Arrange
             var contestants = FileContestantRequestFactory.GetContestants();
             const string path = @"C:\posters";
-
-            // Act
+            
             foreach (var c in contestants)
             {
                 try
@@ -29,9 +28,33 @@ namespace MovieWar.ContestantCreator
                     throw new Exception($"Failed to get poster for {c.Definition["Title"]} ({c.Definition["Year"]})", ex);
                 }
             }
-
-            // Assert
         }
+
+        [Ignore]
+        [TestMethod]
+        public async Task GivenMovieContestantsAndUrl_ChangePosterUrlsAndSave()
+        {
+            var contestants = FileContestantRequestFactory.GetContestants();
+            const string baseUri = @"http://moviewar.azurewebsites.net/Posters/";
+
+            foreach (var c in contestants)
+            {
+                try
+                {
+                    var uri = c.Definition["Poster"];
+                    var filename = GetFileName(uri);
+                    var newUri = baseUri + filename;
+                    c.Definition["Poster"] = newUri;
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Failed to set poster for {c.Definition["Title"]} ({c.Definition["Year"]})", ex);
+                }
+            }
+
+            await FileContestantRequestFactory.WriteMovieContestantsToFile(contestants);
+        }
+
 
         private async Task Download(ContestantRequest c, string path)
         {

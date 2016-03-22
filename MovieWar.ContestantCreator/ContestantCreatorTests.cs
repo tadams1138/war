@@ -24,16 +24,7 @@ namespace MovieWar.ContestantCreator
 
             // Assert
             contestants.Should().NotBeNullOrEmpty();
-            await WriteMovieContestantsToFile(contestants);
-        }
-
-        private async Task WriteMovieContestantsToFile(IEnumerable<ContestantRequest> contestants)
-        {
-            using (var w = new StreamWriter("MovieContestants.json"))
-            {
-                var json = JsonConvert.SerializeObject(contestants);
-                await w.WriteAsync(json);
-            }
+            await FileContestantRequestFactory.WriteMovieContestantsToFile(contestants);
         }
 
         private static MovieIdentifier[] GetMovieIdentifiers()
