@@ -1,0 +1,1 @@
+(Get-Content -Raw $PSScriptRoot\War.Sql.Tests\War.Sql.Tests.csproj).replace("    <None Include=`"..\..\..\ConnectionStrings.config`">`r`n      <Link>ConnectionStrings.config</Link>`r`n      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>`r`n    </None>`r`n", "") | Set-Content $PSScriptRoot\War.Sql.Tests\War.Sql.Tests.csproj
