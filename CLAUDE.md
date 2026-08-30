@@ -23,3 +23,15 @@ Red-Green-Refactor cycle:
 Guidance by test type:
 - **Acceptance tests** (Playwright): preferred for user-facing behaviour — page loads, navigation, voting interactions, error states
 - **Unit tests** (Vitest): use for `api/client.ts` logic (401 retry, error mapping) and any pure functions; not for React components that only render API data
+
+## Build and test
+
+All commands run from the repository root. No `cd`.
+
+- lint: `npm run lint`
+- type-check: `npx tsc --noEmit`
+- unit test: `npm run test`
+- unit test (scoped): `npm run test -- -t "<name>"`
+- acceptance test: `npm run test:acceptance`
+- acceptance test (scoped): `npm run test:acceptance -- -g "<name>"`
+- build: `npm run build`
