@@ -22,7 +22,9 @@
       "Bash(git log*)",
       "Bash(git diff*)",
       "Bash(git branch*)",
+      "Bash(git show*)",
       "Bash(npm run*)",
+      "Bash(npx tsc*)",
       "Bash(ls*)",
       "Bash(cat*)"
     ],
