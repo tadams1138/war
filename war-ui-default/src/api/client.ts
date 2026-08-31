@@ -1,0 +1,197 @@
+// Typed API wrapper — war-ui-default-spec.md §5. Pages and components never
+// call fetch() directly; every request this slice needs goes through one of
+// the functions below. Request/response body types come from
+// src/api/generated/schema.d.ts, generated from war-api's live OpenAPI
+// document by `npm run generate:api` (§5.1) — nothing here hand-writes a
+// shape the API is supposed to define.
+
+import type { components, paths } from './generated/schema'
+import { ApiError, messageForReason, type ApiErrorReason } from './errors'
+import { clearToken, getToken, isRefreshDisabled, notifyUnauthorized, setToken } from './authState'
+
+const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
+
+export type WarListResponse = paths['/wars']['get']['responses'][200]['content']['application/json']
+export type WarDetailResponse = paths['/wars/{id}']['get']['responses'][200]['content']['application/json']
+export type NextMatchupResponse =
+  paths['/wars/{id}/matchups/next']['get']['responses'][200]['content']['application/json']
+export type VoterMe = paths['/auth/me']['get']['responses'][200]['content']['application/json']
+export type WarSummary = components['schemas']['WarSummary']
+export type ContestantDetail = components['schemas']['ContestantDetail']
+export type MediaItem = components['schemas']['MediaItem']
+export type ResolvedAttribute = components['schemas']['ResolvedAttribute']
+type VoteForbiddenBody =
+  paths['/wars/{id}/matchups/{mId}/vote']['post']['responses'][403]['content']['application/json']
+
+// --- low-level request pipeline -------------------------------------------------
+
+async function sendRequest(path: string, init: RequestInit): Promise<Response> {
+  const headers = new Headers(init.headers)
+  const token = getToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  try {
+    return await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
+  } catch {
+    throw new ApiError('network', 0, messageForReason('network'))
+  }
+}
+
+async function apiFetch(path: string, init: RequestInit = {}, isRetry = false): Promise<Response> {
+  const response = await sendRequest(path, init)
+  if (response.status === 401 && !isRetry) {
+    return handleUnauthorizedAndRetry(path, init)
+  }
+  return response
+}
+
+async function handleUnauthorizedAndRetry(path: string, init: RequestInit): Promise<Response> {
+  if (isRefreshDisabled()) {
+    throw new ApiError('unauthorized', 401, messageForReason('unauthorized'))
+  }
+  try {
+    await refreshSession()
+  } catch {
+    throw new ApiError('unauthorized', 401, messageForReason('unauthorized'))
+  }
+  return apiFetch(path, init, true)
+}
+
+// Refresh is single-flight (§7): concurrent 401s share one in-flight
+// request rather than each firing their own POST /auth/refresh.
+let refreshPromise: Promise<string> | null = null
+
+export async function refreshSession(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = performRefresh().finally(() => {
+      refreshPromise = null
+    })
+  }
+  return refreshPromise
+}
+
+async function performRefresh(): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'include' })
+  if (!response.ok) {
+    notifyUnauthorized()
+    throw new ApiError('unauthorized', response.status, messageForReason('unauthorized'))
+  }
+  const body = (await response.json()) as { token: string }
+  setToken(body.token)
+  return body.token
+}
+
+// --- status → typed error mapping (§8, filtered to this slice's endpoints) -----
+
+const SIMPLE_REASONS: Partial<Record<number, ApiErrorReason>> = {
+  401: 'unauthorized',
+  404: 'not-found',
+  409: 'conflict',
+  422: 'validation',
+  400: 'validation',
+}
+
+// A classification policy is a pure decision over a parsed body — kept
+// synchronous and decoupled from Response so each classifier narrows its
+// own shape at its own boundary instead of repeating HTTP/JSON plumbing.
+type Classify403 = (body: unknown) => ApiErrorReason
+
+async function ensureOk(response: Response, classify403: Classify403 = classifyDefault403): Promise<Response> {
+  if (response.ok) return response
+  const reason = await classifyError(response, classify403)
+  const retryAfterSeconds = reason === 'rate-limited' ? parseRetryAfter(response.headers.get('Retry-After')) : undefined
+  if (reason === 'unauthorized') notifyUnauthorized()
+  throw new ApiError(reason, response.status, messageForReason(reason, retryAfterSeconds), retryAfterSeconds)
+}
+
+async function classifyError(response: Response, classify403: Classify403): Promise<ApiErrorReason> {
+  const simple = SIMPLE_REASONS[response.status]
+  if (simple) return simple
+  if (response.status === 429) return 'rate-limited'
+  if (response.status === 403) return classify403(await safeReadJson<unknown>(response))
+  if (response.status >= 500) return 'server-error'
+  return 'server-error'
+}
+
+// The safe fallback for a 403 whose endpoint has no discriminator field —
+// join's is the only caller today, and its 403 (`{ error: string }`,
+// schema.d.ts) genuinely has only one possible cause (the War isn't
+// active), so there is nothing to discriminate; 'war-closed' is simply
+// correct, not a guess.
+function classifyDefault403(): ApiErrorReason {
+  return 'war-closed'
+}
+
+// castVote's 403 carries a typed `reason` (schema.d.ts:
+// "war_not_active" | "not_joined") — a real discriminator, not a message
+// to parse. The Record below makes a regenerated schema with a new enum
+// member a compile error here, rather than a silent misclassification.
+const VOTE_403_REASONS: Record<VoteForbiddenBody['reason'], ApiErrorReason> = {
+  war_not_active: 'war-closed',
+  not_joined: 'not-joined',
+}
+
+function classifyVote403(body: unknown): ApiErrorReason {
+  const reason = (body as Partial<VoteForbiddenBody> | null)?.reason
+  return (reason && VOTE_403_REASONS[reason]) || 'war-closed'
+}
+
+async function safeReadJson<T>(response: Response): Promise<T | null> {
+  try {
+    return (await response.clone().json()) as T
+  } catch {
+    return null
+  }
+}
+
+function parseRetryAfter(headerValue: string | null): number {
+  const parsed = Number(headerValue)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
+}
+
+// --- typed wrapper functions -----------------------------------------------
+
+export async function getWars(): Promise<WarListResponse> {
+  const response = await ensureOk(await apiFetch('/wars'))
+  return response.json() as Promise<WarListResponse>
+}
+
+export async function getWar(warId: string): Promise<WarDetailResponse> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}`))
+  return response.json() as Promise<WarDetailResponse>
+}
+
+export async function joinWar(warId: string): Promise<void> {
+  await ensureOk(await apiFetch(`/wars/${warId}/join`, { method: 'POST' }))
+}
+
+export async function getNextMatchup(warId: string): Promise<NextMatchupResponse | null> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/matchups/next`))
+  if (response.status === 204) return null
+  return response.json() as Promise<NextMatchupResponse>
+}
+
+export async function castVote(warId: string, matchupId: string, winnerId: string): Promise<void> {
+  await ensureOk(
+    await apiFetch(`/wars/${warId}/matchups/${matchupId}/vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ winner_id: winnerId }),
+    }),
+    classifyVote403,
+  )
+}
+
+export async function getMe(): Promise<VoterMe> {
+  const response = await ensureOk(await apiFetch('/auth/me'))
+  return response.json() as Promise<VoterMe>
+}
+
+export async function logout(): Promise<void> {
+  await ensureOk(await apiFetch('/auth/session', { method: 'DELETE' }))
+  clearToken()
+}
+
+export function providerLoginUrl(provider: string): string {
+  return `${API_BASE_URL}/auth/${provider}/login`
+}
