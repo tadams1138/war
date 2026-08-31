@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:acceptance": "playwright test",
     "generate:api": "openapi-typescript https://staging.war.tmad.dev/api/v1/openapi.json -o src/api/generated/schema.d.ts",

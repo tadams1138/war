@@ -1,0 +1,55 @@
+# Fire Team scratch — findings and run logs are process records,
+# true only until acted upon. See constitution Article V.
+.claude/reviews/
+.claude/runs/
+
+# Node — unanchored so they match in war-api/ and war-ui-default/ alike
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Secrets
+.env
+
+# Playwright (war-ui-default)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Terraform (war-infra)
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
