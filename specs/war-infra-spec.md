@@ -67,6 +67,10 @@ The roles referenced throughout are:
 
 ## 2. Repository Structure
 
+This project is one directory in the `war` monorepo (§20.6). Paths below are written
+from the repository root; the pipelines sit at the root because GitHub reads workflows
+only from `.github/workflows/` there.
+
 ```
 war-infra/
 ├── terraform/
@@ -92,18 +96,18 @@ war-infra/
 │   └── scheduled-tasks.js    # Edge function: cron-triggered task dispatch (§12)
 ├── bootstrap/
 │   └── Dockerfile            # Trivial image compute's app placeholder pins to (§15.2)
-├── .github/workflows/        # GitHub requires reusable workflows to live here
-│   ├── api.yml                    # Reusable pipeline for war-api
-│   ├── ui-default.yml             # Reusable pipeline for war-ui-default
-│   ├── ui-custom.yml              # Reusable pipeline for war-ui-{slug} repos
-│   ├── infra.yml                  # Pipeline for this repo (Terraform apply)
-│   └── push-bootstrap-image.yml   # One-off: build+push bootstrap/Dockerfile (§15.2)
 ├── scripts/
 │   ├── register-ui.sh        # Register a new custom UI slug
 │   └── smoke-test.sh         # Post-deploy smoke tests
-├── docs/
-│   └── runbook.md
-└── README.md
+└── docs/
+    └── runbook.md
+
+.github/workflows/            # Repository root — GitHub reads workflows only from here
+├── api.yml                        # Pipeline for war-api
+├── ui-default.yml                 # Pipeline for war-ui-default
+├── ui-custom.yml                  # Reusable pipeline for external war-ui-{slug} repos
+├── infra.yml                      # Pipeline for war-infra (Terraform apply)
+└── push-bootstrap-image.yml       # One-off: build+push bootstrap/Dockerfile (§15.2)
 ```
 
 Terraform module names describe roles, not products. A provider change swaps each module's implementation while preserving its interface (inputs, outputs) so `envs/*/main.tf` is unaffected.
@@ -132,42 +136,30 @@ All environments use isolated resources: separate application deployment, separa
 
 ---
 
-## 4. Repos & Ownership
+## 4. Projects & Ownership
 
-| Repo | Type | Pipeline template |
+| Project | Type | Pipeline |
 |---|---|---|
-| `war-api` | Backend API (containerised) | `.github/workflows/api.yml` |
-| `war-ui-default` | Static SPA | `.github/workflows/ui-default.yml` |
-| `war-ui-{slug}` | Static custom UI (one per War brand) | `.github/workflows/ui-custom.yml` |
-| `war-infra` | Infrastructure IaC | `.github/workflows/infra.yml` |
+| `war-api/` | Backend API (containerised) | `.github/workflows/api.yml` |
+| `war-ui-default/` | Static SPA | `.github/workflows/ui-default.yml` |
+| `war-infra/` | Infrastructure IaC | `.github/workflows/infra.yml` |
+| `war-ui-{slug}` (separate repo) | Static custom UI (one per War brand) | `.github/workflows/ui-custom.yml` |
 
-Each app repo references the pipeline template from this repo using GitHub Actions reusable workflows:
+The first three are directories in this repository, and their pipelines are ordinary workflows triggered directly by `push` and `pull_request`. Each is scoped with a `paths:` filter so one project's change does not run another's pipeline, and their deploy jobs are gated on `github.event_name != 'pull_request'` rather than on a `deploy` input. There are no caller workflows: a pipeline and the code it builds now live in the same commit, so there is nothing left to delegate across.
 
-```yaml
-# Example in war-api/.github/workflows/deploy.yml
-jobs:
-  deploy:
-    uses: tadams1138/war-infra/.github/workflows/api.yml@master
-    with:
-      deploy: true          # false in pr.yml
-    secrets: inherit
-```
-
-Each app repo carries exactly two workflows — `pr.yml` (`deploy: false`) and `deploy.yml` (`deploy: true`) — both delegating to the same reusable template here. All pipeline logic lives in this repo; the app repos hold no build or deploy steps of their own.
-
-**`@master` resolves once per run, not per rerun.** A reusable-workflow call like the one above resolves `@master` when the calling run is first *triggered* (a push, a `workflow_dispatch`) and keeps that resolution for the life of that run — re-running an existing run (`gh run rerun`, or the UI's "Re-run failed jobs") does not re-resolve it, even though a checkout step inside that same run that explicitly clones `war-infra`'s live `master` (e.g. to read `platform/{env}.yaml`) does fetch fresh. Concretely: fixing a bug in `api.yml` and then re-running an old, already-failed `deploy.yml` run keeps executing the *old* `api.yml`, silently — the checkout step's fresh clone can make this look like the fix should have applied when it didn't. `deploy.yml` carries a `workflow_dispatch` trigger for exactly this reason: it's a *new* run, so it resolves `@master` fresh. Prefer a fresh trigger over a rerun whenever `api.yml`/`ui-*.yml` changed since the run in question started.
-
-`war-ui-{slug}` repos additionally resolve their slug automatically:
+Custom UIs are the exception, and the only remaining reusable-workflow consumer. Each `war-ui-{slug}` brand lives in its own repository — they are per-brand deliverables rather than part of the platform — and calls `ui-custom.yml` here.
 
 ```yaml
 # Example in war-ui-miss-universe-2026/.github/workflows/deploy.yml
 jobs:
   deploy:
-    uses: tadams1138/war-infra/.github/workflows/ui-custom.yml@master
+    uses: tadams1138/war/.github/workflows/ui-custom.yml@master
     with:
       deploy: true          # slug defaults to the repo name minus `war-ui-`
     secrets: inherit
 ```
+
+**`@master` resolves once per run, not per rerun** — a hazard that now applies only to these external callers. A reusable-workflow call resolves `@master` when the calling run is first *triggered* (a push, a `workflow_dispatch`) and keeps that resolution for the life of that run; re-running an existing run (`gh run rerun`, or the UI's "Re-run failed jobs") does not re-resolve it. So fixing a bug in `ui-custom.yml` and then re-running an old, already-failed run in a slug repo silently keeps executing the *old* copy. Prefer a fresh trigger over a rerun whenever `ui-custom.yml` changed since the run in question started. The platform's own pipelines are immune to this: a local workflow is resolved from the commit being run.
 
 ---
 
@@ -452,7 +444,7 @@ Alerts are declared in both the compute module and the YAML. This duplication is
 
 Secrets are held as **encrypted environment variables on the application platform**. They are never stored in any repo.
 
-They reach the app through `platform/{env}.yaml`, not Terraform: that file's `type: SECRET` entries carry no literal value (only a `${PLACEHOLDER}`), and the `war-api` deploy pipeline (`war-infra/.github/workflows/api.yml`) substitutes the current value from a GitHub Actions secret via `envsubst` immediately before every `doctl apps update --spec`, the same way it already substitutes `${IMAGE_TAG}`. Terraform's role is limited to creating the app once with a bootstrap placeholder (§15.2); it never sets or touches these values, so `terraform apply` does not need them and does not redact them.
+They reach the app through `platform/{env}.yaml`, not Terraform: that file's `type: SECRET` entries carry no literal value (only a `${PLACEHOLDER}`), and the `war-api` deploy pipeline (`.github/workflows/api.yml`) substitutes the current value from a GitHub Actions secret via `envsubst` immediately before every `doctl apps update --spec`, the same way it already substitutes `${IMAGE_TAG}`. Terraform's role is limited to creating the app once with a bootstrap placeholder (§15.2); it never sets or touches these values, so `terraform apply` does not need them and does not redact them.
 
 `envsubst` is called with an explicit variable list (`envsubst '$IMAGE_TAG $JWT_SECRET ...'`), not bare `envsubst`. This is load-bearing: unrestricted, `envsubst` substitutes *every* `$VAR`/`${VAR}` it finds — and `platform/{env}.yaml`'s `run_command` for the `war-api` service and the `migrate` job deliberately contains `$DATABASE_CA_CERT` as a literal shell reference for the container to expand at its own runtime (see the "Why `DATABASE_CA_CERT` exists at all" note above). An unrestricted `envsubst` clobbered that reference with an empty string during rendering, since `DATABASE_CA_CERT` isn't among the pipeline's own env vars — confirmed via the rendered command showing up in the App Platform console as `echo ""`, not `echo "$DATABASE_CA_CERT"`. Every new `${PLACEHOLDER}` added to `platform/{env}.yaml` for this step to substitute must be added to that variable list too, or it silently stops being substituted instead of erroring.
 
@@ -775,7 +767,7 @@ The API deploy uses `apps update` rather than `create-deployment` because it mus
 
 ### 15.7 CI/CD Credential Names
 
-These are split by *which repo's own secret store* the pipeline reads them from — not every repo needs every credential. A reusable workflow's `secrets.*`/`vars.*` resolve against the **calling** repo (the one that has `uses: tadams1138/war-infra/.github/workflows/*.yml@master` in its own workflow file), not against `war-infra`, even though the workflow file itself lives there.
+Every pipeline in this repository reads these from this repository's own secret store, so the union of all of them is configured once, here. `ui-custom.yml` is the one exception: a reusable workflow's `secrets.*`/`vars.*` resolve against the **calling** repository, so each external `war-ui-{slug}` repo needs its own copy of the credentials that workflow uses, even though the workflow file itself lives here.
 
 **In `war-infra`** (its own `infra.yml` runs directly here, not as a called workflow):
 
@@ -1063,12 +1055,13 @@ This was resolved with a merge that preserves both histories (`git log` on `mast
 
 ### 20.4 `DO_APP_ID` is a manual step after any from-scratch environment apply
 
-Terraform creates the DigitalOcean App (`terraform apply` outputs `app_id`), but nothing pushes that ID anywhere automatically. Each app repo's deploy pipeline reads it from a GitHub Actions **Environment variable** (`DO_APP_ID`, scoped per environment — `staging`/`production` — per repo), which has to be set by hand after `app_id` first exists for that environment:
+Terraform creates the DigitalOcean App (`terraform apply` outputs `app_id`), but nothing pushes that ID anywhere automatically. The deploy pipelines read it from a GitHub Actions **Environment variable** (`DO_APP_ID`, scoped per environment — `staging`/`production`), which has to be set by hand after `app_id` first exists for that environment:
 
 ```bash
-gh variable set DO_APP_ID -R tadams1138/war-api -e <staging|production> --body "<app_id>"
-gh variable set DO_APP_ID -R tadams1138/war-ui-default -e <staging|production> --body "<app_id>"
+gh variable set DO_APP_ID -R tadams1138/war -e <staging|production> --body "<app_id>"
 ```
+
+One value per environment covers both pipelines: there is a single app per environment holding the API service and the static site alike, so `api.yml` and `ui-default.yml` deploy to the same id. Before the consolidation (§20.6) this same value had to be set separately in each repo, and the two could silently disagree.
 
 This is easy to forget precisely because it's a one-time step per environment, done long after the routine of "push code, pipeline deploys it" is established — the failure mode when it's missing (`PUT https://api.digitalocean.com/v2/apps/: 405`, an empty app ID in the URL) doesn't obviously point at a missing GitHub variable. Needed again for any *new* environment this project ever adds beyond staging/production.
 
@@ -1082,3 +1075,68 @@ The first real vertical slice — Home, Login/auth, WarDetail, VoteMode (image m
 - Four PRs, in order, on `war-api`: **#10** (redirect URI never deployed, silently defaulted to `localhost:3000`), **#11** (the `iss`/RFC 9207 fix, plus closing a second redirect-URI divergence the first fix's initial pass reintroduced), **#12** (`UI_ORIGINS` — found by auditing every other `localhost`-defaulting config field immediately after #10, rather than waiting for a third user report), **#13** (the callback's failure-response contract — 403/400/502 instead of a leaked library error code). Each went through the project's full spec → implement → review → apply cycle; each review caught at least one real, live-bug-shaped gap the implementation had missed.
 - `assertProductionConfig` in `war-api/src/config.ts` is the concrete result of this: every deployment-required, non-secret config value (`apiBaseUrl`, `uiOrigins`) now has a fail-fast boot check, added reactively one bug at a time — the `google-oauth` skill's "meta-lesson" section is the standing instruction to do this audit proactively for the *next* project, not reactively.
 - **Deferred, not forgotten**: the OAuth callback's failure responses are still raw JSON shown mid-redirect-chain in a real browser (functionally correct, UX-rough) — a redirect-based failure UX (e.g. `/login?error=...`) was explicitly scoped out of PR #13 as a larger, cross-repo change needing `war-ui-default` to have somewhere to send the user. Pick this up before or alongside whatever `war-ui-default` slice next touches the Login page.
+
+### 20.6 The three repos were consolidated into one (2026-08-31)
+
+`war-api`, `war-ui-default`, and `war-infra` were separate GitHub repositories until this
+point. They are now directories in a single repository, `tadams1138/war`, with all three
+histories preserved via subtree merges — `git log` shows three unrelated roots, which is
+expected, not a bad merge. The old repositories are retained, unmodified, as the rollback.
+
+**Why.** The split was costing more than it returned, and had been for a while:
+
+- **Cross-repo changes were the norm, not the exception.** The Core Voting Loop slice alone
+  produced three: `contestant_count` and the vote-`403` `reason` discriminator were `war-api`
+  changes discovered mid-implementation in `war-ui-default` and shipped as separate preceding
+  PRs; §20.5's deferred OAuth failure UX is deferred *because* it spans two repos; and the
+  spec status updates for the whole slice landed as their own follow-up commit here. Each was
+  an atomicity loss that a single repository removes outright.
+- **The specs never really wanted to be split.** All five describe one platform and reference
+  each other constantly. `war-api` had tried keeping a repo-local copy and it was folded back
+  precisely because two hand-maintained prose descriptions of one behavior drift. They now sit
+  at the repository root, equally reachable from every project, with their relative links
+  between documents working again.
+- **`@master` was monorepo coupling without monorepo safety.** All four caller workflows
+  pinned `tadams1138/war-infra/...@master`, so any edit here reached both applications
+  immediately, untested against either — and §4's rerun hazard existed entirely because of
+  that indirection.
+- **The two applications already deployed to one App Platform app.** `DO_APP_ID` was
+  *identical* in both repos for a given environment; `platform/{env}.yaml` has always been a
+  single spec holding both the `war-api` service and the `war-ui-default` static site. The
+  repositories were separate; the deployment never was.
+- The development pipeline this project uses resolves its root with
+  `git rev-parse --show-toplevel`, so from the directory that merely *contained* the three
+  checkouts it could not run at all.
+
+**What changed mechanically.** Path-filtered `push`/`pull_request` triggers replace the
+`workflow_call` + caller-workflow indirection; deploy jobs gate on
+`github.event_name != 'pull_request'`. The cross-repo `actions/checkout` of `war-infra` in
+both deploy pipelines is gone, since `platform/{env}.yaml` and `scripts/smoke-test.sh` are
+now local paths. `static_sites[].github.repo` in both platform specs points at
+`tadams1138/war` with `source_dir: war-ui-default` — that field was the only binding in the
+entire stack that named a repository, since the API deploys a DOCR image and has none.
+
+**What this newly requires, and is easy to miss:**
+
+- **DigitalOcean's GitHub app must be authorised on `tadams1138/war`** before a spec update
+  applies, or the static-site build cannot fetch source. This is the same class of one-time,
+  easily-forgotten manual step as §20.4's `DO_APP_ID`.
+- **Both deploy pipelines now target the same app from the same repository**, and one commit
+  can trigger both. `doctl apps update --spec` (api) and `doctl apps create-deployment`
+  (ui-default) racing on one app is a real collision, so both deploy jobs share a
+  `deploy-<env>` concurrency group. Any future pipeline touching this app must join it.
+- **Secrets do not transfer between repositories.** GitHub's API never returns a secret's
+  value, so all eight had to be re-entered by hand. Five were re-copyable from a provider
+  console; `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, and `INTERNAL_TASK_TOKEN` are self-generated
+  and recoverable from nowhere — App Platform returns `type: SECRET` values as `EV[1:…]`
+  ciphertext. Rotating `INTERNAL_TASK_TOKEN` in particular requires running *both* the infra
+  pipeline (which sets it on the scheduler Worker) and the api pipeline (which substitutes it
+  into the app spec), or `close-expired-wars` starts returning `401` silently.
+- **Environment protection is per-repository.** The `production` required-reviewer gate is
+  configuration, not code, and does not come along with the variables — a new repository
+  starts with no gate and nothing indicating one is missing.
+
+**Deliberately not done in this round.** The two deploy pipelines are still separate even
+though the API's `--spec` update already redeploys the static site, which makes
+`ui-default.yml`'s deploy step largely redundant. Unifying them is a pipeline redesign
+rather than part of the move, and is worth its own round.

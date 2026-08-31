@@ -283,7 +283,7 @@ Pipeline defined in `war-infra-spec.md` §8.3; the repo supplies only a caller:
 # war-ui-{slug}/.github/workflows/deploy.yml
 jobs:
   deploy:
-    uses: tadams1138/war-infra/.github/workflows/ui-custom.yml@master
+    uses: tadams1138/war/.github/workflows/ui-custom.yml@master
     with:
       deploy: true          # false in pr.yml
     secrets: inherit

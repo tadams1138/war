@@ -541,7 +541,7 @@ been built.
 **§11's Gherkin covers the full design**, including scenarios for pages and modes not yet
 built (Rankings, Create War, and the video-mode scenarios under "Video Matchups"). The
 scenarios that actually apply to this slice live in `war-ui-default/features/*.feature` — a
-repo-local, in-scope-only adaptation of a subset of §11, which the implementer binds into
+project-local, in-scope-only adaptation of a subset of §11, which the implementer binds into
 Playwright specs under `tests/acceptance/`. That directory is executable test fixture, not a
 second copy of this document; it does not duplicate the prose here and should not be read as
 such.

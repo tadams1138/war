@@ -1820,7 +1820,7 @@ column or table does not mean its feature is built.
 
 **§14's Gherkin covers the full design**, including scenarios for behavior not yet
 built (video-mode scenarios under "Media Mode", all of "Rate Limiting"). The scenarios
-that actually execute in CI live in `war-api/specs/features/*.feature` — a repo-local,
+that actually execute in CI live in `war-api/specs/features/*.feature` — a project-local,
 implemented-only adaptation of a subset of §14, bound via `@amiceli/vitest-cucumber`. That
 directory is executable test fixture, not a second copy of this document; it does not
 duplicate the prose here and should not be read as such.
