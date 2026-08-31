@@ -11,15 +11,30 @@
 
 name: war-infra Pipeline
 
+# Scoped to war-infra/ so application-only commits don't run a plan. `paths`
+# and `paths-ignore` are mutually exclusive for a single event, so the previous
+# markdown exclusion is expressed as a negated pattern inside `paths` — later
+# patterns override earlier ones.
 on:
   push:
     branches: [master]
-    paths-ignore:
-      - '**/*.md'
+    paths:
+      - 'war-infra/**'
+      - '!war-infra/**/*.md'
+      - '.github/workflows/infra.yml'
   pull_request:
     branches: [master]
-    paths-ignore:
-      - '**/*.md'
+    paths:
+      - 'war-infra/**'
+      - '!war-infra/**/*.md'
+      - '.github/workflows/infra.yml'
+
+# Every `run:` in this workflow executes inside war-infra/, so the
+# `terraform -chdir=terraform/...` paths in the jobs below remain relative to
+# it and are unchanged by the consolidation.
+defaults:
+  run:
+    working-directory: war-infra
 
 env:
   TF_VERSION: '1.9.8'

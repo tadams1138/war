@@ -9,7 +9,7 @@
 #
 #   jobs:
 #     pipeline:
-#       uses: tadams1138/war-infra/.github/workflows/ui-custom.yml@master
+#       uses: tadams1138/war/.github/workflows/ui-custom.yml@master
 #       with:
 #         deploy: true          # false on pull_request
 #       secrets: inherit
@@ -47,7 +47,7 @@ on:
 
 env:
   NODE_VERSION: '22'
-  INFRA_REPO: tadams1138/war-infra
+  INFRA_REPO: tadams1138/war
   SPACES_ENDPOINT: https://nyc3.digitaloceanspaces.com
   MAX_BUNDLE_BYTES: '2097152' # 2 MiB, per spec §8.3
 
@@ -191,7 +191,7 @@ jobs:
       - name: Smoke test
         env:
           BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
-        run: infra/scripts/smoke-test.sh staging ui "$SLUG"
+        run: infra/war-infra/scripts/smoke-test.sh staging ui "$SLUG"
 
   deploy-production:
     name: Deploy → Production
@@ -252,4 +252,4 @@ jobs:
       - name: Smoke test
         env:
           BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
-        run: infra/scripts/smoke-test.sh production ui "$SLUG"
+        run: infra/war-infra/scripts/smoke-test.sh production ui "$SLUG"
