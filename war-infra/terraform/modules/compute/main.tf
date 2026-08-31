@@ -1,0 +1,130 @@
+# App Platform app — see specs/war-infra-spec.md §5.2, §15.2
+#
+# OWNERSHIP SPLIT — read this before changing anything here.
+#
+# Terraform *creates* the app and owns its identity. It does not own its spec.
+# The full spec lives in platform/{env}.yaml and is applied by the deploy
+# pipelines, because the API's image tag changes on every merge and pinning it
+# here would mean every application deploy required a terraform apply.
+#
+# `ignore_changes = [spec]` is what makes the two coexist: Terraform creates a
+# minimal valid app once, the first pipeline deploy replaces the spec with the
+# real one, and Terraform never reverts it. Without this, `terraform apply`
+# would roll the running API back to the placeholder below.
+#
+# Consequence: after bootstrap, this module's spec block is inert. Change
+# platform/{env}.yaml, not this file.
+
+# Required in every module that uses it, not just the root — Terraform does
+# not infer a non-default-namespace provider's source for a child module from
+# the root's required_providers alone.
+terraform {
+  required_version = "~> 1.9"
+
+  required_providers {
+    digitalocean = { source = "digitalocean/digitalocean", version = "~> 2.43" }
+  }
+}
+
+variable "env" {
+  type = string
+}
+
+variable "region" {
+  type    = string
+  default = "nyc"
+}
+
+variable "domain" {
+  type        = string
+  description = "Public hostname, e.g. staging.war.tmad.dev"
+}
+
+variable "database_cluster_name" {
+  type = string
+}
+
+resource "digitalocean_app" "war" {
+  spec {
+    name   = "war-${var.env}"
+    region = var.region
+
+    domain {
+      name = var.domain
+      type = "PRIMARY"
+    }
+
+    database {
+      name         = "db"
+      engine       = "PG"
+      cluster_name = var.database_cluster_name
+      production   = true
+    }
+
+    # Placeholder only — replaced by platform/{env}.yaml on first deploy.
+    #
+    # This cannot be war-api's real image: it starts with none of
+    # DATABASE_URL, JWT_SECRET, etc. (those only exist once platform/{env}.yaml
+    # deploys for real), and the real app exits non-zero without them, which
+    # fails the App Platform deployment this resource waits on and so fails
+    # `terraform apply` itself. It was tried — war-api's first successful CI
+    # build, pinned by commit SHA — and failed exactly that way
+    # ("DeployContainerExitNonZero").
+    #
+    # A public Docker Hub image was tried before that, as a registry-agnostic
+    # placeholder needing no config either — also rejected outright ("Image
+    # does not exist or is private") even for a real public image, a known
+    # limitation of this provider/API combination for DOCKER_HUB registry_type,
+    # not a naming problem.
+    #
+    # bootstrap/Dockerfile is what actually satisfies both constraints: a real
+    # DOCR image (this provider requires DOCR, full stop), and one trivial
+    # enough to start and pass App Platform's health check with zero
+    # configuration. Published via the one-off push-bootstrap-image.yml
+    # workflow, not any deploy pipeline — re-run that manually if this tag is
+    # ever pruned from the registry.
+    service {
+      name               = "war-api"
+      instance_size_slug = "basic-xxs"
+      instance_count     = 1
+      http_port          = 8080
+
+      image {
+        registry_type = "DOCR"
+        repository    = "war-api"
+        tag           = "bootstrap"
+      }
+    }
+
+    # Alerts are declared here rather than in the YAML so that a pipeline
+    # mistake cannot silently drop monitoring (spec §13). They are re-asserted
+    # by platform/{env}.yaml; keeping both in sync is intentional redundancy.
+    alert {
+      rule = "DEPLOYMENT_FAILED"
+    }
+
+    alert {
+      rule = "DOMAIN_FAILED"
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [spec]
+  }
+}
+
+output "app_id" {
+  value = digitalocean_app.war.id
+}
+
+# Despite the name, this is the full "https://*.ondigitalocean.app" URL, not
+# a bare hostname — trim the scheme at the point of use if a hostname is what
+# you need (e.g. a CNAME's content). Cloudflare proxies to this; it is never
+# advertised and should not appear in any user-facing URL.
+output "app_default_host" {
+  value = digitalocean_app.war.default_ingress
+}
+
+output "live_url" {
+  value = digitalocean_app.war.live_url
+}
