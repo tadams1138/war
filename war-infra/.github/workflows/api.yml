@@ -1,0 +1,212 @@
+# war-api pipeline — see specs/war-infra-spec.md §8.1
+#
+# Per-environment GitHub Environment variables:
+#   DO_APP_ID          App Platform app id for that environment
+#   PUBLIC_BASE_URL    https://staging.war.tmad.dev | https://war.tmad.dev
+#
+# war-api repository secrets/variables (spec §9, §15.7) — substituted into
+# platform/{env}.yaml by envsubst on every deploy, same mechanism as
+# ${IMAGE_TAG}:
+#   JWT_SECRET, REFRESH_TOKEN_SECRET, INTERNAL_TASK_TOKEN,
+#   GOOGLE_CLIENT_SECRET   secrets
+#   GOOGLE_CLIENT_ID                       variable (not secret)
+#   SPACES_ACCESS_KEY_ID, SPACES_SECRET_ACCESS_KEY   secrets (same Spaces
+#     credentials used elsewhere; substituted into the spec's S3_* keys)
+#
+# The production approval gate is a required reviewer on the `production`
+# GitHub Environment, not a step in this file.
+
+name: war-api Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      deploy:
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: registry.digitalocean.com/war
+  IMAGE_NAME: war-api
+  NODE_VERSION: '22'
+  INFRA_REPO: tadams1138/war-infra
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: war_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/war_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Apply migrations to test database
+        run: npm run migrate
+
+      - name: Test (unit + integration)
+        run: npm test
+
+  build:
+    name: Build image
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Authenticate to DigitalOcean
+        if: inputs.deploy
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Log in to container registry
+        if: inputs.deploy
+        run: doctl registry login --expiry-seconds 1800
+
+      # On pull requests the image is built but not pushed. That still proves the
+      # Dockerfile is sound before a change can merge.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ inputs.deploy }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy → Staging
+    needs: build
+    if: inputs.deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.PUBLIC_BASE_URL }}
+
+    steps:
+      - name: Check out infrastructure repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          ref: master
+          path: infra
+
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Render app spec pinned to this commit's image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
+          INTERNAL_TASK_TOKEN: ${{ secrets.INTERNAL_TASK_TOKEN }}
+          S3_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        # The explicit variable list is load-bearing, not tidiness: envsubst
+        # with no list substitutes every $VAR/${VAR} it finds, and
+        # platform/{env}.yaml's run_command intentionally contains
+        # $DATABASE_CA_CERT as a literal shell reference for the container to
+        # expand at runtime (that's how it reads the platform-bound
+        # ${db.CA_CERT}, which envsubst here has no way to know). An
+        # unrestricted envsubst clobbered it with an empty string before it
+        # ever reached the container -- confirmed via the App Platform
+        # console, which showed the rendered command as `echo ""`, not
+        # `echo "$DATABASE_CA_CERT"`. Every new ${PLACEHOLDER} added to
+        # platform/{env}.yaml for this step to substitute must be added here
+        # too, or it silently stops being substituted instead of erroring.
+        run: |
+          envsubst '$IMAGE_TAG $JWT_SECRET $REFRESH_TOKEN_SECRET $INTERNAL_TASK_TOKEN $S3_ACCESS_KEY_ID $S3_SECRET_ACCESS_KEY $GOOGLE_CLIENT_ID $GOOGLE_CLIENT_SECRET' \
+            < infra/platform/staging.yaml > "$RUNNER_TEMP/app-spec.yaml"
+
+      # --wait blocks until the deployment settles. The PRE_DEPLOY migration job
+      # (spec §10) runs inside it, so a failed migration fails this step and the
+      # previous revision keeps serving traffic.
+      - name: Deploy
+        run: doctl apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml" --wait
+
+      - name: Smoke test
+        env:
+          BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: infra/scripts/smoke-test.sh staging api
+
+  deploy-production:
+    name: Deploy → Production
+    needs: deploy-staging
+    if: inputs.deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PUBLIC_BASE_URL }}
+
+    steps:
+      - name: Check out infrastructure repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          ref: master
+          path: infra
+
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      # Deploys the exact image already validated in staging — never a rebuild.
+      - name: Render app spec pinned to this commit's image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REFRESH_TOKEN_SECRET: ${{ secrets.REFRESH_TOKEN_SECRET }}
+          INTERNAL_TASK_TOKEN: ${{ secrets.INTERNAL_TASK_TOKEN }}
+          S3_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        # See the staging job's identical step for why the variable list is
+        # required, not optional tidiness.
+        run: |
+          envsubst '$IMAGE_TAG $JWT_SECRET $REFRESH_TOKEN_SECRET $INTERNAL_TASK_TOKEN $S3_ACCESS_KEY_ID $S3_SECRET_ACCESS_KEY $GOOGLE_CLIENT_ID $GOOGLE_CLIENT_SECRET' \
+            < infra/platform/production.yaml > "$RUNNER_TEMP/app-spec.yaml"
+
+      - name: Deploy
+        run: doctl apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml" --wait
+
+      - name: Smoke test
+        env:
+          BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: infra/scripts/smoke-test.sh production api
