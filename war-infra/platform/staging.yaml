@@ -166,9 +166,15 @@ services:
 static_sites:
   - name: war-ui-default
     github:
-      repo: tadams1138/war-ui-default
+      repo: tadams1138/war
       branch: master
       deploy_on_push: false # deploys are pipeline-triggered, never on push
+
+    # The UI is one project inside the monorepo, so the build context is that
+    # subdirectory rather than the repository root. build_command and
+    # output_dir below are both relative to it, so `dist` still means
+    # war-ui-default/dist.
+    source_dir: war-ui-default
 
     build_command: npm run build
     output_dir: dist
