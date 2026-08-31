@@ -2,11 +2,14 @@
 
 War default static frontend. See [specs](https://github.com/tadams1138/war-infra/tree/master/specs) for full documentation.
 
-## Status: placeholder
+## Status
 
-This is a stand-in for the real app — a static "coming soon" page, just
-enough for DigitalOcean App Platform's build step to succeed so the rest of
-the deploy pipeline isn't blocked on it. `src/main.ts` is the entire
-application. Replace it with the real SPA under this repo's own TDD process
-(see `CLAUDE.md`) whenever that work starts; nothing here is meant to survive
-that.
+The Core Voting Loop slice is implemented: browse Wars (`/`), OAuth login and
+the auth flow (`/login`, `/auth/callback`), War detail with a contestant
+gallery (`/wars/:id`), and image-mode binary voting (`/wars/:id/vote`). See
+`war-ui-default-spec.md` §12 for exactly what's in scope for this slice and
+what's deferred to a later one (Rankings, Create War, My Wars, video-mode
+matchups, the shared `runtime/v1.js` build artifact).
+
+Build and test commands, and this repo's TDD/BDD process, are documented in
+`CLAUDE.md`.
