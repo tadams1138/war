@@ -1,8 +1,8 @@
 name: Push bootstrap placeholder image
 
 # Manual, one-off publish of the trivial image that
-# terraform/modules/compute/main.tf pins the app's placeholder spec to (see
-# bootstrap/Dockerfile for why it exists). Not part of any deploy pipeline —
+# war-infra/terraform/modules/compute/main.tf pins the app's placeholder spec to (see
+# war-infra/bootstrap/Dockerfile for why it exists). Not part of any deploy pipeline —
 # re-run only if that tag is ever pruned from the registry.
 on:
   workflow_dispatch:
@@ -29,6 +29,6 @@ jobs:
 
       - uses: docker/build-push-action@v5
         with:
-          context: bootstrap
+          context: war-infra/bootstrap
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:bootstrap
