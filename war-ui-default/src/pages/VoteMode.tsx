@@ -2,7 +2,7 @@
 // §12). Navigating here silently joins the War before the first matchup is
 // requested — there is no visible Join control. Rendering only; the vote
 // session's state machine lives in useVoteSession.
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { MatchupView } from '../components/MatchupView'
 import { ProgressBar } from '../components/ProgressBar'
 import { useVoteSession } from '../vote/useVoteSession'
@@ -17,6 +17,9 @@ export function VoteMode() {
     return (
       <div data-testid="vote-complete">
         <h2>You&rsquo;ve voted on every matchup — thank you!</h2>
+        <Link to={`/wars/${warId}/rankings`} data-testid="rankings-link">
+          See the rankings
+        </Link>
       </div>
     )
   }

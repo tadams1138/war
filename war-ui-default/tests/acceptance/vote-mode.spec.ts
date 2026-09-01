@@ -213,4 +213,5 @@ test('Voter completes every matchup', async ({ page }) => {
   await expect(page.getByTestId('vote-complete')).toBeVisible()
   await expect(page.getByTestId('matchup-view')).toHaveCount(0)
   await expect(page.getByTestId('contestant-card')).toHaveCount(0)
+  await expect(page.getByTestId('rankings-link')).toHaveAttribute('href', `/wars/${WAR_ID}/rankings`)
 })

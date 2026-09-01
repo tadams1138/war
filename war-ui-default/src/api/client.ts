@@ -15,6 +15,7 @@ export type WarListResponse = paths['/wars']['get']['responses'][200]['content']
 export type WarDetailResponse = paths['/wars/{id}']['get']['responses'][200]['content']['application/json']
 export type NextMatchupResponse =
   paths['/wars/{id}/matchups/next']['get']['responses'][200]['content']['application/json']
+export type RankingsResponse = paths['/wars/{id}/rankings']['get']['responses'][200]['content']['application/json']
 export type VoterMe = paths['/auth/me']['get']['responses'][200]['content']['application/json']
 export type WarSummary = components['schemas']['WarSummary']
 export type ContestantDetail = components['schemas']['ContestantDetail']
@@ -180,6 +181,11 @@ export async function castVote(warId: string, matchupId: string, winnerId: strin
     }),
     classifyVote403,
   )
+}
+
+export async function getRankings(warId: string): Promise<RankingsResponse> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/rankings`))
+  return response.json() as Promise<RankingsResponse>
 }
 
 export async function getMe(): Promise<VoterMe> {
