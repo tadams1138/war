@@ -79,7 +79,8 @@ Postgres when it is unset.
 
 `terraform`'s `-chdir` flag and `npm`'s `--prefix` exist precisely so a subdirectory
 can be reached without `cd`. Permission rules match on a command's leading text, so
-`cd war-api && npm test` matches nothing approved for `npm` and prompts every time.
+changing directory ahead of `npm test` matches nothing approved for `npm` and prompts
+every time.
 
 These commands mirror the pipelines in `.github/workflows/`, so local runs match CI.
 
