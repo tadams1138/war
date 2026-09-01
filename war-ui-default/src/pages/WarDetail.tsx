@@ -5,7 +5,7 @@ import { useParams } from 'react-router-dom'
 import { getWar, type ContestantDetail, type WarDetailResponse } from '../api/client'
 import { toUserMessage } from '../api/errors'
 import { ContestantAttributes } from '../components/ContestantAttributes'
-import { primaryMedia, srcSetFor } from '../utils/media'
+import { ContestantThumbnail } from '../components/ContestantThumbnail'
 
 type WarDetailState =
   | { status: 'loading' }
@@ -52,18 +52,9 @@ export function WarDetail() {
 }
 
 function ContestantGalleryItem({ contestant }: { contestant: ContestantDetail }) {
-  const primaryImage = primaryMedia(contestant.media)
-
   return (
     <div data-testid="contestant-gallery-item">
-      {primaryImage && (
-        <img
-          alt={contestant.name}
-          src={primaryImage.variants[0]?.url}
-          srcSet={srcSetFor(primaryImage)}
-          style={{ aspectRatio: primaryImage.aspect_ratio ?? undefined }}
-        />
-      )}
+      <ContestantThumbnail media={contestant.media} name={contestant.name} />
       <h2>{contestant.name}</h2>
       <ContestantAttributes attributes={contestant.attributes} />
     </div>

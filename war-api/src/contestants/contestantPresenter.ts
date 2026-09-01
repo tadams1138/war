@@ -15,6 +15,36 @@ export interface ContestantDetailView {
 }
 
 /**
+ * The `{ id, name, media }` shape a contestant reduces to wherever full
+ * detail (bio, attributes, win/appearance counts) isn't wanted --
+ * `/matchups/next`'s `matchup.left`/`right` and `/rankings`' `contestant`
+ * both need exactly this and nothing more. Owned here, not by either of
+ * those domains, since this domain (contestants) is the one the shape
+ * describes; matchups/rankings importing it, not the other way, keeps the
+ * dependency pointed the right direction.
+ */
+export interface ContestantView {
+  id: string;
+  name: string;
+  media: MediaItemView[];
+}
+
+/**
+ * The response body JSON Schema for {@link ContestantView}. Kept beside the
+ * interface it mirrors -- see `mediaItemSchema` (`mediaPresenter.ts`) for
+ * why.
+ */
+export const contestantViewSchema = {
+  type: 'object',
+  required: ['id', 'name', 'media'],
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    name: { type: 'string' },
+    media: { type: 'array', items: { $ref: 'MediaItem#' } },
+  },
+};
+
+/**
  * The response body JSON Schema for {@link ContestantDetailView} (spec
  * §11.2.1). Registered under `$id: "ContestantDetail"`
  * (`registerSharedSchemas`, `src/openapi/schemas.ts`) and `$ref`s the

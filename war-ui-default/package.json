@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:acceptance": "playwright test",
-    "generate:api": "openapi-typescript https://staging.war.tmad.dev/api/v1/openapi.json -o src/api/generated/schema.d.ts",
+    "generate:api": "npm --prefix ../war-api run dump-openapi --silent > openapi.json && openapi-typescript openapi.json -o src/api/generated/schema.d.ts",
     "build:mock": "vite build --mode mock"
   },
   "devDependencies": {

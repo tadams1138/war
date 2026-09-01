@@ -23,9 +23,19 @@ test('Rankings load for an anonymous visitor', async ({ page }) => {
   // Assert
   const rows = page.getByTestId('ranking-row')
   await expect(rows).toHaveCount(2)
-  await expect(rows.nth(0)).toContainText('Contestant One')
-  await expect(rows.nth(0)).toContainText('10')
-  await expect(rows.nth(0)).toContainText('12')
+  // Cell-scoped, not whole-row `toContainText`: '10' and '12' both being
+  // digits in the row would let Wins and Appearances pass transposed.
+  const firstRowCells = rows.nth(0).getByRole('cell')
+  await expect(firstRowCells.nth(0)).toHaveText('1')
+  await expect(firstRowCells.nth(2)).toHaveText('Contestant One')
+  await expect(firstRowCells.nth(3)).toHaveText('10')
+  await expect(firstRowCells.nth(4)).toHaveText('12')
+  // The Image column (spec §6): c1's media is `c1-media-0` with 400/1600
+  // variants (src/mocks/fixtures.ts's buildMediaItem default).
+  const image = rows.nth(0).locator('img')
+  await expect(image).toHaveAttribute('alt', 'Contestant One')
+  await expect(image).toHaveAttribute('src', /c1-media-0\/400\.jpg/)
+  await expect(image).toHaveAttribute('srcset', /1600w/)
   await expect(page.getByText(/%/)).toHaveCount(0)
 })
 
@@ -47,9 +57,11 @@ test('The UI renders rankings in the order and ranks the API returns', async ({ 
   // Assert
   const rows = page.getByTestId('ranking-row')
   await expect(rows.nth(0)).toContainText('Contestant B')
-  await expect(rows.nth(0)).toContainText('2')
+  // Cell-scoped: `toContainText('2')` on the whole row is satisfied by any
+  // digit anywhere in it and cannot actually distinguish rank from wins.
+  await expect(rows.nth(0).getByRole('cell').nth(0)).toHaveText('2')
   await expect(rows.nth(1)).toContainText('Contestant A')
-  await expect(rows.nth(1)).toContainText('1')
+  await expect(rows.nth(1).getByRole('cell').nth(0)).toHaveText('1')
 })
 
 test('Unranked contestants are shown at the bottom', async ({ page }) => {
@@ -69,7 +81,7 @@ test('Unranked contestants are shown at the bottom', async ({ page }) => {
   // Assert
   const rows = page.getByTestId('ranking-row')
   await expect(rows.nth(1)).toContainText('Contestant C')
-  await expect(rows.nth(1)).toContainText('—')
+  await expect(rows.nth(1).getByRole('cell').nth(0)).toHaveText('—')
 })
 
 test('Rankings poll while the War is active', async ({ page }) => {

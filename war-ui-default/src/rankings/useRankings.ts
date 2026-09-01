@@ -3,7 +3,7 @@
 // `status` (spec §7.5's effective_status) is "active", stopping the moment
 // it isn't. Extracted out of the page component so that one renders only,
 // matching useVoteSession's split for VoteMode.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getRankings, type RankingsResponse } from '../api/client'
 import { toUserMessage } from '../api/errors'
 
@@ -16,32 +16,35 @@ export type RankingsState =
 
 export function useRankings(warId: string | undefined): RankingsState {
   const [state, setState] = useState<RankingsState>({ status: 'loading' })
-  // Guards state updates and the next poll against firing after unmount —
-  // the same pattern useVoteSession uses for its own async work.
-  const cancelledRef = useRef(false)
 
   useEffect(() => {
-    cancelledRef.current = false
     if (!warId) return
 
+    // Guards state updates and the next poll against firing after this
+    // effect's own cleanup. Declared per-run, not a ref shared across
+    // warId changes (useVoteSession's cancelledRef idiom) — a ref would let
+    // an in-flight fetch for a *previous* warId resume once the next
+    // effect run resets it to false, showing another War's board and
+    // leaving two self-rescheduling poll loops running.
+    let cancelled = false
     let timer: number | undefined
 
-    async function load() {
+    async function load(id: string) {
       try {
-        const rankings = await getRankings(warId!)
-        if (cancelledRef.current) return
+        const rankings = await getRankings(id)
+        if (cancelled) return
         setState({ status: 'loaded', rankings })
         if (rankings.status === 'active') {
-          timer = window.setTimeout(load, POLL_INTERVAL_MS)
+          timer = window.setTimeout(() => void load(id), POLL_INTERVAL_MS)
         }
       } catch (error) {
-        if (!cancelledRef.current) setState({ status: 'error', message: toUserMessage(error) })
+        if (!cancelled) setState({ status: 'error', message: toUserMessage(error) })
       }
     }
 
-    void load()
+    void load(warId)
     return () => {
-      cancelledRef.current = true
+      cancelled = true
       window.clearTimeout(timer)
     }
   }, [warId])

@@ -3,38 +3,17 @@ import type { Database } from '../db/types.js';
 import { findContestantsByIds } from '../contestants/contestantsRepository.js';
 import { listMediaByContestants } from '../contestants/contestantMediaRepository.js';
 import { presentMedia, type MediaItemView } from '../contestants/mediaPresenter.js';
+import { contestantViewSchema, type ContestantView } from '../contestants/contestantPresenter.js';
 import type { ContestantMedia } from '../contestants/contestantMediaRepository.js';
 import type { Contestant } from '../contestants/contestantsRepository.js';
 import { countMatchupsForWar, countVotesByVoterInWar, findUnvotedMatchupsForVoter } from './matchupsRepository.js';
 import { isLeftSide } from './stableHash.js';
-
-export interface ContestantView {
-  id: string;
-  name: string;
-  media: MediaItemView[];
-}
 
 export interface NextMatchupView {
   matchup: { id: string; left: ContestantView; right: ContestantView };
   progress: { voted: number; total: number };
   prefetch?: { matchup_id: string; media: MediaItemView[] };
 }
-
-/**
- * The response body JSON Schema for {@link ContestantView}, the shape
- * `NextMatchupView`'s `matchup.left`/`matchup.right` share. Kept beside the
- * interface it mirrors -- see `mediaItemSchema`
- * (`../contestants/mediaPresenter.ts`) for why.
- */
-export const contestantViewSchema = {
-  type: 'object',
-  required: ['id', 'name', 'media'],
-  properties: {
-    id: { type: 'string', format: 'uuid' },
-    name: { type: 'string' },
-    media: { type: 'array', items: { $ref: 'MediaItem#' } },
-  },
-};
 
 /**
  * The response body JSON Schema for {@link NextMatchupView} (spec §11.2.1).
