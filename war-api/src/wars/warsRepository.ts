@@ -71,6 +71,15 @@ export interface ListWarsFilter {
   category?: string;
   cursor?: string;
   limit: number;
+  /**
+   * Scopes the list to Wars created by this voter, across every status --
+   * including their own drafts and invite-only Wars (spec §7.2, §11.2.1
+   * "Addendum (2026-09-01)"). Composes with `status`/`category` exactly as
+   * those two already compose with each other. Only ever set from the
+   * authenticated requester's own id -- never from a client-supplied one --
+   * so this is the one filter here that can surface a voter's private Wars.
+   */
+  creatorId?: string;
 }
 
 export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Promise<War[]> {
@@ -84,6 +93,9 @@ export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Pr
   }
   if (filter.cursor) {
     query = query.where('id', '<', filter.cursor);
+  }
+  if (filter.creatorId) {
+    query = query.where('creator_id', '=', filter.creatorId);
   }
 
   const rows = await query.limit(filter.limit).execute();

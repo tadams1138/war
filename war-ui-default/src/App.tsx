@@ -8,6 +8,7 @@ import { WarDetail } from './pages/WarDetail'
 import { VoteMode } from './pages/VoteMode'
 import { Rankings } from './pages/Rankings'
 import { CreateWar } from './pages/CreateWar'
+import { MyWars } from './pages/MyWars'
 
 export default function App() {
   return (
@@ -32,6 +33,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <CreateWar />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/my-wars"
+            element={
+              <RequireAuth>
+                <MyWars />
               </RequireAuth>
             }
           />

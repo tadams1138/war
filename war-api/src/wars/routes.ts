@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
-import { bearerAuthRoute } from '../auth/plugin.js';
+import { bearerAuthRoute, requireAuthIf } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
 import { countContestantsByWarIds, countContestantsForWar } from '../contestants/contestantsRepository.js';
@@ -19,26 +19,48 @@ export interface WarsRouteDeps {
 export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): void {
   const { db, auth } = deps;
 
-  app.get<{ Querystring: { status?: string; category?: string; cursor?: string; limit?: string } }>(
+  app.get<{ Querystring: { status?: string; category?: string; cursor?: string; limit?: string; creator?: string } }>(
     '/wars',
     {
       schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            status: { type: 'string' },
+            category: { type: 'string' },
+            cursor: { type: 'string' },
+            limit: { type: 'string' },
+            // The only accepted value is the literal "me"; anything else
+            // fails Fastify's own ajv validation and returns its standard
+            // envelope, never this API's `{ error }` shape (spec §7.2,
+            // §11.2.1 "Addendum (2026-09-01)").
+            creator: { type: 'string', enum: ['me'] },
+          },
+        },
         response: {
           200: {
             type: 'object',
             required: ['wars'],
             properties: { wars: { type: 'array', items: { $ref: 'WarSummary#' } } },
           },
+          401: errorResponseSchema,
         },
       },
+      // Deliberately not `bearerAuthRoute`: this route stays open to
+      // anonymous callers for every query combination except `creator=me`
+      // (spec §7.2), so it must not carry a `security: [{bearerAuth: []}]`
+      // marker in the OpenAPI document either.
+      preHandler: requireAuthIf(auth, (request) => (request.query as { creator?: string }).creator === 'me'),
     },
     async (request, reply) => {
       const limit = Math.min(Number(request.query.limit ?? 20) || 20, 100);
+      const creatorId = request.query.creator === 'me' ? request.voterId : undefined;
       const wars = await listWars(db, {
         status: request.query.status,
         category: request.query.category,
         cursor: request.query.cursor,
         limit,
+        creatorId,
       });
       const now = new Date();
       const counts = await countContestantsByWarIds(

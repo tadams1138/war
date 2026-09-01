@@ -281,7 +281,13 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    status?: string;
+                    category?: string;
+                    cursor?: string;
+                    limit?: string;
+                    creator?: "me";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -296,6 +302,17 @@ export interface paths {
                     content: {
                         "application/json": {
                             wars: components["schemas"]["WarSummary"][];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
                         };
                     };
                 };
