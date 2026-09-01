@@ -1312,6 +1312,75 @@ This is scoped to the vote endpoint only. `POST /wars/:id/join`'s `403` (§11.2.
 outcome and `replyForOutcome`) and is unchanged — already unambiguous, nothing to
 discriminate.
 
+#### Addendum (2026-08-31): response schema for `GET /wars/:id/rankings` — Rankings slice
+
+`GET /wars/:id/rankings` (§7.5) is fully implemented and already covered end to end by §14's
+"Rankings" Gherkin — the endpoint itself needs no behavioural change. The gap is the same
+kind §11.2.1 exists to close: the route carries no Fastify `response` schema today, so
+`@fastify/swagger` still publishes it as the blanket `"200": { "description": "Default
+Response" }` with no `content`, and `war-ui-default`'s `openapi-typescript` generation step
+produces `unknown` for it. `war-ui-default`'s Rankings slice (`war-ui-default-spec.md` §12)
+needs a real generated type to build its `getRankings` wrapper and `RankingsTable` against.
+As with the 2026-08-30 addendum above, this shape is a **new requirement**, not a
+transcription of shipped code — §15 tracks it as pending until it ships.
+
+**`RankingContestant`** — the contestant projection §7.5's example nests under `contestant`.
+Deliberately narrower than `ContestantDetail` above: rankings display name, image, and the
+two counters already surfaced at the entry level (`wins`, `appearances`), not bio or
+attributes.
+
+```json
+{
+  "type": "object",
+  "required": ["id", "name", "media"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "name": { "type": "string" },
+    "media": { "type": "array", "items": { "$ref": "MediaItem" } }
+  }
+}
+```
+
+**`RankingEntry`** — one leaderboard row. `rank` is nullable per §8: a contestant with
+`appearance_count = 0` is listed with `rank: null`.
+
+```json
+{
+  "type": "object",
+  "required": ["rank", "contestant", "wins", "appearances"],
+  "properties": {
+    "rank": { "type": ["integer", "null"] },
+    "contestant": { "$ref": "RankingContestant" },
+    "wins": { "type": "integer" },
+    "appearances": { "type": "integer" }
+  }
+}
+```
+
+#### `GET /wars/:id/rankings`
+
+- `response.200`:
+  ```json
+  {
+    "type": "object",
+    "required": ["war_id", "status", "updated_at", "rankings"],
+    "properties": {
+      "war_id": { "type": "string", "format": "uuid" },
+      "status": { "type": "string", "enum": ["draft", "active", "closed"] },
+      "updated_at": { "type": "string", "format": "date-time" },
+      "rankings": { "type": "array", "items": { "$ref": "RankingEntry" } }
+    }
+  }
+  ```
+- `response.401`: `{ "type": "object", "required": ["error"], "properties": { "error": { "type": "string" } } }`
+  — an unauthenticated request against an `invite_only` War (§14, "Invite-only War rankings
+  blocked for anonymous users")
+- `response.404`: same shape as `401` — no War exists with the given id
+
+`status` here reflects `effective_status` (§5), exactly as the existing `updated_at` field
+and §7.5's caching rules already assume — this addendum does not change that, only gives it
+a schema.
+
 ---
 
 ## 12. CI/CD
@@ -1807,6 +1876,10 @@ Core Voting Loop slice, live in both staging and production for both repos
   `reason` discriminator (§11.2.1, "Addendum (2026-08-30)").
 
 **Not yet implemented:**
+- `GET /wars/:id/rankings`'s OpenAPI response schema (§11.2.1, "Addendum (2026-08-31)") —
+  the endpoint's own behaviour is fully implemented and covered by §14's Rankings Gherkin;
+  only the schema needed for `war-ui-default`'s Rankings slice to generate real types is
+  pending
 - Apple, Facebook, Microsoft, and Twitter/X OAuth (§4), and linking multiple providers to
   one voter account
 - `video` media mode (§5, §6, §11.3)
