@@ -31,3 +31,4 @@ Feature: Image Processing
     Given a contestant with ten images in a draft War
     When an eleventh image is uploaded
     Then the response status is 422
+    And the response explains that a contestant may hold at most 10 images

@@ -273,11 +273,21 @@ non-goal, `war-spec.md` §2).
    remove control for a contestant or its images in this slice — `PATCH`/`DELETE` on
    contestants and media exist in the API (§7.3) but are not called by this wizard; a
    creator who wants to fix a mistake abandons the draft and starts over.
-3. **Review** — lists the War's metadata and every contestant added so far, each with its
-   primary image if it has one. The wizard renders what it already holds from the previous
-   two steps' responses; it does not need to re-fetch `GET /wars/:id` to show this, though
-   doing so would show the same data, since the War is the single source of truth
-   throughout.
+3. **Review** — lists the War's metadata and every contestant added so far, each with an
+   indicator of whether it has an image attached — **not the image itself.** The wizard
+   renders what it already holds from the previous two steps' responses; it does not need
+   to re-fetch `GET /wars/:id` to show this. Rendering the image is deliberately out of
+   reach here: `POST /wars/:id/contestants/:cId/images` (`war-api-spec.md` §11.2.1) returns
+   only the created media's `id` and `display_order`, never a URL, so nothing the wizard
+   holds after an upload can be rendered as an `<img>`. A `GET /wars/:id` re-fetch would
+   return one (`ContestantDetail.media`, `war-api-spec.md` §11.2.1), but adding that round
+   trip — and the loading and error states an image-bearing Review step would then need of
+   its own — buys little for a screen one step before Activate: the indicator already tells
+   the creator everything Activate's own validation enforces ("every contestant must have at
+   least one image to activate"), and a creator who wants to confirm the photo can trust it
+   was accepted, because the upload either succeeded when attached or the wizard surfaced
+   its own error at that point (Contestants step, above). Showing the actual photo is left
+   to a later slice, if the API grows a way to hand one back cheaply.
 4. **Activate** — calls `activateWar` (`POST /wars/:id/activate`). On success (`200`),
    redirects to that War's vote page (`/wars/:id/vote`), which silently joins the creator to
    their own War on arrival like any other voter (§6, VoteMode). On failure (`422`), the
@@ -572,6 +582,14 @@ Feature: Create War
     When they attempt to activate
     Then the API's validation message is shown
     And the War is not activated
+
+  Scenario: Review shows an image-attached indicator, not the image itself
+    Given an authenticated voter with a draft War in progress
+    When they add one contestant with an image and one contestant with no image
+    And they proceed to the Review step
+    Then the contestant with an image shows an image-attached indicator
+    And the contestant with no image shows that it has none
+    And no contestant's image is rendered on the Review step
 
   Scenario: Creating a War requires authentication
     Given no voter is authenticated
