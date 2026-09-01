@@ -606,9 +606,10 @@ This document specifies the full default UI across all seven routes, both media 
 the shared runtime artifact for custom UIs. As of 2026-08-31, the Core Voting Loop slice
 below is **implemented and live in both staging and production** (`war-ui-default`'s
 placeholder "coming soon" page is gone), verified with a real interactive Google login, not
-just automated tests. A second slice has since shipped on top of it — Rankings — described
-in its own "Shipped" entry below. This section marks the boundary these slices draw: what
-they cover, versus what remains spec-only until a later slice picks it up.
+just automated tests. Two further slices have since shipped on top of it — Rankings and
+CreateWar — each described in its own "Shipped" entry below. This section marks the
+boundary these slices draw: what they cover, versus what remains spec-only until a later
+slice picks it up.
 
 **Shipped in this slice — the Core Voting Loop:**
 
@@ -650,9 +651,30 @@ they cover, versus what remains spec-only until a later slice picks it up.
   (§5.1), once `war-api` added the response schema it needed (`war-api-spec.md` §11.2.1,
   §15).
 
+**Shipped in a later slice — CreateWar:**
+
+- CreateWar wizard (`/wars/new`) (§4, §6): the four-step Metadata → Contestants → Review →
+  Activate flow §6's "CreateWar Wizard" entry describes, each step calling the API
+  immediately rather than staging one final submit. `/wars/new` sits behind the same
+  `RequireAuth` redirect as any other protected route (§7). Implemented as `CreateWar.tsx`,
+  a thin dispatcher over `useCreateWarWizard` (the step state machine) and three view
+  components under `src/createWar/` — `MetadataStep.tsx`, `ContestantsStep.tsx`,
+  `ReviewStep.tsx` — mirroring the VoteMode/`useVoteSession` split this spec already
+  establishes elsewhere in §6. The Review step carries and renders the full `WarSummary`
+  (title, category, visibility, end date) plus a per-contestant image-attached indicator,
+  never the image itself, exactly as §6 specifies.
+- `api/client.ts` (§5) gained `createWar`, `addContestant`, `uploadContestantImages`, and
+  `activateWar`, plus `ApiError.details` (§5, §8) carrying a `422` body's `details` array —
+  the Activate step's one deliberate exception to §8's generic 422 copy, per §6's CreateWar
+  Wizard entry. Types for all four routes came from the same generated-schema pipeline as
+  the rest of this slice (§5.1), once `war-api` added the response schemas they needed
+  (`war-api-spec.md` §11.2.1, §15), including the images route's dedicated
+  `imageUploadErrorResponseSchema` that keeps `details` on that route's validation `422` —
+  a fix made after a design review found the first schema attempt silently stripping it
+  (`war-api-spec.md` §15).
+
 **Deferred — spec-only, no scope in this slice:**
 
-- CreateWar wizard (`/wars/new`) (§4, §6)
 - MyWars (`/my-wars`) (§4)
 - Video-mode matchups — MatchupView's video playback sequence (§6)
 - The shared runtime build artifact for custom UIs, `dist/runtime/v1.js` and `dist/runtime/v1.d.ts` (§5.2)
@@ -662,7 +684,7 @@ in this document — a section describing the full design does not mean every pa
 been built.
 
 **§11's Gherkin covers the full design**, including scenarios for pages and modes not yet
-built (Rankings, Create War, and the video-mode scenarios under "Video Matchups"). The
+built (the video-mode scenarios under "Video Matchups"). The
 scenarios that actually apply to this slice live in `war-ui-default/features/*.feature` — a
 project-local, in-scope-only adaptation of a subset of §11, which the implementer binds into
 Playwright specs under `tests/acceptance/`. That directory is executable test fixture, not a
