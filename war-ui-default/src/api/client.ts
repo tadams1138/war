@@ -12,6 +12,7 @@ import { clearToken, getToken, isRefreshDisabled, notifyUnauthorized, setToken }
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 export type WarListResponse = paths['/wars']['get']['responses'][200]['content']['application/json']
+export type GetWarsParams = NonNullable<paths['/wars']['get']['parameters']['query']>
 export type WarDetailResponse = paths['/wars/{id}']['get']['responses'][200]['content']['application/json']
 export type NextMatchupResponse =
   paths['/wars/{id}/matchups/next']['get']['responses'][200]['content']['application/json']
@@ -181,8 +182,13 @@ function parseRetryAfter(headerValue: string | null): number {
 
 // --- typed wrapper functions -----------------------------------------------
 
-export async function getWars(): Promise<WarListResponse> {
-  const response = await ensureOk(await apiFetch('/wars'))
+// `creator: 'me'` is the only param this slice's callers use (MyWars,
+// war-ui-default-spec.md §6) — status/category/cursor/limit exist on the
+// generated querystring type too (war-api-spec.md §7.2) but nothing here
+// calls with them yet, so only `creator` is read out below.
+export async function getWars(params: GetWarsParams = {}): Promise<WarListResponse> {
+  const query = params.creator ? `?creator=${encodeURIComponent(params.creator)}` : ''
+  const response = await ensureOk(await apiFetch(`/wars${query}`))
   return response.json() as Promise<WarListResponse>
 }
 

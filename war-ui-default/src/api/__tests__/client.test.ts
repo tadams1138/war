@@ -79,6 +79,40 @@ describe('getWars', () => {
     // Assert
     expect(receivedAuth).toBeNull()
   })
+
+  it('sends creator=me as a query param when requested (§7.2 MyWars filter)', async () => {
+    // Arrange
+    let receivedUrl = ''
+    server.use(
+      http.get(`${BASE}/wars`, ({ request }) => {
+        receivedUrl = request.url
+        return HttpResponse.json({ wars: [] })
+      }),
+    )
+
+    // Act
+    await getWars({ creator: 'me' })
+
+    // Assert
+    expect(new URL(receivedUrl).searchParams.get('creator')).toBe('me')
+  })
+
+  it('omits the creator query param entirely when not requested', async () => {
+    // Arrange
+    let receivedUrl = ''
+    server.use(
+      http.get(`${BASE}/wars`, ({ request }) => {
+        receivedUrl = request.url
+        return HttpResponse.json({ wars: [] })
+      }),
+    )
+
+    // Act
+    await getWars()
+
+    // Assert
+    expect(new URL(receivedUrl).searchParams.has('creator')).toBe(false)
+  })
 })
 
 describe('getWar', () => {

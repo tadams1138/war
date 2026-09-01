@@ -4,7 +4,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../../src/db/types.js';
 import { findOrCreateVoter, type Voter } from '../../src/auth/votersRepository.js';
 import { createWar, type War } from '../../src/wars/warsRepository.js';
-import { activateWar } from '../../src/wars/warsService.js';
+import { activateWar, closeWar } from '../../src/wars/warsService.js';
 import { createContestant, type Contestant } from '../../src/contestants/contestantsRepository.js';
 import { uploadContestantImage } from '../../src/contestants/imageUploadService.js';
 import type { ContestantSchemaField } from '../../src/contestants/schemaValidation.js';
@@ -98,4 +98,13 @@ export async function activateWarForTest(db: Kysely<Database>, war: War): Promis
 
 export async function joinWarAsVoter(db: Kysely<Database>, warId: string, voterId: string): Promise<void> {
   await createMembership(db, warId, voterId);
+}
+
+/** Closes an already-active War as its creator. Throws if closing is rejected. */
+export async function closeWarForTest(db: Kysely<Database>, war: War): Promise<War> {
+  const outcome = await closeWar(db, war.id, war.creatorId!, new Date());
+  if (outcome.kind !== 'ok') {
+    throw new Error(`failed to close War in test fixture: ${outcome.kind}`);
+  }
+  return outcome.value;
 }

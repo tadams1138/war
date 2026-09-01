@@ -339,6 +339,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario("The wars list endpoint declares its creator-filter auth requirement", ({ When, Then }) => {
+    When('a client fetches the OpenAPI document', async () => {
+      ({ response, document } = await fetchDocument(harness));
+    });
+
+    Then('the GET /api/v1/wars 401 response schema requires "error"', () => {
+      const schema = responseSchema(document, '/wars', 'get', '401');
+      expectRequiredPath(document, schema, 'error');
+    });
+  });
+
   Scenario('The war detail response schema nests contestants with media', ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
       ({ response, document } = await fetchDocument(harness));

@@ -23,6 +23,27 @@ export function requireAuth(deps: AuthDependencies) {
 }
 
 /**
+ * A conditional variant of {@link requireAuth}: enforces the bearer
+ * requirement only when `shouldRequireAuth` returns true for the request,
+ * and otherwise lets the request through unauthenticated (`request.voterId`
+ * stays `undefined`). For an endpoint that is public in general but
+ * requires identity for one particular query combination -- `GET
+ * /wars?creator=me` (spec §7.2, §11.2.1 "Addendum (2026-09-01)") is the one
+ * caller today -- rather than gating the whole route behind
+ * {@link bearerAuthRoute}, which would also mark it `security:
+ * [{bearerAuth: []}]` in the OpenAPI document and misdescribe every other
+ * query combination on the same route as requiring auth too.
+ */
+export function requireAuthIf(deps: AuthDependencies, shouldRequireAuth: (request: FastifyRequest) => boolean) {
+  const guarded = requireAuth(deps);
+  return async function preHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    if (shouldRequireAuth(request)) {
+      await guarded(request, reply);
+    }
+  };
+}
+
+/**
  * Route options for an endpoint gated by the bearer JWT: the preHandler that
  * enforces it and the OpenAPI marker that documents it, produced together so
  * neither can be added without the other (spec §5, §11.2). Accepts the
