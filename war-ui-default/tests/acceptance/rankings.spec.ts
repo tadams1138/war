@@ -112,6 +112,89 @@ test('Rankings poll while the War is active', async ({ page }) => {
   expect(rankingsCalls.length).toBeGreaterThanOrEqual(2)
 })
 
+test('A failed poll keeps the last loaded leaderboard on screen', async ({ page }) => {
+  // Arrange
+  const first = buildRankingsResponse({
+    war_id: WAR_ID,
+    status: 'active',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 5, appearances: 6 })],
+  })
+  const third = buildRankingsResponse({
+    war_id: WAR_ID,
+    status: 'active',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 9, appearances: 10 })],
+  })
+  await page.clock.install()
+  await useScenario(page, [
+    {
+      method: 'GET',
+      path: `${API}/wars/${WAR_ID}/rankings`,
+      responses: [
+        { status: 200, body: first },
+        { status: 503, body: { error: 'server error' } },
+        { status: 200, body: third },
+      ],
+    },
+  ])
+  await page.goto(`/wars/${WAR_ID}/rankings`)
+  const rows = page.getByTestId('ranking-row')
+  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('5')
+
+  // Act — the second poll (the failing one)
+  await page.clock.fastForward(30_000)
+
+  // Assert — the wins column still reflects the first, successfully loaded
+  // response; no error state has replaced the table.
+  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('5')
+  await expect(page.getByRole('alert')).toHaveCount(0)
+
+  // Act — a third poll, still on the same 30s schedule, that succeeds
+  await page.clock.fastForward(30_000)
+
+  // Assert — polling was never stopped by the failure in between
+  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('9')
+  const rankingsCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/rankings'))
+  expect(rankingsCalls.length).toBeGreaterThanOrEqual(3)
+})
+
+test('The leaderboard recovers once a later poll succeeds', async ({ page }) => {
+  // Arrange
+  const first = buildRankingsResponse({
+    war_id: WAR_ID,
+    status: 'active',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 5, appearances: 6 })],
+  })
+  const third = buildRankingsResponse({
+    war_id: WAR_ID,
+    status: 'active',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 9, appearances: 10 })],
+  })
+  await page.clock.install()
+  await useScenario(page, [
+    {
+      method: 'GET',
+      path: `${API}/wars/${WAR_ID}/rankings`,
+      responses: [
+        { status: 200, body: first },
+        { status: 503, body: { error: 'server error' } },
+        { status: 200, body: third },
+      ],
+    },
+  ])
+  await page.goto(`/wars/${WAR_ID}/rankings`)
+  const rows = page.getByTestId('ranking-row')
+  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('5')
+  // The failed poll — the "whose last poll failed" precondition
+  await page.clock.fastForward(30_000)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+
+  // Act — the next poll succeeds
+  await page.clock.fastForward(30_000)
+
+  // Assert
+  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('9')
+})
+
 test('Rankings do not poll once the War is closed', async ({ page }) => {
   // Arrange
   const closed = buildRankingsResponse({

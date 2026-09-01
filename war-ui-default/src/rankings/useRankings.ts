@@ -29,20 +29,37 @@ export function useRankings(warId: string | undefined): RankingsState {
     let cancelled = false
     let timer: number | undefined
 
-    async function load(id: string) {
+    function schedulePoll(id: string) {
+      timer = window.setTimeout(() => void load(id, true), POLL_INTERVAL_MS)
+    }
+
+    // §6, RankingsTable: a failed poll after a first successful load keeps
+    // the last-loaded board on screen and keeps polling on the same
+    // schedule; only a failure on the initial load (nothing yet shown)
+    // surfaces the standard error state. Split out of load() itself to
+    // keep that function's branching within this codebase's complexity
+    // budget (root CLAUDE.md).
+    function onLoadFailed(id: string, hasLoadedOnce: boolean, error: unknown) {
+      if (hasLoadedOnce) {
+        schedulePoll(id)
+        return
+      }
+      setState({ status: 'error', message: toUserMessage(error) })
+    }
+
+    async function load(id: string, hasLoadedOnce: boolean) {
       try {
         const rankings = await getRankings(id)
         if (cancelled) return
         setState({ status: 'loaded', rankings })
-        if (rankings.status === 'active') {
-          timer = window.setTimeout(() => void load(id), POLL_INTERVAL_MS)
-        }
+        if (rankings.status === 'active') schedulePoll(id)
       } catch (error) {
-        if (!cancelled) setState({ status: 'error', message: toUserMessage(error) })
+        if (cancelled) return
+        onLoadFailed(id, hasLoadedOnce, error)
       }
     }
 
-    void load(warId)
+    void load(warId, false)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
