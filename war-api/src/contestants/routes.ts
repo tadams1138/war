@@ -32,6 +32,27 @@ const imageUploadResponseSchema = {
   },
 };
 
+/**
+ * The response body JSON Schema for `POST /wars/:id/contestants/:cId/images`'s
+ * `422` (spec §11.2.1) -- this route's own three validation failures produce
+ * two distinct shapes sharing this one status: the no-file case sends a
+ * plain `{ error }`, while the too-many-images and unreadable-upload cases
+ * go through `replyForOutcome`'s validationError branch and send
+ * `{ error, details }`. Neither `errorResponseSchema` (no `details`
+ * property, so it silently drops the second shape's only actionable text)
+ * nor `validationErrorResponseSchema` (`details` required, so it rejects the
+ * first shape) fits both -- this schema requires only `error` and leaves
+ * `details` optional, scoped to this one route's 422 rather than shared.
+ */
+const imageUploadErrorResponseSchema = {
+  type: 'object',
+  required: ['error'],
+  properties: {
+    error: { type: 'string' },
+    details: { type: 'array', items: { type: 'string' } },
+  },
+};
+
 function extensionFor(mimeType: string): string {
   switch (mimeType) {
     case 'image/png':
@@ -123,11 +144,13 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
         201: imageUploadResponseSchema,
         403: errorResponseSchema,
         404: errorResponseSchema,
-        // Not validationErrorResponseSchema: this route's own 422s (no file
-        // uploaded, too many images, an unreadable buffer) are always a
-        // single-string `error` with no `details` array (spec §11.2.1) --
-        // deliberately asymmetric with the other three routes in this slice.
-        422: errorResponseSchema,
+        // Not errorResponseSchema (no `details` property -- strips the
+        // validation-error shape's only actionable text) and not
+        // validationErrorResponseSchema (`details` required -- rejects the
+        // no-file shape, which has none). This route's three 422s produce
+        // two distinct bodies sharing the one status (spec §11.2.1); see
+        // imageUploadErrorResponseSchema above.
+        422: imageUploadErrorResponseSchema,
       },
     }),
     async (request, reply) => {

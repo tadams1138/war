@@ -29,7 +29,7 @@ interface MetadataStep {
 
 interface ContestantsStep {
   step: 'contestants'
-  warId: string
+  war: WarSummary
   contestants: WizardContestant[]
   submittingContestant: boolean
   nameError: string | null
@@ -38,7 +38,7 @@ interface ContestantsStep {
 
 interface ReviewStep {
   step: 'review'
-  warId: string
+  war: WarSummary
   contestants: WizardContestant[]
   activating: boolean
   // The API's own validation message(s) shown verbatim, per spec §6's
@@ -85,59 +85,68 @@ export function useCreateWarWizard(onActivated: (war: WarSummary) => void): Crea
     setState({ step: 'metadata', submitting: true, error: null })
     try {
       const war = await createWar(payload)
-      setState({ step: 'contestants', warId: war.id, contestants: [], submittingContestant: false, nameError: null, imageError: null })
+      setState({ step: 'contestants', war, contestants: [], submittingContestant: false, nameError: null, imageError: null })
     } catch (error) {
       setState({ step: 'metadata', submitting: false, error: genericValidationMessage(error) })
     }
   }
 
+  // Functional updaters throughout below: overlapping requests (adding a
+  // contestant while an earlier image upload is still in flight, or two
+  // image uploads racing each other) must each patch the latest state, not
+  // the `contestants` array closed over before their own `await` -- writing
+  // one back over the other's result would silently lose it (design review
+  // finding 2). Each updater also patches only the fields its own operation
+  // owns, rather than respelling the whole step object, so it never
+  // clobbers a sibling field (e.g. imageError) a concurrent operation set.
   async function submitContestant(name: string, bio?: string): Promise<void> {
     if (state.step !== 'contestants') return
-    const { warId, contestants } = state
-    setState({ ...state, submittingContestant: true, nameError: null })
+    const { war } = state
+    setState((prev) => (prev.step !== 'contestants' ? prev : { ...prev, submittingContestant: true, nameError: null }))
     try {
-      const contestant = await addContestant(warId, { name, bio: bio || null })
-      setState({
-        step: 'contestants',
-        warId,
-        contestants: [...contestants, { id: contestant.id, name: contestant.name, hasImage: false }],
-        submittingContestant: false,
-        nameError: null,
-        imageError: null,
-      })
+      const contestant = await addContestant(war.id, { name, bio: bio || null })
+      setState((prev) =>
+        prev.step !== 'contestants'
+          ? prev
+          : {
+              ...prev,
+              contestants: [...prev.contestants, { id: contestant.id, name: contestant.name, hasImage: false }],
+              submittingContestant: false,
+              nameError: null,
+            },
+      )
     } catch (error) {
-      setState({ ...state, submittingContestant: false, nameError: genericValidationMessage(error) })
+      setState((prev) =>
+        prev.step !== 'contestants' ? prev : { ...prev, submittingContestant: false, nameError: genericValidationMessage(error) },
+      )
     }
   }
 
   async function attachImages(contestantId: string, files: File[]): Promise<void> {
     if (state.step !== 'contestants' || files.length === 0) return
-    const { warId, contestants } = state
+    const { war } = state
     try {
-      await uploadContestantImages(warId, contestantId, files)
-      setState({
-        step: 'contestants',
-        warId,
-        contestants: contestants.map((c) => (c.id === contestantId ? { ...c, hasImage: true } : c)),
-        submittingContestant: false,
-        nameError: null,
-        imageError: null,
-      })
+      await uploadContestantImages(war.id, contestantId, files)
+      setState((prev) =>
+        prev.step !== 'contestants'
+          ? prev
+          : { ...prev, contestants: prev.contestants.map((c) => (c.id === contestantId ? { ...c, hasImage: true } : c)) },
+      )
     } catch (error) {
-      setState({ ...state, imageError: genericValidationMessage(error) })
+      setState((prev) => (prev.step !== 'contestants' ? prev : { ...prev, imageError: genericValidationMessage(error) }))
     }
   }
 
   function proceedToReview(): void {
     if (state.step !== 'contestants') return
-    setState({ step: 'review', warId: state.warId, contestants: state.contestants, activating: false, activateDetails: null })
+    setState({ step: 'review', war: state.war, contestants: state.contestants, activating: false, activateDetails: null })
   }
 
   async function activate(): Promise<void> {
     if (state.step !== 'review') return
     setState({ ...state, activating: true, activateDetails: null })
     try {
-      const war = await activateWar(state.warId)
+      const war = await activateWar(state.war.id)
       onActivated(war)
     } catch (error) {
       setState({ ...state, activating: false, activateDetails: detailsFromActivateError(error) })
