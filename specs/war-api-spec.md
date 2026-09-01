@@ -2085,7 +2085,23 @@ Core Voting Loop slice, live in both staging and production for both repos
   `reason` discriminator (§11.2.1, "Addendum (2026-08-30)"), and `GET /wars/:id/rankings`'s
   response schema (§11.2.1, "Addendum (2026-08-31)") — the endpoint's own behaviour was
   already implemented and covered by §14's Rankings Gherkin; this addendum's schema is what
-  let `war-ui-default`'s Rankings slice generate real types against it.
+  let `war-ui-default`'s Rankings slice generate real types against it. The CreateWar
+  wizard's four routes (§11.2.1, "Addendum (2026-08-31): request/response schemas for the
+  CreateWar wizard's routes") are implemented too: `POST /wars`, `POST
+  /wars/:id/contestants`, `POST /wars/:id/contestants/:cId/images`, and `POST
+  /wars/:id/activate` all now publish the response schemas that addendum specifies, in
+  place of the blanket unschemad `200` it found when written. The images route needed a
+  schema of its own, `imageUploadErrorResponseSchema` (`error` required, `details`
+  optional, `src/contestants/routes.ts`) — a correction made after a design review found
+  the route's first schema attempt, a plain `errorResponseSchema`, silently stripping
+  `details` off that route's second `422` shape, the only text naming which of its two
+  validation failures occurred. All four routes' schemas are pinned by four new scenarios
+  in `war-api/specs/features/openapi.feature` ("The war creation endpoint's response
+  schemas cover its status variations", "The add-contestant endpoint's response schema
+  declares the contestant shape", "The image upload endpoint's response schema declares the
+  stored media", "The activate endpoint's response schemas cover its status variations");
+  the routes' own behaviour, unchanged by this schema work, remains covered by the "War
+  Creation" and "War Lifecycle" Gherkin (§14).
 
 **Not yet implemented:**
 - Apple, Facebook, Microsoft, and Twitter/X OAuth (§4), and linking multiple providers to
@@ -2095,12 +2111,6 @@ Core Voting Loop slice, live in both staging and production for both repos
   the API's own per-identity limits described here are not
 - Custom UI registry endpoints (§7.6, §10) — the `ui_registrations` table and `wars.ui_slug`
   column exist and are reserved; no endpoint reads or writes them yet
-- Request/response schemas for the CreateWar wizard's routes (§11.2.1, Addendum
-  (2026-08-31), "CreateWar slice") — `POST /wars`, `POST /wars/:id/contestants`,
-  `POST /wars/:id/contestants/:cId/images`, and `POST /wars/:id/activate` are all fully
-  implemented and behaviorally correct (see the "War Creation" and "War Lifecycle" Gherkin,
-  §14) but still publish the blanket unschemad `200` response; `war-ui-default`'s CreateWar
-  slice needs real generated types for all four
 
 None of the above is inferred to be in scope from the data model's presence — a reserved
 column or table does not mean its feature is built.
