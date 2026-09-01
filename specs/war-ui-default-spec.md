@@ -250,11 +250,50 @@ Renders the leaderboard returned by `GET /rankings`. Columns: Rank, Image, Name,
 Summary tile used on the Home and MyWars pages. Displays: title, category badge, status badge, contestant count, time remaining (if `ends_at` is set).
 
 ### CreateWar Wizard
-Multi-step form:
-1. **Metadata** — title, category, visibility, optional end date
-2. **Contestants** — add contestants one at a time (name, bio, upload images)
-3. **Review** — summary of all contestants and images
-4. **Activate** — calls `POST /activate`; on success, redirects to the War's vote page
+
+Multi-step form at `/wars/new`. Each step calls the API immediately rather than staging
+everything for one final submit — the wizard has no offline draft of its own, because the
+War it is building **is** the draft `war-api-spec.md` §5 already models. This also means
+partway abandonment simply leaves an unreachable draft War behind, at no cost: nothing else
+references it, and cleaning up abandoned drafts is out of scope for this slice (there is no
+`MyWars` page yet, §12, to surface it, and War creator moderation tooling is a stated
+non-goal, `war-spec.md` §2).
+
+1. **Metadata** — title (required), category (optional), visibility (`public` /
+   `invite_only`, defaults to `public`), optional end date. Submitting this step calls
+   `createWar` (`POST /wars`, `war-api-spec.md` §7.2). A blank title is rejected by the API
+   with `422`; the wizard shows that failure inline and does not advance. On success the
+   wizard holds the returned War's `id` for every subsequent step.
+2. **Contestants** — add contestants one at a time: a name (required) and optional bio call
+   `addContestant` (`POST /wars/:id/contestants`); a blank name is rejected the same way as
+   a blank title. Once a contestant exists, one or more images can be attached to it via
+   `uploadContestantImages` (`POST /wars/:id/contestants/:cId/images`, one request per
+   file — `war-api-spec.md` §11.2.1). A contestant with no image yet is still listed in this
+   step; nothing here blocks moving on to Review without one. There is no edit, reorder, or
+   remove control for a contestant or its images in this slice — `PATCH`/`DELETE` on
+   contestants and media exist in the API (§7.3) but are not called by this wizard; a
+   creator who wants to fix a mistake abandons the draft and starts over.
+3. **Review** — lists the War's metadata and every contestant added so far, each with its
+   primary image if it has one. The wizard renders what it already holds from the previous
+   two steps' responses; it does not need to re-fetch `GET /wars/:id` to show this, though
+   doing so would show the same data, since the War is the single source of truth
+   throughout.
+4. **Activate** — calls `activateWar` (`POST /wars/:id/activate`). On success (`200`),
+   redirects to that War's vote page (`/wars/:id/vote`), which silently joins the creator to
+   their own War on arrival like any other voter (§6, VoteMode). On failure (`422`), the
+   wizard shows the API's own validation message(s) — the `details` array `war-api-spec.md`
+   §11.2.1's `POST /wars/:id/activate` addendum documents, e.g. "a War needs at least 2
+   contestants to activate" or "every contestant must have at least one image to activate" —
+   rather than the generic §8 422 copy. This is a deliberate exception to §8's per-status
+   table: these two messages are addressed to the War's own creator mid-wizard and name
+   exactly what to fix, which the generic "Something went wrong" text does not, and there is
+   no risk of a validation message reaching a voter who cannot act on it, because only the
+   creator, mid-wizard, ever calls this endpoint. Activation is not re-attempted
+   automatically; the creator corrects the draft (adds another contestant, adds an image)
+   and activates again.
+
+`/wars/new` is authenticated (§4); an unauthenticated visit redirects to `/login` with
+`returnTo=/wars/new`, the same as any other protected route (§7).
 
 ---
 
@@ -502,18 +541,43 @@ Feature: Rankings
 
 Feature: Create War
 
-  Scenario: Creator completes the War wizard and activates
+  Scenario: A voter completes the wizard and activates the War
     Given an authenticated voter on /wars/new
-    When they complete all wizard steps with 3 contestants and images
-    And they click Activate
-    Then the API is called to activate the War
-    And they are redirected to the War's vote page
+    When they submit the Metadata step with a title
+    And they add 2 contestants, each with one image
+    And they activate the War from the Review step
+    Then the War is created, its contestants added, and it is activated via the API
+    And they are redirected to that War's vote page
 
-  Scenario: Activate is blocked with fewer than 2 contestants
-    Given a creator on the Review step with only 1 contestant
+  Scenario: A title is required to proceed past Metadata
+    Given an authenticated voter on /wars/new
+    When they submit the Metadata step with no title
+    Then an error is shown
+    And no War is created
+
+  Scenario: A contestant requires a name
+    Given an authenticated voter with a draft War in progress
+    When they submit the contestant form with no name
+    Then an error is shown
+    And no contestant is added
+
+  Scenario: Activation is blocked with fewer than 2 contestants
+    Given an authenticated voter with a draft War that has only 1 contestant
     When they attempt to activate
-    Then an error message is shown
+    Then the API's validation message is shown
     And the War is not activated
+
+  Scenario: Activation is blocked when a contestant has no image
+    Given an authenticated voter with a draft War whose contestants include one with no image
+    When they attempt to activate
+    Then the API's validation message is shown
+    And the War is not activated
+
+  Scenario: Creating a War requires authentication
+    Given no voter is authenticated
+    When they navigate directly to "/wars/new"
+    Then they are redirected to "/login"
+    And the returnTo query param is "/wars/new"
 ```
 
 ---

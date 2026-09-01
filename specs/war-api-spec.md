@@ -477,10 +477,23 @@ In responses below this array is abbreviated as `media: [ … ]`.
 
 **`GET /wars` query params:** `status`, `category`, `cursor`, `limit` (default 20, max 100)
 
+**`POST /wars` body:** `{ "title": "...", "category": "...", "visibility": "public", "media_mode": "image", "contestant_schema": [ … ], "ends_at": "..." }`
+
+**`POST /wars` rules:**
+- `title` is required, 1–256 characters → else `422`
+- `category` is optional and free-form
+- `visibility` defaults to `public`; any other value must be `invite_only` → else `422`
+- `media_mode` defaults to `image`; `video` is rejected with `422` in this slice — the column and the video-specific endpoints exist (§6, §7.3) but video mode itself is not implemented (§15)
+- `contestant_schema`, if supplied, is validated per §5's field rules → else `422`
+- `ends_at`, if supplied, must parse as a date-time → else `422`
+- The War is created in `draft` status, owned by the authenticated voter
+
 **`POST /wars/:id/activate` rules:**
 - Requires ≥ 2 contestants → else `422`
+- Requires every contestant to have **at least one image** → else `422` (image mode; a War cannot go live with a contestant no voter can see)
 - Generates all `n(n-1)/2` matchups atomically
 - Requester must be War creator → else `403`
+- War must be `draft` → else `403`
 
 ---
 
@@ -495,6 +508,14 @@ In responses below this array is abbreviated as `media: [ … ]`.
 | `POST` | `/wars/:id/contestants/:cId/video` | 🔒 | Attach embedded video (draft only; `video` mode) |
 | `PATCH` | `/wars/:id/contestants/:cId/media/:mId` | 🔒 | Reorder / set primary (draft only) |
 | `DELETE` | `/wars/:id/contestants/:cId/media/:mId` | 🔒 | Remove media item (draft only) |
+
+**`POST /wars/:id/contestants` body:** `{ "name": "...", "bio": "...", "attributes": { … } }`
+
+**`POST /wars/:id/contestants` rules:**
+- `name` is required, 1–256 characters → else `422`
+- `bio` is optional
+- War must be `draft` and requester must be its creator → else `403`
+- The created contestant starts with no media; it blocks activation until at least one image is added (see "`POST /wars/:id/activate` rules" above)
 
 **Contestant attributes.** `POST` and `PATCH` accept an `attributes` object validated against the War's `contestant_schema` (§5):
 
@@ -1381,6 +1402,101 @@ attributes.
 and §7.5's caching rules already assume — this addendum does not change that, only gives it
 a schema.
 
+#### Addendum (2026-08-31): request/response schemas for the CreateWar wizard's routes — CreateWar slice
+
+The four routes `war-ui-default`'s CreateWar wizard calls (`war-ui-default-spec.md` §6) are
+already fully implemented and behaviorally correct — `src/wars/routes.ts` and
+`src/contestants/routes.ts` handle all four today — but none carries a Fastify `response`
+schema, so each still publishes the same blanket `"200": { "description": "Default
+Response" }` §11.2.1's opening paragraph describes, and `war-ui-default`'s
+`openapi-typescript` step produces `unknown` for all four. As with the two addenda above,
+every shape below is a **new requirement**, not a transcription of a schema that already
+exists; §15 tracks it as pending until it ships. Response *bodies* themselves are
+transcribed from the shipped handlers (`presentWarSummary`, `presentContestant`, and the
+route's own literal object), same as the rest of §11.2.1.
+
+Both `WarSummary` and `ContestantDetail`, defined above under "Shared shapes", are reused
+unchanged — a created or activated War is exactly a `WarSummary`, and a created contestant
+is exactly a `ContestantDetail`, no narrower projection needed for either.
+
+#### `POST /wars`
+
+Reflects `src/wars/routes.ts` and `createWarForVoter`'s `CreateWarOutcome`.
+
+- `response.201`: `WarSummary` (`'created'`)
+- `response.422`:
+  ```json
+  {
+    "type": "object",
+    "required": ["error", "details"],
+    "properties": {
+      "error": { "type": "string" },
+      "details": { "type": "array", "items": { "type": "string" } }
+    }
+  }
+  ```
+  (`'validationError'` — `error` is always the literal `"validation error"`; `details` carries
+  the actual per-field messages, e.g. `"title must be a non-empty string of at most 256
+  characters"`)
+
+#### `POST /wars/:id/contestants`
+
+Reflects `src/contestants/routes.ts` and `addContestant`'s `MutationOutcome<ContestantWithWar>`.
+
+- `response.201`: `ContestantDetail` (`'ok'`)
+- `response.403`: `errorResponseSchema` shape (both `'forbidden'` → `{ "error": "forbidden"
+  }` and `'notDraft'` → `{ "error": "War is no longer editable" }` share this one shape,
+  distinguished only by message text — there is no `reason` discriminator on this route,
+  unlike the vote endpoint's `403` in the 2026-08-30 addendum above; nothing in this slice
+  needs to branch on which occurred)
+- `response.404`: `errorResponseSchema` shape (`'notFound'`)
+- `response.422`: same shape as `POST /wars`'s `422` above (`'validationError'` — a missing
+  `name`, or an `attributes` value §5's schema validation rejects)
+
+#### `POST /wars/:id/contestants/:cId/images`
+
+Reflects `src/contestants/routes.ts`. The request is `multipart/form-data`, a single file
+per call — there is no JSON `body` for Fastify's `schema` option to describe here; the
+route's own `request.file()` handles the multipart parsing before any outcome is produced.
+`war-ui-default`'s `uploadContestantImages(warId, contestantId, files: File[])` (§5.2 of
+that spec) issues one call per file for exactly this reason.
+
+- `response.201`:
+  ```json
+  {
+    "type": "object",
+    "required": ["id", "display_order"],
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "display_order": { "type": "integer" }
+    }
+  }
+  ```
+  (the route's own literal response object — narrower than the full `MediaItem` shape
+  elsewhere in this document, since the caller already has the file it just uploaded and
+  needs only the assigned id and order back)
+- `response.403`: `errorResponseSchema` shape (`'forbidden'` / `'notDraft'`, same two
+  causes and same shape as `POST /wars/:id/contestants` above)
+- `response.404`: `errorResponseSchema` shape (`'notFound'` — either the War or the
+  contestant)
+- `response.422`: `errorResponseSchema` shape — **not** the `{ error, details }` shape
+  above; this route's own validation failures (no file uploaded, more than 10 images, an
+  unreadable image buffer) each produce a single-string `error` through `replyForOutcome`'s
+  `validationError` branch reached via a one-element `errors` array, but the route's `catch`
+  for "no file uploaded" sends `{ "error": "no file uploaded" }` directly, without a
+  `details` array — do not add one
+
+#### `POST /wars/:id/activate`
+
+Reflects `src/wars/routes.ts` and `activateWar`'s `ActivateOutcome`.
+
+- `response.200`: `WarSummary` (`'ok'`)
+- `response.403`: `errorResponseSchema` shape (`'forbidden'` / `'notDraft'`, same as above)
+- `response.404`: `errorResponseSchema` shape (`'notFound'`)
+- `response.422`: same `{ error, details }` shape as `POST /wars`'s `422` above
+  (`'validationError'` — fewer than 2 contestants, or a contestant with no image; see
+  "`POST /wars/:id/activate` rules", §7.2)
+
 ---
 
 ## 12. CI/CD
@@ -1638,19 +1754,70 @@ Feature: Rate Limiting
     And no counters change
 ```
 
+### War Creation
+
+```gherkin
+Feature: War Creation
+
+  Scenario: An authenticated voter creates a War
+    Given an authenticated voter
+    When they POST a title to /api/v1/wars
+    Then a new War is created in "draft" status
+    And its visibility defaults to "public"
+
+  Scenario: A title is required
+    Given an authenticated voter
+    When they POST to /api/v1/wars with no title
+    Then the response status is 422
+    And no War is created
+
+  Scenario: An unauthenticated request cannot create a War
+    Given a request with no Authorization header
+    When they POST to /api/v1/wars
+    Then the response status is 401
+
+  Scenario: The creator adds a contestant to their draft War
+    Given a draft War created by the requester
+    When they POST a name to /api/v1/wars/:id/contestants
+    Then the contestant is created
+    And it appears in the War's contestant list
+
+  Scenario: A contestant name is required
+    Given a draft War created by the requester
+    When they POST to /api/v1/wars/:id/contestants with no name
+    Then the response status is 422
+    And no contestant is created
+
+  Scenario: A non-creator cannot add a contestant
+    Given a War created by Voter A
+    When Voter B POSTs a contestant to it
+    Then the response status is 403
+
+  Scenario: A contestant cannot be added once the War is active
+    Given an active War
+    When its creator POSTs a new contestant
+    Then the response status is 403
+```
+
 ### War Lifecycle
 
 ```gherkin
 Feature: War Lifecycle
 
   Scenario: Creator activates a War with enough contestants
-    Given a War in "draft" status with 3 contestants
+    Given a War in "draft" status with 3 contestants, each with an image
     When the creator POSTs to /api/v1/wars/:id/activate
     Then the War status becomes "active"
     And exactly 3 matchups are generated
 
   Scenario: Cannot activate with fewer than 2 contestants
     Given a War in "draft" with 1 contestant
+    When the creator POSTs to activate
+    Then the response status is 422
+    And the War remains "draft"
+
+  Scenario: Cannot activate when a contestant has no image
+    Given a War in "draft" with 2 contestants, only one of which has an image
     When the creator POSTs to activate
     Then the response status is 422
     And the War remains "draft"
@@ -1886,6 +2053,12 @@ Core Voting Loop slice, live in both staging and production for both repos
   the API's own per-identity limits described here are not
 - Custom UI registry endpoints (§7.6, §10) — the `ui_registrations` table and `wars.ui_slug`
   column exist and are reserved; no endpoint reads or writes them yet
+- Request/response schemas for the CreateWar wizard's routes (§11.2.1, Addendum
+  (2026-08-31), "CreateWar slice") — `POST /wars`, `POST /wars/:id/contestants`,
+  `POST /wars/:id/contestants/:cId/images`, and `POST /wars/:id/activate` are all fully
+  implemented and behaviorally correct (see the "War Creation" and "War Lifecycle" Gherkin,
+  §14) but still publish the blanket unschemad `200` response; `war-ui-default`'s CreateWar
+  slice needs real generated types for all four
 
 None of the above is inferred to be in scope from the data model's presence — a reserved
 column or table does not mean its feature is built.
