@@ -16,6 +16,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     harness = await buildTestHarness();
   });
 
+  async function authedPost(voterId: string, path: string, body: Record<string, unknown> = {}): Promise<request.Response> {
+    await harness.app.ready();
+    const jwt = await harness.jwtFor(voterId);
+    return request(harness.app.server).post(path).set('Authorization', `Bearer ${jwt}`).send(body);
+  }
+
+  async function givenDraftWarByNewVoter(seed = 'creator'): Promise<{ warId: string; creatorId: string }> {
+    const creator = await makeVoter(harness.db, seed);
+    const war = await makeDraftWar(harness.db, creator.id);
+    return { warId: war.id, creatorId: creator.id };
+  }
+
   Scenario('An authenticated voter creates a War', ({ Given, When, Then, And }) => {
     let creatorId: string;
     let response: request.Response;
@@ -26,12 +38,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they POST a title to /api/v1/wars', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post('/api/v1/wars')
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ title: 'Miss Universe 2026' });
+      response = await authedPost(creatorId, '/api/v1/wars', { title: 'Miss Universe 2026' });
     });
 
     Then('a new War is created in "draft" status', () => {
@@ -54,12 +61,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they POST to /api/v1/wars with no title', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post('/api/v1/wars')
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({});
+      response = await authedPost(creatorId, '/api/v1/wars');
     });
 
     Then('the response status is 422', () => {
@@ -95,19 +97,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a draft War created by the requester', async () => {
-      const creator = await makeVoter(harness.db, 'creator');
-      creatorId = creator.id;
-      const war = await makeDraftWar(harness.db, creatorId);
-      warId = war.id;
+      ({ warId, creatorId } = await givenDraftWarByNewVoter());
     });
 
     When('they POST a name to /api/v1/wars/:id/contestants', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/contestants`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ name: 'Maria' });
+      response = await authedPost(creatorId, `/api/v1/wars/${warId}/contestants`, { name: 'Maria' });
     });
 
     Then('the contestant is created', () => {
@@ -128,19 +122,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a draft War created by the requester', async () => {
-      const creator = await makeVoter(harness.db, 'creator');
-      creatorId = creator.id;
-      const war = await makeDraftWar(harness.db, creatorId);
-      warId = war.id;
+      ({ warId, creatorId } = await givenDraftWarByNewVoter());
     });
 
     When('they POST to /api/v1/wars/:id/contestants with no name', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/contestants`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({});
+      response = await authedPost(creatorId, `/api/v1/wars/${warId}/contestants`);
     });
 
     Then('the response status is 422', () => {
@@ -167,12 +153,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('Voter B POSTs a contestant to it', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(voterBId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/contestants`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ name: 'Someone' });
+      response = await authedPost(voterBId, `/api/v1/wars/${warId}/contestants`, { name: 'Someone' });
     });
 
     Then('the response status is 403', () => {
@@ -191,15 +172,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
       await activateWarForTest(harness.db, war);
       warId = war.id;
-      await harness.app.ready();
     });
 
     When('its creator POSTs a new contestant', async () => {
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/contestants`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ name: 'Latecomer' });
+      response = await authedPost(creatorId, `/api/v1/wars/${warId}/contestants`, { name: 'Latecomer' });
     });
 
     Then('the response status is 403', () => {

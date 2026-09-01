@@ -784,6 +784,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             error: string;
+                            details?: string[];
                         };
                     };
                 };

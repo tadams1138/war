@@ -174,7 +174,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A contestant may hold up to ten images', ({ Given, When, Then }) => {
+  Scenario('A contestant may hold up to ten images', ({ Given, When, Then, And }) => {
     let eleventhResponse: request.Response;
 
     Given('a contestant with ten images in a draft War', async () => {
@@ -192,6 +192,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('the response status is 422', () => {
       expect(eleventhResponse.status).toBe(422);
+    });
+
+    And('the response explains that a contestant may hold at most 10 images', () => {
+      expect(eleventhResponse.body.details).toContain('a contestant may hold at most 10 images');
     });
   });
 });

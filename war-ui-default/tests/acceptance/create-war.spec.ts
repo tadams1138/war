@@ -54,11 +54,20 @@ test('A voter completes the wizard and activates the War', async ({ page }) => {
   await addContestantWithImage(page, 'Contestant Two')
   await page.getByTestId('proceed-to-review').click()
   await expect(page.getByTestId('review-contestant')).toHaveCount(2)
+
+  // Review shows the War's own metadata, carried through from POST /wars's
+  // response rather than re-fetched (spec §6)
+  await expect(page.getByTestId('review-title')).toHaveText('Miss Universe 2026')
+  await expect(page.getByTestId('review-category')).toHaveText('Pageant')
+  await expect(page.getByTestId('review-visibility')).toHaveText('public')
+
   await page.getByTestId('activate-submit').click()
 
   // Assert — the War is created, its contestants added, and it is
-  // activated via the API (each is a distinct call this scenario's recipes
-  // above only accept once), then the voter is redirected to the vote page
+  // activated via the API (the call-log assertions below check each
+  // happened, not the mock: scenarios.ts's recipes repeat their last
+  // response indefinitely once exhausted, so nothing here relies on a
+  // recipe refusing a repeat), then the voter is redirected to the vote page
   await expect(page).toHaveURL(`/wars/${WAR_ID}/vote`)
   const calls = await getCallLog(page)
   expect(calls.some((c) => c.method === 'POST' && c.url === `http://localhost:4173${API}/wars`)).toBe(true)
@@ -186,6 +195,41 @@ test('Activation is blocked when a contestant has no image', async ({ page }) =>
   // Assert
   await expect(page.getByTestId('activate-error')).toContainText('every contestant must have at least one image to activate')
   await expect(page).toHaveURL(/\/wars\/new$/)
+})
+
+test('Review shows an image-attached indicator, not the image itself', async ({ page }) => {
+  // Arrange
+  const createdWar = buildWarSummary({ id: WAR_ID, status: 'draft' })
+  const contestantWithImage = buildContestant({ id: 'contestant-1', name: 'Contestant One' })
+  const contestantWithoutImage = buildContestant({ id: 'contestant-2', name: 'Contestant Two' })
+  await useScenario(page, [
+    { method: 'POST', path: `${API}/wars`, responses: [{ status: 201, body: createdWar }] },
+    {
+      method: 'POST',
+      path: `${API}/wars/${WAR_ID}/contestants`,
+      responses: [{ status: 201, body: contestantWithImage }, { status: 201, body: contestantWithoutImage }],
+    },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/contestants/contestant-1/images`, responses: [{ status: 201, body: { id: 'image-1', display_order: 0 } }] },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/wars/new')
+  await page.getByTestId('metadata-title-input').fill('Some War')
+  await page.getByTestId('metadata-submit').click()
+
+  // Act — one contestant with an image, one without
+  await addContestantWithImage(page, 'Contestant One')
+  await page.getByTestId('contestant-name-input').fill('Contestant Two')
+  await page.getByTestId('add-contestant-submit').click()
+  await expect(page.getByTestId('wizard-contestant')).toHaveCount(2)
+  await page.getByTestId('proceed-to-review').click()
+
+  // Assert — an indicator, not the image itself
+  const withImage = page.getByTestId('review-contestant').filter({ hasText: 'Contestant One' })
+  const withoutImage = page.getByTestId('review-contestant').filter({ hasText: 'Contestant Two' })
+  await expect(withImage.getByTestId('review-contestant-has-image')).toBeVisible()
+  await expect(withoutImage.getByTestId('review-contestant-no-image')).toBeVisible()
+  await expect(page.locator('main img')).toHaveCount(0)
 })
 
 test('Creating a War requires authentication', async ({ page }) => {
