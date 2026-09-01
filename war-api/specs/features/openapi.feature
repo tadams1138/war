@@ -78,3 +78,21 @@ Feature: OpenAPI Contract
     Then the GET /api/v1/wars/{id}/rankings 200 response schema requires "war_id", "status", "updated_at", and "rankings"
     And each ranking entry requires "rank", "contestant", "wins", and "appearances"
     And "rank" is declared nullable
+
+  Scenario: The war creation endpoint's response schemas cover its status variations
+    When a client fetches the OpenAPI document
+    Then the POST /api/v1/wars 201 response schema requires "id", "title", and "status"
+    And its 422 response schema requires "error" and "details"
+
+  Scenario: The add-contestant endpoint's response schema declares the contestant shape
+    When a client fetches the OpenAPI document
+    Then the POST /api/v1/wars/{id}/contestants 201 response schema requires "id", "name", "media", and "attributes"
+
+  Scenario: The image upload endpoint's response schema declares the stored media
+    When a client fetches the OpenAPI document
+    Then the POST /api/v1/wars/{id}/contestants/{cId}/images 201 response schema requires "id" and "display_order"
+
+  Scenario: The activate endpoint's response schemas cover its status variations
+    When a client fetches the OpenAPI document
+    Then the POST /api/v1/wars/{id}/activate 200 response schema requires "id", "title", and "status"
+    And its 422 response schema requires "error" and "details"
