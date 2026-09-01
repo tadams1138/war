@@ -456,4 +456,58 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(rankSchema?.type).toEqual(expect.arrayContaining(['null']));
     });
   });
+
+  Scenario("The war creation endpoint's response schemas cover its status variations", ({ When, Then, And }) => {
+    When('a client fetches the OpenAPI document', async () => {
+      ({ response, document } = await fetchDocument(harness));
+    });
+
+    Then('the POST /api/v1/wars 201 response schema requires "id", "title", and "status"', () => {
+      const schema = responseSchema(document, '/wars', 'post', '201');
+      expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'title', 'status']));
+    });
+
+    And('its 422 response schema requires "error" and "details"', () => {
+      const schema = responseSchema(document, '/wars', 'post', '422');
+      expect(schema.required ?? []).toEqual(expect.arrayContaining(['error', 'details']));
+    });
+  });
+
+  Scenario("The add-contestant endpoint's response schema declares the contestant shape", ({ When, Then }) => {
+    When('a client fetches the OpenAPI document', async () => {
+      ({ response, document } = await fetchDocument(harness));
+    });
+
+    Then('the POST /api/v1/wars/{id}/contestants 201 response schema requires "id", "name", "media", and "attributes"', () => {
+      const schema = responseSchema(document, '/wars/{id}/contestants', 'post', '201');
+      expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'name', 'media', 'attributes']));
+    });
+  });
+
+  Scenario("The image upload endpoint's response schema declares the stored media", ({ When, Then }) => {
+    When('a client fetches the OpenAPI document', async () => {
+      ({ response, document } = await fetchDocument(harness));
+    });
+
+    Then('the POST /api/v1/wars/{id}/contestants/{cId}/images 201 response schema requires "id" and "display_order"', () => {
+      const schema = responseSchema(document, '/wars/{id}/contestants/{cId}/images', 'post', '201');
+      expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'display_order']));
+    });
+  });
+
+  Scenario("The activate endpoint's response schemas cover its status variations", ({ When, Then, And }) => {
+    When('a client fetches the OpenAPI document', async () => {
+      ({ response, document } = await fetchDocument(harness));
+    });
+
+    Then('the POST /api/v1/wars/{id}/activate 200 response schema requires "id", "title", and "status"', () => {
+      const schema = responseSchema(document, '/wars/{id}/activate', 'post', '200');
+      expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'title', 'status']));
+    });
+
+    And('its 422 response schema requires "error" and "details"', () => {
+      const schema = responseSchema(document, '/wars/{id}/activate', 'post', '422');
+      expect(schema.required ?? []).toEqual(expect.arrayContaining(['error', 'details']));
+    });
+  });
 });

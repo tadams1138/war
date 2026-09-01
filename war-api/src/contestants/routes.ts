@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
-import { replyForOutcome } from '../shared/httpOutcomes.js';
+import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
 import type { ObjectStorage } from './storage.js';
 import { addContestant, patchContestant, removeContestant } from './contestantsService.js';
 import { addContestantImage, reorderContestantMedia, removeContestantMedia } from './mediaService.js';
@@ -16,6 +16,21 @@ export interface ContestantsRouteDeps {
   storage: ObjectStorage;
   publicBaseUrl: string;
 }
+
+/**
+ * The response body JSON Schema for `POST /wars/:id/contestants/:cId/images`'s
+ * `201` (spec §11.2.1) — the route's own literal `{ id, display_order }`
+ * object, narrower than the full `MediaItem` shape: the caller already has
+ * the file it just uploaded and needs only the assigned id and order back.
+ */
+const imageUploadResponseSchema = {
+  type: 'object',
+  required: ['id', 'display_order'],
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    display_order: { type: 'integer' },
+  },
+};
 
 function extensionFor(mimeType: string): string {
   switch (mimeType) {
@@ -33,7 +48,14 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
 
   app.post<{ Params: { id: string } }>(
     '/wars/:id/contestants',
-    bearerAuthRoute(auth),
+    bearerAuthRoute(auth, {
+      response: {
+        201: { $ref: 'ContestantDetail#' },
+        403: errorResponseSchema,
+        404: errorResponseSchema,
+        422: validationErrorResponseSchema,
+      },
+    }),
     async (request, reply) => {
       const body = request.body as Record<string, unknown>;
       const outcome = await addContestant(
@@ -96,7 +118,18 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
 
   app.post<{ Params: { id: string; cId: string } }>(
     '/wars/:id/contestants/:cId/images',
-    bearerAuthRoute(auth),
+    bearerAuthRoute(auth, {
+      response: {
+        201: imageUploadResponseSchema,
+        403: errorResponseSchema,
+        404: errorResponseSchema,
+        // Not validationErrorResponseSchema: this route's own 422s (no file
+        // uploaded, too many images, an unreadable buffer) are always a
+        // single-string `error` with no `details` array (spec §11.2.1) --
+        // deliberately asymmetric with the other three routes in this slice.
+        422: errorResponseSchema,
+      },
+    }),
     async (request, reply) => {
       const file = await request.file();
       if (!file) {

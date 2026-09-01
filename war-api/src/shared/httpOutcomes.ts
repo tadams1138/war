@@ -18,6 +18,24 @@ export const errorResponseSchema = {
 };
 
 /**
+ * The response body JSON Schema for the `{ "error": string, "details":
+ * string[] }` shape a `'validationError'` outcome sends (spec §11.2.1) --
+ * `error` is always the literal `"validation error"`; `details` carries the
+ * actual per-field messages. Shared by every route whose `replyForOutcome`
+ * call can reach the `validationError` branch above; not every 422 in this
+ * codebase uses it (`POST /wars/:id/contestants/:cId/images`'s 422 is a
+ * plain `errorResponseSchema` -- see that route's own comment).
+ */
+export const validationErrorResponseSchema = {
+  type: 'object',
+  required: ['error', 'details'],
+  properties: {
+    error: { type: 'string' },
+    details: { type: 'array', items: { type: 'string' } },
+  },
+};
+
+/**
  * Maps a failed `MutationOutcome` (or any of the bespoke unions built from
  * the same failure variants) to its HTTP response. Takes the whole outcome
  * so it reads `errors` itself — callers no longer repeat

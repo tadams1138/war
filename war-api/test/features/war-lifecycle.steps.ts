@@ -4,7 +4,7 @@ import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { findWarById } from '../../src/wars/warsRepository.js';
 import { countMatchupsForWar } from '../../src/matchups/matchupsRepository.js';
-import { makeVoter, makeDraftWarWithContestants } from '../setup/fixtures.js';
+import { makeVoter, makeDraftWar, makeContestant, giveContestantAnImage, makeDraftWarWithContestants } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -60,6 +60,40 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 1);
       warId = war.id;
+    });
+
+    When('the creator POSTs to activate', async () => {
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server)
+        .post(`/api/v1/wars/${warId}/activate`)
+        .set('Authorization', `Bearer ${jwt}`)
+        .send();
+    });
+
+    Then('the response status is 422', () => {
+      expect(response.status).toBe(422);
+    });
+
+    And('the War remains "draft"', async () => {
+      const war = await findWarById(harness.db, warId);
+      expect(war?.status).toBe('draft');
+    });
+  });
+
+  Scenario('Cannot activate when a contestant has no image', ({ Given, When, Then, And }) => {
+    let warId: string;
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('a War in "draft" with 2 contestants, only one of which has an image', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      const war = await makeDraftWar(harness.db, creatorId);
+      warId = war.id;
+      const withImage = await makeContestant(harness.db, warId, 'Has Image');
+      await giveContestantAnImage(harness.db, harness.storage, withImage.id);
+      await makeContestant(harness.db, warId, 'No Image');
     });
 
     When('the creator POSTs to activate', async () => {
