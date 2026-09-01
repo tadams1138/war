@@ -128,10 +128,6 @@ services:
         scope: RUN_TIME
         type: SECRET
         value: ${JWT_SECRET}
-      - key: REFRESH_TOKEN_SECRET
-        scope: RUN_TIME
-        type: SECRET
-        value: ${REFRESH_TOKEN_SECRET}
       - key: INTERNAL_TASK_TOKEN
         scope: RUN_TIME
         type: SECRET
