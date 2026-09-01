@@ -32,6 +32,14 @@ Feature: Create War
     Then the API's validation message is shown
     And the War is not activated
 
+  Scenario: Review shows an image-attached indicator, not the image itself
+    Given an authenticated voter with a draft War in progress
+    When they add one contestant with an image and one contestant with no image
+    And they proceed to the Review step
+    Then the contestant with an image shows an image-attached indicator
+    And the contestant with no image shows that it has none
+    And no contestant's image is rendered on the Review step
+
   Scenario: Creating a War requires authentication
     Given no voter is authenticated
     When they navigate directly to "/wars/new"

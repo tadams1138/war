@@ -535,7 +535,12 @@ Responses return attributes **resolved against the schema**, so clients need not
 
 **`POST /images` rules:**
 - Rejected with `409` if the War's `media_mode` is `video`
-- Maximum **10 images per contestant** → else `422`
+- A file must be present in the multipart body → else `422`, plain `{ error }` with no
+  `details` (§11.2.1 — deliberately asymmetric with the two rules below)
+- Maximum **10 images per contestant** → else `422` with `details` naming the limit
+  (§11.2.1)
+- The uploaded buffer must be a readable image → else `422` with `details` naming the
+  failure (§11.2.1)
 - New images append at the next `display_order`; `PATCH` reorders
 
 **`POST /video` body:** `{ "url": "...", "start_seconds": 0, "end_seconds": 30 }`
@@ -1479,12 +1484,49 @@ that spec) issues one call per file for exactly this reason.
   causes and same shape as `POST /wars/:id/contestants` above)
 - `response.404`: `errorResponseSchema` shape (`'notFound'` — either the War or the
   contestant)
-- `response.422`: `errorResponseSchema` shape — **not** the `{ error, details }` shape
-  above; this route's own validation failures (no file uploaded, more than 10 images, an
-  unreadable image buffer) each produce a single-string `error` through `replyForOutcome`'s
-  `validationError` branch reached via a one-element `errors` array, but the route's `catch`
-  for "no file uploaded" sends `{ "error": "no file uploaded" }` directly, without a
-  `details` array — do not add one
+- `response.422`: **two distinct shapes**, chosen by which of this route's three validation
+  failures occurred — this is a correction to the previous (2026-08-31) revision of this
+  addendum, which stated only the first shape below and, worse, misdescribed the cause of
+  the second as producing the first. It does not; verify against
+  `src/contestants/mediaService.ts` and `src/shared/httpOutcomes.ts`'s `replyForOutcome`
+  before touching this route again.
+  - **No file uploaded** — checked directly in the route handler, before
+    `addContestantImage` is ever called: `{ "error": "no file uploaded" }`. Plain, no
+    `details`. This is the shape the previous revision documented, and it is unchanged: it
+    is deliberately asymmetric with the `{ error, details }` shape below, and with the other
+    three routes in this slice — do not normalize it into either.
+  - **Too many images, or an unreadable upload** — `addContestantImage` returns a
+    `'validationError'` outcome (`kind: 'validationError', errors: [message]`), which goes
+    through `replyForOutcome`'s `validationError` branch **the same as every other
+    `validationError` in this document** (`POST /wars`, `POST /wars/:id/contestants`, `POST
+    /wars/:id/activate` above): `{ "error": "validation error", "details": [message] }`,
+    with `details` a one-element array holding whichever of these two messages applies —
+    `"a contestant may hold at most 10 images"` (an 11th image) or `"invalid image upload"`
+    (the buffer could not be read as an image).
+
+  Both shapes share this one status code, so the JSON Schema declared for this route's
+  `422` must accept either body, or `fast-json-stringify` silently drops whichever
+  property that schema does not name — which is exactly what happened when the CreateWar
+  slice declared plain `errorResponseSchema` here: it stripped `details` from the second
+  shape, and with it the only text naming the cause. The declared schema must be a
+  **third** shape, distinct from both `errorResponseSchema` and the `{ error, details }`
+  shape above — `error` required (both causes have it), `details` optional (only the second
+  does):
+  ```json
+  {
+    "type": "object",
+    "required": ["error"],
+    "properties": {
+      "error": { "type": "string" },
+      "details": { "type": "array", "items": { "type": "string" } }
+    }
+  }
+  ```
+  This is not `validationErrorResponseSchema` (which requires `details` and so is not a
+  valid schema for the no-file body) and not `errorResponseSchema` (which has no `details`
+  property at all and so truncates the validation-error body) — it needs its own schema,
+  scoped to this one route's `422`, reusable if another route ever needs the same
+  "sometimes-annotated" plain-error shape but not shared with one that doesn't.
 
 #### `POST /wars/:id/activate`
 
