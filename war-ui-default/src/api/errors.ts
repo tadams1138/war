@@ -17,13 +17,21 @@ export class ApiError extends Error {
   readonly reason: ApiErrorReason
   readonly status: number
   readonly retryAfterSeconds?: number
+  // The `{ error, details }` shape's `details` array (war-api-spec.md
+  // §11.2.1), when the failing response carried one. Populated only for a
+  // 'validation' reason whose body actually has it — most callers ignore
+  // this and use `message` instead (§8's generic 422 copy); the CreateWar
+  // wizard's Activate step is the one deliberate exception that surfaces it
+  // verbatim (war-ui-default-spec.md §6).
+  readonly details?: string[]
 
-  constructor(reason: ApiErrorReason, status: number, message: string, retryAfterSeconds?: number) {
+  constructor(reason: ApiErrorReason, status: number, message: string, retryAfterSeconds?: number, details?: string[]) {
     super(message)
     this.name = 'ApiError'
     this.reason = reason
     this.status = status
     this.retryAfterSeconds = retryAfterSeconds
+    this.details = details
   }
 }
 

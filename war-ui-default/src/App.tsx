@@ -7,6 +7,7 @@ import { AuthCallback } from './pages/AuthCallback'
 import { WarDetail } from './pages/WarDetail'
 import { VoteMode } from './pages/VoteMode'
 import { Rankings } from './pages/Rankings'
+import { CreateWar } from './pages/CreateWar'
 
 export default function App() {
   return (
@@ -26,6 +27,14 @@ export default function App() {
             }
           />
           <Route path="/wars/:id/rankings" element={<Rankings />} />
+          <Route
+            path="/wars/new"
+            element={
+              <RequireAuth>
+                <CreateWar />
+              </RequireAuth>
+            }
+          />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

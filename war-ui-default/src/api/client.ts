@@ -23,6 +23,23 @@ export type MediaItem = components['schemas']['MediaItem']
 export type ResolvedAttribute = components['schemas']['ResolvedAttribute']
 type VoteForbiddenBody =
   paths['/wars/{id}/matchups/{mId}/vote']['post']['responses'][403]['content']['application/json']
+// war-api's Fastify routes validate CreateWar-slice request bodies by hand,
+// not through a `schema.body` option (war-api-spec.md §11.2.1) — so, unlike
+// the response types above, there is nothing in the generated document to
+// derive these from. Hand-written to match the documented body shapes
+// (§7.2, §7.3) exactly, same fields the wizard collects.
+export interface CreateWarPayload {
+  title: string
+  category?: string | null
+  visibility?: 'public' | 'invite_only'
+  ends_at?: string | null
+}
+export interface AddContestantPayload {
+  name: string
+  bio?: string | null
+}
+export type UploadedImage =
+  paths['/wars/{id}/contestants/{cId}/images']['post']['responses'][201]['content']['application/json']
 
 // --- low-level request pipeline -------------------------------------------------
 
@@ -101,8 +118,20 @@ async function ensureOk(response: Response, classify403: Classify403 = classifyD
   if (response.ok) return response
   const reason = await classifyError(response, classify403)
   const retryAfterSeconds = reason === 'rate-limited' ? parseRetryAfter(response.headers.get('Retry-After')) : undefined
+  const details = reason === 'validation' ? await readDetails(response) : undefined
   if (reason === 'unauthorized') notifyUnauthorized()
-  throw new ApiError(reason, response.status, messageForReason(reason, retryAfterSeconds), retryAfterSeconds)
+  throw new ApiError(reason, response.status, messageForReason(reason, retryAfterSeconds), retryAfterSeconds, details)
+}
+
+// The `{ error, details }` shape's `details` array (war-api-spec.md
+// §11.2.1), when the body actually has one — `POST
+// /wars/:id/contestants/:cId/images`'s 422 never does (a plain `{ error }`
+// shape, deliberately), so this simply returns undefined there rather than
+// branching per endpoint.
+async function readDetails(response: Response): Promise<string[] | undefined> {
+  const body = await safeReadJson<{ details?: unknown }>(response)
+  const details = body?.details
+  return Array.isArray(details) && details.every((entry) => typeof entry === 'string') ? details : undefined
 }
 
 async function classifyError(response: Response, classify403: Classify403): Promise<ApiErrorReason> {
@@ -186,6 +215,49 @@ export async function castVote(warId: string, matchupId: string, winnerId: strin
 export async function getRankings(warId: string): Promise<RankingsResponse> {
   const response = await ensureOk(await apiFetch(`/wars/${warId}/rankings`))
   return response.json() as Promise<RankingsResponse>
+}
+
+export async function createWar(payload: CreateWarPayload): Promise<WarSummary> {
+  const response = await ensureOk(
+    await apiFetch('/wars', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  )
+  return response.json() as Promise<WarSummary>
+}
+
+export async function addContestant(warId: string, payload: AddContestantPayload): Promise<ContestantDetail> {
+  const response = await ensureOk(
+    await apiFetch(`/wars/${warId}/contestants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  )
+  return response.json() as Promise<ContestantDetail>
+}
+
+// One multipart request per file (war-api-spec.md §11.2.1) — sequential,
+// not parallel, so each upload's assigned display_order is deterministic
+// (the API appends at "the next display_order" per request it handles).
+export async function uploadContestantImages(warId: string, contestantId: string, files: File[]): Promise<UploadedImage[]> {
+  const results: UploadedImage[] = []
+  for (const file of files) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await ensureOk(
+      await apiFetch(`/wars/${warId}/contestants/${contestantId}/images`, { method: 'POST', body: formData }),
+    )
+    results.push((await response.json()) as UploadedImage)
+  }
+  return results
+}
+
+export async function activateWar(warId: string): Promise<WarSummary> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/activate`, { method: 'POST' }))
+  return response.json() as Promise<WarSummary>
 }
 
 export async function getMe(): Promise<VoterMe> {

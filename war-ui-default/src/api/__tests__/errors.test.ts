@@ -59,4 +59,22 @@ describe('ApiError', () => {
     expect(error.retryAfterSeconds).toBe(5)
     expect(error.message).toBe('Slow down a moment — try again in 5s')
   })
+
+  it('carries an optional details array for a validation failure', () => {
+    // Arrange / Act
+    const error = new ApiError('validation', 422, 'Something went wrong — please try again', undefined, [
+      'title must be a non-empty string of at most 256 characters',
+    ])
+
+    // Assert
+    expect(error.details).toEqual(['title must be a non-empty string of at most 256 characters'])
+  })
+
+  it('leaves details undefined when none were given', () => {
+    // Arrange / Act
+    const error = new ApiError('validation', 422, 'Something went wrong — please try again')
+
+    // Assert
+    expect(error.details).toBeUndefined()
+  })
 })

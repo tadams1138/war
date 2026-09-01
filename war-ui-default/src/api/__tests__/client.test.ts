@@ -2,7 +2,10 @@ import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  activateWar,
+  addContestant,
   castVote,
+  createWar,
   getMe,
   getNextMatchup,
   getRankings,
@@ -12,9 +15,10 @@ import {
   logout,
   providerLoginUrl,
   refreshSession,
+  uploadContestantImages,
 } from '../client'
 import { __resetAuthStateForTests, getToken, registerUnauthorizedHandler, setToken } from '../authState'
-import { buildMatchupResponse, buildRankingsResponse, buildWarDetail, buildWarSummary } from '../../mocks/fixtures'
+import { buildContestant, buildMatchupResponse, buildRankingsResponse, buildWarDetail, buildWarSummary } from '../../mocks/fixtures'
 
 const BASE = 'http://localhost/api/v1'
 
@@ -351,6 +355,163 @@ describe('castVote', () => {
     await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({
       reason: 'network',
       message: 'Unable to reach the server — check your connection',
+    })
+  })
+})
+
+describe('createWar', () => {
+  it('sends the payload as JSON and resolves with the created WarSummary on 201', async () => {
+    // Arrange
+    let receivedBody: unknown
+    const war = buildWarSummary({ id: 'war-new', title: 'Miss Universe 2026' })
+    server.use(
+      http.post(`${BASE}/wars`, async ({ request }) => {
+        receivedBody = await request.json()
+        return HttpResponse.json(war, { status: 201 })
+      }),
+    )
+
+    // Act
+    const result = await createWar({ title: 'Miss Universe 2026' })
+
+    // Assert
+    expect(receivedBody).toEqual({ title: 'Miss Universe 2026' })
+    expect(result.id).toBe('war-new')
+  })
+
+  it('carries the details array on a 422 validation failure', async () => {
+    // Arrange
+    server.use(
+      http.post(`${BASE}/wars`, () =>
+        HttpResponse.json(
+          { error: 'validation error', details: ['title must be a non-empty string of at most 256 characters'] },
+          { status: 422 },
+        ),
+      ),
+    )
+
+    // Act / Assert
+    await expect(createWar({ title: '' })).rejects.toMatchObject({
+      reason: 'validation',
+      details: ['title must be a non-empty string of at most 256 characters'],
+    })
+  })
+})
+
+describe('addContestant', () => {
+  it('sends the payload as JSON and resolves with the created ContestantDetail on 201', async () => {
+    // Arrange
+    let receivedBody: unknown
+    server.use(
+      http.post(`${BASE}/wars/war-1/contestants`, async ({ request }) => {
+        receivedBody = await request.json()
+        return HttpResponse.json(buildContestant({ id: 'contestant-new', name: 'Maria' }), { status: 201 })
+      }),
+    )
+
+    // Act
+    const result = await addContestant('war-1', { name: 'Maria' })
+
+    // Assert
+    expect(receivedBody).toEqual({ name: 'Maria' })
+    expect(result.id).toBe('contestant-new')
+  })
+
+  it('carries the details array on a 422 validation failure', async () => {
+    // Arrange
+    server.use(
+      http.post(`${BASE}/wars/war-1/contestants`, () =>
+        HttpResponse.json({ error: 'validation error', details: ['name must be a non-empty string'] }, { status: 422 }),
+      ),
+    )
+
+    // Act / Assert
+    await expect(addContestant('war-1', { name: '' })).rejects.toMatchObject({
+      reason: 'validation',
+      details: ['name must be a non-empty string'],
+    })
+  })
+})
+
+describe('uploadContestantImages', () => {
+  it('sends one multipart request per file and resolves with the results in order', async () => {
+    // Arrange — this environment's fetch/FormData/File plumbing (jsdom +
+    // undici, via MSW) does not reliably support reading the multipart body
+    // back out server-side (a Node/jsdom interop gap, not a client.ts
+    // concern); the request's own Content-Type is enough to prove each call
+    // really is a multipart upload, and Playwright's real-browser
+    // create-war.spec.ts exercises the file content end to end.
+    const contentTypes: (string | null)[] = []
+    let callIndex = 0
+    server.use(
+      http.post(`${BASE}/wars/war-1/contestants/contestant-1/images`, ({ request }) => {
+        contentTypes.push(request.headers.get('content-type'))
+        callIndex += 1
+        return HttpResponse.json({ id: `image-${callIndex}`, display_order: callIndex - 1 }, { status: 201 })
+      }),
+    )
+    const files = [
+      new File(['a'], 'first.jpg', { type: 'image/jpeg' }),
+      new File(['b'], 'second.jpg', { type: 'image/jpeg' }),
+    ]
+
+    // Act
+    const result = await uploadContestantImages('war-1', 'contestant-1', files)
+
+    // Assert — one request per file (spec §11.2.1), each genuinely multipart
+    expect(contentTypes).toHaveLength(2)
+    expect(contentTypes.every((type) => type?.startsWith('multipart/form-data'))).toBe(true)
+    expect(result).toEqual([
+      { id: 'image-1', display_order: 0 },
+      { id: 'image-2', display_order: 1 },
+    ])
+  })
+
+  it('classifies a 422 with no details array as validation, carrying no details', async () => {
+    // Arrange — this route's own 422 is a plain { error } shape, never
+    // { error, details } (spec §11.2.1: deliberately asymmetric).
+    server.use(
+      http.post(`${BASE}/wars/war-1/contestants/contestant-1/images`, () =>
+        HttpResponse.json({ error: 'no file uploaded' }, { status: 422 }),
+      ),
+    )
+
+    // Act / Assert
+    await expect(uploadContestantImages('war-1', 'contestant-1', [new File(['a'], 'a.jpg')])).rejects.toMatchObject({
+      reason: 'validation',
+      details: undefined,
+    })
+  })
+})
+
+describe('activateWar', () => {
+  it('resolves with the activated WarSummary on 200', async () => {
+    // Arrange
+    const war = buildWarSummary({ id: 'war-1', status: 'active' })
+    server.use(http.post(`${BASE}/wars/war-1/activate`, () => HttpResponse.json(war)))
+
+    // Act
+    const result = await activateWar('war-1')
+
+    // Assert
+    expect(result.status).toBe('active')
+  })
+
+  it('carries the details array on a 422 validation failure', async () => {
+    // Arrange
+    server.use(
+      http.post(`${BASE}/wars/war-1/activate`, () =>
+        HttpResponse.json(
+          { error: 'validation error', details: ['a War needs at least 2 contestants to activate'] },
+          { status: 422 },
+        ),
+      ),
+    )
+
+    // Act / Assert
+    await expect(activateWar('war-1')).rejects.toMatchObject({
+      reason: 'validation',
+      details: ['a War needs at least 2 contestants to activate'],
     })
   })
 })
