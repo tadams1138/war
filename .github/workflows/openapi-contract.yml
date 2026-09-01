@@ -1,0 +1,74 @@
+# OpenAPI contract guard — see specs/war-ui-default-spec.md §5.1
+#
+# war-ui-default's request/response types are generated from war-api's own
+# OpenAPI document and committed. Nothing else forces the two to agree: a
+# merged API change that war-ui-default has not absorbed compiles, passes both
+# projects' suites, and only surfaces in staging. This job regenerates the
+# types and fails if the committed file differs.
+#
+# It is deliberately its own workflow rather than a step in either pipeline.
+# The drift is caused by a war-api change, which api.yml triggers on and
+# ui-default.yml does not; putting the check in ui-default.yml would mean
+# adding 'war-api/**' to that pipeline's path filter, which would rebuild and
+# redeploy the static site on every API change — exactly what its filter
+# exists to prevent. This workflow deploys nothing, so it can watch both.
+
+name: OpenAPI Contract
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'war-api/**'
+      - 'war-ui-default/src/api/generated/**'
+      - 'war-ui-default/package.json'
+      - '.github/workflows/openapi-contract.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'war-api/**'
+      - 'war-ui-default/src/api/generated/**'
+      - 'war-ui-default/package.json'
+      - '.github/workflows/openapi-contract.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  contract:
+    name: Generated types match the API
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            war-api/package-lock.json
+            war-ui-default/package-lock.json
+
+      # Both projects are needed: generate:api builds war-api to dump its
+      # OpenAPI document, then runs war-ui-default's openapi-typescript
+      # against it.
+      - name: Install war-api dependencies
+        run: npm --prefix war-api ci
+
+      - name: Install war-ui-default dependencies
+        run: npm --prefix war-ui-default ci
+
+      - name: Regenerate the typed client
+        run: npm --prefix war-ui-default run generate:api
+
+      - name: Fail if the committed types are stale
+        run: |
+          if ! git diff --exit-code -- war-ui-default/src/api/generated/schema.d.ts; then
+            echo
+            echo "::error::war-ui-default/src/api/generated/schema.d.ts is out of date."
+            echo "The API's OpenAPI document no longer matches the committed types."
+            echo "Run 'npm --prefix war-ui-default run generate:api' and commit the result."
+            exit 1
+          fi
