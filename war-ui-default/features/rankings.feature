@@ -23,6 +23,18 @@ Feature: Rankings
     Then the rankings page re-fetches rankings from the API
     And the leaderboard updates if the rankings changed
 
+  Scenario: A failed poll keeps the last loaded leaderboard on screen
+    Given a visitor viewing the rankings of an active War with a leaderboard already loaded
+    When a poll to re-fetch rankings fails
+    Then the previously loaded leaderboard remains displayed
+    And no error state replaces it
+    And the rankings page continues polling every 30 seconds
+
+  Scenario: The leaderboard recovers once a later poll succeeds
+    Given a visitor viewing the rankings of an active War whose last poll failed
+    When the next poll succeeds
+    Then the leaderboard updates to reflect that response
+
   Scenario: Rankings do not poll once the War is closed
     Given a visitor viewing the rankings of a closed War
     When 30 seconds elapse

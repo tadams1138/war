@@ -1872,14 +1872,13 @@ Core Voting Loop slice, live in both staging and production for both repos
   `GET /api/v1/openapi.json`. Generated from Fastify's route JSON Schemas via
   `@fastify/swagger` — never hand-maintained. `/api/v1/internal/*` is excluded, per §7.7.
   Request/response body schemas for the Core Voting Loop slice's routes (§11.2.1) are
-  implemented, including `contestant_count` on `WarSummary` and the vote endpoint's `403`
-  `reason` discriminator (§11.2.1, "Addendum (2026-08-30)").
+  implemented, including `contestant_count` on `WarSummary`, the vote endpoint's `403`
+  `reason` discriminator (§11.2.1, "Addendum (2026-08-30)"), and `GET /wars/:id/rankings`'s
+  response schema (§11.2.1, "Addendum (2026-08-31)") — the endpoint's own behaviour was
+  already implemented and covered by §14's Rankings Gherkin; this addendum's schema is what
+  let `war-ui-default`'s Rankings slice generate real types against it.
 
 **Not yet implemented:**
-- `GET /wars/:id/rankings`'s OpenAPI response schema (§11.2.1, "Addendum (2026-08-31)") —
-  the endpoint's own behaviour is fully implemented and covered by §14's Rankings Gherkin;
-  only the schema needed for `war-ui-default`'s Rankings slice to generate real types is
-  pending
 - Apple, Facebook, Microsoft, and Twitter/X OAuth (§4), and linking multiple providers to
   one voter account
 - `video` media mode (§5, §6, §11.3)
