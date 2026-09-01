@@ -52,3 +52,4 @@ Feature: Vote Mode
     And the next-matchup request then returns 204
     Then a completion screen is shown in place of a matchup
     And no further vote request is possible from that screen
+    And a link to that War's rankings page is shown

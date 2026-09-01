@@ -72,3 +72,9 @@ Feature: OpenAPI Contract
     Then its 201 response schema requires "vote_id"
     And its 409 response schema requires "error"
     And its 422 response schema requires "error"
+
+  Scenario: The rankings endpoint's response schema declares the leaderboard shape
+    When a client fetches the OpenAPI document
+    Then the GET /api/v1/wars/{id}/rankings 200 response schema requires "war_id", "status", "updated_at", and "rankings"
+    And each ranking entry requires "rank", "contestant", "wins", and "appearances"
+    And "rank" is declared nullable
