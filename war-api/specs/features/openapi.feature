@@ -48,6 +48,10 @@ Feature: OpenAPI Contract
     Then the GET /api/v1/wars 200 response schema declares "wars" as an array
     And each item requires "id", "title", and "status"
 
+  Scenario: The wars list endpoint declares its creator-filter auth requirement
+    When a client fetches the OpenAPI document
+    Then the GET /api/v1/wars 401 response schema requires "error"
+
   Scenario: The war detail response schema nests contestants with media
     When a client fetches the OpenAPI document
     Then the GET /api/v1/wars/{id} 200 response schema requires "contestants" as an array

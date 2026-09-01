@@ -467,7 +467,7 @@ In responses below this array is abbreviated as `media: [ … ]`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/wars` | — | List public wars (paginated, filterable) |
+| `GET` | `/wars` | — (`creator=me` requires 🔒) | List wars (paginated, filterable) |
 | `POST` | `/wars` | 🔒 | Create war (status: draft) |
 | `GET` | `/wars/:id` | — | War detail + contestants |
 | `PATCH` | `/wars/:id` | 🔒 | Update war (draft only) |
@@ -475,7 +475,20 @@ In responses below this array is abbreviated as `media: [ … ]`.
 | `POST` | `/wars/:id/close` | 🔒 | active → closed |
 | `POST` | `/wars/:id/join` | 🔒 | Voter joins war |
 
-**`GET /wars` query params:** `status`, `category`, `cursor`, `limit` (default 20, max 100)
+**`GET /wars` query params:** `status`, `category`, `creator`, `cursor`, `limit` (default 20, max 100)
+
+**`creator` query param.** The only accepted value is the literal string `me`; any other
+value fails Fastify's own querystring validation and returns its standard envelope — the
+same shape §11.2.1 already documents for the vote endpoint's malformed body, never this
+API's own `{ error }` shape. `creator=me` requires `Authorization: Bearer <jwt>`; a
+missing or invalid token returns `401`. Every other combination of query parameters on
+this route remains unauthenticated, exactly as today. When `creator=me` is present and
+the token is valid, the returned list is scoped to Wars whose `creator_id` is the
+authenticated voter's id, across **every** status — draft, active, and closed alike,
+including invite_only ones that voter created — and combines with `status` and
+`category` exactly as those two already combine with each other (`creator=me&status=draft`
+returns only the requester's own draft Wars). Omitting `creator` leaves this endpoint's
+other behaviour unchanged. See §11.2.1, "Addendum (2026-09-01)" for the exact schemas.
 
 **`POST /wars` body:** `{ "title": "...", "category": "...", "visibility": "public", "media_mode": "image", "contestant_schema": [ … ], "ends_at": "..." }`
 
@@ -1539,6 +1552,41 @@ Reflects `src/wars/routes.ts` and `activateWar`'s `ActivateOutcome`.
   (`'validationError'` — fewer than 2 contestants, or a contestant with no image; see
   "`POST /wars/:id/activate` rules", §7.2)
 
+#### Addendum (2026-09-01): `GET /wars`'s `creator=me` filter — MyWars slice
+
+`war-ui-default`'s MyWars slice (`war-ui-default-spec.md` §6, "MyWars Page") needs a way
+to list the Wars a voter created, including drafts, so a creator who abandoned the
+CreateWar wizard before Activate (`war-ui-default-spec.md` §6, "CreateWar Wizard") has
+somewhere to find that draft again. `GET /wars` (§7.2) gains an optional `creator` query
+parameter for this. Like the three addenda above, this is a **new requirement**, not a
+transcription of shipped code; §15 tracks it as pending until it ships.
+
+**Request.** `creator`'s only accepted value is the literal string `me`, declared on the
+route's querystring schema as `{ "type": "string", "enum": ["me"] }`. Any other value
+fails Fastify's own ajv validation before the handler runs and returns its standard
+envelope — the same shape already documented above for
+`POST /wars/:id/matchups/:mId/vote`'s `response.400` — never this API's own `{ error }`
+envelope.
+
+**Auth.** `creator=me` requires `Authorization: Bearer <jwt>`. A request carrying
+`creator=me` with no bearer token, or an invalid/expired one, returns:
+
+- `response.401`: `{ "type": "object", "required": ["error"], "properties": { "error": { "type": "string" } } }`
+
+Every other combination of query parameters on this route remains unauthenticated,
+exactly as today.
+
+**Behaviour and response.** When `creator=me` is present and the token is valid, the
+`wars` array is scoped to Wars whose `creator_id` equals the authenticated voter's id,
+across every status — draft, active, and closed alike — and combines with `status` and
+`category` exactly as those two already combine with each other. The response body is
+otherwise unchanged: still `{ "wars": [WarSummary, …] }`, the same shape already pinned by
+`war-api/specs/features/openapi.feature`'s "The wars list response schema is an array
+under a wars key". Every field the MyWars page needs (`status`, `ends_at`,
+`contestant_count`) is already published on `WarSummary` (§11.2.1, "Shared shapes" /
+"Addendum (2026-08-30)") — this addendum adds no new response schema, only the
+request-side `creator` parameter and its `401`.
+
 ---
 
 ## 12. CI/CD
@@ -1875,6 +1923,33 @@ Feature: War Lifecycle
     Then the response status is 403
 ```
 
+### My Wars
+
+```gherkin
+Feature: My Wars
+
+  Scenario: A voter lists the Wars they created, across every status
+    Given a voter has created a draft War, an active War, and a closed War
+    And another voter has created a public active War
+    When they GET /api/v1/wars?creator=me
+    Then only the requester's three Wars are returned
+
+  Scenario: creator=me combines with the status filter
+    Given a voter has created a draft War and an active War
+    When they GET /api/v1/wars?creator=me&status=draft
+    Then only their draft War is returned
+
+  Scenario: An unauthenticated request for creator=me is rejected
+    Given a request with no Authorization header
+    When they GET /api/v1/wars?creator=me
+    Then the response status is 401
+
+  Scenario: A voter's own invite-only or draft Wars are included
+    Given a voter has created a draft, invite-only War
+    When they GET /api/v1/wars?creator=me
+    Then that War is included in the results
+```
+
 ### War Expiry
 
 ```gherkin
@@ -2111,6 +2186,9 @@ Core Voting Loop slice, live in both staging and production for both repos
   the API's own per-identity limits described here are not
 - Custom UI registry endpoints (§7.6, §10) — the `ui_registrations` table and `wars.ui_slug`
   column exist and are reserved; no endpoint reads or writes them yet
+- `GET /wars`'s `creator=me` filter (§7.2, §11.2.1 "Addendum (2026-09-01)") — lets a voter
+  list the Wars they created, across every status; needed by `war-ui-default`'s MyWars
+  slice (`war-ui-default-spec.md` §6, §12)
 
 None of the above is inferred to be in scope from the data model's presence — a reserved
 column or table does not mean its feature is built.

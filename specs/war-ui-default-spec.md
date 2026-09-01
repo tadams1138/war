@@ -89,7 +89,7 @@ All routes are client-side. The CDN rewrites all paths to `index.html`.
 | `/wars/:id/vote` | VoteMode | Yes | Binary matchup voting |
 | `/wars/:id/rankings` | Rankings | No | Leaderboard |
 | `/wars/new` | CreateWar | Yes | War creation wizard |
-| `/my-wars` | MyWars | Yes | Voter's Wars |
+| `/my-wars` | MyWars | Yes | Wars the voter created, across every status (§6, "MyWars Page") |
 | `/login` | Login | No | OAuth provider selection |
 
 Unauthenticated users visiting a protected route are redirected to `/login` with a `returnTo` query param.
@@ -112,7 +112,7 @@ produce `src/api/generated/schema.d.ts`. It reads no deployed environment; the d
 always reflects the `war-api` checkout `generate:api` is run against, never a staging or
 production deployment that may be behind it.
 
-Hand-writing them across three independently deployed repos with no shared package makes contract drift the highest-probability integration failure — and the kind that passes every test in both repos and only appears in staging. CI fails if regenerating produces a diff, so a merged API change that this repo has not absorbed is caught at PR time rather than after deploy.
+Hand-writing them across two independently deployed projects sharing this monorepo, with no shared package between them, makes contract drift the highest-probability integration failure — and the kind that passes every test in both projects and only appears in staging. CI fails if regenerating produces a diff, so a merged API change this project has not absorbed is caught at PR time rather than after deploy.
 
 The same generated document drives the MSW mocks the acceptance tests run against (§10), so those tests exercise the real response shapes rather than shapes someone believed were real.
 
@@ -304,6 +304,41 @@ non-goal, `war-spec.md` §2).
 
 `/wars/new` is authenticated (§4); an unauthenticated visit redirects to `/login` with
 `returnTo=/wars/new`, the same as any other protected route (§7).
+
+### MyWars Page
+
+Lists every War the authenticated voter created — draft, active, and closed alike — at
+`/my-wars`. This is what closes the gap the CreateWar wizard's own spec text names above:
+a creator who abandons the wizard before Activate has, until this page exists, no way to
+find that draft War again.
+
+- Loads via `getWars({ creator: 'me' })` (`GET /wars?creator=me`, `war-api-spec.md` §7.2,
+  §11.2.1 "Addendum (2026-09-01)") — the full-design signature §5 already names, now
+  taking its `creator` filter for real. Every field the page renders (`status`, `ends_at`,
+  `contestant_count`) is already published on `WarSummary` (`war-api-spec.md` §11.2.1),
+  so no new response type is needed beyond what §5.1's generation pipeline already
+  produces once the API side ships.
+- Each War renders as a `WarCard` (§6, "WarCard") using its full field set for the first
+  time in this UI — title, category badge, **status badge**, contestant count, and **time
+  remaining** when `ends_at` is set — not the title/category/count-only rendering Home
+  uses today (§12). A creator needs the status at a glance to tell a still-open draft from
+  an already-active or closed War without opening each one.
+- Selecting a card navigates to that War's detail page (`/wars/:id`, WarDetail, §6) — the
+  same navigation `WarCard` already performs on Home, unmodified. `GET /wars/:id` carries
+  no status or authentication restriction (`war-api-spec.md` §7.2), so a draft War's
+  detail page — contestant gallery included — is already reachable once its `id` is
+  known; MyWars is what supplies that `id`. This page adds no affordance of its own to
+  edit, resume, or activate a draft from here — a creator who wants to fix a mistake still
+  abandons the draft and starts over, exactly as the CreateWar Wizard entry above already
+  states; reaching the draft again does not change what can be done with it once there.
+  That capability, if ever built, is a separate future slice.
+- Wars are listed in the order `GET /wars` already returns them (most recently created
+  first) — no additional sort or filter control in this slice.
+- **No Wars created yet:** an empty state is shown, with a link to `/wars/new` (CreateWar)
+  — a creator with nothing yet should be pointed at how to start, not left looking at a
+  bare page.
+- `/my-wars` is authenticated (§4); an unauthenticated visit redirects to `/login` with
+  `returnTo=/my-wars`, the same as any other protected route (§7).
 
 ---
 
@@ -596,6 +631,37 @@ Feature: Create War
     When they navigate directly to "/wars/new"
     Then they are redirected to "/login"
     And the returnTo query param is "/wars/new"
+
+Feature: My Wars
+
+  Scenario: A voter sees every War they created, across every status
+    Given an authenticated voter who created a draft War, an active War, and a closed War
+    When they navigate to /my-wars
+    Then a War card is shown for each of their three Wars
+    And each card shows its status
+
+  Scenario: My Wars does not show another voter's Wars
+    Given an authenticated voter with no Wars of their own
+    And another voter has created an active public War
+    When they navigate to /my-wars
+    Then that other voter's War is not shown
+
+  Scenario: A War card links to its detail page
+    Given an authenticated voter who created a draft War
+    When they select its card on /my-wars
+    Then that War's detail page is shown
+
+  Scenario: No Wars created yet
+    Given an authenticated voter who has created no Wars
+    When they navigate to /my-wars
+    Then an empty state is shown
+    And a link to create a War is displayed
+
+  Scenario: My Wars requires authentication
+    Given no voter is authenticated
+    When they navigate directly to "/my-wars"
+    Then they are redirected to "/login"
+    And the returnTo query param is "/my-wars"
 ```
 
 ---
@@ -675,7 +741,9 @@ slice picks it up.
 
 **Deferred — spec-only, no scope in this slice:**
 
-- MyWars (`/my-wars`) (§4)
+- MyWars (`/my-wars`) (§4, §6 "MyWars Page") — fully specified as of 2026-09-01, including
+  the `war-api` `creator=me` filter it depends on (`war-api-spec.md` §7.2, §11.2.1
+  "Addendum (2026-09-01)", §15), but not yet built on either side
 - Video-mode matchups — MatchupView's video playback sequence (§6)
 - The shared runtime build artifact for custom UIs, `dist/runtime/v1.js` and `dist/runtime/v1.d.ts` (§5.2)
 
