@@ -455,7 +455,6 @@ Because every deploy re-renders the spec from the current secret value, **rotati
 | `DATABASE_URL` | war-api | PostgreSQL **pooled** connection string (bound from the managed cluster) |
 | `DATABASE_CA_CERT` | war-api | CA cert for the managed cluster's TLS, bound from the platform (`${db.CA_CERT}`) |
 | `JWT_SECRET` | war-api | JWT signing key |
-| `REFRESH_TOKEN_SECRET` | war-api | Refresh token signing key |
 | `INTERNAL_TASK_TOKEN` | war-api, scheduler | Shared secret authenticating scheduled task calls (§12.3) |
 | `GOOGLE_CLIENT_ID` | war-api | Google OAuth client id — not secret; a plain (non-`SECRET`-type) env var |
 | `GOOGLE_CLIENT_SECRET` | war-api | Google OAuth client secret |
@@ -785,7 +784,7 @@ Every pipeline in this repository reads these from this repository's own secret 
 
 **In `war-api`** (its `api.yml`-called deploy jobs render `platform/{env}.yaml` via `envsubst`; see §9):
 
-- `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, `INTERNAL_TASK_TOKEN`, `GOOGLE_CLIENT_SECRET` — substituted straight into the rendered app spec at deploy time, never Terraform inputs
+- `JWT_SECRET`, `INTERNAL_TASK_TOKEN`, `GOOGLE_CLIENT_SECRET` — substituted straight into the rendered app spec at deploy time, never Terraform inputs
 - `SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY` — same Spaces credentials as above, substituted into the spec's `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` env keys (the app reads S3-style names; see §9)
 - `GOOGLE_CLIENT_ID` is a repository **variable** here (not a secret — see §9), substituted the same way
 
@@ -1127,7 +1126,8 @@ entire stack that named a repository, since the API deploys a DOCR image and has
   `deploy-<env>` concurrency group. Any future pipeline touching this app must join it.
 - **Secrets do not transfer between repositories.** GitHub's API never returns a secret's
   value, so all eight had to be re-entered by hand. Five were re-copyable from a provider
-  console; `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, and `INTERNAL_TASK_TOKEN` are self-generated
+  console; `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, and `INTERNAL_TASK_TOKEN` (the last of which
+  has since been removed as dead config -- see §20.7) are self-generated
   and recoverable from nowhere — App Platform returns `type: SECRET` values as `EV[1:…]`
   ciphertext. Rotating `INTERNAL_TASK_TOKEN` in particular requires running *both* the infra
   pipeline (which sets it on the scheduler Worker) and the api pipeline (which substitutes it
@@ -1140,3 +1140,38 @@ entire stack that named a repository, since the API deploys a DOCR image and has
 though the API's `--spec` update already redeploys the static site, which makes
 `ui-default.yml`'s deploy step largely redundant. Unifying them is a pipeline redesign
 rather than part of the move, and is worth its own round.
+
+### 20.7 `REFRESH_TOKEN_SECRET` was deployed to production and read by nothing
+
+Found immediately after §20.6's consolidation, while working out which secrets actually had to
+be rotated. `REFRESH_TOKEN_SECRET` was a repository secret, substituted by `envsubst` into
+`platform/{env}.yaml`, and delivered to the running container as a `type: SECRET` environment
+variable in both environments — and `war-api` never read it. It appears nowhere in `src/`.
+
+§9's table described it as the "Refresh token signing key", but refresh tokens are not signed.
+`war-api-spec.md` §4 has always specified them as opaque values "stored server-side (hashed,
+never in plaintext) for revocation", and `src/auth/refreshTokens.ts` implements exactly that:
+`randomBytes(32).toString('base64url')` for the token, `sha256` of it for the stored row. There
+is no key in the scheme, so there was nothing for a signing key to do. The implementation was
+correct and this document was wrong — not the other way round — so the fix was to delete the
+variable and the row, not to invent a use for it.
+
+**This is §20.5's bug family with the sign flipped.** There, `PUBLIC_BASE_URL` was needed by the
+application and never read from the environment, so the app silently fell back to a localhost
+default and OAuth broke in production. Here a value was faithfully plumbed end to end and read
+by nobody. Both are the same underlying defect — no check that a deployment variable and its
+consumer actually meet — and only the first one had visible symptoms. The second sat in
+production indefinitely, looking exactly like working configuration.
+
+`assertProductionConfig` (`war-api/src/config.ts`) cannot catch this class: it validates the
+config object the application builds, and a variable the application never reads never becomes
+part of that object. Catching set-but-unread would mean comparing the deployed spec's env keys
+against what `loadConfig` actually consumes — worth doing if this recurs, but one instance is
+not yet a pattern worth building tooling for.
+
+**Removed from:** both `platform/{env}.yaml` files, the two `envsubst` variable lists and two
+`env:` blocks in `.github/workflows/api.yml`, and §9's secret table. The GitHub repository
+secret itself can be deleted once a deploy carrying this change has reached both environments;
+until then it is merely unreferenced. Note that the deleted env var was `type: SECRET`, so App
+Platform will drop it from the running container on the next deploy — no restart-time surprise,
+because nothing reads it.

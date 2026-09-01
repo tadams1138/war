@@ -15,18 +15,27 @@ name: war-infra Pipeline
 # and `paths-ignore` are mutually exclusive for a single event, so the previous
 # markdown exclusion is expressed as a negated pattern inside `paths` — later
 # patterns override earlier ones.
+#
+# platform/** is excluded for the same reason: Terraform creates the App
+# Platform app but does not own its spec (terraform/modules/compute carries
+# `ignore_changes = [spec]`, §5.2). Nothing under terraform/ reads those files
+# — api.yml renders and applies them — so a platform/{env}.yaml edit would
+# otherwise cost a full plan/apply cycle and a production approval to change
+# nothing.
 on:
   push:
     branches: [master]
     paths:
       - 'war-infra/**'
       - '!war-infra/**/*.md'
+      - '!war-infra/platform/**'
       - '.github/workflows/infra.yml'
   pull_request:
     branches: [master]
     paths:
       - 'war-infra/**'
       - '!war-infra/**/*.md'
+      - '!war-infra/platform/**'
       - '.github/workflows/infra.yml'
 
 # Every `run:` in this workflow executes inside war-infra/, so the
