@@ -8,6 +8,7 @@ import { warSummarySchema, type WarSummaryView } from '../../src/wars/warPresent
 import { nextMatchupResponseSchema, type NextMatchupView } from '../../src/matchups/matchupsService.js';
 import { voteForbiddenResponseSchema, type VoteForbiddenView } from '../../src/matchups/routes.js';
 import { oauthDeclinedResponseSchema, type OAuthDeclinedView } from '../../src/auth/routes.js';
+import { rankingsResponseSchema, type RankingsView } from '../../src/rankings/rankingsService.js';
 
 /**
  * Pins every response body schema (spec §11.2.1) to full byte-for-byte
@@ -238,6 +239,52 @@ describe('response body schemas serialize every field (spec §11.2.1)', () => {
     // Arrange
     const fixture: OAuthDeclinedView = { error: 'authorization declined', reason: 'temporarily_unavailable' };
     const app = buildProbeApp(oauthDeclinedResponseSchema, fixture);
+
+    // Act
+    const response = await app.inject({ method: 'GET', url: '/probe' });
+
+    // Assert
+    expect(response.body).toBe(JSON.stringify(fixture));
+  });
+
+  it('RankingsView: a ranked and an unranked entry, every field intact', async () => {
+    // Arrange
+    const fixture: RankingsView = {
+      war_id: 'a5b1e2c4-6666-4a11-8a11-000000000001',
+      status: 'active',
+      updated_at: '2026-04-28T12:00:00.000Z',
+      rankings: [
+        {
+          rank: 1,
+          contestant: {
+            id: 'a5b1e2c4-6666-4a11-8a11-000000000002',
+            name: 'Contestant A',
+            media: [
+              {
+                kind: 'image',
+                id: 'a5b1e2c4-6666-4a11-8a11-000000000003',
+                display_order: 0,
+                aspect_ratio: 1.5,
+                variants: [{ width: 400, url: 'https://cdn.example.com/x-400.webp' }],
+              },
+            ],
+          },
+          wins: 320,
+          appearances: 400,
+        },
+        {
+          rank: null,
+          contestant: {
+            id: 'a5b1e2c4-6666-4a11-8a11-000000000004',
+            name: 'Contestant C',
+            media: [],
+          },
+          wins: 0,
+          appearances: 0,
+        },
+      ],
+    };
+    const app = buildProbeApp(rankingsResponseSchema, fixture);
 
     // Act
     const response = await app.inject({ method: 'GET', url: '/probe' });

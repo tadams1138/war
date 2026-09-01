@@ -21,6 +21,44 @@ export interface RankingsView {
   rankings: RankingEntry[];
 }
 
+/**
+ * The response body JSON Schema for {@link RankingsView} (spec §11.2.1,
+ * "Addendum (2026-08-31)"). Kept beside the interface it mirrors -- see
+ * `mediaItemSchema` (`../contestants/mediaPresenter.ts`) for why. `rank` is
+ * `["integer", "null"]` since an unranked (zero-appearance) contestant is
+ * listed with `rank: null` (spec §8).
+ */
+export const rankingsResponseSchema = {
+  type: 'object',
+  required: ['war_id', 'status', 'updated_at', 'rankings'],
+  properties: {
+    war_id: { type: 'string', format: 'uuid' },
+    status: { type: 'string', enum: ['draft', 'active', 'closed'] },
+    updated_at: { type: 'string', format: 'date-time' },
+    rankings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['rank', 'contestant', 'wins', 'appearances'],
+        properties: {
+          rank: { type: ['integer', 'null'] },
+          contestant: {
+            type: 'object',
+            required: ['id', 'name', 'media'],
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              name: { type: 'string' },
+              media: { type: 'array', items: { $ref: 'MediaItem#' } },
+            },
+          },
+          wins: { type: 'integer' },
+          appearances: { type: 'integer' },
+        },
+      },
+    },
+  },
+};
+
 export type RankingsOutcome =
   | { kind: 'ok'; view: RankingsView; visibility: string }
   | { kind: 'notFound' }

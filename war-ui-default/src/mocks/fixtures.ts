@@ -13,6 +13,8 @@ export type ResolvedAttribute = components['schemas']['ResolvedAttribute']
 export type NextMatchupResponse =
   paths['/wars/{id}/matchups/next']['get']['responses'][200]['content']['application/json']
 export type WarDetailResponse = paths['/wars/{id}']['get']['responses'][200]['content']['application/json']
+export type RankingsResponse = paths['/wars/{id}/rankings']['get']['responses'][200]['content']['application/json']
+type RankingEntry = RankingsResponse['rankings'][number]
 
 // `id` is required, not defaulted from a shared counter — a fixture's
 // identity used to depend on how many fixtures had been built before it
@@ -82,6 +84,37 @@ export function buildMatchupResponse(overrides: Partial<NextMatchupResponse> = {
       right: { id: 'contestant-right', name: 'Right Contestant', media: [buildMediaItem({ id: 'right-media-0' })] },
     },
     progress: { voted: 0, total: 10 },
+    ...overrides,
+  }
+}
+
+interface RankingEntryOverrides extends Partial<Omit<RankingEntry, 'contestant'>> {
+  contestant: Partial<RankingEntry['contestant']> & { id: string; name: string }
+}
+
+export function buildRankingEntry(overrides: RankingEntryOverrides): RankingEntry {
+  const { contestant, ...rest } = overrides
+  return {
+    rank: null,
+    wins: 0,
+    appearances: 0,
+    ...rest,
+    contestant: {
+      media: [buildMediaItem({ id: `${contestant.id}-media-0` })],
+      ...contestant,
+    },
+  }
+}
+
+export function buildRankingsResponse(overrides: Partial<RankingsResponse> = {}): RankingsResponse {
+  return {
+    war_id: 'war-1',
+    status: 'active',
+    updated_at: '2026-04-28T12:00:00.000Z',
+    rankings: [
+      buildRankingEntry({ rank: 1, contestant: { id: 'contestant-1', name: 'Contestant One' }, wins: 5, appearances: 6 }),
+      buildRankingEntry({ rank: 2, contestant: { id: 'contestant-2', name: 'Contestant Two' }, wins: 3, appearances: 6 }),
+    ],
     ...overrides,
   }
 }

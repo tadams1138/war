@@ -103,6 +103,29 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            reason: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -955,7 +978,49 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            war_id: string;
+                            /** @enum {string} */
+                            status: "draft" | "active" | "closed";
+                            /** Format: date-time */
+                            updated_at: string;
+                            rankings: {
+                                rank: null | number;
+                                contestant: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                    media: components["schemas"]["MediaItem"][];
+                                };
+                                wins: number;
+                                appearances: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
                 };
             };
         };

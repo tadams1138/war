@@ -425,4 +425,35 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expectRequiredPath(document, schema, 'error');
     });
   });
+
+  Scenario("The rankings endpoint's response schema declares the leaderboard shape", ({ When, Then, And }) => {
+    When('a client fetches the OpenAPI document', async () => {
+      ({ response, document } = await fetchDocument(harness));
+    });
+
+    Then(
+      'the GET /api/v1/wars/{id}/rankings 200 response schema requires "war_id", "status", "updated_at", and "rankings"',
+      () => {
+        const schema = responseSchema(document, '/wars/{id}/rankings', 'get', '200');
+        expect(schema.required ?? []).toEqual(
+          expect.arrayContaining(['war_id', 'status', 'updated_at', 'rankings']),
+        );
+      },
+    );
+
+    And('each ranking entry requires "rank", "contestant", "wins", and "appearances"', () => {
+      const schema = responseSchema(document, '/wars/{id}/rankings', 'get', '200');
+      const entrySchema = resolveSchema(document, schema.properties?.rankings?.items);
+      expect(entrySchema.required ?? []).toEqual(
+        expect.arrayContaining(['rank', 'contestant', 'wins', 'appearances']),
+      );
+    });
+
+    And('"rank" is declared nullable', () => {
+      const schema = responseSchema(document, '/wars/{id}/rankings', 'get', '200');
+      const entrySchema = resolveSchema(document, schema.properties?.rankings?.items);
+      const rankSchema = entrySchema.properties?.rank;
+      expect(rankSchema?.type).toEqual(expect.arrayContaining(['null']));
+    });
+  });
 });

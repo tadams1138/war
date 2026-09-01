@@ -5,6 +5,7 @@ import {
   castVote,
   getMe,
   getNextMatchup,
+  getRankings,
   getWar,
   getWars,
   joinWar,
@@ -13,7 +14,7 @@ import {
   refreshSession,
 } from '../client'
 import { __resetAuthStateForTests, getToken, registerUnauthorizedHandler, setToken } from '../authState'
-import { buildMatchupResponse, buildWarDetail, buildWarSummary } from '../../mocks/fixtures'
+import { buildMatchupResponse, buildRankingsResponse, buildWarDetail, buildWarSummary } from '../../mocks/fixtures'
 
 const BASE = 'http://localhost/api/v1'
 
@@ -123,6 +124,48 @@ describe('getNextMatchup', () => {
 
     // Assert
     expect(result).toBeNull()
+  })
+})
+
+describe('getRankings', () => {
+  it('returns the rankings body on 200', async () => {
+    // Arrange
+    const rankings = buildRankingsResponse({ war_id: 'war-1' })
+    server.use(http.get(`${BASE}/wars/war-1/rankings`, () => HttpResponse.json(rankings)))
+
+    // Act
+    const result = await getRankings('war-1')
+
+    // Assert
+    expect(result.war_id).toBe('war-1')
+    expect(result.rankings).toHaveLength(rankings.rankings.length)
+  })
+
+  it('throws an unauthorized ApiError on 401 — an invite-only War, anonymous request', async () => {
+    // Arrange — the client retries once through a refresh attempt (§7) before
+    // giving up; stub that endpoint failing too, same as the generic "401
+    // handling" tests above.
+    server.use(
+      http.get(`${BASE}/wars/war-1/rankings`, () => HttpResponse.json({ error: 'unauthorized' }, { status: 401 })),
+      http.post(`${BASE}/auth/refresh`, () => HttpResponse.json({ error: 'invalid refresh token' }, { status: 401 })),
+    )
+
+    // Act / Assert
+    await expect(getRankings('war-1')).rejects.toMatchObject({
+      reason: 'unauthorized',
+      message: 'Please log in to continue',
+    })
+  })
+
+  it('throws a not-found ApiError on 404', async () => {
+    // Arrange
+    server.use(http.get(`${BASE}/wars/missing/rankings`, () => HttpResponse.json({ error: 'not found' }, { status: 404 })))
+
+    // Act / Assert
+    await expect(getRankings('missing')).rejects.toMatchObject({
+      reason: 'not-found',
+      message: "This War doesn't exist or has been removed",
+    })
   })
 })
 
