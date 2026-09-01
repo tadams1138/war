@@ -2,14 +2,15 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { listContestantsByWar } from '../contestants/contestantsRepository.js';
 import { listMediaByContestants } from '../contestants/contestantMediaRepository.js';
-import { presentMedia, type MediaItemView } from '../contestants/mediaPresenter.js';
+import { presentMedia } from '../contestants/mediaPresenter.js';
+import { contestantViewSchema, type ContestantView } from '../contestants/contestantPresenter.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
 import { findWarById, isMember } from '../wars/warsRepository.js';
 import { rankContestants } from './scoring.js';
 
 export interface RankingEntry {
   rank: number | null;
-  contestant: { id: string; name: string; media: MediaItemView[] };
+  contestant: ContestantView;
   wins: number;
   appearances: number;
 }
@@ -42,15 +43,7 @@ export const rankingsResponseSchema = {
         required: ['rank', 'contestant', 'wins', 'appearances'],
         properties: {
           rank: { type: ['integer', 'null'] },
-          contestant: {
-            type: 'object',
-            required: ['id', 'name', 'media'],
-            properties: {
-              id: { type: 'string', format: 'uuid' },
-              name: { type: 'string' },
-              media: { type: 'array', items: { $ref: 'MediaItem#' } },
-            },
-          },
+          contestant: contestantViewSchema,
           wins: { type: 'integer' },
           appearances: { type: 'integer' },
         },

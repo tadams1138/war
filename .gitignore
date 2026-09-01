@@ -28,6 +28,10 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
+# generate:api's local OpenAPI artifact (war-ui-default/package.json,
+# war-api/scripts/dumpOpenApi.ts) -- a build-time intermediate, not source.
+/war-ui-default/openapi.json
+
 # Terraform (war-infra)
 **/.terraform/
 *.tfstate

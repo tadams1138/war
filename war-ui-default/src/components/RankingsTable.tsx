@@ -4,7 +4,7 @@
 // as given — "—" for an unranked (`rank: null`) contestant. No win
 // percentage is computed or displayed anywhere here.
 import type { RankingsResponse } from '../api/client'
-import { primaryMedia, srcSetFor } from '../utils/media'
+import { ContestantThumbnail } from './ContestantThumbnail'
 
 type RankingEntry = RankingsResponse['rankings'][number]
 
@@ -34,20 +34,11 @@ export function RankingsTable({ rankings }: RankingsTableProps) {
 }
 
 function RankingsRow({ entry }: { entry: RankingEntry }) {
-  const image = primaryMedia(entry.contestant.media)
-
   return (
     <tr data-testid="ranking-row">
       <td>{entry.rank ?? '—'}</td>
       <td>
-        {image && (
-          <img
-            alt={entry.contestant.name}
-            src={image.variants[0]?.url}
-            srcSet={srcSetFor(image)}
-            style={{ aspectRatio: image.aspect_ratio ?? undefined }}
-          />
-        )}
+        <ContestantThumbnail media={entry.contestant.media} name={entry.contestant.name} />
       </td>
       <td>{entry.contestant.name}</td>
       <td>{entry.wins}</td>
