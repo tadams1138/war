@@ -2228,6 +2228,25 @@ Core Voting Loop slice, live in both staging and production for both repos
   stored media", "The activate endpoint's response schemas cover its status variations");
   the routes' own behaviour, unchanged by this schema work, remains covered by the "War
   Creation" and "War Lifecycle" Gherkin (§14).
+- `GET /wars`'s `creator=me` filter (§7.2, §11.2.1 "Addendum (2026-09-01)"): implemented.
+  The `creator` querystring param is enum-validated (`["me"]`) by Fastify's own schema, so
+  any other value never reaches the handler; `creator=me` is auth-gated (`401` on a
+  missing, invalid, or expired token) while every other combination of query params on
+  this route stays unauthenticated; and when present, it scopes the list to the
+  authenticated voter's own `creator_id` across every status, including their own drafts
+  and invite-only Wars. Pinned by the "My Wars" Gherkin (§14), executable at
+  `war-api/specs/features/my-wars.feature`.
+- `GET /wars`'s default visibility/status scoping when `creator=me` is absent (§7.2,
+  "Default scoping (no `creator=me`)"): implemented in `listWars`
+  (`war-api/src/wars/warsRepository.ts`), not in the route handler — a deliberate choice so
+  every caller of `listWars` inherits the restriction and no future route can bypass it by
+  forgetting to apply it. When `filter.creatorId` is absent, the query applies
+  `status = (filter.status ?? 'active')` AND `status != 'draft'` AND
+  `visibility != 'invite_only'`, which is why an explicit `status=draft` from a non-owner
+  is self-contradictory (`status != 'draft'` and `status = 'draft'` can never both hold)
+  and returns an empty list rather than leaking another voter's drafts. Pinned by three
+  scenarios in the "Public Wars List Visibility" Gherkin (§14), executable at
+  `war-api/specs/features/wars-list-visibility.feature`.
 
 **Not yet implemented:**
 - Apple, Facebook, Microsoft, and Twitter/X OAuth (§4), and linking multiple providers to
@@ -2237,15 +2256,6 @@ Core Voting Loop slice, live in both staging and production for both repos
   the API's own per-identity limits described here are not
 - Custom UI registry endpoints (§7.6, §10) — the `ui_registrations` table and `wars.ui_slug`
   column exist and are reserved; no endpoint reads or writes them yet
-- `GET /wars`'s `creator=me` filter (§7.2, §11.2.1 "Addendum (2026-09-01)") — lets a voter
-  list the Wars they created, across every status; needed by `war-ui-default`'s MyWars
-  slice (`war-ui-default-spec.md` §6, §12)
-- `GET /wars`'s default visibility/status scoping when `creator=me` is absent (§7.2,
-  "Default scoping (no `creator=me`)") — a design review of the MyWars slice found
-  `listWars` applies no visibility or status default at all today, so an unfiltered
-  `GET /wars` returns every voter's `draft` and `invite_only` Wars to anonymous callers.
-  This is a live data exposure, not a cosmetic gap; it should be the next change this
-  endpoint receives
 
 None of the above is inferred to be in scope from the data model's presence — a reserved
 column or table does not mean its feature is built.
