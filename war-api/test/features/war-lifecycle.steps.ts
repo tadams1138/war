@@ -4,7 +4,14 @@ import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { findWarById } from '../../src/wars/warsRepository.js';
 import { countMatchupsForWar } from '../../src/matchups/matchupsRepository.js';
-import { makeVoter, makeDraftWar, makeContestant, giveContestantAnImage, makeDraftWarWithContestants } from '../setup/fixtures.js';
+import {
+  makeVoter,
+  makeDraftWar,
+  makeContestant,
+  giveContestantAnImage,
+  makeDraftWarWithContestants,
+  activateWarForTest,
+} from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -210,10 +217,15 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Given('a War with 3 contestants', async () => {
       const creator = await makeVoter(harness.db, 'creator');
-      // Left in "draft" deliberately (spec §11.2.1 addendum): contestant_count
-      // must reflect the contestants rows regardless of the War's status.
+      // Activated (not left in "draft"): an anonymous, unfiltered GET /wars
+      // excludes draft Wars by default (spec §7.2 "Default scoping"), and
+      // this scenario is about contestant_count, not visibility -- so the
+      // fixture needs a War the anonymous request can actually see.
+      // contestant_count must still reflect the contestants rows regardless
+      // of the War's status (spec §11.2.1 addendum).
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 3);
-      warId = war.id;
+      const active = await activateWarForTest(harness.db, war);
+      warId = active.id;
     });
 
     When('anyone GETs /api/v1/wars', async () => {

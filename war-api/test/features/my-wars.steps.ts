@@ -32,6 +32,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     return req;
   }
 
+  async function getWarsWithAuthHeader(query: string, authorization: string): Promise<request.Response> {
+    return request(harness.app.server).get(`/api/v1/wars${query}`).set('Authorization', authorization);
+  }
+
   function idsOf(response: request.Response): string[] {
     return (response.body.wars as { id: string }[]).map((war) => war.id);
   }
@@ -84,7 +88,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('creator=me combines with the status filter', ({ Given, When, Then }) => {
+  Scenario('creator=me combines with the status filter', ({ Given, And, When, Then }) => {
     let creatorId: string;
     let draftId: string;
     let response: request.Response;
@@ -102,11 +106,16 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       await activateWarForTest(harness.db, activeWar);
     });
 
+    And('another voter has created a draft War', async () => {
+      const other = await makeVoter(harness.db, 'other');
+      await makeDraftWar(harness.db, other.id, { title: "Someone Else's Draft War" });
+    });
+
     When('they GET /api/v1/wars?creator=me&status=draft', async () => {
       response = await getWars('?creator=me&status=draft', creatorId);
     });
 
-    Then('only their draft War is returned', () => {
+    Then('only their own draft War is returned', () => {
       expect(response.status).toBe(200);
       expect(idsOf(response)).toEqual([draftId]);
     });
@@ -128,9 +137,27 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario("A voter's own invite-only or draft Wars are included", ({ Given, When, Then }) => {
+  Scenario('A request for creator=me with an invalid or expired token is rejected', ({ Given, When, Then }) => {
+    let response: request.Response;
+
+    Given('a request bearing an invalid or expired JWT', () => {
+      // Nothing to arrange -- the request below sends a token that cannot
+      // verify: not a JWT this API's secret ever signed.
+    });
+
+    When('they GET /api/v1/wars?creator=me', async () => {
+      response = await getWarsWithAuthHeader('?creator=me', 'Bearer not-a-real-jwt');
+    });
+
+    Then('the response status is 401', () => {
+      expect(response.status).toBe(401);
+    });
+  });
+
+  Scenario("A voter's own invite-only or draft Wars are included, and another voter's are not", ({ Given, And, When, Then }) => {
     let creatorId: string;
     let warId: string;
+    let otherWarId: string;
     let response: request.Response;
 
     Given('a voter has created a draft, invite-only War', async () => {
@@ -140,13 +167,43 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       warId = war.id;
     });
 
+    And('another voter has created a draft, invite-only War', async () => {
+      const other = await makeVoter(harness.db, 'other');
+      const war = await makeDraftWar(harness.db, other.id, {
+        title: "Someone Else's Invite Only Draft",
+        visibility: 'invite_only',
+      });
+      otherWarId = war.id;
+    });
+
     When('they GET /api/v1/wars?creator=me', async () => {
       response = await getWars('?creator=me', creatorId);
     });
 
-    Then('that War is included in the results', () => {
+    Then('their own invite-only draft War is returned', () => {
       expect(response.status).toBe(200);
       expect(idsOf(response)).toContain(warId);
+    });
+
+    And("the other voter's is not", () => {
+      expect(idsOf(response)).not.toContain(otherWarId);
+    });
+  });
+
+  Scenario('A creator value other than "me" is rejected', ({ When, Then, And }) => {
+    let response: request.Response;
+
+    When('they GET /api/v1/wars?creator=someone-else', async () => {
+      response = await getWars('?creator=someone-else');
+    });
+
+    Then('the response status is 400', () => {
+      expect(response.status).toBe(400);
+    });
+
+    And("the response is Fastify's own validation-error envelope, not this API's \"error\" shape", () => {
+      expect(response.body).toMatchObject({ statusCode: 400, code: 'FST_ERR_VALIDATION', error: 'Bad Request' });
+      expect(response.body.message).toEqual(expect.any(String));
     });
   });
 });

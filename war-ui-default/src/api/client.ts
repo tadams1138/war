@@ -182,13 +182,15 @@ function parseRetryAfter(headerValue: string | null): number {
 
 // --- typed wrapper functions -----------------------------------------------
 
-// `creator: 'me'` is the only param this slice's callers use (MyWars,
-// war-ui-default-spec.md §6) — status/category/cursor/limit exist on the
-// generated querystring type too (war-api-spec.md §7.2) but nothing here
-// calls with them yet, so only `creator` is read out below.
+// Serializes every defined param on GetWarsParams (status, category,
+// cursor, limit, creator — war-api-spec.md §7.2) rather than picking one
+// out by name, so a caller passing e.g. `status` type-checks and actually
+// reaches the request instead of type-checking and being silently dropped.
 export async function getWars(params: GetWarsParams = {}): Promise<WarListResponse> {
-  const query = params.creator ? `?creator=${encodeURIComponent(params.creator)}` : ''
-  const response = await ensureOk(await apiFetch(`/wars${query}`))
+  const search = new URLSearchParams(
+    Object.entries(params).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  ).toString()
+  const response = await ensureOk(await apiFetch(`/wars${search ? `?${search}` : ''}`))
   return response.json() as Promise<WarListResponse>
 }
 

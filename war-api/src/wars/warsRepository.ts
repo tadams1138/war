@@ -85,17 +85,32 @@ export interface ListWarsFilter {
 export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Promise<War[]> {
   let query = db.selectFrom('wars').selectAll().orderBy('created_at', 'desc').orderBy('id', 'desc');
 
-  if (filter.status) {
-    query = query.where('status', '=', filter.status);
+  if (filter.creatorId) {
+    query = query.where('creator_id', '=', filter.creatorId);
+    if (filter.status) {
+      query = query.where('status', '=', filter.status);
+    }
+  } else {
+    // Default visibility/status scoping, applied whenever `creatorId` is
+    // absent (spec §7.2 "Default scoping (no `creator=me`)"): never a
+    // `draft` War, never an `invite_only` one, regardless of any `status`
+    // filter supplied -- `status=draft` returns empty rather than another
+    // voter's drafts, since `status != 'draft'` and `status = 'draft'` can
+    // never both hold. Omitting `status` entirely defaults to `active`.
+    // This is the one place that rule is enforced; every caller of
+    // `listWars` inherits it, so a future caller cannot bypass it by
+    // forgetting to ask.
+    query = query
+      .where('status', '=', filter.status ?? 'active')
+      .where('status', '!=', 'draft')
+      .where('visibility', '!=', 'invite_only');
   }
+
   if (filter.category) {
     query = query.where('category', '=', filter.category);
   }
   if (filter.cursor) {
     query = query.where('id', '<', filter.cursor);
-  }
-  if (filter.creatorId) {
-    query = query.where('creator_id', '=', filter.creatorId);
   }
 
   const rows = await query.limit(filter.limit).execute();

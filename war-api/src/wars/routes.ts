@@ -16,6 +16,19 @@ export interface WarsRouteDeps {
   internalTaskToken: string;
 }
 
+/**
+ * "Wants own-Wars scoping" was previously stated three times -- the ajv
+ * enum, the preHandler predicate (with its own inline cast), and the
+ * handler ternary -- so a future edit to one could silently diverge from
+ * the other two. The handler's fallback when `creator` isn't `"me"` is an
+ * unfiltered `creatorId` (spec §7.2's default-scoping rule in
+ * `warsRepository.ts` now closes what that would otherwise expose), so
+ * this predicate is the one place that decision is made.
+ */
+function wantsOwnWars(query: { creator?: string }): boolean {
+  return query.creator === 'me';
+}
+
 export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): void {
   const { db, auth } = deps;
 
@@ -50,11 +63,11 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       // anonymous callers for every query combination except `creator=me`
       // (spec §7.2), so it must not carry a `security: [{bearerAuth: []}]`
       // marker in the OpenAPI document either.
-      preHandler: requireAuthIf(auth, (request) => (request.query as { creator?: string }).creator === 'me'),
+      preHandler: requireAuthIf(auth, (request) => wantsOwnWars(request.query as { creator?: string })),
     },
     async (request, reply) => {
       const limit = Math.min(Number(request.query.limit ?? 20) || 20, 100);
-      const creatorId = request.query.creator === 'me' ? request.voterId : undefined;
+      const creatorId = wantsOwnWars(request.query) ? request.voterId : undefined;
       const wars = await listWars(db, {
         status: request.query.status,
         category: request.query.category,
