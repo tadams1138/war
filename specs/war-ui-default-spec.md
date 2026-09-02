@@ -249,15 +249,23 @@ Renders the leaderboard returned by `GET /rankings`. Columns: Rank, Image, Name,
 ### WarCard
 Summary tile used on the Home and MyWars pages. Displays: title, category badge, status badge, contestant count, time remaining (if `ends_at` is set).
 
+**Time remaining formatting.** `ends_at` in the past, or exactly now, renders "Ended". 24
+hours or more remaining renders in whole days, rounded up ("Ends in 1 day", "Ends in 3
+days") — so a War with any part of a day left never under-states what's remaining. Under 24
+hours remaining renders in whole hours instead, also rounded up, with a 1-hour floor: even a
+few minutes left renders "Ends in 1 hour" rather than "Ends in 0 hours" or a misleading "Ends
+in 1 day". Both branches use "day"/"days" and "hour"/"hours" singular and plural correctly.
+
 ### CreateWar Wizard
 
 Multi-step form at `/wars/new`. Each step calls the API immediately rather than staging
 everything for one final submit — the wizard has no offline draft of its own, because the
 War it is building **is** the draft `war-api-spec.md` §5 already models. This also means
 partway abandonment simply leaves an unreachable draft War behind, at no cost: nothing else
-references it, and cleaning up abandoned drafts is out of scope for this slice (there is no
-`MyWars` page yet, §12, to surface it, and War creator moderation tooling is a stated
-non-goal, `war-spec.md` §2).
+references it. MyWars (§6 "MyWars Page", §12) now surfaces an abandoned draft in the
+creator's list, but cleaning it up is still out of scope: MyWars adds no edit, resume, or
+delete affordance of its own (§6 "MyWars Page"), and War creator moderation tooling remains
+a stated non-goal (`war-spec.md` §2).
 
 1. **Metadata** — title (required), category (optional), visibility (`public` /
    `invite_only`, defaults to `public`), optional end date. Submitting this step calls
@@ -672,9 +680,9 @@ This document specifies the full default UI across all seven routes, both media 
 the shared runtime artifact for custom UIs. As of 2026-08-31, the Core Voting Loop slice
 below is **implemented and live in both staging and production** (`war-ui-default`'s
 placeholder "coming soon" page is gone), verified with a real interactive Google login, not
-just automated tests. Two further slices have since shipped on top of it — Rankings and
-CreateWar — each described in its own "Shipped" entry below. This section marks the
-boundary these slices draw: what they cover, versus what remains spec-only until a later
+just automated tests. Three further slices have since shipped on top of it — Rankings,
+CreateWar, and MyWars — each described in its own "Shipped" entry below. This section marks
+the boundary these slices draw: what they cover, versus what remains spec-only until a later
 slice picks it up.
 
 **Shipped in this slice — the Core Voting Loop:**
@@ -739,11 +747,24 @@ slice picks it up.
   a fix made after a design review found the first schema attempt silently stripping it
   (`war-api-spec.md` §15).
 
+**Shipped in a later slice — MyWars:**
+
+- MyWars (`/my-wars`) (§4, §6 "MyWars Page"): lists every War the authenticated voter
+  created — draft, active, and closed alike — via `getWars({ creator: 'me' })`
+  (`GET /wars?creator=me`, `war-api-spec.md` §7.2, §11.2.1 "Addendum (2026-09-01)", §15).
+  Implemented as `MyWars.tsx` (`src/pages/`), sitting behind the same `RequireAuth`
+  redirect as any other protected route (§7). Each War renders as a `WarCard` (§6) using
+  its full field set — title, category badge, status badge, contestant count, time
+  remaining — the first page in this UI to need the status badge and time-remaining
+  fields; Home renders the same card but has never needed them asserted. An empty state
+  with a link to `/wars/new` is shown when the voter has created no Wars. Pinned by the
+  "My Wars" Gherkin (§11), executable at `war-ui-default/features/my-wars.feature`.
+- `WarCard` (§6) gained its status badge and `timeRemainingLabel` time-remaining
+  formatting (days when 24h or more remain, hours with a 1-hour floor below that) to
+  serve this page; both are exercised by `WarCard.test.ts` (`src/components/`).
+
 **Deferred — spec-only, no scope in this slice:**
 
-- MyWars (`/my-wars`) (§4, §6 "MyWars Page") — fully specified as of 2026-09-01, including
-  the `war-api` `creator=me` filter it depends on (`war-api-spec.md` §7.2, §11.2.1
-  "Addendum (2026-09-01)", §15), but not yet built on either side
 - Video-mode matchups — MatchupView's video playback sequence (§6)
 - The shared runtime build artifact for custom UIs, `dist/runtime/v1.js` and `dist/runtime/v1.d.ts` (§5.2)
 
