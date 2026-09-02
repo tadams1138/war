@@ -3,38 +3,20 @@
 // gap the CreateWar wizard's own spec text names: a creator who abandons
 // the wizard before Activate has, until this page exists, no way to find
 // that draft War again.
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getWars, type WarSummary } from '../api/client'
-import { toUserMessage } from '../api/errors'
 import { WarCard } from '../components/WarCard'
-
-type MyWarsState = { status: 'loading' } | { status: 'loaded'; wars: WarSummary[] } | { status: 'error'; message: string }
+import { useAsyncResource } from '../hooks/useAsyncResource'
 
 export function MyWars() {
-  const [state, setState] = useState<MyWarsState>({ status: 'loading' })
-
-  useEffect(() => {
-    let cancelled = false
-    getWars({ creator: 'me' })
-      .then((response) => {
-        if (!cancelled) setState({ status: 'loaded', wars: response.wars })
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return
-        setState({ status: 'error', message: toUserMessage(error) })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const state = useAsyncResource(() => getWars({ creator: 'me' }), [])
 
   return (
     <main>
       <h1>My Wars</h1>
       {state.status === 'loading' && <p>Loading…</p>}
       {state.status === 'error' && <p role="alert">{state.message}</p>}
-      {state.status === 'loaded' && <MyWarsList wars={state.wars} />}
+      {state.status === 'loaded' && <MyWarsList wars={state.value.wars} />}
     </main>
   )
 }

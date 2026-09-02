@@ -113,6 +113,49 @@ describe('getWars', () => {
     // Assert
     expect(new URL(receivedUrl).searchParams.has('creator')).toBe(false)
   })
+
+  it('serializes status, category, cursor, and limit alongside creator (§7.2 query params)', async () => {
+    // Arrange
+    let receivedUrl = ''
+    server.use(
+      http.get(`${BASE}/wars`, ({ request }) => {
+        receivedUrl = request.url
+        return HttpResponse.json({ wars: [] })
+      }),
+    )
+
+    // Act
+    await getWars({ status: 'active', category: 'sports', cursor: 'war-99', limit: '10' })
+
+    // Assert
+    const params = new URL(receivedUrl).searchParams
+    expect(params.get('status')).toBe('active')
+    expect(params.get('category')).toBe('sports')
+    expect(params.get('cursor')).toBe('war-99')
+    expect(params.get('limit')).toBe('10')
+  })
+
+  it('omits params that are undefined rather than sending the literal string "undefined"', async () => {
+    // Arrange
+    let receivedUrl = ''
+    server.use(
+      http.get(`${BASE}/wars`, ({ request }) => {
+        receivedUrl = request.url
+        return HttpResponse.json({ wars: [] })
+      }),
+    )
+
+    // Act
+    await getWars({ status: 'active' })
+
+    // Assert
+    const params = new URL(receivedUrl).searchParams
+    expect(params.get('status')).toBe('active')
+    expect(params.has('category')).toBe(false)
+    expect(params.has('cursor')).toBe(false)
+    expect(params.has('limit')).toBe(false)
+    expect(params.has('creator')).toBe(false)
+  })
 })
 
 describe('getWar', () => {

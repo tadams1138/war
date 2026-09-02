@@ -1,41 +1,19 @@
 // War overview and contestant gallery, image mode only
 // (war-ui-default-spec.md §4, §6, §12). No authentication required.
-import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getWar, type ContestantDetail, type WarDetailResponse } from '../api/client'
-import { toUserMessage } from '../api/errors'
+import { getWar, type ContestantDetail } from '../api/client'
 import { ContestantAttributes } from '../components/ContestantAttributes'
 import { ContestantThumbnail } from '../components/ContestantThumbnail'
-
-type WarDetailState =
-  | { status: 'loading' }
-  | { status: 'loaded'; war: WarDetailResponse }
-  | { status: 'error'; message: string }
+import { useAsyncResource } from '../hooks/useAsyncResource'
 
 export function WarDetail() {
   const { id } = useParams<{ id: string }>()
-  const [state, setState] = useState<WarDetailState>({ status: 'loading' })
-
-  useEffect(() => {
-    if (!id) return
-    let cancelled = false
-    getWar(id)
-      .then((war) => {
-        if (!cancelled) setState({ status: 'loaded', war })
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return
-        setState({ status: 'error', message: toUserMessage(error) })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [id])
+  const state = useAsyncResource(id ? () => getWar(id) : undefined, [id])
 
   if (state.status === 'loading') return <p>Loading…</p>
   if (state.status === 'error') return <p role="alert">{state.message}</p>
 
-  const { war } = state
+  const war = state.value
   return (
     <main>
       <h1>{war.title}</h1>

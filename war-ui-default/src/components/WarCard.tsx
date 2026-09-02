@@ -27,9 +27,18 @@ function contestantCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'contestant' : 'contestants'}`
 }
 
-function timeRemainingLabel(endsAt: string): string {
+// Below a day remaining, rounding up to whole days is actively misleading
+// (five minutes left would otherwise read "Ends in 1 day") — switch to
+// hours in that range, still rounded up so "a few minutes" reads as at
+// least "1 hour" rather than "0 hours".
+export function timeRemainingLabel(endsAt: string): string {
   const msRemaining = new Date(endsAt).getTime() - Date.now()
   if (msRemaining <= 0) return 'Ended'
-  const days = Math.ceil(msRemaining / (1000 * 60 * 60 * 24))
+  const hoursRemaining = msRemaining / (1000 * 60 * 60)
+  if (hoursRemaining < 24) {
+    const hours = Math.max(1, Math.ceil(hoursRemaining))
+    return `Ends in ${hours} ${hours === 1 ? 'hour' : 'hours'}`
+  }
+  const days = Math.ceil(hoursRemaining / 24)
   return `Ends in ${days} ${days === 1 ? 'day' : 'days'}`
 }

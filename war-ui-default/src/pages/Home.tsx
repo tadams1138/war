@@ -1,31 +1,13 @@
 // Browse active public Wars (war-ui-default-spec.md §4, §12).
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getWars, type WarSummary } from '../api/client'
-import { toUserMessage } from '../api/errors'
 import { useAuth } from '../auth/context'
 import { WarCard } from '../components/WarCard'
-
-type HomeState = { status: 'loading' } | { status: 'loaded'; wars: WarSummary[] } | { status: 'error'; message: string }
+import { useAsyncResource } from '../hooks/useAsyncResource'
 
 export function Home() {
   const { isAuthenticated } = useAuth()
-  const [state, setState] = useState<HomeState>({ status: 'loading' })
-
-  useEffect(() => {
-    let cancelled = false
-    getWars()
-      .then((response) => {
-        if (!cancelled) setState({ status: 'loaded', wars: response.wars })
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return
-        setState({ status: 'error', message: toUserMessage(error) })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const state = useAsyncResource(() => getWars(), [])
 
   return (
     <main>
@@ -37,7 +19,7 @@ export function Home() {
       )}
       {state.status === 'loading' && <p>Loading…</p>}
       {state.status === 'error' && <p role="alert">{state.message}</p>}
-      {state.status === 'loaded' && <HomeWarList wars={state.wars} />}
+      {state.status === 'loaded' && <HomeWarList wars={state.value.wars} />}
     </main>
   )
 }
