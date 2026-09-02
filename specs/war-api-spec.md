@@ -487,8 +487,25 @@ the token is valid, the returned list is scoped to Wars whose `creator_id` is th
 authenticated voter's id, across **every** status — draft, active, and closed alike,
 including invite_only ones that voter created — and combines with `status` and
 `category` exactly as those two already combine with each other (`creator=me&status=draft`
-returns only the requester's own draft Wars). Omitting `creator` leaves this endpoint's
-other behaviour unchanged. See §11.2.1, "Addendum (2026-09-01)" for the exact schemas.
+returns only the requester's own draft Wars). See §11.2.1, "Addendum (2026-09-01)" for the
+exact schemas.
+
+**Default scoping (no `creator=me`).** Absent `creator=me`, this endpoint never returns a
+War whose `visibility` is `invite_only`, nor a War whose `status` is `draft` — a draft War
+is, by definition, not ready for anyone but its creator to see, and an invite-only War is
+never visible outside `creator=me` no matter who is asking. Both restrictions apply
+**regardless of any `status` filter supplied**, so `status=draft` without `creator=me`
+returns an empty list rather than another voter's drafts, and `status=active` or
+`status=closed` narrows the public, non-draft set exactly as it did before this
+restriction existed. Being authenticated grants no extra visibility on its own: a signed-in
+caller who is not the War's creator sees exactly what an anonymous caller sees on this
+path; only `creator=me` widens it, and only for that voter's own Wars. When `status` is
+omitted entirely (as well as `creator`), the default is `status = active` — matching the
+"browse active public Wars" behaviour `war-ui-default-spec.md` §12 already documents for
+Home — so the unfiltered call every unauthenticated browse surface makes returns public,
+active Wars only. This closes a gap that predates this addendum: `listWars` previously
+applied no visibility or status default at all, so an unfiltered `GET /wars` returned every
+voter's `draft` and `invite_only` Wars to anyone who asked.
 
 **`POST /wars` body:** `{ "title": "...", "category": "...", "visibility": "public", "media_mode": "image", "contestant_schema": [ … ], "ends_at": "..." }`
 
@@ -950,7 +967,7 @@ A third-party video can be deleted or made private after it was validated. The p
 
 The API publishes an OpenAPI 3.1 document at `GET /api/v1/openapi.json`, generated from the Fastify route schemas — it is never hand-maintained, so it cannot drift from the implementation.
 
-This document is the **contract between the three repos**. `war-ui-default` generates its typed client from it (`war-ui-default-spec.md` §5) rather than hand-writing request and response types. With three independently deployed repos and no shared package, contract drift is the highest-probability integration failure, and generation is what removes it.
+This document is the **contract between the three projects**. `war-ui-default` generates its typed client from it (`war-ui-default-spec.md` §5) rather than hand-writing request and response types. With three independently deployed projects sharing one repository but no shared package, contract drift is the highest-probability integration failure, and generation is what removes it.
 
 **Requirements on the generated document**, so `war-ui-default`'s `openapi-typescript` step has enough to generate a usable client against this API's real base path and auth scheme:
 
@@ -1923,6 +1940,27 @@ Feature: War Lifecycle
     Then the response status is 403
 ```
 
+### Public Wars List Visibility
+
+```gherkin
+Feature: Public Wars List Visibility
+
+  Scenario: Anonymous listing excludes drafts, invite-only Wars, and non-active Wars by default
+    Given a voter has created a public active War, a public draft War, a public closed War, and an active invite-only War
+    When anyone GETs /api/v1/wars
+    Then only the public active War is returned
+
+  Scenario: Being authenticated grants no extra visibility on its own
+    Given a voter has created a public draft War
+    When a different, authenticated voter GETs /api/v1/wars
+    Then that draft War is not returned
+
+  Scenario: An explicit status filter does not override visibility scoping
+    Given a voter has created a closed, invite-only War
+    When anyone GETs /api/v1/wars?status=closed
+    Then that War is not returned
+```
+
 ### My Wars
 
 ```gherkin
@@ -1936,18 +1974,31 @@ Feature: My Wars
 
   Scenario: creator=me combines with the status filter
     Given a voter has created a draft War and an active War
+    And another voter has created a draft War
     When they GET /api/v1/wars?creator=me&status=draft
-    Then only their draft War is returned
+    Then only their own draft War is returned
 
   Scenario: An unauthenticated request for creator=me is rejected
     Given a request with no Authorization header
     When they GET /api/v1/wars?creator=me
     Then the response status is 401
 
-  Scenario: A voter's own invite-only or draft Wars are included
-    Given a voter has created a draft, invite-only War
+  Scenario: A request for creator=me with an invalid or expired token is rejected
+    Given a request bearing an invalid or expired JWT
     When they GET /api/v1/wars?creator=me
-    Then that War is included in the results
+    Then the response status is 401
+
+  Scenario: A voter's own invite-only or draft Wars are included, and another voter's are not
+    Given a voter has created a draft, invite-only War
+    And another voter has created a draft, invite-only War
+    When they GET /api/v1/wars?creator=me
+    Then their own invite-only draft War is returned
+    And the other voter's is not
+
+  Scenario: A creator value other than "me" is rejected
+    When they GET /api/v1/wars?creator=someone-else
+    Then the response status is 400
+    And the response is Fastify's own validation-error envelope, not this API's "error" shape
 ```
 
 ### War Expiry
@@ -2189,6 +2240,12 @@ Core Voting Loop slice, live in both staging and production for both repos
 - `GET /wars`'s `creator=me` filter (§7.2, §11.2.1 "Addendum (2026-09-01)") — lets a voter
   list the Wars they created, across every status; needed by `war-ui-default`'s MyWars
   slice (`war-ui-default-spec.md` §6, §12)
+- `GET /wars`'s default visibility/status scoping when `creator=me` is absent (§7.2,
+  "Default scoping (no `creator=me`)") — a design review of the MyWars slice found
+  `listWars` applies no visibility or status default at all today, so an unfiltered
+  `GET /wars` returns every voter's `draft` and `invite_only` Wars to anonymous callers.
+  This is a live data exposure, not a cosmetic gap; it should be the next change this
+  endpoint receives
 
 None of the above is inferred to be in scope from the data model's presence — a reserved
 column or table does not mean its feature is built.
