@@ -48,6 +48,11 @@ Pairwise comparison forces deliberate choices and produces statistically stronge
 | **Voter** | Authenticated user; can join Wars, cast votes (final — see `war-api-spec.md` §9), view rankings |
 | **War Creator** | A Voter who created a specific War; can manage it through Draft → Active → Closed |
 
+A Voter or War Creator may act through any client — the default web UI, a custom UI, or
+the MCP server (`war-mcp-spec.md`) — interchangeably and without a new role: each is a
+different way of reaching the same identity and the same API, which is the sole authority
+over what that identity may do (§4).
+
 ---
 
 ## 4. Architecture
@@ -55,18 +60,18 @@ Pairwise comparison forces deliberate choices and produces statistically stronge
 The system is **API-first**. The backend exposes a versioned REST API that is the single source of truth for all business logic. Clients are thin — they render data returned by the API and submit user actions back to it.
 
 ```
-┌─────────────────────────────────────────┐
-│             Clients (thin)              │
-│  ┌──────────────┐  ┌──────────────────┐ │
-│  │  Web App     │  │  Mobile App (*)  │ │
-│  │  (React SPA) │  │  (React Native)  │ │
-│  └──────┬───────┘  └────────┬─────────┘ │
-└─────────┼────────────────────┼───────────┘
-          │   HTTPS / REST     │
-          ▼                    ▼
-┌─────────────────────────────────────────┐
-│           REST API  /api/v1/...         │
-└──────────────────────┬──────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                         Clients (thin)                        │
+│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐ │
+│  │  Web App     │  │  Mobile App (*)  │  │  MCP Server (†)  │ │
+│  │  (React SPA) │  │  (React Native)  │  │  (war-mcp)       │ │
+│  └──────┬───────┘  └────────┬─────────┘  └────────┬─────────┘ │
+└─────────┼────────────────────┼───────────────────┼────────────┘
+          │   HTTPS / REST     │                    │
+          ▼                    ▼                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    REST API  /api/v1/...                    │
+└──────────────────────┬────────────────────────────────────────┘
                        │
           ┌────────────┴────────────┐
           ▼                         ▼
@@ -78,10 +83,14 @@ The system is **API-first**. The backend exposes a versioned REST API that is th
 
 *Mobile app is a future deliverable; the API is designed to support it from day one.*
 
+*(†) The MCP server runs locally over stdio (`war-mcp-spec.md` §2) — it is a client like
+any other, with no privileged path into the API, not a hosted service alongside it.*
+
 For detailed specifications see:
 - [`war-api-spec.md`](war-api-spec.md) — REST API, data model, auth, scoring, vote integrity
 - [`war-ui-default-spec.md`](war-ui-default-spec.md) — default web frontend
 - [`war-ui-custom-spec.md`](war-ui-custom-spec.md) — per-brand custom frontends and their template contract
+- [`war-mcp-spec.md`](war-mcp-spec.md) — MCP server for authenticated War content creation and editing
 - [`war-infra-spec.md`](war-infra-spec.md) — hosting, CI/CD, environments
 
 ---
