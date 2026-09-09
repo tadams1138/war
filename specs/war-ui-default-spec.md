@@ -263,6 +263,40 @@ hours remaining renders in whole hours instead, also rounded up, with a 1-hour f
 few minutes left renders "Ends in 1 hour" rather than "Ends in 0 hours" or a misleading "Ends
 in 1 day". Both branches use "day"/"days" and "hour"/"hours" singular and plural correctly.
 
+### Home Page
+
+Browses active public Wars at `/` (§4). Each War renders as a `WarCard` (§6, "WarCard")
+using Home's own subset of its fields — title, category, and contestant count — not the
+status badge or time-remaining fields MyWars needs (§6, "MyWars Page"; §12): every War
+Home lists is `active` by definition, so a status badge would be inert here, and there is
+no owner's-eye urgency framing to give a War that isn't the viewer's own.
+
+**The empty state is auth-aware.** When no active public Wars exist, the copy shown
+depends on `useAuth().isAuthenticated` — a value this page already reads (§7) — rather than
+being the same fixed sentence for everyone:
+
+- **Anonymous visitor:** unchanged — "No active Wars right now — check back soon." An
+  anonymous visitor's only two options really are to wait or to log in, and NavBar already
+  gives them the login link (§6, "NavBar"); "check back soon" still correctly describes
+  their situation, so this branch is untouched by this addition.
+- **Authenticated voter:** the copy invites them to start one instead of telling them to
+  wait — e.g. "No active Wars right now — create one to get started" — paired with a link
+  to `/wars/new`. A signed-in voter is the one visitor to this page who can *make* an
+  active War exist; telling them only to check back later is not merely unhelpful copy, it
+  is wrong, because it omits the one action they actually have.
+
+**This link is in addition to NavBar's persistent Create War link, not in place of it.**
+The same duplication already exists deliberately at MyWars's own empty state (§6, "MyWars
+Page": its "Create a War" link stays even though NavBar now also covers it) — the reasoning
+carries over unchanged: an empty state is a page's *entire* visible content at that moment,
+and the one visitor with something to do there should find that action in the content
+itself, not have to look away to the header to find it. The duplication is free to build —
+it is the same `Link` treatment Home already uses for its anonymous "Login to Vote" CTA
+elsewhere on this page — so there is no cost to weigh against the redundancy.
+
+Nothing else about Home changes: the non-empty War list, `WarCard`'s Home-specific field
+subset, and the anonymous "Login to Vote" CTA are all unaffected by this addition.
+
 ### CreateWar Wizard
 
 Multi-step form at `/wars/new`. Each step calls the API immediately rather than staging
@@ -521,10 +555,17 @@ Feature: Browse Wars
     Then War cards are displayed with title, category, and contestant count
     And a "Login to Vote" CTA is shown
 
-  Scenario: No active Wars
+  Scenario: No active Wars for an anonymous visitor
     Given no active public Wars exist
-    When the home page loads
-    Then an empty state message is displayed
+    When the home page is loaded without authentication
+    Then an empty state is shown
+    And no link to create a War is displayed
+
+  Scenario: No active Wars for an authenticated voter
+    Given no active public Wars exist
+    When an authenticated voter loads the home page
+    Then an empty state is shown
+    And a link to create a War is displayed
 
 Feature: Vote Mode
 
@@ -827,7 +868,10 @@ slice picks it up.
 
 - Home (`/`): browse active public Wars. War cards show title, category, and contestant
   count — not the status badge or time-remaining fields WarCard (§6) also describes; those
-  wait for the slice that actually needs them.
+  wait for the slice that actually needs them. As shipped in this slice, the empty state
+  shown when no active public Wars exist is one fixed sentence for every visitor,
+  authenticated or not — see §6 "Home Page" and the Deferred entry below for the
+  auth-aware version a later slice specifies.
 - Login (`/login`) and the auth flow (§7): OAuth provider selection, JWT held in memory
   only, refresh-cookie exchange at `/auth/callback`, single-flight refresh on `401`, and a
   terminal failed-refresh path that clears the JWT and redirects to `/login`. Provider
@@ -908,6 +952,11 @@ slice picks it up.
   eight routes, but not yet built. Today the app has no header, no nav landmark, and no
   link to `/my-wars` anywhere in the codebase; `/wars/new`'s only link disappears once the
   MyWars empty state stops applying (§6, "MyWars Page").
+- Home's auth-aware empty state (§6, "Home Page") — fully specified as of 2026-09-09, but
+  not yet built. Today's empty state renders "No active Wars right now — check back soon."
+  to an anonymous visitor and a signed-in voter alike, which is merely accurate for the
+  former and actively wrong for the latter: a signed-in voter is the one visitor who could
+  make an active War exist, and today's copy never tells them so, nor links to `/wars/new`.
 - Video-mode matchups — MatchupView's video playback sequence (§6)
 - The shared runtime build artifact for custom UIs, `dist/runtime/v1.js` and `dist/runtime/v1.d.ts` (§5.2)
 
