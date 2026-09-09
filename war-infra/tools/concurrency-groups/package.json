@@ -1,0 +1,17 @@
+{
+  "name": "concurrency-groups-guard",
+  "version": "1.0.0",
+  "description": "CI guard: fails if two different workflow files declare the same concurrency.group (specs/war-infra-spec.md §20.8, §19 'Feature: Concurrency Group Isolation')",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "check": "node check.js"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

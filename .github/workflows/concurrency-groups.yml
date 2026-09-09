@@ -1,0 +1,54 @@
+# Concurrency group isolation guard — see specs/war-infra-spec.md §20.8 and
+# §19 "Feature: Concurrency Group Isolation"
+#
+# api.yml and ui-default.yml once declared identical `deploy-staging` /
+# `deploy-production` concurrency groups. GitHub retains only one *pending*
+# run per group, and a job parked at a required-reviewer approval gate is
+# pending, not running — so the sibling pipeline's own deploy job entering
+# the same group silently evicted it there, three times, cancelling a live
+# production security fix (commit 9404ffe) for seven days with nothing in
+# the Actions UI distinguishing that eviction from an ordinary cancellation.
+# This job turns that class of collision into a build failure instead of a
+# silent one.
+#
+# It is deliberately its own workflow rather than a step inside api.yml or
+# ui-default.yml: the collision it catches is only visible by comparing
+# every workflow file's declared groups against every other one, a change
+# that causes it can land in either file (or a future third pipeline), and
+# scoping the trigger to one pipeline's own path would miss the other half
+# of the comparison. This workflow deploys nothing and needs no cloud
+# credentials, so it can watch every workflow file in the repository,
+# including itself.
+
+name: Concurrency Group Isolation
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    branches: [master]
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: No two workflow files share a concurrency group
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: war-infra/tools/concurrency-groups/package-lock.json
+
+      - name: Install dependencies
+        run: npm --prefix war-infra/tools/concurrency-groups ci
+
+      - name: Check concurrency groups
+        run: npm --prefix war-infra/tools/concurrency-groups run check

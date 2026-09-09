@@ -143,12 +143,17 @@ jobs:
     environment:
       name: staging
       url: ${{ vars.PUBLIC_BASE_URL }}
-    # This app spec covers both the API service and the war-ui-default static
-    # site, and ui-default.yml deploys the same app. Since a single commit can
-    # now trigger both pipelines, they share this group so one waits rather
-    # than racing the other's `doctl apps update` on the same app.
+    # Serializes reruns of THIS pipeline's own staging deploy against itself.
+    # Deliberately NOT shared with ui-default.yml's staging group, even
+    # though both write to the same App Platform app: GitHub keeps only one
+    # *pending* run per concurrency group, and a job queued at an approval
+    # gate is pending, not running — a shared group lets the other
+    # pipeline's job evict it there, silently. That cancelled a live
+    # production security fix (commit 9404ffe) for seven days. See
+    # specs/war-infra-spec.md §20.8.
+    # Do not unify this with ui-default.yml's group.
     concurrency:
-      group: deploy-staging
+      group: deploy-staging-api
       cancel-in-progress: false
 
     steps:
@@ -202,9 +207,17 @@ jobs:
     environment:
       name: production
       url: ${{ vars.PUBLIC_BASE_URL }}
-    # See deploy-staging for why this group exists.
+    # Serializes reruns of THIS pipeline's own production deploy against
+    # itself. Deliberately NOT shared with ui-default.yml's production
+    # group, even though both write to the same App Platform app: GitHub
+    # keeps only one *pending* run per concurrency group, and a job queued
+    # at the production approval gate is pending, not running — a shared
+    # group lets the other pipeline's job evict it there, silently. That
+    # cancelled a live production security fix (commit 9404ffe) for seven
+    # days. See specs/war-infra-spec.md §20.8.
+    # Do not unify this with ui-default.yml's group.
     concurrency:
-      group: deploy-production
+      group: deploy-production-api
       cancel-in-progress: false
 
     steps:
