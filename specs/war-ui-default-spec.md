@@ -62,7 +62,8 @@ war-ui-default/
 │   │   ├── ProgressBar.tsx     # Vote progress indicator
 │   │   ├── WarCard.tsx         # War summary for browse/list
 │   │   ├── ImageCarousel.tsx   # Multi-image contestant gallery
-│   │   └── NavBar.tsx          # Persistent navigation header (§6, "NavBar")
+│   │   ├── NavBar.tsx          # Persistent navigation header (§6, "NavBar")
+│   │   └── voterIdentity.ts    # Display-name/avatar-presence resolution for NavBar
 │   ├── api/
 │   │   └── client.ts           # Typed API wrapper (all fetch calls)
 │   ├── auth/
@@ -92,14 +93,14 @@ All routes are client-side. The CDN rewrites all paths to `index.html`.
 | `/wars/new` | CreateWar | Yes | War creation wizard |
 | `/my-wars` | MyWars | Yes | Wars the voter created, across every status (§6, "MyWars Page") |
 | `/login` | Login | No | OAuth provider selection |
+| `/auth/callback` | AuthCallback | No | OAuth callback redirect target; exchanges the refresh cookie for a JWT and redirects to `returnTo` (§7) |
 
 Unauthenticated users visiting a protected route are redirected to `/login` with a `returnTo` query param.
 
-Every route above, plus `/auth/callback` (the OAuth callback redirect target, §7), renders
-beneath the persistent navigation header described in §6, "NavBar" — eight routes in total,
-none excluded. The header is rendered once, by a shell that wraps the whole route tree,
-rather than being added page by page; a page that later forgets to include it is not a
-possible failure mode, because no page includes it individually.
+All eight routes above render beneath the persistent navigation header described in §6,
+"NavBar" — none excluded. The header is rendered once, by a shell that wraps the whole
+route tree, rather than being added page by page; a page that later forgets to include it
+is not a possible failure mode, because no page includes it individually.
 
 ---
 
@@ -882,7 +883,7 @@ Feature: Navigation
 
 ## 12. Implementation Status
 
-This document specifies the full default UI across all seven routes, both media modes, and
+This document specifies the full default UI across all eight routes, both media modes, and
 the shared runtime artifact for custom UIs. As of 2026-08-31, the Core Voting Loop slice
 below is **implemented and live in both staging and production** (`war-ui-default`'s
 placeholder "coming soon" page is gone), verified with a real interactive Google login, not
@@ -987,16 +988,25 @@ slice picks it up.
   visitor's empty state is unchanged. Pinned by the two "No active Wars" scenarios in the
   "Browse Wars" Gherkin (§11), executable at `war-ui-default/features/browse-wars.feature`.
 - Voter-identity resolution (display name, null-display-name fallback, avatar presence)
-  lives in `src/nav/voterIdentity.ts` as of this commit — a location not yet reflected in
-  §3's repository tree; a subsequent pass may relocate it beside `NavBar.tsx`, at which
-  point §3 should be updated to match, but no relocation had landed as of this status pass.
-- **Not yet built as of this pass:** the failed-logout behavior this same review round
-  specified above (§7 step 6; §8, "Logout always succeeds from the voter's point of view")
-  and its "A failed server-side logout still logs the voter out locally" scenario (§11).
-  Today, `useAuth().logout()` (`src/auth/context.tsx`) still awaits `DELETE /auth/session`
-  before clearing local state, so a failing logout call currently leaves the voter looking
-  signed in with a Log out button that does nothing — the defect the newly-added spec text
-  and scenario exist to close on the next implementation pass.
+  lives in `src/components/voterIdentity.ts`, beside `NavBar.tsx` (§3); a design review
+  found it originally placed in a new top-level `src/nav/`, holding that one file, and the
+  move landed as part of the same review's findings pass — `src/nav/` no longer exists.
+  `NavBar.test.tsx` (`src/components/`) covers the `GET /auth/me`-failure path (full
+  navigation still renders; identity falls back) and both avatar branches, alongside
+  `voterIdentity.test.ts`'s coverage of the mapping itself.
+- The failed-logout behavior specified above (§7 step 6; §8, "Logout always succeeds from
+  the voter's point of view") is implemented: `useAuth().logout()`
+  (`src/auth/context.tsx`) clears local state and navigates unconditionally, and
+  `logout()` (`api/client.ts`) wraps `DELETE /auth/session` in `try`/`catch`/`finally` so
+  the token is always cleared and the call never rejects into the caller; the request is
+  still issued best-effort. Pinned by the "A failed server-side logout still logs the
+  voter out locally" scenario (§11), executable at
+  `war-ui-default/features/navigation.feature`.
+- A design review of this slice raised nine findings, all closed across two follow-up
+  commits: the failed-logout fix above; the `voterIdentity.ts` relocation; and, in
+  `navigation.spec.ts`, added `href`/click-through assertions on the reachability rows,
+  a pinned fallback-display-name literal, and an `aria-current` assertion covering the
+  Home link alongside My Wars and Create War.
 
 **Deferred — spec-only, no scope in this slice:**
 
