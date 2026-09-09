@@ -995,6 +995,26 @@ Feature: CI/CD Pipelines
     Then the second run queues behind the first
     And neither run is cancelled
 
+Feature: Concurrency Group Isolation
+
+  Scenario: A concurrency group name shared by two different pipelines is flagged
+    Given two different workflow files that each declare the same literal
+      concurrency group name
+    When the repository's concurrency groups are checked
+    Then the check reports a violation naming both files and the shared group
+
+  Scenario: A pipeline serialising its own jobs is not flagged
+    Given a single workflow file whose own jobs deliberately share one
+      concurrency group, as the infra pipeline's plan/apply job pairs do
+    When the repository's concurrency groups are checked
+    Then no violation is reported for that file
+
+  Scenario: The api and ui-default pipelines no longer share a group
+    Given the api and ui-default pipelines as delivered by this change
+    When their staging and production concurrency groups are inspected
+    Then all four group names are distinct
+    And none of them is shared with any other workflow file
+
 Feature: Secrets & Config
 
   Scenario: Secrets are never stored in repos
@@ -1124,6 +1144,10 @@ entire stack that named a repository, since the API deploys a DOCR image and has
   can trigger both. `doctl apps update --spec` (api) and `doctl apps create-deployment`
   (ui-default) racing on one app is a real collision, so both deploy jobs share a
   `deploy-<env>` concurrency group. Any future pipeline touching this app must join it.
+  **No longer current — see §20.8.** The shared group caused a worse, silent defect (a
+  gate-blocked production deploy evicted by the sibling pipeline) and has been replaced by
+  one group per pipeline per environment. The same-app race this bullet describes is
+  knowingly reopened, not fixed, by that change — §20.8 explains why that trade is correct.
 - **Secrets do not transfer between repositories.** GitHub's API never returns a secret's
   value, so all eight had to be re-entered by hand. Five were re-copyable from a provider
   console; `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, and `INTERNAL_TASK_TOKEN` (the last of which
@@ -1175,3 +1199,120 @@ secret itself can be deleted once a deploy carrying this change has reached both
 until then it is merely unreferenced. Note that the deleted env var was `type: SECRET`, so App
 Platform will drop it from the running container on the next deploy — no restart-time surprise,
 because nothing reads it.
+
+### 20.8 Shared `deploy-{env}` concurrency groups silently evicted a gate-blocked production deploy
+
+§20.6's shared `deploy-staging` / `deploy-production` concurrency groups — one pair, reused
+verbatim by both `api.yml` and `ui-default.yml` — were meant to stop the two pipelines'
+`doctl` calls from racing against the one App Platform app they both deploy. They caused a
+worse defect instead.
+
+`cancel-in-progress: false` protects a *running* job. It says nothing about a *pending* one,
+and GitHub Actions retains exactly one pending run per concurrency group. A job waiting at a
+`production` environment's required-reviewer gate is pending, not running — so when the
+sibling pipeline's own deploy job entered the same group, GitHub evicted whichever job was
+already queued there, silently: the run simply reads `cancelled`, with no failure
+notification anywhere that distinguishes it from any other cancellation.
+
+This happened to real commits, three times. Commit `9404ffe` — closing the `GET /wars`
+visibility leak that returned every voter's `draft` and `invite_only` Wars to anonymous
+callers, a live data exposure — reached its `Deploy → Production` gate on 2026-09-02 and sat
+there awaiting approval, exactly as designed. On 2026-09-09 the navigation slice's
+`ui-default.yml` run reached its own production gate, entered the shared `deploy-production`
+group, and evicted it: `war-api`'s `Deploy → Production` shows `cancelled`, while its `CI`,
+`Build image`, and `Deploy → Staging` all show success. `e5aabc7` and `d905cfc` were
+cancelled the same way on 2026-09-01. **The security fix sat undeployed to production for
+seven days, and nothing surfaced that fact** — a cancelled run and a successful one look
+alike in the Actions UI, and no alert exists for "evicted by a sibling pipeline."
+
+**Fix: one concurrency group per pipeline per environment — four groups, not two.**
+
+| File | Job | Group |
+|---|---|---|
+| `api.yml` | `deploy-staging` | `deploy-staging-api` |
+| `api.yml` | `deploy-production` | `deploy-production-api` |
+| `ui-default.yml` | `deploy-staging` | `deploy-staging-ui` |
+| `ui-default.yml` | `deploy-production` | `deploy-production-ui` |
+
+Each group now only ever holds runs from its own workflow file, so a job parked at a gate
+can only be evicted by a rerun of *its own* pipeline — the one case `cancel-in-progress:
+false`'s own documentation already names and accepts.
+
+**This knowingly reopens the race §20.6 introduced the shared group to close, and that is
+the correct trade.** `api.yml`'s `doctl apps update --spec` and `ui-default.yml`'s `doctl
+apps create-deployment` can again run concurrently against the same App Platform app if a
+push happens to trigger both pipelines close together. §15.2 already named and accepted
+exactly this risk, before the repos were even one: "App Platform queues concurrent
+deployment requests, so this is safe in practice ... Acceptable at current cadence; revisit
+if deploy frequency rises." This change restores that previously-accepted, bounded risk in
+exchange for closing an unbounded one — an indefinite, silent loss of a production deploy is
+strictly worse than a same-app race the platform's own request queueing already absorbs.
+Revisit together with §15.2 if deploy frequency ever rises enough to make that queueing
+insufficient.
+
+**Why this must never be undone by "tidying."** All four groups carry identical settings
+(`cancel-in-progress: false`) and near-identical names differing only by environment and
+app — exactly the shape that invites a future "these are the same, let's merge them back"
+pass. Each of the four `concurrency:` blocks must carry a comment recording, at minimum:
+(1) that the group is deliberately not shared with the sibling pipeline's group for this
+environment, (2) why — a shared group lets a job queued at an approval gate be silently
+evicted by the other pipeline's job entering the same group, and (3) a pointer to this
+section. Suggested wording, one block shown, the other three following the same shape with
+`{env}` ∈ `{staging, production}`, `{app}` ∈ `{api, ui}`, and `{sibling}` the other of
+`api.yml` / `ui-default.yml`:
+
+    # Serializes reruns of THIS pipeline's own {env} deploy against itself.
+    # Deliberately NOT shared with {sibling}'s {env} group, even though both
+    # write to the same App Platform app: GitHub keeps only one *pending* run
+    # per concurrency group, and a job queued at the production approval gate
+    # is pending, not running — a shared group lets the other pipeline's job
+    # evict it there, silently. That cancelled a live production security fix
+    # (commit 9404ffe) for seven days. See specs/war-infra-spec.md §20.8.
+    # Do not unify this with {sibling}'s group.
+    concurrency:
+      group: deploy-{env}-{app}
+      cancel-in-progress: false
+
+**Verification.** See §19, "Feature: Concurrency Group Isolation," and the
+`.github/workflows/concurrency-groups.yml` guard it specifies: a static check over every
+workflow file's declared `concurrency.group` values, failing the build the moment the same
+literal name is ever declared by two different workflow files again. The guard's contract:
+
+*Must catch:*
+- The same literal `concurrency.group` string declared in the `concurrency:` block of two or
+  more different workflow files, whether that block sits at a job's level or the workflow's
+  top level — exactly the `deploy-staging` / `deploy-production` collision this section
+  fixes.
+
+*Must not flag:*
+- The same group name repeated across two or more jobs within *one* workflow file —
+  `infra.yml`'s own `terraform-shared`, `terraform-staging`, and `terraform-production`
+  pairs are exactly this pattern already, and are correct as written; it exists because
+  Terraform's state backend has no locking (§2.1) and needs its own plan/apply pair
+  serialized against itself, which is an unrelated concern from the one this guard targets
+- A workflow file with no `concurrency:` block at all — most jobs in this repository (`ci`,
+  `build`, `validate`, and every `infra.yml` `plan-*` job) declare none
+- Two group names that are merely similar but not byte-identical (e.g.
+  `deploy-production-api` vs. `deploy-production-ui`)
+- A group name containing a GitHub Actions expression (`${{ ... }}`) — the check compares
+  the literal declared text without evaluating the expression. None of today's groups use
+  one; a future group that wants deliberate, expression-based sharing across workflows is a
+  decision for whoever adds it to make explicitly, not something for this guard to silently
+  permit or silently block by trying to evaluate it
+
+Recommended shape: a fifth workflow, `.github/workflows/concurrency-groups.yml`, triggered
+on push, pull_request, and workflow_dispatch whenever anything under
+`.github/workflows/**` changes — the same trigger shape `openapi-contract.yml` uses, and for
+the same reason: the drift this catches is never caused by a change to one pipeline's file
+alone, so scoping the trigger to a single workflow's own path would miss the other half of
+the collision. It deploys nothing and needs no cloud credentials, so it can watch every
+workflow file in the repository, including itself.
+
+**What this guard cannot verify.** GitHub's "one pending run per concurrency group, and an
+approval gate counts as pending" behavior is a platform fact, not something this repository
+can execute and observe — reproducing it would mean staging a real approval gate and a real
+concurrent run, which is exactly the expensive, flaky path §19 already avoids elsewhere for
+comparable platform behavior (e.g. "Concurrent infra applies to one environment are
+serialised," §19, which asserts a real but unautomated platform guarantee the same way).
+This incident is that behavior's evidence; the guard's job is narrower and fully mechanical —
+keep the configuration that depends on it from silently regressing.
