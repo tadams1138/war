@@ -54,7 +54,8 @@ war-ui-default/
 │   │   ├── Rankings.tsx        # Leaderboard
 │   │   ├── CreateWar.tsx       # War creation wizard
 │   │   ├── MyWars.tsx          # Voter dashboard
-│   │   └── Login.tsx           # OAuth entry point
+│   │   ├── Login.tsx           # OAuth entry point
+│   │   └── AuthCallback.tsx    # OAuth callback redirect target
 │   ├── components/
 │   │   ├── ContestantCard.tsx  # Image + name, used in vote mode
 │   │   ├── MatchupView.tsx     # Two ContestantCards side by side
