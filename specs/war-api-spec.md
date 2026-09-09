@@ -61,6 +61,8 @@ PostgreSQL  Object Store
 war-api/
 ├── src/
 │   ├── auth/           # OAuth handlers, JWT issuance
+│   ├── oauth/          # OAuth 2.1 AS/RS role for third-party & MCP clients (see §4.3)
+│   ├── mcp/            # MCP tool handlers, calling directly into the modules below (see §7.9)
 │   ├── wars/           # War CRUD, lifecycle transitions
 │   ├── contestants/    # Contestant & image management
 │   ├── matchups/       # Matchup generation, next-matchup logic
@@ -153,142 +155,188 @@ Every call to `/auth/refresh` **invalidates the presented token and issues a new
 
 Reuse detection is the reason rotation is worth its complexity: without it, a stolen 30-day refresh token grants a year-round silent session with no signal that anything is wrong.
 
-### 4.3 Native/Loopback OAuth for Machine Clients
+### 4.3 OAuth 2.1 Authorization Server for Third-Party and Machine Clients
 
-§4.1's flow assumes a browser: the refresh token is delivered as an `HttpOnly` cookie
-specifically so no script can read it, and the SPA never sees its value either — it relies
-on the browser to attach the cookie automatically. A native process (a CLI, an MCP server —
-`war-mcp-spec.md` §4) has no cookie jar, so it has no way to complete that flow. This section
-adds a second, parallel entry point for exactly that kind of caller, following
-[RFC 8252](https://www.rfc-editor.org/rfc/rfc8252) ("OAuth 2.0 for Native Apps") and
-[RFC 7636](https://www.rfc-editor.org/rfc/rfc7636) (PKCE).
+**Revision note.** Two earlier designs occupied this section, each built around a
+locally-run MCP process reached over stdio: reusing the browser flow via a
+Playwright-driven cookie extraction, then a loopback/native-app flow (RFC 8252). Both are
+discarded — not merged, not kept as an alternative — now that MCP access is required from
+Claude's desktop and phone apps, neither of which can launch a local subprocess to talk
+stdio. The MCP interface is instead served remotely, by this API itself (§7.9), so neither
+earlier design's premise (a local process on the same machine as the human) applies. What
+replaces them is a standards-based OAuth 2.1
+authorization server (AS) and resource server (RS) role, per the
+[MCP Authorization specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization).
 
-**This is additive, not a variant of the existing flow.** §4.1's routes, cookie attributes,
-and state-cookie check are unchanged for every existing caller. The native flow is a
-structurally separate branch, reachable only by a caller who first calls the new `/login/native`
-endpoint below — an ordinary browser login can never take it by accident, and forging entry
-into it requires forging a signature only this API holds the key to (the `state` value,
-§4.3.2). **No new Google OAuth client registration is needed.** The native flow's "loopback
-redirect" is an application-level concept between the native client and this API; Google is
-never told about it and continues to see only this API's one, existing, registered HTTPS
-callback — the same one §4.1 already uses.
+**This is not starting from zero.** This API already establishes identity through Google
+and already issues JWTs and rotates refresh tokens with reuse detection and family
+revocation (§4.1, §4.2). What is missing is the standard *protocol envelope* around that
+existing token lifecycle — discovery documents, a generic (not SPA-specific) authorization
+endpoint, resource-scoped tokens, and client registration — so that any spec-compliant OAuth
+2.1 client, not just `war-ui-default`, can obtain one correctly.
 
-#### 4.3.1 The round trip
+**What is reused, unchanged:**
+- Google as the sole identity provider, and the entire exchange in §4.1 (`openid-client`,
+  the voter upsert, the four callback failure responses).
+- JWT issuance (`jose`) and the `refresh_tokens` table's rotation, single-use enforcement,
+  and reuse-detection family revocation (§4.2) — a token minted for an MCP client is an
+  ordinary member of this same mechanism, not a second kind of credential.
+- `war-ui-default`'s own login (§4.1, §7.1: `/auth/{provider}/login`, `/auth/{provider}/callback`,
+  `/auth/refresh`, `/auth/session`) is **untouched**. This section adds a parallel surface
+  for third-party OAuth clients; it does not alter the SPA's flow.
 
-1. The native client starts a local HTTP listener on a loopback address it controls, generates
-   a PKCE `code_verifier` (kept in memory, never transmitted) and its `S256` `code_challenge`,
-   and opens the user's own system browser (never an automated one — §4.3.4) to:
+**What is new:**
+- A **generic authorization endpoint** (`GET /oauth/authorize`) that any registered OAuth
+  client — not only `war-ui-default` — can redirect a user to, carrying its own
+  `client_id`, `redirect_uri`, PKCE challenge, and a `resource` parameter (RFC 8707)
+  naming what the resulting token is for. Internally, it authenticates the human via the
+  **existing** Google flow (§4.1) — this is reuse, not a rebuild of login.
+- A **generic token endpoint** (`POST /oauth/token`) that mints a JWT whose `aud` claim is
+  the validated `resource`, plus a refresh token in the existing `refresh_tokens` family
+  mechanism.
+- **Client registration**: Dynamic Client Registration ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591),
+  `POST /oauth/register`) for compatibility, and Client ID Metadata Documents (CIMD — a
+  client's `client_id` is itself an `https://` URL this API fetches and validates) as the
+  preferred mechanism, needing no registration call or stored row at all.
+- **Discovery**: Authorization Server Metadata ([RFC 8414](https://www.rfc-editor.org/rfc/rfc8414),
+  `GET /.well-known/oauth-authorization-server`) and Protected Resource Metadata
+  ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728), `GET /.well-known/oauth-protected-resource`),
+  so an MCP client finds every endpoint above without being told any of them out of band.
+- **Resource-audience enforcement** (RFC 8707 and RFC 9207 issuer validation): a token is
+  only ever valid for the `resource` it was issued for, and every authorization response
+  names this AS's own issuer identifier so a client can detect a mix-up between authorization
+  servers.
 
-   `GET /auth/{provider}/login/native?redirect_uri=<loopback-uri>&code_challenge=<challenge>&code_challenge_method=S256`
+#### 4.3.1 Implementation shape: the MCP SDK's auth router, not a hand-rolled one
 
-2. This API validates the request (§4.3.2), encodes `redirect_uri` and `code_challenge` into
-   a signed, short-lived `state` value, and redirects to the provider exactly as §4.1's
-   existing `/login` does — the Google-facing plumbing is identical and unmodified.
-3. The user completes the provider's own sign-in and consent UI, in their own real browser,
-   exactly as they would for the existing flow. This API never sees, touches, or automates
-   that step.
-4. The provider redirects back to this API's **existing, unmodified** `GET /auth/{provider}/callback`.
-   Because `state` decodes as a valid native-flow token, the callback takes a different
-   branch after a successful code exchange (§4.3.3) than it does for a browser login: instead
-   of setting the refresh cookie and redirecting to `${uiOrigins[0]}/auth/callback`, it mints
-   a short-lived, single-use **native authorization code** and redirects to the `redirect_uri`
-   decoded from `state`, carrying that code — never a usable credential (§4.3.4 explains why
-   this matters).
-5. The native client's loopback listener receives that redirect and exchanges the code at
-   `POST /auth/{provider}/token/native` (§4.3.3), presenting `code_verifier`. On success it
-   receives a JWT and refresh token in the response body and closes the listener.
+`@modelcontextprotocol/sdk` ships a server-side auth module (`server/auth/*`) that already
+implements the wire protocol for all of the above — metadata generation, DCR, PKCE
+orchestration, and bearer-token verification middleware — driven by one interface this API
+implements, `OAuthServerProvider`:
 
-From this point on, the native client holds an ordinary refresh token, subject to the exact
-same rotation, reuse detection, and family revocation as any browser-issued one (§4.2) — it
-is not a second credential type, just a second way of obtaining the first one.
-
-#### 4.3.2 `GET /auth/{provider}/login/native`
-
-| Check (in order) | Failure |
+| `OAuthServerProvider` method | Backed by |
 |---|---|
-| `provider` is not `google` | `404`, no body (same as `/login`) |
-| `redirect_uri` is absent | `400 { "error": "missing redirect_uri" }` |
-| `redirect_uri`'s scheme/host/port do not match `^http://(127\.0\.0\.1\|\[::1\]):\d+(/.*)?$` | `400 { "error": "redirect_uri must be a loopback address" }` |
-| `code_challenge` is absent | `400 { "error": "missing code_challenge" }` |
-| `code_challenge_method` is absent or not exactly `"S256"` | `400 { "error": "code_challenge_method must be S256" }` |
+| `authorize(client, params, res)` | §4.1's existing Google redirect/callback, wrapped to redirect back to `client`'s own `redirect_uri` with a code instead of setting a cookie |
+| `exchangeAuthorizationCode(...)` | Mints a JWT (`aud` = the request's validated `resource`) + a new `refresh_tokens` row |
+| `exchangeRefreshToken(...)` | §4.2's existing rotation, generalized to accept a `resource` and re-mint the `aud` accordingly |
+| `verifyAccessToken(token)` | JWT signature, expiry, and `aud` verification |
+| `clientsStore.getClient(clientId)` | The `oauth_clients` table (DCR) or a live CIMD fetch (§4.3.3), depending on whether `clientId` is a bare identifier or an `https://` URL |
+| `clientsStore.registerClient(...)` | Inserts an `oauth_clients` row (DCR) |
 
-`redirect_uri` deliberately excludes `localhost` — RFC 8252 §8.3 recommends an IP literal
-specifically because `localhost` is not guaranteed to resolve to the loopback interface on
-every system. `redirect_uri` **may carry its own query string**; it is stored and, in
-§4.3.3's final redirect, reproduced verbatim with `code=<value>` appended (`&` if a query
-string is already present, `?` otherwise) — a native client MAY embed its own opaque
-value there as an additional, self-checked defense, and this API neither requires nor
-inspects it.
+This router (`mcpAuthRouter` from the SDK) is built on Express, while this API is Fastify
+(§11). `@fastify/express` mounts it as Express middleware inside the same Fastify
+application and the same deployment — no second process, no second origin. The resource
+server's own bearer-token check (verifying a request to the MCP endpoint itself, §7.9) does
+**not** need this bridge: it is a single async call to `verifyAccessToken`, wired as an
+ordinary Fastify `preHandler`, exactly like `bearerAuthRoute` already wires JWT checks
+today (§4.1) — the Express bridge is needed only for the AS's own routing surface
+(`/oauth/authorize`, `/oauth/token`, `/oauth/register`, the two `/.well-known/*` documents).
 
-On success: encode `{ redirectUri, codeChallenge, nonce }` into a signed, opaque token
-(`jose`, already a dependency, is one reasonable way to produce a tamper-evident, self-contained
-value — this API prescribes no server-side session storage for it, consistent with §2's
-"stateless" principle) with a **10-minute** expiry, matching `/login`'s existing `oauth_state`
-cookie `maxAge`. Use it as the `state` parameter in the redirect to the provider — the
-existing `openid-client` call, unmodified.
+**Choosing this over hand-rolling the wire protocol is itself a minimum-sufficient-work
+choice**, not laziness: RFC 8414/9728/7591's exact document shapes, header names, and error
+formats are exactly the kind of detail that's easy to get subtly wrong and hard to notice
+wrong, since the failure mode is "some MCP clients can't discover this server," not a loud
+error. Reusing the SDK's implementation for that wire protocol, and reserving this API's own
+code for the parts that are genuinely this platform's business — *who* a token represents
+and *what* it's good for — is the same reasoning §11's choice of `openid-client` over
+hand-rolling Google's OAuth already rests on.
 
-#### 4.3.3 The callback's native branch, and `POST /auth/{provider}/token/native`
+#### 4.3.2 `GET /oauth/authorize`
 
-**Callback.** §4.1's four checks run in the same order, with one change to the state check:
-if `state` decodes and verifies as a signed native-flow token (§4.3.2), take the branch
-below; otherwise fall through to §4.1's existing plain cookie-comparison check, completely
-unchanged. An expired or tampered native-flow `state` is reported exactly as today's state
-mismatch is: `400 { "error": "state mismatch" }` — no new vocabulary for what is, at the
-level that matters, the same failure.
+Standard OAuth 2.1 authorization request parameters, per RFC 6749/8252/7636/8707:
+`response_type=code`, `client_id`, `redirect_uri`, `code_challenge`, `code_challenge_method=S256`,
+`resource`, `state` (opaque, client-supplied, echoed back unmodified), `scope` (optional).
 
-On a successful code exchange with the provider (§4.1 #4's `502` still covers a failed
-exchange, for either branch) in the native branch:
-- Store a new row: a random opaque code (hashed at rest, like a refresh token, §6), the
-  decoded `code_challenge`, the decoded `redirect_uri`, the resulting `voter_id`, and a
-  **60-second** expiry.
-- Redirect (`302`) to the decoded `redirect_uri` with `code=<the new, plaintext, one-time code>`
-  appended per §4.3.2's rule.
-
-This code is never a bearer credential — a redirect URI (even a loopback one) is more
-exposed than a cookie or a response body (the same reasoning §4.1 already gives for putting
-no token in a URL), so the value that ever appears in one is single-use, 60 seconds from
-useless, and worthless without the `code_verifier` that never left the native client's memory.
-
-**`POST /auth/{provider}/token/native`** — body: `{ "code": "...", "code_verifier": "...", "redirect_uri": "..." }`
-
-| Check (in order) | Failure |
+| Check | Failure |
 |---|---|
-| `provider` is not `google` | `404` |
-| `code`, `code_verifier`, or `redirect_uri` is absent | `400 { "error": "missing <field>" }` |
-| No stored code matches `code`'s hash, or it is expired | `400 { "error": "invalid or expired code" }` |
-| The stored row's `redirect_uri` does not exactly match the request's | `400 { "error": "invalid or expired code" }` — same message as the row above; this API does not confirm a code's existence to a caller presenting the wrong `redirect_uri` |
-| `SHA256(code_verifier)` (base64url, unpadded) does not equal the stored `code_challenge` | `400 { "error": "invalid or expired code" }` — same message again, for the same reason |
+| `client_id` does not resolve to a registered or CIMD-fetchable client (§4.3.3) | `400`, per RFC 6749 §4.1.2.1 — no redirect, since this API cannot trust an unverified `redirect_uri` yet |
+| `redirect_uri` is absent, or is not one of the resolved client's registered URIs | `400`, no redirect, for the same reason |
+| *(from here, errors redirect to `redirect_uri` with `error=...&state=...`, per RFC 6749)* | |
+| `code_challenge_method` is not `S256` | `error=invalid_request` |
+| `resource` is absent, or does not match this deployment's own canonical resource identifier (`${PUBLIC_BASE_URL}/api/v1/mcp` — no other value is issued for in this slice) | `error=invalid_target` (RFC 8707) |
 
-**The stored row is deleted on every path above that finds a matching row — including a
-failed PKCE check** — so one code can be redeemed at most once, successfully or not,
-exactly as an already-used refresh token is already treated as compromised (§4.2).
+On success: authenticate the human via the **existing, unmodified** Google flow (§4.1) —
+this endpoint's implementation of `OAuthServerProvider.authorize` internally performs the
+same redirect-to-Google-and-back §4.1 already does, not a new login UI. Once that completes,
+redirect to the *client's* `redirect_uri` (never `${uiOrigins[0]}/auth/callback` — that
+target is specific to `war-ui-default`'s own login, §4.1, and is untouched) with `code` and
+`state`. The authorization response also carries `iss=<this AS's issuer URL>` (RFC 9207),
+so a client juggling multiple authorization servers can detect a mix-up before ever using
+the code.
 
-On success: `200`, the same shape §7.1 already documents for the browser callback's `200`:
-```json
-{ "token": "<jwt>", "refresh_token": "<token>", "voter": { "id": "uuid", "display_name": "Jane", "avatar_url": "https://..." } }
-```
-No cookie is set on this route — its caller is a native process, not a browser tab, so there
-is nothing to set a cookie *on*; the credential a browser gets invisibly, this route hands
-back directly, in the one case where doing so does not create the page-script exposure §4.1
-exists to prevent.
+#### 4.3.3 Client registration
 
-#### 4.3.4 What stays true of the existing browser flow
+**Dynamic Client Registration (RFC 7591, `POST /oauth/register`)** — retained for
+compatibility. Body: `{ redirect_uris: [...], client_name, ... }` (the SDK's handler owns
+the exact schema). On success, inserts an `oauth_clients` row and returns a `client_id`
+(no `client_secret` — every client here is a **public client**: PKCE is the code-interception
+defense, per OAuth 2.1's own guidance for clients that cannot keep a secret confidential,
+which describes exactly an app installed on a user's own phone or desktop).
 
-- `GET /auth/{provider}/login`, its `oauth_state` cookie, and the refresh cookie's
-  `HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth` attributes (§4.1) are byte-for-byte
-  unchanged. The native flow adds routes; it does not touch these.
-- The callback's existing branch (a `state` value that is *not* a valid native-flow token)
-  runs exactly the checks and produces exactly the responses §4.1 already documents, in the
-  same order, with the same bodies.
-- Refresh-token rotation and reuse detection (§4.2) apply identically regardless of how a
-  refresh token was minted — a native-flow token is an ordinary family member, revocable the
-  same way (`DELETE /auth/session`, or a future moderation action against that family), not a
-  second credential type needing its own revocation path.
-- **The native flow never automates a sign-in.** The user completes the provider's real
-  login and consent UI in their own, ordinary, non-programmatically-controlled browser at
-  every step. This is what makes step 3 safe to leave unspecified further here: it is the
-  provider's UI, behaving exactly as it does for the existing flow, for a human who chose to
-  be there.
+**Client ID Metadata Documents — preferred.** A client presents an `https://` URL as its
+`client_id` directly, with no registration call. This API fetches that URL, expects a JSON
+document naming (at minimum) `redirect_uris`, and treats it as the client's registration —
+no `oauth_clients` row is written. Fetching an arbitrary client-supplied URL is a real SSRF
+surface, so this fetch: uses `https://` only; resolves and rejects any target resolving to a
+private, loopback, or link-local address; applies a short timeout and a small response-size
+cap; and is never followed through a redirect to a second host without re-validating that
+host against the same rules. A successful fetch MAY be cached briefly (the document is not
+expected to change request-to-request), keyed by the URL.
+
+#### 4.3.4 `POST /oauth/token`
+
+`grant_type=authorization_code` (with `code`, `code_verifier`, `redirect_uri`, `resource`)
+or `grant_type=refresh_token` (with `refresh_token`, `resource`). Both re-validate `resource`
+against the same allow-list §4.3.2 checks — a caller cannot silently widen a token's
+audience on refresh.
+
+| Check | Failure |
+|---|---|
+| The `code` (or `refresh_token`) is unknown, expired, or already used | `400 { "error": "invalid_grant" }` |
+| PKCE verification fails (`authorization_code` grant) | `400 { "error": "invalid_grant" }` — same code as the row above; this endpoint does not distinguish "no such code" from "wrong verifier" |
+| `resource` does not match the value the code/token was originally bound to | `400 { "error": "invalid_target" }` |
+
+On success: `200` with `{ "access_token": "<jwt>", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "<token>" }`
+— RFC 6749's standard token response shape, distinct from §7.1's bespoke
+`{ token, refresh_token, voter }` body the SPA's own callback uses; third-party OAuth
+clients expect the standard shape, and this API does not ask them to parse a bespoke one.
+
+The authorization code itself is stored hashed (`authorization_codes` table, §6), single-use
+(deleted on every redemption attempt, successful or not — same reasoning §4.2 already applies
+to refresh-token reuse), and expires after 60 seconds.
+
+#### 4.3.5 Discovery documents
+
+- `GET /.well-known/oauth-authorization-server` (RFC 8414): this AS's own metadata —
+  `issuer`, `authorization_endpoint`, `token_endpoint`, `registration_endpoint`,
+  `code_challenge_methods_supported: ["S256"]`, `client_id_metadata_document_supported: true`.
+- `GET /.well-known/oauth-protected-resource` (RFC 9728): names this resource
+  (`${PUBLIC_BASE_URL}/api/v1/mcp`) and points to the issuer above as its authorization
+  server, per the MCP spec's requirement that the *resource* (this API) advertises which
+  AS protects it — trivial here since this API plays both roles, but the document exists
+  because MCP clients are written to discover it regardless.
+
+Both are generated by the SDK's router from the same configuration this API already needs
+for §4.3.1–§4.3.4; neither is hand-maintained prose.
+
+#### 4.3.6 The resource server side: protecting `/api/v1/mcp`
+
+A request to the MCP endpoint (§7.9) without a valid, correctly-audienced bearer token gets:
+- **`401`** with a `WWW-Authenticate: Bearer resource_metadata="<PRM URL>"` header, when the
+  token is missing, malformed, expired, or its `aud` does not name this resource — the header
+  is what lets a compliant MCP client discover the AS and retry the OAuth dance on its own,
+  per the MCP authorization spec.
+- **`403`** with `WWW-Authenticate: Bearer error="insufficient_scope", scope="..."`, when the
+  token is otherwise valid but lacks a scope this slice's tools require (§7.9 — this slice
+  defines no scopes narrower than "authenticated voter," so this case does not arise yet, but
+  the header shape is specified now so a future scoped tool does not need a new error
+  convention invented for it).
+
+**This API never accepts a token whose `aud` is not its own resource identifier, and never
+forwards a bearer token it received to any other service** — the two MUSTs the MCP
+authorization spec states plainly, and the reason a separate "does `war-mcp` forward its
+token to `war-api`" question does not arise here: there is no second service to forward
+anything to (§7.9).
 
 ---
 
@@ -505,15 +553,26 @@ votes (
   UNIQUE (matchup_id, voter_id)                   -- one final vote per voter per pair (§9)
 )
 
--- Single-use codes for the native/loopback OAuth exchange (§4.3), never a bearer credential
-native_auth_codes (
+-- Registered OAuth clients for the AS role (§4.3.3) — Dynamic Client Registration only;
+-- a Client ID Metadata Document client has no row here at all (§4.3.3)
+oauth_clients (
+  client_id        UUID PRIMARY KEY,
+  redirect_uris    JSONB NOT NULL,                -- array of registered redirect URIs
+  client_name      TEXT,
+  created_at       TIMESTAMPTZ DEFAULT now()
+)
+
+-- Single-use authorization codes for the OAuth 2.1 AS (§4.3.4), never a bearer credential
+authorization_codes (
   id               UUID PRIMARY KEY,
   voter_id         UUID REFERENCES voters(id),
-  code_hash        TEXT NOT NULL,                -- SHA-256; plaintext exists only in the redirect
-  code_challenge   TEXT NOT NULL,                -- PKCE S256 challenge, verified at redemption
-  redirect_uri     TEXT NOT NULL,                -- must match exactly at redemption
-  expires_at       TIMESTAMPTZ NOT NULL,          -- 60 seconds from issuance
-  used_at          TIMESTAMPTZ,                   -- set on any redemption attempt, success or not
+  client_id        TEXT NOT NULL,                 -- an oauth_clients.client_id, or a CIMD URL
+  code_hash        TEXT NOT NULL,                 -- SHA-256; plaintext exists only in the redirect
+  code_challenge   TEXT NOT NULL,                 -- PKCE S256 challenge, verified at redemption
+  redirect_uri     TEXT NOT NULL,                 -- must match exactly at redemption
+  resource         TEXT NOT NULL,                 -- RFC 8707 audience this code was issued for
+  expires_at       TIMESTAMPTZ NOT NULL,           -- 60 seconds from issuance
+  used_at          TIMESTAMPTZ,                    -- set on any redemption attempt, success or not
   created_at       TIMESTAMPTZ DEFAULT now(),
   UNIQUE (code_hash)
 )
@@ -526,7 +585,7 @@ CREATE INDEX ON matchups (war_id);
 CREATE INDEX ON contestants (war_id);
 CREATE INDEX ON wars (status, visibility);        -- browse/filter (§7.2)
 CREATE INDEX ON wars (ends_at) WHERE ends_at IS NOT NULL;  -- expiry sweep (§7.7)
-CREATE INDEX ON native_auth_codes (expires_at);   -- expiry cleanup (§4.3)
+CREATE INDEX ON authorization_codes (expires_at); -- expiry cleanup (§4.3)
 
 -- Custom UI registry (see §10)
 ui_registrations (
@@ -602,8 +661,11 @@ In responses below this array is abbreviated as `media: [ … ]`.
 | `POST` | `/auth/refresh` | — | Exchange refresh token for new JWT |
 | `DELETE` | `/auth/session` | 🔒 | Logout / invalidate refresh token |
 | `GET` | `/auth/me` | 🔒 | Current voter profile |
-| `GET` | `/auth/{provider}/login/native` | — | Loopback OAuth for native/machine clients (§4.3) |
-| `POST` | `/auth/{provider}/token/native` | — | Exchange a native authorization code for JWT + refresh token (§4.3) |
+| `GET` | `/oauth/authorize` | — | Generic OAuth 2.1 authorization endpoint for third-party/MCP clients (§4.3.2) |
+| `POST` | `/oauth/token` | — | Generic OAuth 2.1 token endpoint (§4.3.4) |
+| `POST` | `/oauth/register` | — | Dynamic Client Registration, RFC 7591 (§4.3.3) |
+| `GET` | `/.well-known/oauth-authorization-server` | — | Authorization Server Metadata, RFC 8414 (§4.3.5) |
+| `GET` | `/.well-known/oauth-protected-resource` | — | Protected Resource Metadata, RFC 9728 (§4.3.5) |
 
 **`GET /auth/{provider}/callback` response `200`:**
 ```json
@@ -614,8 +676,9 @@ In responses below this array is abbreviated as `media: [ … ]`.
 }
 ```
 
-**`POST /auth/{provider}/token/native` response `200`:** identical shape to the above — see
-§4.3.3 for its request body and error cases.
+**`POST /oauth/token` response `200`:** the standard RFC 6749 token shape — see §4.3.4.
+Deliberately not the bespoke body above; third-party OAuth clients expect the standard
+shape, and this endpoint is not `war-ui-default`'s own.
 
 ---
 
@@ -911,6 +974,101 @@ No auth, no dependency on the database or object storage. Polled by App Platform
 
 ---
 
+### 7.9 MCP Interface
+
+An [MCP](https://modelcontextprotocol.io) endpoint lets a War Creator build and edit War
+content — Wars, contestants, images — from an MCP client (Claude's desktop app, its mobile
+app, or any other spec-compliant client) instead of `war-ui-default`'s creation wizard.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST`/`GET`/`DELETE` | `/api/v1/mcp` | 🔒 (§4.3.6) | MCP Streamable HTTP endpoint |
+
+**One service, one authority, no backdoor.** This is not a separately deployed client of
+this API — it is a second protocol binding served by this same process, alongside REST. The
+architectural constraint an earlier design stated for a separate `war-mcp` client —
+"authorization stays in one place, and rate limiting and moderation apply automatically" —
+is not weakened by folding it in here; it is strengthened structurally. Every MCP tool
+handler below calls the **identical service-layer function** the corresponding REST route
+handler calls (`createWarForVoter`, `patchWar`, `activateWar`, `closeWar`, `listWars`,
+`getWar`, `addContestant`, `patchContestant`, `addContestantImage`) — not a second HTTP
+request to itself, and not a reimplementation. There is exactly one copy of every business
+rule in this document; the MCP surface and the REST surface are two ways of reaching it, not
+two things that could drift apart. A future rate limit (§9.4) or moderation action applied
+at this service's request-handling layer covers both surfaces by construction.
+
+Why this API, rather than a separately deployed service, hosts it: see `war-spec.md` §4's
+footnote and the reasoning recorded in this section and §4.3's revision note. In short —
+a separately deployed MCP server would need [RFC 8693](https://www.rfc-editor.org/rfc/rfc8693)
+token exchange to convert a token audience-bound to itself into one this API would accept,
+per the MCP authorization spec's requirement that a resource server never accept or forward
+a token issued for a different audience. Serving the endpoint from this API instead means
+there is only ever one resource and one audience, so that entire exchange — a second grant
+type, a second hop, a second failure mode — is unnecessary rather than merely simplified.
+The traded-away benefit is process isolation: a defect in MCP request handling shares this
+API's process with the voting path. §7.9's tools call read/write functions already exercised
+by REST traffic today, and Fastify's plugin encapsulation gives each route its own error
+boundary, which is judged sufficient for this slice's traffic profile (a content-authoring
+tool used by a War's own creators, not the public voting surface) rather than a full second
+deployment. Revisit if that traffic profile changes.
+
+#### Tool surface
+
+Each tool maps to exactly one endpoint from §7.2–§7.3 that is actually implemented (§15).
+No tool exists for an endpoint this document marks unbuilt.
+
+| Tool | Backed by (same function the REST route calls) |
+|---|---|
+| `create_war` | `createWarForVoter` (§7.2) |
+| `update_war` | `patchWar` (§7.2) |
+| `activate_war` | `activateWar` (§7.2) |
+| `close_war` | `closeWar` (§7.2) |
+| `list_my_wars` | `listWars` with `creatorId` set (§7.2's `creator=me` semantics) |
+| `get_war` | `getWar` (§7.2) — no visibility restriction, matching that function's existing behavior exactly |
+| `add_contestant` | `addContestant` (§7.3) |
+| `update_contestant` | `patchContestant` (§7.3) |
+| `upload_image` | `addContestantImage` (§7.3) |
+
+Deliberately excluded, as a trim rather than an oversight: contestant/media removal and
+reordering, `join_war` (a voter action, not content authoring), the matchups/voting/rankings
+surface (§7.4–§7.5 — voter-facing, not this tool set's concern), and anything touching
+`video` media mode (not built — §15).
+
+**`create_war`, `update_war`, `add_contestant`, `update_contestant`** apply no default of
+their own for any field the REST endpoint already defaults (`visibility`, `media_mode`) —
+an omitted argument is simply not passed to the underlying service function, so that
+function's own default resolves it exactly as it does for a REST caller. `media_mode` is
+not exposed as a tool argument at all in this slice, for the reasoning the earlier,
+discarded standalone `war-mcp` design already established: `video` is rejected outright
+(§15) and `image` is already the default, so the argument could only ever validly carry
+the value omission already produces.
+
+**`list_my_wars`** takes optional `status`/`category` and otherwise applies §7.2's
+`creator=me` default in full: every status the authenticated voter's own Wars hold,
+including drafts and invite-only ones — never a narrower scope invented at this layer.
+
+**`upload_image`** takes `war_id`, `contestant_id`, `image_base64` (the file's bytes,
+base64-encoded), and `mime_type`. This differs from a REST multipart upload only in
+encoding: **the MCP client, not this API, reads the file from wherever it lives** (the
+user's phone or desktop) — this API has no filesystem to read from regardless, being remote.
+The existing 10MB size ceiling and image-content validation (§11.1, §7.3) apply identically
+after decoding; no new limit is introduced, and none is relaxed.
+
+#### Testing
+
+Because tool handlers call service functions directly, in process, there is no second HTTP
+hop to mock. Tests connect a real `McpServer` to a test `Client` via
+`@modelcontextprotocol/sdk`'s `InMemoryTransport.createLinkedPair()` (proving the MCP
+protocol boundary genuinely works, independent of transport), call each tool, and assert
+against a real test database (Testcontainers, §11 — the same convention this API's own
+integration tests already use) that the call produced the exact state a REST call would
+have: e.g., `create_war` via MCP followed by `getWar` (or the REST route, via Supertest)
+confirming the War really exists. This is a stronger check than asserting a mocked HTTP call
+was received, and it is available specifically because there is no longer a second service
+to mock — the same simplification §4.3's revision note credits for removing RFC 8693.
+
+---
+
 ## 8. Scoring Algorithm
 
 Contestants are ranked by **raw win count**, descending.
@@ -1039,7 +1197,10 @@ Registration of new slugs is an administrative operation (no public endpoint in 
 | Image processing | **`sharp`** | Variant generation and EXIF stripping on upload (§11.1) |
 | Object storage | `@aws-sdk/client-s3` against an S3-compatible endpoint | Provider per `war-infra-spec.md` §14 |
 | Rate limiting | `@fastify/rate-limit` | Per-voter limits complementing the edge rules (§9.4) |
-| Testing | Vitest + Supertest + **Testcontainers** | Integration tests run against a real PostgreSQL, not a mock or shared test DB |
+| MCP server | `@modelcontextprotocol/sdk` ^1.30.0 | `McpServer`/`registerTool` for §7.9's tools, `StreamableHTTPServerTransport` (operates on raw Node `IncomingMessage`/`ServerResponse`, reachable from a Fastify handler via `request.raw`/`reply.raw` — no framework bridge needed for the transport itself) |
+| OAuth AS/RS wire protocol | `@modelcontextprotocol/sdk`'s `server/auth` module (`mcpAuthRouter`, `OAuthServerProvider`) | Implements RFC 8414/9728/7591's exact document shapes and DCR/PKCE mechanics (§4.3.1) so this API only supplies the `OAuthServerProvider` methods that are genuinely this platform's business |
+| Fastify/Express bridge | `@fastify/express` ^4.0.7 | Mounts the SDK's Express-based `mcpAuthRouter` inside this Fastify app for the AS's own routes only (§4.3.1); the resource-server bearer check on `/api/v1/mcp` itself is a plain Fastify `preHandler`, not bridged |
+| Testing | Vitest + Supertest + **Testcontainers** | Integration tests run against a real PostgreSQL, not a mock or shared test DB — §7.9's MCP tool tests follow the same convention |
 
 ### 11.1 Image Processing
 
@@ -1134,6 +1295,13 @@ This document is the **contract between the three projects**. `war-ui-default` g
 - Every path marked 🔒 anywhere in §7.1–§7.6 carries a `security: [{ bearerAuth: [] }]` requirement; every other published path carries none
 - The response's `Content-Type` is `application/json` — per §7's blanket rule for all responses, not `application/vnd.oai.openapi+json`. The plainer type is what `openapi-typescript` and browser tooling expect without content negotiation, and it keeps this endpoint consistent with every other response the API returns
 - The endpoint itself requires no authentication
+- `/api/v1/mcp` and every `/oauth/*` and `/.well-known/oauth-*` path (§4.3, §7.9) are
+  excluded from this document, the same way `/api/v1/internal/*` already is (§7.7) — the
+  first speaks MCP's own JSON-RPC framing rather than a per-route REST shape, and the rest
+  are Express routes mounted via `@fastify/express` (§4.3.1) rather than Fastify routes
+  carrying their own JSON Schema, so `@fastify/swagger` has nothing to generate from for
+  them regardless. Their contracts are RFC 8414/9728/7591 and the MCP specification itself,
+  not this document's generated OpenAPI.
 
 Endpoints under `/api/v1/internal/*` (§7.7) are excluded from the published document.
 
@@ -1858,59 +2026,153 @@ Feature: OAuth Authentication
 ```
 
 ```gherkin
-Feature: Native/Loopback OAuth for Machine Clients
+Feature: OAuth 2.1 Authorization Server for Third-Party and Machine Clients
 
-  Scenario: A native login request is rejected for a non-loopback redirect_uri
-    Given a native login request with redirect_uri "https://evil.example/callback"
-    When GET /auth/google/login/native is called
-    Then the response status is 400
+  Scenario: The authorization server advertises its endpoints
+    When GET /.well-known/oauth-authorization-server is called
+    Then the response names an authorization_endpoint, a token_endpoint, and a registration_endpoint
+    And code_challenge_methods_supported includes "S256"
 
-  Scenario: A native login request without PKCE is rejected
-    Given a native login request with no code_challenge
-    When GET /auth/google/login/native is called
-    Then the response status is 400
+  Scenario: The protected resource advertises its authorization server
+    When GET /.well-known/oauth-protected-resource is called
+    Then the response names this deployment's resource identifier
+    And it points to this API's own issuer as the authorizing server
 
-  Scenario: A completed native login redirects to the loopback address with a code
-    Given a native login request with a valid loopback redirect_uri and code_challenge
-    When the provider completes authentication and redirects to the callback
-    Then the browser is redirected to that redirect_uri with a code query parameter
-    And no refresh cookie is set
+  Scenario: A new client can register dynamically
+    Given a redirect_uris list
+    When POST /oauth/register is called with it
+    Then a client_id is returned
+    And no client_secret is issued
 
-  Scenario: The browser flow is unaffected by the native flow's existence
-    Given an ordinary browser login with no native state token
-    When the callback is invoked
-    Then the existing cookie-based behavior is unchanged
+  Scenario: A Client ID Metadata Document is accepted without a registration call
+    Given an https URL serving a valid client metadata document
+    When that URL is presented as client_id to GET /oauth/authorize
+    Then the request proceeds as if the client had been registered
 
-  Scenario: A native code is exchanged for a JWT and refresh token
-    Given a valid, unexpired native authorization code and its matching code_verifier
-    When POST /auth/google/token/native is called
+  Scenario: A CIMD fetch targeting a private address is refused
+    Given a client_id URL that resolves to a loopback or private address
+    When GET /oauth/authorize is called with it
+    Then the request is rejected
+    And no fetch to that address is attempted
+
+  Scenario: An authorization request naming an unrecognized resource is rejected
+    Given a registered client and a valid PKCE challenge
+    When GET /oauth/authorize is called with a resource this deployment does not serve
+    Then the redirect carries error=invalid_target
+
+  Scenario: A completed authorization redirects to the client's own redirect_uri with a code
+    Given a registered client with a valid redirect_uri and PKCE challenge
+    When the user completes the existing Google login internally
+    Then the browser is redirected to the client's redirect_uri with a code and the original state
+    And the redirect also carries this API's issuer identifier
+
+  Scenario: The existing browser flow is unaffected by this authorization server's existence
+    Given an ordinary war-ui-default login
+    When it completes
+    Then the existing cookie-based /auth/{provider}/callback behavior is unchanged
+
+  Scenario: An authorization code is exchanged for a resource-scoped access token
+    Given a valid, unexpired authorization code, its matching code_verifier, and its resource
+    When POST /oauth/token is called with grant_type=authorization_code
     Then the response status is 200
-    And the response body contains a token and a refresh_token
+    And the returned access token's audience is that resource
 
-  Scenario: A native code cannot be redeemed twice
-    Given a native authorization code that has already been redeemed once
-    When POST /auth/google/token/native is called again with the same code
-    Then the response status is 400
+  Scenario: A code cannot be redeemed twice
+    Given an authorization code that has already been redeemed once
+    When POST /oauth/token is called again with the same code
+    Then the response status is 400 with error invalid_grant
 
-  Scenario: A native code is rejected with the wrong code_verifier
-    Given a valid, unexpired native authorization code
-    When POST /auth/google/token/native is called with an unrelated code_verifier
-    Then the response status is 400
+  Scenario: A code is rejected with the wrong code_verifier
+    Given a valid, unexpired authorization code
+    When POST /oauth/token is called with an unrelated code_verifier
+    Then the response status is 400 with error invalid_grant
 
-  Scenario: A native code is rejected when redeemed with a different redirect_uri
-    Given a valid, unexpired native authorization code issued for one redirect_uri
-    When POST /auth/google/token/native is called with a different redirect_uri
-    Then the response status is 400
+  Scenario: Refreshing cannot widen a token's audience
+    Given a refresh token originally issued for one resource
+    When POST /oauth/token is called with grant_type=refresh_token and a different resource
+    Then the response status is 400 with error invalid_target
 
-  Scenario: An expired native code is rejected
-    Given a native authorization code older than 60 seconds
-    When POST /auth/google/token/native is called with it
-    Then the response status is 400
+  Scenario: A token issued by this server is revocable exactly like a browser session's
+    Given an access token obtained via this authorization server
+    When its refresh token's family is revoked
+    Then a subsequent refresh with that family returns 401
 
-  Scenario: A native-flow refresh token is revocable exactly like a browser session's
-    Given a refresh token obtained via the native flow
-    When its family is revoked
-    Then a subsequent refresh with that token returns 401
+Feature: MCP Resource Server
+
+  Scenario: A request with no bearer token is challenged
+    When a request is made to /api/v1/mcp with no Authorization header
+    Then the response status is 401
+    And a WWW-Authenticate header names the protected resource metadata URL
+
+  Scenario: A token audience-bound to a different resource is rejected
+    Given an access token whose audience is not this deployment's resource identifier
+    When a request is made to /api/v1/mcp bearing that token
+    Then the response status is 401
+
+  Scenario: This API never forwards a bearer token it receives to any other service
+    Given a valid access token presented to /api/v1/mcp
+    When an MCP tool call is handled
+    Then the request is served by an in-process function call
+    And no outbound HTTP request carrying that token is made to any other service
+
+Feature: MCP Tool Surface
+
+  Scenario: create_war sends only the fields supplied
+    Given a valid access token for an authenticated voter
+    When create_war is called with only a title
+    Then a War is created via the same function POST /wars uses
+    And its stored media_mode is the API's own default, not one the tool call specified
+
+  Scenario: update_war on a War the caller does not own is rejected
+    Given a valid access token for Voter B
+    And a draft War created by Voter A
+    When Voter B calls update_war on Voter A's War
+    Then the call is rejected exactly as PATCH /wars/:id would reject it for Voter B
+
+  Scenario: activate_war surfaces the existing activation rules
+    Given a valid access token for the War's creator
+    And a draft War with only one contestant
+    When activate_war is called for that War
+    Then it is rejected for having too few contestants
+    And the War remains in draft status
+
+  Scenario: list_my_wars with no arguments returns every status, including drafts
+    Given a valid access token for a voter who created a draft War, an active War, and a closed War
+    When list_my_wars is called with no arguments
+    Then all three Wars are returned
+
+  Scenario: list_my_wars does not return another voter's Wars
+    Given a valid access token for a voter with no Wars of their own
+    And another voter has created an active public War
+    When list_my_wars is called with no arguments
+    Then the other voter's War is not among the results
+
+  Scenario: get_war returns a War by id with no ownership check applied
+    Given a valid access token for any authenticated voter
+    And a draft War created by a different voter
+    When get_war is called with that War's id
+    Then the War's detail is returned, matching GET /wars/:id's own behavior exactly
+
+  Scenario: add_contestant rejects an attribute the War's schema does not declare
+    Given a valid access token for the War's creator
+    And a draft War with a contestant_schema that does not declare "country"
+    When add_contestant is called with a "country" attribute
+    Then it is rejected exactly as POST /wars/:id/contestants would reject it
+    And no contestant is created
+
+  Scenario: upload_image decodes and stores the provided image
+    Given a valid access token for the War's creator
+    And a draft War with a contestant
+    And a base64-encoded JPEG under the 10MB limit
+    When upload_image is called with that data
+    Then the image is stored via the same function the multipart upload route uses
+    And the stored image's variants match what a REST upload of the same bytes would produce
+
+  Scenario: upload_image rejects a payload over the size limit
+    Given a valid access token for the War's creator
+    And a base64-encoded payload decoding to over 10MB
+    When upload_image is called with it
+    Then it is rejected exactly as the multipart route rejects an oversized upload
 ```
 
 ### Images
@@ -2468,10 +2730,37 @@ Core Voting Loop slice, live in both staging and production for both repos
   the API's own per-identity limits described here are not
 - Custom UI registry endpoints (§7.6, §10) — the `ui_registrations` table and `wars.ui_slug`
   column exist and are reserved; no endpoint reads or writes them yet
-- Native/loopback OAuth for machine clients (§4.3): `GET /auth/{provider}/login/native`,
-  `POST /auth/{provider}/token/native`, and the `native_auth_codes` table (§6) — specified as
-  this slice's `war-api` companion to `war-mcp-spec.md` §4, not yet built. The existing
-  browser flow (§4.1, §4.2) is unaffected either way.
+- The OAuth 2.1 authorization/resource server role for third-party and MCP clients (§4.3):
+  `/oauth/authorize`, `/oauth/token`, `/oauth/register`, both `/.well-known/*` discovery
+  documents, the `oauth_clients` and `authorization_codes` tables (§6), and the MCP
+  Streamable HTTP endpoint and tool surface (§7.9). None of it is built. The existing
+  browser flow (§4.1, §4.2) is unaffected either way. **Two designs previously occupied
+  this slot in this document and were discarded outright, not merged**: a Playwright-driven
+  cookie-extraction design, and a loopback/native-app (RFC 8252) design for a locally-run
+  MCP process — both assumed a local process, which a deployed MCP server accessible from
+  Claude's desktop and mobile apps is not. Neither left a trace here beyond this note and
+  the revision notes at §4.3 and §7.9.
+
+**Build order for §4.3/§7.9** (this is a multi-slice piece of work; the order below is the
+dependency structure, not merely a suggestion):
+
+1. **The authorization server core** — `/oauth/authorize`, `/oauth/token`, PKCE, resource
+   indicators (RFC 8707), Dynamic Client Registration, and the two discovery documents,
+   provable against a throwaway test client without the MCP endpoint existing yet. This is
+   ordinary OAuth infrastructure and has no MCP-specific content.
+2. **The MCP endpoint and tool surface** (§7.9), protected by slice 1's resource-server
+   check. Depends on slice 1 for anything to authenticate against.
+3. **Client ID Metadata Documents** (§4.3.3) as the preferred registration path, alongside
+   DCR from slice 1. Independent of slice 2; sequenced after slice 1 because it hardens the
+   same client-resolution code path DCR already exercises.
+4. **Issuer validation, `WWW-Authenticate` scope challenges, and revocation wiring**
+   (§4.3.2, §4.3.6, and `revokeToken` on the `OAuthServerProvider`) — hardening that
+   completes the MCP authorization spec's normative requirements without changing slice 1
+   or 2's observable behavior for a client that never hits these edges.
+
+`war-infra-spec.md` §5.2 records the one infrastructure consequence: none of the above adds
+a new deployable, so none of it needs a new App Platform component, deploy pipeline, or
+concurrency group.
 
 None of the above is inferred to be in scope from the data model's presence — a reserved
 column or table does not mean its feature is built.
