@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/context'
+import { NavBar } from './components/NavBar'
 import { RequireAuth } from './router/RequireAuth'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
@@ -14,6 +15,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <NavBar />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
