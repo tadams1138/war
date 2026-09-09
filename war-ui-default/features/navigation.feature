@@ -44,3 +44,10 @@ Feature: Navigation
     When they select log out
     Then the navigation shows a link to log in
     And it no longer shows their identity or a log out control
+
+  Scenario: A failed server-side logout still logs the voter out locally
+    Given an authenticated voter viewing the navigation
+    When they select log out and the server-side logout request fails
+    Then the navigation shows a link to log in
+    And it no longer shows their identity or a log out control
+    And no error message is displayed

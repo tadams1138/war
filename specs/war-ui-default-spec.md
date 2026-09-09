@@ -443,7 +443,9 @@ it on every navigation.
   refresh path §7 already specifies for any request, the same as a `401` from any other
   endpoint).
 - Logout calls the existing `useAuth().logout()` (`DELETE /auth/session`, §7); NavBar adds
-  no new logout mechanism.
+  no new logout mechanism. A failed logout is not a NavBar concern — the behavior is
+  specified once, in §8 ("Logout always succeeds from the voter's point of view"), and
+  applies here without NavBar doing anything special to invoke it.
 
 **Active-route indication.** Of NavBar's three destination links (`/`, `/my-wars`,
 `/wars/new`), the one matching the current route is marked as the current page (e.g.
@@ -482,7 +484,10 @@ on those two pages.
 3. Provider redirects back to the API callback → API sets the `httpOnly` refresh cookie and redirects to `/auth/callback`, **carrying no token**
 4. The `/auth/callback` route calls `POST /auth/refresh` (cookie sent automatically), receives the JWT in the response body, stores it in memory, and redirects to `returnTo`
 5. On JWT expiry, the client module silently calls `POST /auth/refresh` and retries the original request once
-6. Logout calls `DELETE /auth/session` and clears the in-memory JWT
+6. Logout clears the in-memory JWT and returns the voter to anonymous navigation
+   unconditionally; it also calls `DELETE /auth/session`, best-effort, but that call's
+   outcome never gates or is surfaced by the client-side effect (§8, "Logout always
+   succeeds from the voter's point of view")
 
 **No token ever appears in a URL** — not in the path, query, or fragment (`war-api-spec.md` §4.1). The SPA must never read a credential from `location`.
 
@@ -507,8 +512,23 @@ Error handling is uniform across all pages. The `api/client.ts` module throws ty
 | `422` | "Something went wrong — please try again" |
 | `5xx` | "Server error — please try again shortly" |
 | Network failure | "Unable to reach the server — check your connection" |
+| Logout (`DELETE /auth/session`) fails, for any reason | No message — the logout the voter asked for happens locally regardless (see below) |
 
----
+**Logout always succeeds from the voter's point of view, whether or not the server call
+does.** Selecting Log out clears the in-memory JWT and returns the voter to anonymous
+navigation and `/` unconditionally; `DELETE /auth/session` (§7) is still attempted,
+best-effort, so a reachable API does revoke the refresh-token family server-side, but its
+outcome — success, a network failure, a `5xx`, or a session that was already invalid — never
+gates, delays, or reverses the client-side effect, and is never surfaced to the voter as an
+error or retried. A voter who clicks Log out has already stated their intent; the client can
+honor it unilaterally regardless of what the server reports, and the plausible causes of the
+server call failing — a lost connection, an already-expired or already-revoked refresh token
+— are exactly the cases where insisting on server confirmation before logging out locally
+would leave that voter stuck looking logged-in, which matters most on a shared machine.
+This departs from every other row in this table, where the server's response drives what
+the client shows: logout is the one action in this UI where the client's own state change is
+the entire contract, and the server call is a courtesy notification to it, not a
+precondition of it.
 
 ## 9. Tech Stack
 
@@ -849,6 +869,13 @@ Feature: Navigation
     When they select log out
     Then the navigation shows a link to /login
     And it no longer shows their identity or a log out control
+
+  Scenario: A failed server-side logout still logs the voter out locally
+    Given an authenticated voter viewing the navigation
+    When they select log out and the DELETE /auth/session request fails
+    Then the navigation shows a link to /login
+    And it no longer shows their identity or a log out control
+    And no error message is displayed
 ```
 
 ---
@@ -859,8 +886,8 @@ This document specifies the full default UI across all seven routes, both media 
 the shared runtime artifact for custom UIs. As of 2026-08-31, the Core Voting Loop slice
 below is **implemented and live in both staging and production** (`war-ui-default`'s
 placeholder "coming soon" page is gone), verified with a real interactive Google login, not
-just automated tests. Three further slices have since shipped on top of it — Rankings,
-CreateWar, and MyWars — each described in its own "Shipped" entry below. This section marks
+just automated tests. Four further slices have since shipped on top of it — Rankings,
+CreateWar, MyWars, and Navigation — each described in its own "Shipped" entry below. This section marks
 the boundary these slices draw: what they cover, versus what remains spec-only until a later
 slice picks it up.
 
@@ -869,9 +896,9 @@ slice picks it up.
 - Home (`/`): browse active public Wars. War cards show title, category, and contestant
   count — not the status badge or time-remaining fields WarCard (§6) also describes; those
   wait for the slice that actually needs them. As shipped in this slice, the empty state
-  shown when no active public Wars exist is one fixed sentence for every visitor,
-  authenticated or not — see §6 "Home Page" and the Deferred entry below for the
-  auth-aware version a later slice specifies.
+  shown when no active public Wars exist was one fixed sentence for every visitor,
+  authenticated or not — see §6 "Home Page" and the "Navigation" entry below for the
+  auth-aware version a later slice built.
 - Login (`/login`) and the auth flow (§7): OAuth provider selection, JWT held in memory
   only, refresh-cookie exchange at `/auth/callback`, single-flight refresh on `401`, and a
   terminal failed-refresh path that clears the JWT and redirects to `/login`. Provider
@@ -945,18 +972,34 @@ slice picks it up.
   formatting (days when 24h or more remain, hours with a 1-hour floor below that) to
   serve this page; both are exercised by `WarCard.test.ts` (`src/components/`).
 
+**Shipped in a later slice — Navigation:**
+
+- NavBar (§6, "NavBar"): the persistent header, rendered by a shell wrapping all eight
+  routes (§4), giving every route a link to Home and — for an authenticated voter — links
+  to My Wars and Create War, the voter's identity (sourced from `getMe()`/`GET /auth/me`,
+  §5), and a logout control. Anonymous visitors see Home and a login link only, exactly as
+  §6 specifies. Active-route indication (`aria-current="page"`) and the `nav` landmark are
+  both implemented as specified. Pinned by the "Navigation" Gherkin (§11), executable at
+  `war-ui-default/features/navigation.feature`.
+- Home's auth-aware empty state (§6, "Home Page") shipped in the same commit: an
+  authenticated voter with no active Wars to browse now sees an invitation to create one,
+  with its own link to `/wars/new`, alongside (not instead of) NavBar's; an anonymous
+  visitor's empty state is unchanged. Pinned by the two "No active Wars" scenarios in the
+  "Browse Wars" Gherkin (§11), executable at `war-ui-default/features/browse-wars.feature`.
+- Voter-identity resolution (display name, null-display-name fallback, avatar presence)
+  lives in `src/nav/voterIdentity.ts` as of this commit — a location not yet reflected in
+  §3's repository tree; a subsequent pass may relocate it beside `NavBar.tsx`, at which
+  point §3 should be updated to match, but no relocation had landed as of this status pass.
+- **Not yet built as of this pass:** the failed-logout behavior this same review round
+  specified above (§7 step 6; §8, "Logout always succeeds from the voter's point of view")
+  and its "A failed server-side logout still logs the voter out locally" scenario (§11).
+  Today, `useAuth().logout()` (`src/auth/context.tsx`) still awaits `DELETE /auth/session`
+  before clearing local state, so a failing logout call currently leaves the voter looking
+  signed in with a Log out button that does nothing — the defect the newly-added spec text
+  and scenario exist to close on the next implementation pass.
+
 **Deferred — spec-only, no scope in this slice:**
 
-- Navigation (§4, §6 "NavBar") — fully specified as of 2026-09-08, including the top-level
-  Create War placement decision and the persistent-reachability requirement across all
-  eight routes, but not yet built. Today the app has no header, no nav landmark, and no
-  link to `/my-wars` anywhere in the codebase; `/wars/new`'s only link disappears once the
-  MyWars empty state stops applying (§6, "MyWars Page").
-- Home's auth-aware empty state (§6, "Home Page") — fully specified as of 2026-09-09, but
-  not yet built. Today's empty state renders "No active Wars right now — check back soon."
-  to an anonymous visitor and a signed-in voter alike, which is merely accurate for the
-  former and actively wrong for the latter: a signed-in voter is the one visitor who could
-  make an active War exist, and today's copy never tells them so, nor links to `/wars/new`.
 - Video-mode matchups — MatchupView's video playback sequence (§6)
 - The shared runtime build artifact for custom UIs, `dist/runtime/v1.js` and `dist/runtime/v1.d.ts` (§5.2)
 
