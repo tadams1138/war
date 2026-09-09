@@ -50,7 +50,7 @@ test('Authenticated user browses public Wars', async ({ page }) => {
   await expect(page.getByTestId('login-cta')).toHaveCount(0)
 })
 
-test('No active Wars', async ({ page }) => {
+test('No active Wars for an anonymous visitor', async ({ page }) => {
   // Arrange
   await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
 
@@ -59,6 +59,20 @@ test('No active Wars', async ({ page }) => {
 
   // Assert
   await expect(page.getByTestId('empty-state')).toBeVisible()
+  await expect(page.getByTestId('create-war-cta')).toHaveCount(0)
+})
+
+test('No active Wars for an authenticated voter', async ({ page }) => {
+  // Arrange
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
+  await page.goto('/')
+
+  // Act
+  await loginAsTestVoter(page)
+
+  // Assert
+  await expect(page.getByTestId('empty-state')).toBeVisible()
+  await expect(page.getByTestId('create-war-cta')).toBeVisible()
 })
 
 test("A War card links to its detail page", async ({ page }) => {

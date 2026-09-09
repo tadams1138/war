@@ -19,14 +19,14 @@ export function Home() {
       )}
       {state.status === 'loading' && <p>Loading…</p>}
       {state.status === 'error' && <p role="alert">{state.message}</p>}
-      {state.status === 'loaded' && <HomeWarList wars={state.value.wars} />}
+      {state.status === 'loaded' && <HomeWarList wars={state.value.wars} isAuthenticated={isAuthenticated} />}
     </main>
   )
 }
 
-function HomeWarList({ wars }: { wars: WarSummary[] }) {
+function HomeWarList({ wars, isAuthenticated }: { wars: WarSummary[]; isAuthenticated: boolean }) {
   if (wars.length === 0) {
-    return <p data-testid="empty-state">No active Wars right now — check back soon.</p>
+    return <HomeEmptyState isAuthenticated={isAuthenticated} />
   }
   return (
     <ul>
@@ -36,5 +36,25 @@ function HomeWarList({ wars }: { wars: WarSummary[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+// The empty-state copy is auth-aware (§6, "Home Page"): an anonymous
+// visitor's only options are to wait or log in (NavBar already covers the
+// latter), but a signed-in voter is the one visitor who can make an active
+// War exist, so they're pointed at /wars/new instead. This link is in
+// addition to NavBar's own persistent Create War link, not in place of it —
+// the same deliberate duplication MyWars's empty state already has.
+function HomeEmptyState({ isAuthenticated }: { isAuthenticated: boolean }) {
+  if (!isAuthenticated) {
+    return <p data-testid="empty-state">No active Wars right now — check back soon.</p>
+  }
+  return (
+    <div data-testid="empty-state">
+      <p>No active Wars right now — create one to get started.</p>
+      <Link to="/wars/new" data-testid="create-war-cta">
+        Create a War
+      </Link>
+    </div>
   )
 }
