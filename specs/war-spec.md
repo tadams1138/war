@@ -48,10 +48,11 @@ Pairwise comparison forces deliberate choices and produces statistically stronge
 | **Voter** | Authenticated user; can join Wars, cast votes (final — see `war-api-spec.md` §9), view rankings |
 | **War Creator** | A Voter who created a specific War; can manage it through Draft → Active → Closed |
 
-A Voter or War Creator may act through any client — the default web UI, a custom UI, or
-the MCP server (`war-mcp-spec.md`) — interchangeably and without a new role: each is a
-different way of reaching the same identity and the same API, which is the sole authority
-over what that identity may do (§4).
+A Voter or War Creator may act through any client — the default web UI, a custom UI, or an
+MCP client such as Claude connecting to the API's own MCP interface (`war-api-spec.md`
+§7.9) — interchangeably and without a new role: each is a different way of reaching the
+same identity and the same API, which is the sole authority over what that identity may do
+(§4).
 
 ---
 
@@ -60,37 +61,43 @@ over what that identity may do (§4).
 The system is **API-first**. The backend exposes a versioned REST API that is the single source of truth for all business logic. Clients are thin — they render data returned by the API and submit user actions back to it.
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│                         Clients (thin)                        │
-│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐ │
-│  │  Web App     │  │  Mobile App (*)  │  │  MCP Server (†)  │ │
-│  │  (React SPA) │  │  (React Native)  │  │  (war-mcp)       │ │
-│  └──────┬───────┘  └────────┬─────────┘  └────────┬─────────┘ │
-└─────────┼────────────────────┼───────────────────┼────────────┘
-          │   HTTPS / REST     │                    │
-          ▼                    ▼                    ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    REST API  /api/v1/...                    │
-└──────────────────────┬────────────────────────────────────────┘
-                       │
-          ┌────────────┴────────────┐
-          ▼                         ▼
-   ┌─────────────┐         ┌──────────────┐
-   │  PostgreSQL │         │ Object Store │
-   │  (primary)  │         │  (images)    │
-   └─────────────┘         └──────────────┘
+┌───────────────────────────────────────────┐   ┌──────────────────────────┐
+│               Clients (thin)              │   │   MCP Clients (†)        │
+│  ┌──────────────┐  ┌──────────────────┐   │   │  Claude Desktop, Claude  │
+│  │  Web App     │  │  Mobile App (*)  │   │   │  mobile app, and any     │
+│  │  (React SPA) │  │  (React Native)  │   │   │  other MCP client        │
+│  └──────┬───────┘  └────────┬─────────┘   │   └────────────┬─────────────┘
+└─────────┼────────────────────┼─────────────┘                │
+          │   HTTPS / REST     │              HTTPS / MCP (Streamable HTTP)
+          ▼                    ▼                              ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                REST API  /api/v1/...   +   MCP endpoint  /api/v1/mcp      │
+│           (one service; the MCP endpoint is a second protocol binding    │
+│            over the same authorization and domain logic — §7.9)          │
+└──────────────────────────────────┬────────────────────────────────────────┘
+                                   │
+                      ┌────────────┴────────────┐
+                      ▼                         ▼
+               ┌─────────────┐         ┌──────────────┐
+               │  PostgreSQL │         │ Object Store │
+               │  (primary)  │         │  (images)    │
+               └─────────────┘         └──────────────┘
 ```
 
 *Mobile app is a future deliverable; the API is designed to support it from day one.*
 
-*(†) The MCP server runs locally over stdio (`war-mcp-spec.md` §2) — it is a client like
-any other, with no privileged path into the API, not a hosted service alongside it.*
+*(†) MCP clients reach the platform directly over the network — there is no separately
+deployed "MCP server" process. The same service that serves the REST API also serves the
+MCP interface, protected by its own OAuth 2.1 authorization server role
+(`war-api-spec.md` §4.3, §7.9). An earlier design ran a local, stdio-based MCP process;
+it was replaced because stdio cannot reach a phone or desktop app that cannot launch a
+local subprocess, and §7.9 records why serving it from the API itself, rather than as a
+separate deployed client, was chosen.*
 
 For detailed specifications see:
-- [`war-api-spec.md`](war-api-spec.md) — REST API, data model, auth, scoring, vote integrity
+- [`war-api-spec.md`](war-api-spec.md) — REST API, MCP interface, data model, auth, scoring, vote integrity
 - [`war-ui-default-spec.md`](war-ui-default-spec.md) — default web frontend
 - [`war-ui-custom-spec.md`](war-ui-custom-spec.md) — per-brand custom frontends and their template contract
-- [`war-mcp-spec.md`](war-mcp-spec.md) — MCP server for authenticated War content creation and editing
 - [`war-infra-spec.md`](war-infra-spec.md) — hosting, CI/CD, environments
 
 ---

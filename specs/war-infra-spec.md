@@ -215,6 +215,28 @@ Required platform capabilities:
 - **Pre-deploy hooks** that can abort a deployment on non-zero exit (§10)
 - **Encrypted environment variables** injected at runtime (§9)
 
+**The MCP interface (`war-api-spec.md` §7.9) adds no third component.** It is new routes
+(`/api/v1/mcp`, `/oauth/*`, `/.well-known/oauth-*`) on the existing `war-api` component,
+covered by the ingress rule that already routes all of `/api/v1/*` (and, for the two
+`/.well-known/*` and `/oauth/*` paths, a small addition to that ingress rule — no new
+component, no new deploy pipeline, no new App Platform app). This also means §20.8's
+per-pipeline-per-environment concurrency group requirement is satisfied trivially rather
+than by adding groups: `api.yml`'s existing `deploy-staging-api` / `deploy-production-api`
+groups already cover every deploy that ships this interface, because it is the same
+component deploying through the same pipeline. No `deploy-{env}-mcp` group is created,
+and none should be — there is no third pipeline for it to serialize, and adding one anyway
+would be exactly the kind of unforced infrastructure this document otherwise avoids
+(§16's cost baseline and §17's scope list both reflect the same discipline).
+
+**One real capability to verify before this ships: long-lived Streamable HTTP connections.**
+MCP's Streamable HTTP transport can hold a response open as a server-sent-events stream for
+the duration of a tool call. App Platform's ingress and any intermediate proxy must not
+apply a request-idle timeout shorter than the slowest tool call this interface will ever
+serve (image upload and processing, §11.1, is the likely long pole). This is a configuration
+value to confirm against the provider during `war-api-spec.md` §7.9's build (§4.3's slice
+2), not a structural change recorded here — but a genuine way this feature could ship and
+then fail silently under real latency if skipped.
+
 ### 5.3 Database
 
 - One managed PostgreSQL cluster per environment
