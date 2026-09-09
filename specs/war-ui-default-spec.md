@@ -61,7 +61,8 @@ war-ui-default/
 │   │   ├── RankingsTable.tsx   # Leaderboard rows
 │   │   ├── ProgressBar.tsx     # Vote progress indicator
 │   │   ├── WarCard.tsx         # War summary for browse/list
-│   │   └── ImageCarousel.tsx   # Multi-image contestant gallery
+│   │   ├── ImageCarousel.tsx   # Multi-image contestant gallery
+│   │   └── NavBar.tsx          # Persistent navigation header (§6, "NavBar")
 │   ├── api/
 │   │   └── client.ts           # Typed API wrapper (all fetch calls)
 │   ├── auth/
@@ -93,6 +94,12 @@ All routes are client-side. The CDN rewrites all paths to `index.html`.
 | `/login` | Login | No | OAuth provider selection |
 
 Unauthenticated users visiting a protected route are redirected to `/login` with a `returnTo` query param.
+
+Every route above, plus `/auth/callback` (the OAuth callback redirect target, §7), renders
+beneath the persistent navigation header described in §6, "NavBar" — eight routes in total,
+none excluded. The header is rendered once, by a shell that wraps the whole route tree,
+rather than being added page by page; a page that later forgets to include it is not a
+possible failure mode, because no page includes it individually.
 
 ---
 
@@ -347,6 +354,90 @@ find that draft War again.
   bare page.
 - `/my-wars` is authenticated (§4); an unauthenticated visit redirects to `/login` with
   `returnTo=/my-wars`, the same as any other protected route (§7).
+
+### NavBar
+
+Until this component exists, the app has no persistent chrome at all: no way back to Home,
+no way to reach My Wars, and — critically — no way to reach Create War once the MyWars
+empty-state CTA (the wizard's only entry point, §6 "MyWars Page") has scrolled out of
+existence because the voter now has a War. NavBar closes all three gaps at once, as a single
+header rendered by a shell wrapping every route named in §4 — all eight of them, `/login`
+and `/auth/callback` included — so reachability does not depend on any individual page
+remembering to render it.
+
+**Design decision: Create War is a top-level action, not something reached through My
+Wars.** NavBar carries a direct link to `/wars/new` for every signed-in voter, independent
+of whether that voter is looking at My Wars, the tradeoff being a second top-level item next
+to My Wars rather than a leaner header. My Wars remains a separate top-level destination for
+*reviewing* a voter's own Wars; it gains no new "create" affordance of its own beyond the
+empty-state CTA it already has (§6, "MyWars Page", unchanged by this slice).
+
+**Content by auth state.** NavBar reads only `useAuth().isAuthenticated` (`src/auth/
+context.tsx`) to choose between two fixed sets of content — never a partial or
+transitional state:
+
+- **Anonymous visitor:** a link to `/` (Home) and a link to `/login`. No link to
+  `/my-wars`, no link to `/wars/new`, no identity, no logout control. An anonymous visitor
+  can browse and view rankings but cannot vote (`war-spec.md` §3); showing them a Create
+  War or My Wars link would offer an action that only ends in the `/login` redirect §4
+  already specifies for those routes, which is friction NavBar exists to remove, not add.
+- **Authenticated voter:** a link to `/` (Home), a link to `/my-wars`, a link to
+  `/wars/new`, the voter's identity (below), and a logout control. All five are always
+  present together — there is no reduced or role-gated subset within "authenticated voter"
+  in this slice; `war-spec.md` §3's "War Creator" is a Voter who has created a War, not a
+  distinct account type, so nothing here is gated on having created one already.
+
+**Identity.** Sourced from `GET /auth/me` via the already-implemented `getMe()` (§5,
+`src/api/client.ts`) — no new endpoint, no new client function, no schema regeneration.
+Fetched once per authenticated session (on the callback completing sign-in, and again on
+any page load where a token is already held) and cleared on logout; NavBar does not refetch
+it on every navigation.
+
+- Renders `display_name` as text. When `display_name` is `null` (the schema allows it,
+  `war-api-spec.md` §11.2.1), NavBar renders a fixed fallback label instead of a blank space
+  or the literal word "null".
+- When `avatar_url` is present, NavBar renders it as a small image beside the display name.
+  The image is decorative (empty `alt`) since the adjacent name already carries the
+  identity for assistive technology. When `avatar_url` is `null`, no image and no
+  placeholder graphic is rendered — the name text alone stands for identity.
+- **If the `GET /auth/me` request itself fails** (network failure, `5xx`, or any other
+  error), NavBar still renders full authenticated navigation — Home, My Wars, Create War,
+  and logout all remain — using only the fact that a token is held; only the identity slot
+  falls back to the same label used for a `null` display name. A single failed profile
+  fetch never blocks navigation and never produces a page-level error state of its own (a
+  `401` from this call is not a special case: it flows through the existing single-flight
+  refresh path §7 already specifies for any request, the same as a `401` from any other
+  endpoint).
+- Logout calls the existing `useAuth().logout()` (`DELETE /auth/session`, §7); NavBar adds
+  no new logout mechanism.
+
+**Active-route indication.** Of NavBar's three destination links (`/`, `/my-wars`,
+`/wars/new`), the one matching the current route is marked as the current page (e.g.
+`aria-current="page"`); the other two are not. On a route NavBar has no link for — a War's
+detail, vote, or rankings page — none of the three is marked. `/login` is not one of
+NavBar's tracked destinations; marking it current while on `/login` is neither required nor
+prohibited by this spec.
+
+**Accessibility shape.** NavBar is exposed as a `nav` landmark with an accessible name
+(e.g. `aria-label="Primary"`) distinguishing it from any other landmark a page may contain,
+so assistive technology can jump to it directly. Every link is reachable and activatable by
+keyboard in document order; the logout control is a real button, not a link, since it
+performs an action rather than navigating.
+
+**Composition with existing routing.** NavBar wraps `RequireAuth` and every routed page; it
+never wraps or is wrapped by an individual `RequireAuth` guard, so NavBar itself is visible
+to anonymous visitors on public routes (§4) and the `returnTo` redirect behavior (§7) is
+unchanged — RequireAuth still redirects to `/login` with the visited path as `returnTo`
+exactly as it does today, before NavBar or the page beneath it ever renders. NavBar's own
+links carry no `returnTo` — they are deliberate top-level navigation, not a bounce-back from
+an interrupted action, so they behave the same as the `/login` link a manually-typed URL
+would produce with no `returnTo` at all (`src/pages/Login.tsx`'s existing default of `/`).
+
+**Explicitly unchanged by this slice.** Home's existing inline "Login to Vote" CTA (§12,
+Core Voting Loop) and MyWars's existing empty-state "Create a War" CTA (§6, "MyWars Page")
+both stay exactly as they are; NavBar is additive chrome layered on top; nothing in this
+slice removes either, even though both are now redundant with NavBar's own permanent links
+on those two pages.
 
 ---
 
@@ -670,6 +761,53 @@ Feature: My Wars
     When they navigate directly to "/my-wars"
     Then they are redirected to "/login"
     And the returnTo query param is "/my-wars"
+
+Feature: Navigation
+
+  Scenario: An anonymous visitor sees only anonymous navigation
+    Given an anonymous visitor on /
+    Then the navigation shows a link to /
+    And the navigation shows a link to /login
+    And the navigation shows no link to /my-wars
+    And the navigation shows no link to /wars/new
+    And the navigation shows no voter identity
+
+  Scenario: An authenticated voter's identity is shown in the navigation
+    Given an authenticated voter whose display name is "Jordan"
+    When they navigate to /
+    Then the navigation shows "Jordan"
+
+  Scenario: A voter with no display name on file is shown a fallback
+    Given an authenticated voter with no display name on file
+    When they navigate to /
+    Then the navigation shows a fallback identity label instead of a blank
+
+  Scenario Outline: Create War and My Wars remain reachable from every route
+    Given an authenticated voter who has already created a War
+    When they navigate to "<page>"
+    Then the navigation shows a link to /
+    And the navigation shows a link to /my-wars
+    And the navigation shows a link to /wars/new
+
+    Examples:
+      | page                      |
+      | /                         |
+      | /my-wars                  |
+      | /wars/new                 |
+      | that War's detail page    |
+      | that War's vote page      |
+      | that War's rankings page  |
+
+  Scenario: The current page is indicated in the navigation
+    Given an authenticated voter on /my-wars
+    Then the /my-wars navigation link is marked as the current page
+    And the /wars/new navigation link is not marked as the current page
+
+  Scenario: Logging out returns the navigation to its anonymous state
+    Given an authenticated voter viewing the navigation
+    When they select log out
+    Then the navigation shows a link to /login
+    And it no longer shows their identity or a log out control
 ```
 
 ---
@@ -765,6 +903,11 @@ slice picks it up.
 
 **Deferred — spec-only, no scope in this slice:**
 
+- Navigation (§4, §6 "NavBar") — fully specified as of 2026-09-08, including the top-level
+  Create War placement decision and the persistent-reachability requirement across all
+  eight routes, but not yet built. Today the app has no header, no nav landmark, and no
+  link to `/my-wars` anywhere in the codebase; `/wars/new`'s only link disappears once the
+  MyWars empty state stops applying (§6, "MyWars Page").
 - Video-mode matchups — MatchupView's video playback sequence (§6)
 - The shared runtime build artifact for custom UIs, `dist/runtime/v1.js` and `dist/runtime/v1.d.ts` (§5.2)
 
