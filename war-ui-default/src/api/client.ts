@@ -273,9 +273,19 @@ export async function getMe(): Promise<VoterMe> {
   return response.json() as Promise<VoterMe>
 }
 
+// Logout always succeeds from the voter's point of view (§8, "Logout
+// always succeeds from the voter's point of view"): the DELETE is
+// attempted best-effort, but its outcome — success, a network failure, or
+// any error status — never stops the in-memory token from being cleared,
+// and is never surfaced to the caller as a rejection.
 export async function logout(): Promise<void> {
-  await ensureOk(await apiFetch('/auth/session', { method: 'DELETE' }))
-  clearToken()
+  try {
+    await ensureOk(await apiFetch('/auth/session', { method: 'DELETE' }))
+  } catch {
+    // Deliberately discarded — see the function comment above.
+  } finally {
+    clearToken()
+  }
 }
 
 export function providerLoginUrl(provider: string): string {

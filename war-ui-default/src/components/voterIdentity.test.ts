@@ -26,8 +26,9 @@ describe('resolveVoterIdentity', () => {
     // Act
     const identity = resolveVoterIdentity(state)
 
-    // Assert
-    expect(identity).toEqual({ displayName: FALLBACK_DISPLAY_NAME, avatarUrl: null })
+    // Assert — the literal, not the imported constant: this pins the label
+    // itself, not just that the mapping returns whatever the constant holds.
+    expect(identity).toEqual({ displayName: 'Voter', avatarUrl: null })
   })
 
   it('falls back to the same label, with no avatar, when the GET /auth/me request fails', () => {

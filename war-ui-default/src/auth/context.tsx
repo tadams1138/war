@@ -14,7 +14,7 @@ import { loginUrlFor } from './returnTo'
 interface AuthContextValue {
   isAuthenticated: boolean
   login: (token: string) => void
-  logout: () => Promise<void>
+  logout: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -32,10 +32,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(true)
   }, [])
 
-  const logout = useCallback(async () => {
-    await apiLogout()
+  // Logout always succeeds from the voter's point of view (§8, "Logout
+  // always succeeds from the voter's point of view"): the local state
+  // change happens unconditionally and is never gated, delayed, or
+  // reversed by DELETE /auth/session's outcome. The request is still
+  // attempted best-effort — apiLogout() clears the token itself and never
+  // rejects (api/client.ts), but the `catch` below is a second guard
+  // against an unhandled rejection should that ever change.
+  const logout = useCallback(() => {
     setIsAuthenticated(false)
     navigate('/')
+    void apiLogout().catch(() => undefined)
   }, [navigate])
 
   useEffect(() => {

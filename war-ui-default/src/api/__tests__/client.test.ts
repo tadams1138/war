@@ -730,6 +730,28 @@ describe('logout', () => {
     // Assert
     expect(getToken()).toBeNull()
   })
+
+  it('still clears the in-memory token when DELETE /auth/session fails server-side', async () => {
+    // Arrange — war-ui-default-spec.md §8 "Logout always succeeds from the
+    // voter's point of view": the request is attempted best-effort, but a
+    // 5xx from it must not stop the token from being cleared.
+    setToken('token-abc')
+    server.use(http.delete(`${BASE}/auth/session`, () => new HttpResponse(null, { status: 503 })))
+
+    // Act / Assert — resolves, never rejects
+    await expect(logout()).resolves.toBeUndefined()
+    expect(getToken()).toBeNull()
+  })
+
+  it('still clears the in-memory token when the DELETE /auth/session request fails over the network', async () => {
+    // Arrange
+    setToken('token-abc')
+    server.use(http.delete(`${BASE}/auth/session`, () => HttpResponse.error()))
+
+    // Act / Assert
+    await expect(logout()).resolves.toBeUndefined()
+    expect(getToken()).toBeNull()
+  })
 })
 
 describe('providerLoginUrl', () => {

@@ -59,7 +59,7 @@ test('No active Wars for an anonymous visitor', async ({ page }) => {
 
   // Assert
   await expect(page.getByTestId('empty-state')).toBeVisible()
-  await expect(page.getByTestId('create-war-cta')).toHaveCount(0)
+  await expect(page.getByTestId('home-create-war-cta')).toHaveCount(0)
 })
 
 test('No active Wars for an authenticated voter', async ({ page }) => {
@@ -72,7 +72,7 @@ test('No active Wars for an authenticated voter', async ({ page }) => {
 
   // Assert
   await expect(page.getByTestId('empty-state')).toBeVisible()
-  await expect(page.getByTestId('create-war-cta')).toBeVisible()
+  await expect(page.getByTestId('home-create-war-cta')).toBeVisible()
 })
 
 test("A War card links to its detail page", async ({ page }) => {
