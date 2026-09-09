@@ -103,7 +103,7 @@ war-mcp/
 │   ├── cli.ts             # bin entrypoint: `war-mcp` (serve) / `war-mcp login`
 │   ├── server.ts           # McpServer construction and tool registration
 │   ├── auth/
-│   │   ├── login.ts         # one-time browser-driven OAuth capture (§4.2)
+│   │   ├── login.ts         # loopback listener + PKCE + code exchange (§4.2)
 │   │   ├── tokenStore.ts     # local credential cache read/write (§4.3)
 │   │   └── authorizedClient.ts  # attaches JWT; single-flight refresh on 401 (§4.4)
 │   ├── warApiClient.ts     # one function per endpoint this project calls (§5)
@@ -119,65 +119,93 @@ war-mcp/
 
 ## 4. Authentication
 
-### 4.1 Decision: reuse the existing Google OAuth flow — no new `war-api` endpoint
+### 4.1 Decision: loopback OAuth (RFC 8252), with a small `war-api` companion
 
-Two shapes were considered:
+**Revision note.** An earlier round of this document chose to reuse `war-api`'s browser
+OAuth flow unmodified, extracting the `HttpOnly` refresh cookie via a Playwright-driven
+browser, specifically to avoid any `war-api` change. That constraint has been lifted — a
+`war-api` companion is in scope for this slice — and with it lifted, that design does not
+survive comparison with the alternatives below. It reached beneath a control (`HttpOnly`)
+that exists precisely to stop the kind of programmatic read it performed; it depended on
+Google's sign-in page tolerating a programmatically-controlled browser, which is a real and
+likely failure, not a tail risk; and it carried a full browser as a runtime dependency for a
+process whose job is otherwise making HTTP calls. This section replaces it.
 
-1. **Reuse `war-api`'s existing Google OAuth flow** (`war-api-spec.md` §4), the way a
-   browser does today. No new `war-api` surface at all.
-2. **Personal Access Tokens** — a new, long-lived, revocable, scoped credential issued and
-   revoked by new `war-api` endpoints. The better long-term fit for a machine client (and
-   it pairs naturally with a future moderation slice — revoking a token becomes a
-   moderation action), but it is new API surface, new spec, and new tests, all of which
-   this slice's brief puts out of scope for `war-api`.
+Two shapes were compared on their merits, both now costing a `war-api` change:
 
-**This slice takes option 1.** It costs more inside `war-mcp` (§4.2 below is real
-complexity, not a footnote) but it changes nothing in `war-api`, which is what the brief
-for this slice asks for. PATs remain the better shape once a second machine client exists
-to justify them; §12 records this as deferred, not rejected.
+1. **Loopback OAuth** ([RFC 8252](https://www.rfc-editor.org/rfc/rfc8252), "OAuth 2.0 for
+   Native Apps," with [PKCE](https://www.rfc-editor.org/rfc/rfc7636)) — the pattern `gh auth
+   login`, `gcloud auth login`, and `aws sso login` all use. `war-mcp` opens the user's own,
+   completely ordinary system browser to a `war-api` URL; the user signs in with Google
+   exactly as they would for `war-ui-default`; `war-api` redirects the result to a local
+   listener `war-mcp` briefly runs, carrying a one-time code, never a credential.
+2. **Personal Access Tokens** — a long-lived, revocable, scoped credential a voter mints and
+   pastes into `war-mcp`'s configuration once.
 
-### 4.2 The technical problem option 1 has to solve, and how
+**This document chooses loopback OAuth.** The reasoning, including where it departs from
+the coordinator's initial lean toward PATs:
 
-`war-api`'s OAuth callback never returns a bearer token to its caller. It sets the refresh
-token as an **`HttpOnly` cookie** on the browser and redirects to `${uiOrigins[0]}/auth/callback`
-carrying no credential of any kind (`war-api-spec.md` §4.1) — deliberately, so that no
-script on any page can ever read it. `war-ui-default` itself never sees the refresh token's
-value either; the browser attaches it automatically on `POST /auth/refresh`
-(`war-ui-default-spec.md` §7).
+- **PATs have no in-scope issuance path.** A voter needs *somewhere* to generate one.
+  `war-api-spec.md` §2 states, as an architecture principle, "No HTML rendering… It serves
+  no HTML pages" — so `war-api` itself cannot host a "generate a token" page. The only other
+  place one could live is `war-ui-default`, and that project is explicitly out of scope for
+  this slice (§10). Without either, minting the *first* PAT has no clean answer short of a
+  manual `curl`-plus-copied-JWT dance — a materially worse experience than "open a browser,
+  sign in with Google," which loopback OAuth gets for free by reusing a UI (Google's own)
+  this platform doesn't have to build or maintain.
+- **Loopback OAuth adds no second credential type.** Every route's bearer-auth check
+  continues to understand exactly one thing: a `war-api`-issued JWT. A PAT would need that
+  check to recognize two credential shapes, forever, on every protected route — a change
+  with a blast radius far wider than auth itself. Loopback OAuth's `war-api` companion
+  (§4.3 there) is additive and load-bearing only at the two new routes it introduces; nothing
+  else in `war-api` changes.
+- **The moderation fit the coordinator raised for PATs is not unique to them.** A
+  loopback-issued refresh token is an ordinary member of the same family/rotation/reuse-
+  detection machinery §4.2 already gives every browser session (`war-api-spec.md` §4.3.4).
+  "Revoke this session" is already a coherent moderation lever over it — a future moderation
+  slice loses nothing by there being no separate PAT concept to revoke instead.
+- **It sidesteps Google's automation defenses entirely, not just carefully.** The user's own
+  real, un-automated browser does the entire sign-in. There is no heuristic to trip, because
+  nothing about this flow looks like a bot to Google — a categorically different position
+  than "hope a controlled browser isn't flagged."
+- **It costs `war-mcp` nothing new beyond Node's own standard library.** No Playwright, no
+  bundled browser. A loopback listener is `node:http`; PKCE is `node:crypto`. §7's dependency
+  list is *shorter* than the previous round's, not longer.
 
-A Node process has no browser cookie jar. There is consequently no ordinary HTTP call
-`war-mcp` can make to obtain that cookie's value — by design, since that design is what
-makes token theft via a compromised page impossible. The only place the value is
-legitimately readable outside of page JavaScript is through a **browser automation
-session**, which operates at the browser-engine level rather than through page script and
-is unaffected by `HttpOnly`.
+The cost, stated plainly since it's real: loopback OAuth is more protocol surface than a
+PAT's "one route to mint, one to revoke" would be (§4.2's round trip has several hops), and
+it requires `war-api` to hand a bearer credential to a caller directly in a response body —
+a deliberate, narrow exception to the "never a token in a URL, only ever a cookie"
+posture §4.1 there otherwise holds, justified in `war-api-spec.md` §4.3.4 and not weakening
+that posture for any existing caller.
 
-**`war-mcp login` therefore launches a real, visible (non-headless) browser via Playwright**
-and drives it through the *unmodified* flow a human would use:
+### 4.2 The loopback flow, from `war-mcp`'s side
 
-1. Navigate to `${WAR_API_BASE_URL}/api/v1/auth/google/login`.
-2. The user completes Google's own sign-in and consent UI themselves, in that window,
-   exactly as they would in any browser. `war-mcp` does not touch the login form.
-3. Wait for the browser to land on `${WAR_API_BASE_URL}/auth/callback` (this
-   deployment's UI and API share one domain per environment — `war-infra-spec.md` §5.5,
-   §20 — so this is the same host as step 1).
-4. Read the `refresh_token` cookie from the browser context (Playwright's
-   `BrowserContext.cookies()`, which is not subject to `HttpOnly`'s page-script
-   restriction) and close the browser.
-5. Store it via the token store (§4.3).
+The full round trip, including validation and error responses, is specified once, at the
+authority for it — `war-api-spec.md` §4.3. From `war-mcp`'s side, `war-mcp login`:
 
-**Stated risk.** Google applies anti-automation heuristics to sign-in attempts from
-browsers under programmatic control, independent of this design; a flow that never
-automates the login form itself (step 2) is the mitigation this document takes, not a
-guarantee. If this proves unreliable in practice, the fallback is the Personal Access
-Token shape from §4.1, as a `war-api` companion slice — not a workaround invented here.
+1. Starts an HTTP listener on `127.0.0.1` (an ephemeral port the OS assigns), and generates
+   a PKCE `code_verifier` (kept in memory only, never written to disk) and its `S256`
+   `code_challenge`.
+2. Opens the user's own system browser (never a controlled or headless one) to:
+   `${WAR_API_BASE_URL}/api/v1/auth/google/login/native?redirect_uri=http://127.0.0.1:<port>/callback&code_challenge=<challenge>&code_challenge_method=S256`
+3. Waits. The user signs in with Google in that ordinary browser tab; `war-mcp` is not a
+   party to that step in any way (`war-api-spec.md` §4.3.1).
+4. Receives the redirect its own listener catches: `GET /callback?code=<native code>`.
+5. Exchanges it: `POST ${WAR_API_BASE_URL}/api/v1/auth/google/token/native` with
+   `{ "code": "<native code>", "code_verifier": "<verifier>", "redirect_uri": "http://127.0.0.1:<port>/callback" }`.
+6. On `200`, stores the returned refresh token (§4.3) and closes both the listener and the
+   browser tab (or shows a "you can close this tab" page from the listener itself — a detail
+   left to the implementer, not a contract this document constrains). On a `400` (any of
+   `war-api-spec.md` §4.3.3's error cases — an invalid, expired, already-used, or
+   redirect_uri-mismatched code, or a failed PKCE check), reports a clear login-failed
+   message and stores nothing.
 
-`war-mcp login` is a **separate, explicit, human-run step**, not something a tool call
-triggers mid-conversation. An MCP tool invocation that silently popped up a browser and
-blocked for however long a human takes to sign in would be a poor experience for whichever
-client is driving it. Every tool in §5 instead **fails fast** with a clear
-"not authenticated — run `war-mcp login`" error when no usable credential is cached
-(§6, §11).
+`war-mcp login` remains a **separate, explicit, human-run step**, unchanged from the
+previous round's reasoning: an MCP tool invocation that popped up a browser mid-conversation
+and blocked on human sign-in would be a poor experience for whichever client is driving it.
+Every tool in §5 still **fails fast** with "not authenticated — run `war-mcp login`" when no
+usable credential is cached (§6, §11).
 
 ### 4.3 Token storage
 
@@ -353,7 +381,9 @@ failure.
 | Runtime | Node.js 24.x (TypeScript) | Matches `war-api` (`war-api-spec.md` §11); one Node version across the Node projects in this monorepo |
 | MCP server | `@modelcontextprotocol/sdk` ^1.30.0 | The official TypeScript SDK; `McpServer` + `registerTool` for the tool surface, `StdioServerTransport` for §2.2 |
 | Tool schemas | `zod` ^4.6.0 | Accepted directly by the SDK's `registerTool` (`zod ^3.25 \|\| ^4.0`) |
-| Browser automation (login only) | `playwright` ^1.63.0 | Drives the one-time interactive login capture (§4.2); not used anywhere in the tool-call path |
+| Loopback listener (login only) | Node's built-in `node:http` | A local, ephemeral-port HTTP server to catch the redirect in §4.2 step 4 — no dependency needed |
+| PKCE generation (login only) | Node's built-in `node:crypto` | `randomBytes` for the `code_verifier`, `createHash('sha256')` for its `S256` challenge (RFC 7636 §4.2) — no dependency needed |
+| System browser launch (login only) | Node's built-in `child_process` (`open`/`start`/`xdg-open` per OS) | Opens the user's own default browser; `war-mcp` never bundles or controls a browser (§4.1) |
 | HTTP client | Node's built-in `fetch`/`FormData`/`Blob` | Node 24 ships all three; no separate HTTP dependency needed for either JSON or the multipart upload in `upload_image` |
 | Credential path resolution | `env-paths` ^4.0.0 | OS-appropriate config directory (§4.3) |
 | Testing | Vitest + `@amiceli/vitest-cucumber` + `msw` | Vitest and `@amiceli/vitest-cucumber` match `war-api`'s own choices (`war-api-spec.md` §11); `msw` matches `war-ui-default`'s existing convention for mocking an HTTP dependency (`war-ui-default-spec.md` §9, `src/api/__tests__/client.test.ts`) |
@@ -389,26 +419,37 @@ token). That boundary is exactly where these tests sit:
 - Credential loading and storage (§4.3) are tested against a temp directory injected in
   place of the real config path, not the developer's own `~/.config`.
 
-### 8.2 What is not testable here, and is not pretended to be
+### 8.2 The login capture: more of it is testable than the previous round's design allowed
 
-**The interactive login capture (§4.2 steps 1–4: launching a real browser and completing
-Google's own sign-in) is not covered by an automated test, in this project or any other.**
-It requires a real Google account, a real human completing a real consent screen, and is
-exactly the kind of round-trip this pipeline has no way to automate honestly. Simulating it
-with a fake browser or a stubbed Google response would test Playwright's cookie-reading API
-and nothing about whether real login actually works — worse than no test, since it would
-read as coverage.
+Loopback OAuth (§4.2) narrows the untestable part of login to exactly one step: **the user
+signing in with Google in their own real browser.** That step requires a real Google
+account and a real human at a real consent screen, and stays manually verified against a
+real environment — this pipeline has no way to automate it honestly, and simulating it with
+a stubbed Google response would test nothing about whether real login actually works.
 
-What *is* covered, at the boundary the rest of this document treats as the actual seam
-(§4.3, §4.4): every scenario in §11's authentication feature starts from **a refresh token
-already present in the store**, as if `war-mcp login` had already succeeded, and exercises
-everything downstream of that — refresh, retry-once, rotation, and the terminal
-"re-authenticate" case — against a mocked `war-api`. That is genuinely testable, and it is
-the part of §4 that actually runs on every tool call; §4.2 runs exactly once per login.
+Everything else in `war-mcp login` is now exercisable without a browser at all, because it's
+`war-mcp`'s own code talking `war-api`'s public HTTP contract, mocked exactly like every
+tool call:
 
-This is a known, stated gap, not an oversight: verifying the login capture itself is manual
-verification against a real staging environment and a real account, and stays that way
-unless a future slice finds a safe way to automate it.
+- **The loopback listener and code exchange** (§4.2 steps 4–6): a scenario starts the real
+  listener on an OS-assigned port, sends it a plain `GET /callback?code=...` — standing in
+  for the browser redirect a real login would produce — and asserts it calls
+  `POST /auth/google/token/native` (via `msw`) with the `code`, the `code_verifier` it
+  generated for this run, and the `redirect_uri` it told `war-api` about in step 2. This is
+  the same "assert the mock was actually hit" discipline §8.1 uses for every tool call,
+  applied to login instead.
+- **Every error case `war-api-spec.md` §4.3.3 defines** (an invalid, expired, already-used,
+  or mismatched-`redirect_uri` code; a failed PKCE check) is a mocked `400` from the same
+  endpoint, and each gets its own scenario asserting `war-mcp login` reports a clear failure
+  and stores no credential.
+- **PKCE generation itself** (`code_verifier` → `S256` `code_challenge`) is a pure function
+  of `node:crypto` and is tested as one, independent of any network call.
+
+What stays manual: confirming that a *real* Google sign-in, end to end, in a real browser,
+against a real `war-api` deployment, produces a listener request the way §11's scenarios
+assume it will. That confirmation happens once, by hand, against staging — the same
+category of verification `war-api-spec.md` §4.1's own OAuth flow has always relied on for
+its "real provider" edge, and no larger here than it was there.
 
 ---
 
@@ -424,12 +465,16 @@ source in this repository; packaging it for distribution (an npm publish, a
 ## 10. Out of Scope (v1)
 
 - Moderation and admin surfaces of any kind (a later slice, `war-spec.md` §2)
-- Any change to `war-ui-default`
+- Any change to `war-ui-default` — this is why §4.1 rules out Personal Access Tokens for
+  this slice: minting one has no clean issuance path without either a `war-ui-default` page
+  or `war-api` rendering HTML, and both are off the table
+- Any `war-api` change beyond the native/loopback OAuth companion this slice specifies
+  (`war-api-spec.md` §4.3, §6, §7.1) — the existing browser flow (§4.1, §4.2 there) is
+  unmodified
 - Remote or HTTP MCP transport (§2.2) — stdio only
-- Any change to `war-api` — this slice's auth decision (§4.1) was made specifically to
-  avoid needing one
-- Personal Access Tokens (§4.1) — the better long-term auth shape, deferred until a second
-  machine client justifies the `war-api` work it needs
+- Personal Access Tokens (§4.1) — not chosen for this slice; revisit only if a future need
+  (a token-management UI, a second machine client with different constraints) changes the
+  comparison in §4.1
 - `DELETE /wars/:id/contestants/:cId`, contestant media reordering/removal, `join_war`,
   video attachment, and anything in the matchup/voting/rankings surface (§5)
 - Video `media_mode` (not built in `war-api` — §15 there)
@@ -485,6 +530,32 @@ Feature: Authentication
     When the list_my_wars tool is called
     Then the result reports "not authenticated - run war-mcp login"
     And no cached refresh token remains afterward
+
+Feature: Login (war-mcp login)
+
+  The interactive part of login - a human signing into Google in their own real browser -
+  is not exercised here (spec §8.2). These scenarios start from the point war-mcp's own
+  code takes over: its loopback listener receiving the redirect a real login would produce.
+
+  Scenario: The loopback listener exchanges a received code for tokens
+    Given war-mcp login has started its loopback listener and opened the browser
+    When the listener receives a GET /callback request carrying a code
+    Then a POST /api/v1/auth/google/token/native request is made with that code,
+      the code_verifier generated for this run, and the redirect_uri given at login start
+    And on a 200 response, the returned refresh token is cached
+
+  Scenario: An invalid or expired code fails login without caching anything
+    Given war-mcp login's loopback listener is waiting
+    And the War API rejects POST /api/v1/auth/google/token/native with 400
+    When the listener receives a GET /callback request carrying a code
+    Then war-mcp login reports a failure
+    And no refresh token is cached
+
+  Scenario: war-mcp login opens the login URL via the OS's own default browser
+    Given war-mcp login is started
+    When it begins the loopback flow
+    Then it invokes the operating system's own default-browser launch command with the
+      login URL, rather than starting or driving a browser process of its own
 
 Feature: War Lifecycle Tools
 
@@ -652,8 +723,11 @@ This document specifies the full design of `war-mcp`'s v1 tool surface, authenti
 testing approach. As of 2026-09-09, **nothing in this document has been built** — this is
 the specification stage of the pipeline, and `war-mcp` does not yet exist as a project.
 
-**Not yet implemented:** everything in §5 (all nine tools), §4 (login capture, token store,
-authorized client), and the project scaffold itself (§3, §7).
+**Not yet implemented:** everything in §5 (all nine tools), §4 (loopback login, token
+store, authorized client), and the project scaffold itself (§3, §7) — nor its `war-api`
+companion (`war-api-spec.md` §4.3: `GET /auth/{provider}/login/native`,
+`POST /auth/{provider}/token/native`, the `native_auth_codes` table). Both sides ship
+together: `war-mcp login` has nothing to call until the companion exists.
 
-**Deferred, not rejected:** Personal Access Tokens (§4.1) as a `war-api` companion slice,
-once a second machine client exists to justify the additional API surface.
+**Not chosen, not merely deferred:** Personal Access Tokens (§4.1) — ruled out for this
+slice on the merits described there, not left undone for lack of time.

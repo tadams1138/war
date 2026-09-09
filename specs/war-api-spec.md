@@ -153,6 +153,143 @@ Every call to `/auth/refresh` **invalidates the presented token and issues a new
 
 Reuse detection is the reason rotation is worth its complexity: without it, a stolen 30-day refresh token grants a year-round silent session with no signal that anything is wrong.
 
+### 4.3 Native/Loopback OAuth for Machine Clients
+
+§4.1's flow assumes a browser: the refresh token is delivered as an `HttpOnly` cookie
+specifically so no script can read it, and the SPA never sees its value either — it relies
+on the browser to attach the cookie automatically. A native process (a CLI, an MCP server —
+`war-mcp-spec.md` §4) has no cookie jar, so it has no way to complete that flow. This section
+adds a second, parallel entry point for exactly that kind of caller, following
+[RFC 8252](https://www.rfc-editor.org/rfc/rfc8252) ("OAuth 2.0 for Native Apps") and
+[RFC 7636](https://www.rfc-editor.org/rfc/rfc7636) (PKCE).
+
+**This is additive, not a variant of the existing flow.** §4.1's routes, cookie attributes,
+and state-cookie check are unchanged for every existing caller. The native flow is a
+structurally separate branch, reachable only by a caller who first calls the new `/login/native`
+endpoint below — an ordinary browser login can never take it by accident, and forging entry
+into it requires forging a signature only this API holds the key to (the `state` value,
+§4.3.2). **No new Google OAuth client registration is needed.** The native flow's "loopback
+redirect" is an application-level concept between the native client and this API; Google is
+never told about it and continues to see only this API's one, existing, registered HTTPS
+callback — the same one §4.1 already uses.
+
+#### 4.3.1 The round trip
+
+1. The native client starts a local HTTP listener on a loopback address it controls, generates
+   a PKCE `code_verifier` (kept in memory, never transmitted) and its `S256` `code_challenge`,
+   and opens the user's own system browser (never an automated one — §4.3.4) to:
+
+   `GET /auth/{provider}/login/native?redirect_uri=<loopback-uri>&code_challenge=<challenge>&code_challenge_method=S256`
+
+2. This API validates the request (§4.3.2), encodes `redirect_uri` and `code_challenge` into
+   a signed, short-lived `state` value, and redirects to the provider exactly as §4.1's
+   existing `/login` does — the Google-facing plumbing is identical and unmodified.
+3. The user completes the provider's own sign-in and consent UI, in their own real browser,
+   exactly as they would for the existing flow. This API never sees, touches, or automates
+   that step.
+4. The provider redirects back to this API's **existing, unmodified** `GET /auth/{provider}/callback`.
+   Because `state` decodes as a valid native-flow token, the callback takes a different
+   branch after a successful code exchange (§4.3.3) than it does for a browser login: instead
+   of setting the refresh cookie and redirecting to `${uiOrigins[0]}/auth/callback`, it mints
+   a short-lived, single-use **native authorization code** and redirects to the `redirect_uri`
+   decoded from `state`, carrying that code — never a usable credential (§4.3.4 explains why
+   this matters).
+5. The native client's loopback listener receives that redirect and exchanges the code at
+   `POST /auth/{provider}/token/native` (§4.3.3), presenting `code_verifier`. On success it
+   receives a JWT and refresh token in the response body and closes the listener.
+
+From this point on, the native client holds an ordinary refresh token, subject to the exact
+same rotation, reuse detection, and family revocation as any browser-issued one (§4.2) — it
+is not a second credential type, just a second way of obtaining the first one.
+
+#### 4.3.2 `GET /auth/{provider}/login/native`
+
+| Check (in order) | Failure |
+|---|---|
+| `provider` is not `google` | `404`, no body (same as `/login`) |
+| `redirect_uri` is absent | `400 { "error": "missing redirect_uri" }` |
+| `redirect_uri`'s scheme/host/port do not match `^http://(127\.0\.0\.1\|\[::1\]):\d+(/.*)?$` | `400 { "error": "redirect_uri must be a loopback address" }` |
+| `code_challenge` is absent | `400 { "error": "missing code_challenge" }` |
+| `code_challenge_method` is absent or not exactly `"S256"` | `400 { "error": "code_challenge_method must be S256" }` |
+
+`redirect_uri` deliberately excludes `localhost` — RFC 8252 §8.3 recommends an IP literal
+specifically because `localhost` is not guaranteed to resolve to the loopback interface on
+every system. `redirect_uri` **may carry its own query string**; it is stored and, in
+§4.3.3's final redirect, reproduced verbatim with `code=<value>` appended (`&` if a query
+string is already present, `?` otherwise) — a native client MAY embed its own opaque
+value there as an additional, self-checked defense, and this API neither requires nor
+inspects it.
+
+On success: encode `{ redirectUri, codeChallenge, nonce }` into a signed, opaque token
+(`jose`, already a dependency, is one reasonable way to produce a tamper-evident, self-contained
+value — this API prescribes no server-side session storage for it, consistent with §2's
+"stateless" principle) with a **10-minute** expiry, matching `/login`'s existing `oauth_state`
+cookie `maxAge`. Use it as the `state` parameter in the redirect to the provider — the
+existing `openid-client` call, unmodified.
+
+#### 4.3.3 The callback's native branch, and `POST /auth/{provider}/token/native`
+
+**Callback.** §4.1's four checks run in the same order, with one change to the state check:
+if `state` decodes and verifies as a signed native-flow token (§4.3.2), take the branch
+below; otherwise fall through to §4.1's existing plain cookie-comparison check, completely
+unchanged. An expired or tampered native-flow `state` is reported exactly as today's state
+mismatch is: `400 { "error": "state mismatch" }` — no new vocabulary for what is, at the
+level that matters, the same failure.
+
+On a successful code exchange with the provider (§4.1 #4's `502` still covers a failed
+exchange, for either branch) in the native branch:
+- Store a new row: a random opaque code (hashed at rest, like a refresh token, §6), the
+  decoded `code_challenge`, the decoded `redirect_uri`, the resulting `voter_id`, and a
+  **60-second** expiry.
+- Redirect (`302`) to the decoded `redirect_uri` with `code=<the new, plaintext, one-time code>`
+  appended per §4.3.2's rule.
+
+This code is never a bearer credential — a redirect URI (even a loopback one) is more
+exposed than a cookie or a response body (the same reasoning §4.1 already gives for putting
+no token in a URL), so the value that ever appears in one is single-use, 60 seconds from
+useless, and worthless without the `code_verifier` that never left the native client's memory.
+
+**`POST /auth/{provider}/token/native`** — body: `{ "code": "...", "code_verifier": "...", "redirect_uri": "..." }`
+
+| Check (in order) | Failure |
+|---|---|
+| `provider` is not `google` | `404` |
+| `code`, `code_verifier`, or `redirect_uri` is absent | `400 { "error": "missing <field>" }` |
+| No stored code matches `code`'s hash, or it is expired | `400 { "error": "invalid or expired code" }` |
+| The stored row's `redirect_uri` does not exactly match the request's | `400 { "error": "invalid or expired code" }` — same message as the row above; this API does not confirm a code's existence to a caller presenting the wrong `redirect_uri` |
+| `SHA256(code_verifier)` (base64url, unpadded) does not equal the stored `code_challenge` | `400 { "error": "invalid or expired code" }` — same message again, for the same reason |
+
+**The stored row is deleted on every path above that finds a matching row — including a
+failed PKCE check** — so one code can be redeemed at most once, successfully or not,
+exactly as an already-used refresh token is already treated as compromised (§4.2).
+
+On success: `200`, the same shape §7.1 already documents for the browser callback's `200`:
+```json
+{ "token": "<jwt>", "refresh_token": "<token>", "voter": { "id": "uuid", "display_name": "Jane", "avatar_url": "https://..." } }
+```
+No cookie is set on this route — its caller is a native process, not a browser tab, so there
+is nothing to set a cookie *on*; the credential a browser gets invisibly, this route hands
+back directly, in the one case where doing so does not create the page-script exposure §4.1
+exists to prevent.
+
+#### 4.3.4 What stays true of the existing browser flow
+
+- `GET /auth/{provider}/login`, its `oauth_state` cookie, and the refresh cookie's
+  `HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth` attributes (§4.1) are byte-for-byte
+  unchanged. The native flow adds routes; it does not touch these.
+- The callback's existing branch (a `state` value that is *not* a valid native-flow token)
+  runs exactly the checks and produces exactly the responses §4.1 already documents, in the
+  same order, with the same bodies.
+- Refresh-token rotation and reuse detection (§4.2) apply identically regardless of how a
+  refresh token was minted — a native-flow token is an ordinary family member, revocable the
+  same way (`DELETE /auth/session`, or a future moderation action against that family), not a
+  second credential type needing its own revocation path.
+- **The native flow never automates a sign-in.** The user completes the provider's real
+  login and consent UI in their own, ordinary, non-programmatically-controlled browser at
+  every step. This is what makes step 3 safe to leave unspecified further here: it is the
+  provider's UI, behaving exactly as it does for the existing flow, for a human who chose to
+  be there.
+
 ---
 
 ## 5. Core Domain Concepts
@@ -368,6 +505,19 @@ votes (
   UNIQUE (matchup_id, voter_id)                   -- one final vote per voter per pair (§9)
 )
 
+-- Single-use codes for the native/loopback OAuth exchange (§4.3), never a bearer credential
+native_auth_codes (
+  id               UUID PRIMARY KEY,
+  voter_id         UUID REFERENCES voters(id),
+  code_hash        TEXT NOT NULL,                -- SHA-256; plaintext exists only in the redirect
+  code_challenge   TEXT NOT NULL,                -- PKCE S256 challenge, verified at redemption
+  redirect_uri     TEXT NOT NULL,                -- must match exactly at redemption
+  expires_at       TIMESTAMPTZ NOT NULL,          -- 60 seconds from issuance
+  used_at          TIMESTAMPTZ,                   -- set on any redemption attempt, success or not
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (code_hash)
+)
+
 -- Indexes
 CREATE INDEX ON votes (voter_id, matchup_id);     -- unvoted-pair lookup (§7.4)
 CREATE INDEX ON refresh_tokens (family_id);       -- family revocation on reuse (§4.2)
@@ -376,6 +526,7 @@ CREATE INDEX ON matchups (war_id);
 CREATE INDEX ON contestants (war_id);
 CREATE INDEX ON wars (status, visibility);        -- browse/filter (§7.2)
 CREATE INDEX ON wars (ends_at) WHERE ends_at IS NOT NULL;  -- expiry sweep (§7.7)
+CREATE INDEX ON native_auth_codes (expires_at);   -- expiry cleanup (§4.3)
 
 -- Custom UI registry (see §10)
 ui_registrations (
@@ -451,6 +602,8 @@ In responses below this array is abbreviated as `media: [ … ]`.
 | `POST` | `/auth/refresh` | — | Exchange refresh token for new JWT |
 | `DELETE` | `/auth/session` | 🔒 | Logout / invalidate refresh token |
 | `GET` | `/auth/me` | 🔒 | Current voter profile |
+| `GET` | `/auth/{provider}/login/native` | — | Loopback OAuth for native/machine clients (§4.3) |
+| `POST` | `/auth/{provider}/token/native` | — | Exchange a native authorization code for JWT + refresh token (§4.3) |
 
 **`GET /auth/{provider}/callback` response `200`:**
 ```json
@@ -460,6 +613,9 @@ In responses below this array is abbreviated as `media: [ … ]`.
   "voter": { "id": "uuid", "display_name": "Jane", "avatar_url": "https://..." }
 }
 ```
+
+**`POST /auth/{provider}/token/native` response `200`:** identical shape to the above — see
+§4.3.3 for its request body and error cases.
 
 ---
 
@@ -1701,6 +1857,62 @@ Feature: OAuth Authentication
     And a subsequent refresh returns 401
 ```
 
+```gherkin
+Feature: Native/Loopback OAuth for Machine Clients
+
+  Scenario: A native login request is rejected for a non-loopback redirect_uri
+    Given a native login request with redirect_uri "https://evil.example/callback"
+    When GET /auth/google/login/native is called
+    Then the response status is 400
+
+  Scenario: A native login request without PKCE is rejected
+    Given a native login request with no code_challenge
+    When GET /auth/google/login/native is called
+    Then the response status is 400
+
+  Scenario: A completed native login redirects to the loopback address with a code
+    Given a native login request with a valid loopback redirect_uri and code_challenge
+    When the provider completes authentication and redirects to the callback
+    Then the browser is redirected to that redirect_uri with a code query parameter
+    And no refresh cookie is set
+
+  Scenario: The browser flow is unaffected by the native flow's existence
+    Given an ordinary browser login with no native state token
+    When the callback is invoked
+    Then the existing cookie-based behavior is unchanged
+
+  Scenario: A native code is exchanged for a JWT and refresh token
+    Given a valid, unexpired native authorization code and its matching code_verifier
+    When POST /auth/google/token/native is called
+    Then the response status is 200
+    And the response body contains a token and a refresh_token
+
+  Scenario: A native code cannot be redeemed twice
+    Given a native authorization code that has already been redeemed once
+    When POST /auth/google/token/native is called again with the same code
+    Then the response status is 400
+
+  Scenario: A native code is rejected with the wrong code_verifier
+    Given a valid, unexpired native authorization code
+    When POST /auth/google/token/native is called with an unrelated code_verifier
+    Then the response status is 400
+
+  Scenario: A native code is rejected when redeemed with a different redirect_uri
+    Given a valid, unexpired native authorization code issued for one redirect_uri
+    When POST /auth/google/token/native is called with a different redirect_uri
+    Then the response status is 400
+
+  Scenario: An expired native code is rejected
+    Given a native authorization code older than 60 seconds
+    When POST /auth/google/token/native is called with it
+    Then the response status is 400
+
+  Scenario: A native-flow refresh token is revocable exactly like a browser session's
+    Given a refresh token obtained via the native flow
+    When its family is revoked
+    Then a subsequent refresh with that token returns 401
+```
+
 ### Images
 
 ```gherkin
@@ -2256,6 +2468,10 @@ Core Voting Loop slice, live in both staging and production for both repos
   the API's own per-identity limits described here are not
 - Custom UI registry endpoints (§7.6, §10) — the `ui_registrations` table and `wars.ui_slug`
   column exist and are reserved; no endpoint reads or writes them yet
+- Native/loopback OAuth for machine clients (§4.3): `GET /auth/{provider}/login/native`,
+  `POST /auth/{provider}/token/native`, and the `native_auth_codes` table (§6) — specified as
+  this slice's `war-api` companion to `war-mcp-spec.md` §4, not yet built. The existing
+  browser flow (§4.1, §4.2) is unaffected either way.
 
 None of the above is inferred to be in scope from the data model's presence — a reserved
 column or table does not mean its feature is built.
