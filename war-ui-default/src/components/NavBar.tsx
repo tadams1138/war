@@ -7,7 +7,7 @@ import { Link, NavLink } from 'react-router-dom'
 import { getMe } from '../api/client'
 import { useAuth } from '../auth/context'
 import { useAsyncResource } from '../hooks/useAsyncResource'
-import { resolveVoterIdentity } from '../nav/voterIdentity'
+import { resolveVoterIdentity } from './voterIdentity'
 
 export function NavBar() {
   const { isAuthenticated } = useAuth()
@@ -38,7 +38,7 @@ function AuthenticatedNavLinks() {
         {identity.avatarUrl && <img src={identity.avatarUrl} alt="" />}
         {identity.displayName}
       </span>
-      <button type="button" data-testid="nav-logout" onClick={() => void logout()}>
+      <button type="button" data-testid="nav-logout" onClick={logout}>
         Log out
       </button>
     </>

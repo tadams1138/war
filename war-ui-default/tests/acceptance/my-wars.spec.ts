@@ -77,7 +77,7 @@ test('No Wars created yet', async ({ page }) => {
 
   // Assert
   await expect(page.getByTestId('empty-state')).toBeVisible()
-  await expect(page.getByTestId('create-war-cta')).toBeVisible()
+  await expect(page.getByTestId('my-wars-create-war-cta')).toBeVisible()
 })
 
 test('My Wars requires authentication', async ({ page }) => {

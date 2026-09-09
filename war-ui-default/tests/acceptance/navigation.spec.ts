@@ -11,9 +11,12 @@ test('An anonymous visitor sees only anonymous navigation', async ({ page }) => 
   // Arrange / Act
   await page.goto('/')
 
-  // Assert
+  // Assert — visibility alone does not prove reachability; the destination
+  // is the assertion the Gherkin's "a link to /login" actually makes.
   await expect(nav(page).getByRole('link', { name: 'Home' })).toBeVisible()
+  await expect(nav(page).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
   await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible()
+  await expect(nav(page).getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login')
   await expect(nav(page).getByRole('link', { name: 'My Wars' })).toHaveCount(0)
   await expect(nav(page).getByRole('link', { name: 'Create War' })).toHaveCount(0)
   await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
@@ -53,11 +56,11 @@ test('A voter with no display name on file is shown a fallback', async ({ page }
   // Act
   await navigateAuthenticated(page, '/')
 
-  // Assert — a fixed, non-blank fallback label, never the literal "null"
-  // or an empty identity slot.
+  // Assert — a fixed, non-blank fallback label, never the literal "null",
+  // an empty identity slot, or an internal id leaking into the header.
   const identity = nav(page).getByTestId('nav-identity')
   await expect(identity).toBeVisible()
-  await expect(identity).not.toHaveText('')
+  await expect(identity).toHaveText('Voter')
   await expect(identity).not.toContainText('null')
 })
 
@@ -99,10 +102,23 @@ for (const { page: pageLabel, path } of REACHABILITY_ROWS) {
 
     // Assert — scoped to the nav landmark, not the page, so a same-named
     // in-page CTA (e.g. MyWars's or Home's own "Create a War" link) cannot
-    // satisfy this assertion in NavBar's place.
+    // satisfy this assertion in NavBar's place. Visibility alone does not
+    // prove reachability — asserting each link's href is the destination
+    // the Gherkin's "a link to My Wars"/"a link to create a War" claims.
     await expect(nav(page).getByRole('link', { name: 'Home' })).toBeVisible()
+    await expect(nav(page).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
     await expect(nav(page).getByRole('link', { name: 'My Wars' })).toBeVisible()
+    await expect(nav(page).getByRole('link', { name: 'My Wars' })).toHaveAttribute('href', '/my-wars')
     await expect(nav(page).getByRole('link', { name: 'Create War' })).toBeVisible()
+    await expect(nav(page).getByRole('link', { name: 'Create War' })).toHaveAttribute('href', '/wars/new')
+
+    // On this one row, also prove the link actually navigates — an href
+    // assertion alone would still pass a link nobody can click.
+    if (path === '/') {
+      await nav(page).getByRole('link', { name: 'Create War' }).click()
+      await page.waitForURL('**/wars/new')
+      await expect(page.getByRole('heading', { name: 'Create a War' })).toBeVisible()
+    }
   })
 }
 
@@ -115,9 +131,12 @@ test('The current page is indicated in the navigation', async ({ page }) => {
   // Act
   await navigateAuthenticated(page, '/my-wars')
 
-  // Assert
+  // Assert — §6 says the other two links are unmarked; Home is included
+  // alongside Create War so dropping NavLink's `end` (which would make
+  // Home match every route) does not slip through unnoticed.
   await expect(nav(page).getByRole('link', { name: 'My Wars' })).toHaveAttribute('aria-current', 'page')
   await expect(nav(page).getByRole('link', { name: 'Create War' })).not.toHaveAttribute('aria-current', 'page')
+  await expect(nav(page).getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current', 'page')
 })
 
 test("Logging out returns the navigation to its anonymous state", async ({ page }) => {
@@ -134,4 +153,29 @@ test("Logging out returns the navigation to its anonymous state", async ({ page 
   await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible()
   await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
   await expect(nav(page).getByTestId('nav-logout')).toHaveCount(0)
+})
+
+test('A failed server-side logout still logs the voter out locally', async ({ page }) => {
+  // Arrange — war-ui-default-spec.md §8, "Logout always succeeds from the
+  // voter's point of view": a failing DELETE /auth/session must not gate,
+  // delay, or surface an error for the client-side effect. The delay below
+  // is what gives this test teeth against the "delay" half of that
+  // requirement, not just the "fail" half — a fix that still awaits the
+  // request before clearing local state would pass a 503 fixture with no
+  // delay just as easily, but would miss this tight timeout.
+  await useScenario(page, [{ method: 'DELETE', path: `${API}/auth/session`, responses: [{ status: 503, delayMs: 3000 }] }])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/')
+  await expect(nav(page).getByTestId('nav-logout')).toBeVisible()
+
+  // Act
+  await nav(page).getByTestId('nav-logout').click()
+
+  // Assert — the client-side effect happens immediately, well before the
+  // 3s server response, and never surfaces an error.
+  await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible({ timeout: 500 })
+  await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
+  await expect(nav(page).getByTestId('nav-logout')).toHaveCount(0)
+  await expect(page.getByRole('alert')).toHaveCount(0)
 })

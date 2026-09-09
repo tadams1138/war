@@ -52,7 +52,7 @@ function HomeEmptyState({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <div data-testid="empty-state">
       <p>No active Wars right now — create one to get started.</p>
-      <Link to="/wars/new" data-testid="create-war-cta">
+      <Link to="/wars/new" data-testid="home-create-war-cta">
         Create a War
       </Link>
     </div>
