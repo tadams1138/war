@@ -23,10 +23,7 @@ export type UploadValidationResult = { ok: true } | { ok: false; reason: string 
 
 /**
  * Maps an upload's MIME type to the file extension its original is stored
- * under (spec §11.1). Shared by the multipart REST route
- * (`contestants/routes.ts`) and the MCP `upload_image` tool (§7.9), which
- * decodes base64 bytes instead of reading a multipart file but stores the
- * result identically from this point on.
+ * under. Used by the multipart upload route (`contestants/routes.ts`).
  */
 export function extensionFor(mimeType: string): string {
   switch (mimeType) {

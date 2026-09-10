@@ -52,12 +52,6 @@ export interface RefreshTokensTable {
   voter_id: string;
   family_id: string;
   token_hash: string;
-  /**
-   * RFC 8707 audience this family is bound to (spec §4.2, §4.3.7) -- NULL
-   * for an ordinary browser session, set once at issuance for an AS-minted
-   * family (§4.3) and never changed afterwards.
-   */
-  resource: string | null;
   expires_at: Timestamp;
   used_at: Timestamp | null;
   revoked_at: Timestamp | null;
@@ -107,19 +101,6 @@ export interface VotesTable {
   created_at: GeneratedTimestamp;
 }
 
-export interface AuthorizationCodesTable {
-  id: string;
-  voter_id: string;
-  client_id: string;
-  code_hash: string;
-  code_challenge: string;
-  redirect_uri: string;
-  resource: string;
-  expires_at: Timestamp;
-  used_at: Timestamp | null;
-  created_at: GeneratedTimestamp;
-}
-
 export interface Database {
   voters: VotersTable;
   wars: WarsTable;
@@ -129,5 +110,4 @@ export interface Database {
   matchups: MatchupsTable;
   war_memberships: WarMembershipsTable;
   votes: VotesTable;
-  authorization_codes: AuthorizationCodesTable;
 }
