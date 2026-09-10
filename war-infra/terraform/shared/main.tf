@@ -113,7 +113,7 @@ resource "cloudflare_ruleset" "firewall" {
   phase   = "http_request_firewall_custom"
 
   # Internal task endpoints are reachable only by the scheduler, which calls the
-  # App Platform origin directly rather than through this hostname (spec §12.3).
+  # App Platform origin directly rather than through this hostname (spec).
   rules {
     description = "Block internal task endpoints from the public internet"
     expression  = "(starts_with(http.request.uri.path, \"/api/v1/internal/\"))"
@@ -121,7 +121,7 @@ resource "cloudflare_ruleset" "firewall" {
     enabled     = true
   }
 
-  # Originals exist only for reprocessing and are never served (spec §11).
+  # Originals exist only for reprocessing and are never served (spec).
   rules {
     description = "Block direct access to unprocessed image originals"
     expression  = "(starts_with(http.request.uri.path, \"/media/originals/\"))"
@@ -131,7 +131,7 @@ resource "cloudflare_ruleset" "firewall" {
 }
 
 # Volumetric shedding only. Per-voter limits live in the API, which can decode
-# the JWT the edge cannot (spec §9.4 of war-api-spec.md).
+# the JWT the edge cannot (spec).
 #
 # Free plan permits exactly one rule in the http_ratelimit phase per zone
 # (apply fails outright past that — "exceeded the maximum number of rules").
@@ -173,7 +173,7 @@ resource "cloudflare_ruleset" "cache" {
   phase   = "http_request_cache_settings"
 
   # API responses are uncacheable by default. The rankings endpoint is the
-  # deliberate exception and sets its own Cache-Control (spec §7.5 of the API
+  # deliberate exception and sets its own Cache-Control (per the API
   # spec), which the edge honours because this rule does not override it.
   #
   # No rule here for /media/* — it used to set cache = true / respect_origin,

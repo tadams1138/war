@@ -1,5 +1,5 @@
 # War — production environment
-# See specs/war-infra-spec.md §3. Same composition as staging, with larger
+# See specs/war-spec.md. Same composition as staging, with larger
 # sizing and a standby database node.
 
 terraform {
@@ -31,7 +31,7 @@ locals {
 }
 
 # ── Credentials ───────────────────────────────────────────────────────────────
-# Supplied by the pipeline as TF_VAR_* from GitHub Actions secrets (spec §9).
+# Supplied by the pipeline as TF_VAR_* from GitHub Actions secrets (spec).
 
 variable "do_token" {
   type      = string
@@ -87,7 +87,7 @@ module "data" {
 
   env        = local.env
   node_size  = "db-s-1vcpu-2gb"
-  node_count = 2 # primary + standby for HA (spec §5.3)
+  node_count = 2 # primary + standby for HA (spec)
   pool_size  = 40
 
   trusted_app_id = module.compute.app_id
@@ -160,7 +160,7 @@ module "scheduler" {
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # app_id is consumed by the deploy pipelines as the DO_APP_ID environment
-# variable (spec §15.7).
+# variable (spec).
 
 output "app_id" {
   value = module.compute.app_id

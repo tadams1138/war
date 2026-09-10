@@ -11,7 +11,7 @@ export interface RankedContestant {
 }
 
 /**
- * Ranks contestants by raw win count (spec §9). Ties are broken by fewer
+ * Ranks contestants by raw win count (spec). Ties are broken by fewer
  * appearances, then alphabetically by name. Contestants with zero
  * appearances are unranked (`rank: null`) and sort after every ranked
  * contestant.

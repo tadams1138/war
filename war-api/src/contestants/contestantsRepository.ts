@@ -82,7 +82,7 @@ export async function listContestantsByWar(db: Kysely<Database>, warId: string):
 
 /**
  * Batches each War's contestant count into one query, keyed by War id (spec
- * §11.2.1's `contestant_count` on `WarSummary`) -- mirrors
+ * the spec's `contestant_count` on `WarSummary`) -- mirrors
  * `listMediaByContestants`'s batching pattern above for the same N+1 reason
  * a page of Wars would otherwise pay. Counts every `contestants` row
  * regardless of status (there is none to filter on), so a `draft` War's

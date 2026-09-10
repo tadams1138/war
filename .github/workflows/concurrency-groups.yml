@@ -1,5 +1,6 @@
-# Concurrency group isolation guard — see specs/war-infra-spec.md §20.8 and
-# §19 "Feature: Concurrency Group Isolation"
+# Concurrency group isolation guard — see specs/war-spec.md, "Operational
+# constraints", and war-infra/specs/features/pending/routing.feature,
+# "Feature: Concurrency Group Isolation".
 #
 # api.yml and ui-default.yml once declared identical `deploy-staging` /
 # `deploy-production` concurrency groups. GitHub retains only one *pending*

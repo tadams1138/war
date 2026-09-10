@@ -1,6 +1,6 @@
 // Renders the resolved `attributes` array from the API as a simple
-// label/value list, in the order the array supplies (war-ui-default-spec.md
-// §6). Used on the War detail page's contestant gallery only. It has no
+// label/value list, in the order the array supplies (the spec). Used on
+// the War detail page's contestant gallery only. It has no
 // knowledge of what the fields mean — a pageant's Country/Age/Height and a
 // primary's Party/State/Office render through the identical component.
 // Fields the contestant omitted are simply absent from `attributes` — the

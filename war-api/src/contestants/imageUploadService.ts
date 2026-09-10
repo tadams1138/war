@@ -25,7 +25,7 @@ export interface UploadImageInput {
 /**
  * Uploads a contestant image: validate → re-encode into WebP variants,
  * stripping EXIF → write variants (public) and original (private) to object
- * storage → persist the media row (spec §11.1, §8.3). Runs synchronously
+ * storage → persist the media row (spec). Runs synchronously
  * within the request, as specified.
  */
 export async function uploadContestantImage(

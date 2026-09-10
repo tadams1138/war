@@ -11,7 +11,7 @@ export interface ContestantMedia {
   originalExt: string | null;
   width: number | null;
   height: number | null;
-  /** The variant widths actually written at upload time (spec §11.1), or
+  /** The variant widths actually written at upload time (spec), or
    * null for rows predating this column — the presenter falls back to
    * filtering today's config for those. */
   variantWidths: number[] | null;

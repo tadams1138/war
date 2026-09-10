@@ -12,7 +12,7 @@ import type { Matchup } from '../../src/matchups/matchupsRepository.js';
  * UNIQUE constraint as arbiter, so it runs against the real database rather
  * than a mock.
  */
-describe('castVote concurrency (spec §8.4 idempotent retry)', () => {
+describe('castVote concurrency (spec, idempotent retry)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

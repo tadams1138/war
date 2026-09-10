@@ -1,4 +1,4 @@
-# Scheduled tasks — see specs/war-infra-spec.md §12, §15.4
+# Scheduled tasks — see specs/war-spec.md
 #
 # App Platform jobs are deploy-lifecycle only (PRE_DEPLOY / POST_DEPLOY /
 # FAILED_DEPLOY) and provide no cron scheduling, so the scheduler role is filled

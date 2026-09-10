@@ -6,7 +6,7 @@ import { warSummarySchema } from '../wars/warPresenter.js';
 
 /**
  * Registers the four `$id`-bearing response body schemas the Core Voting
- * Loop slice shares across routes (spec §11.2.1) so route schemas can
+ * Loop slice shares across routes (spec) so route schemas can
  * `$ref` them by name. Must run before any route registration that
  * references them (mirrors `registerOpenApiPlugin`'s own ordering
  * requirement -- both are called from `src/app.ts` before any route).

@@ -45,8 +45,8 @@ export const contestantViewSchema = {
 };
 
 /**
- * The response body JSON Schema for {@link ContestantDetailView} (spec
- * §11.2.1). Registered under `$id: "ContestantDetail"`
+ * The response body JSON Schema for {@link ContestantDetailView} (spec).
+ * Registered under `$id: "ContestantDetail"`
  * (`registerSharedSchemas`, `src/openapi/schemas.ts`) and `$ref`s the
  * `ResolvedAttribute`/`MediaItem` schemas by name rather than importing
  * their JS objects, so this module needs no new dependency on

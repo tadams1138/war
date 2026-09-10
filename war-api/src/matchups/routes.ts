@@ -14,7 +14,7 @@ import { nextMatchupForVoter, nextMatchupResponseSchema } from './matchupsServic
  * shape used for its other 4xx responses. Produced for a malformed body
  * (missing or non-UUID `winner_id`) before the handler ever runs, so
  * `castVoteForVoter`'s own `invalidWinner` (422) is never reached in that
- * case. Verified against Fastify 5.11.0; transcribed into spec §11.2.1.
+ * case. Verified against Fastify 5.11.0; transcribed into spec.
  */
 const validationErrorResponseSchema = {
   type: 'object',
@@ -45,7 +45,7 @@ export interface VoteForbiddenView {
  * This route's `403` -- unlike its other `{ error }`-only 4xx responses --
  * also carries a `reason` discriminator so a client can branch on which of
  * the two forbidden causes occurred without matching `error`'s message text
- * (spec §11.2.1 addendum, 2026-08-30). Scoped to this route only: `POST
+ * (spec, addendum, 2026-08-30). Scoped to this route only: `POST
  * /wars/:id/join`'s `403` has a single cause and stays on the shared
  * `errorResponseSchema`.
  */

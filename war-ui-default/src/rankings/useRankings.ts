@@ -1,6 +1,6 @@
-// The Rankings page's state machine (war-ui-default-spec.md §4, §6, §12):
+// The Rankings page's state machine (the spec):
 // fetches the leaderboard, then polls every 30 seconds while the War's
-// `status` (spec §7.5's effective_status) is "active", stopping the moment
+// `status` (the spec's effective_status) is "active", stopping the moment
 // it isn't. Extracted out of the page component so that one renders only,
 // matching useVoteSession's split for VoteMode.
 import { useEffect, useState } from 'react'
@@ -33,7 +33,7 @@ export function useRankings(warId: string | undefined): RankingsState {
       timer = window.setTimeout(() => void load(id, true), POLL_INTERVAL_MS)
     }
 
-    // §6, RankingsTable: a failed poll after a first successful load keeps
+    // RankingsTable: a failed poll after a first successful load keeps
     // the last-loaded board on screen and keeps polling on the same
     // schedule; only a failure on the initial load (nothing yet shown)
     // surfaces the standard error state. Split out of load() itself to

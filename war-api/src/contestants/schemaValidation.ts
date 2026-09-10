@@ -32,7 +32,7 @@ function err(errors: string[]): ValidationErr {
 }
 
 /**
- * Validates a War's `contestant_schema` declaration (spec §6).
+ * Validates a War's `contestant_schema` declaration (spec).
  */
 export function validateSchemaDefinition(schema: unknown): ValidationResult<ContestantSchemaField[]> {
   if (!Array.isArray(schema)) {
@@ -109,7 +109,7 @@ function validateValueForType(field: ContestantSchemaField, value: unknown): str
 
 /**
  * Validates a contestant's `attributes` object against the War's declared
- * `contestant_schema` (spec §8.3). Every field is optional; a key outside the
+ * `contestant_schema` (spec). Every field is optional; a key outside the
  * schema, or a value of the wrong type, is rejected.
  */
 export function validateAttributes(
@@ -145,8 +145,8 @@ export interface ResolvedAttribute {
 }
 
 /**
- * The response body JSON Schema for {@link ResolvedAttribute} (spec
- * §11.2.1). Registered under `$id: "ResolvedAttribute"`
+ * The response body JSON Schema for {@link ResolvedAttribute} (spec).
+ * Registered under `$id: "ResolvedAttribute"`
  * (`registerSharedSchemas`, `src/openapi/schemas.ts`). Kept beside the
  * interface it mirrors -- see {@link mediaItemSchema} for why.
  */
@@ -164,7 +164,7 @@ export const resolvedAttributeSchema = {
 
 /**
  * Resolves stored attributes against the schema so responses carry labels,
- * types, and values in schema order (spec §8.3). Keys the contestant never
+ * types, and values in schema order (spec). Keys the contestant never
  * supplied are omitted.
  */
 export function resolveAttributes(

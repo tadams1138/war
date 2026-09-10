@@ -160,7 +160,7 @@ export async function patchWar(
 
 export type ActivateOutcome = MutationOutcome<War>;
 
-/** draft → active: requires ≥2 contestants, each with ≥1 image (spec §8.2). */
+/** draft → active: requires ≥2 contestants, each with ≥1 image (spec). */
 export async function activateWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<ActivateOutcome> {
   const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;

@@ -1,5 +1,5 @@
-// Binary matchup voting, image mode only (war-ui-default-spec.md §4, §6,
-// §12). Navigating here silently joins the War before the first matchup is
+// Binary matchup voting, image mode only (the spec). Navigating here
+// silently joins the War before the first matchup is
 // requested — there is no visible Join control. Rendering only; the vote
 // session's state machine lives in useVoteSession.
 import { Link, useParams } from 'react-router-dom'

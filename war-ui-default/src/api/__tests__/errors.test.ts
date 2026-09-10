@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError, messageForReason, toUserMessage } from '../errors'
 
 describe('messageForReason', () => {
-  it('maps each reason to the exact copy in the spec\'s §8 table', () => {
+  it('maps each reason to the exact copy in the spec\'s table', () => {
     // Arrange / Act / Assert
     expect(messageForReason('unauthorized')).toBe('Please log in to continue')
     expect(messageForReason('war-closed')).toBe('This War is locked — voting is closed')

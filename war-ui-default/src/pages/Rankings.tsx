@@ -1,6 +1,6 @@
-// The leaderboard page (war-ui-default-spec.md §4, §6, §12). No
+// The leaderboard page (the spec). No
 // authentication required for a public War; an invite-only War's 401
-// (§8) is handled entirely by api/client.ts's existing unauthorized
+// is handled entirely by api/client.ts's existing unauthorized
 // pipeline — it clears the token and redirects to /login with the
 // "Please log in to continue" message, the same path every other 401 in
 // this app already takes.

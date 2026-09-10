@@ -20,7 +20,7 @@ export interface ContestantsRouteDeps {
 
 /**
  * The response body JSON Schema for `POST /wars/:id/contestants/:cId/images`'s
- * `201` (spec §11.2.1) — the route's own literal `{ id, display_order }`
+ * `201` (spec) — the route's own literal `{ id, display_order }`
  * object, narrower than the full `MediaItem` shape: the caller already has
  * the file it just uploaded and needs only the assigned id and order back.
  */
@@ -35,7 +35,7 @@ const imageUploadResponseSchema = {
 
 /**
  * The response body JSON Schema for `POST /wars/:id/contestants/:cId/images`'s
- * `422` (spec §11.2.1) -- this route's own three validation failures produce
+ * `422` (spec) -- this route's own three validation failures produce
  * two distinct shapes sharing this one status: the no-file case sends a
  * plain `{ error }`, while the too-many-images and unreadable-upload cases
  * go through `replyForOutcome`'s validationError branch and send
@@ -138,7 +138,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
         // validation-error shape's only actionable text) and not
         // validationErrorResponseSchema (`details` required -- rejects the
         // no-file shape, which has none). This route's three 422s produce
-        // two distinct bodies sharing the one status (spec §11.2.1); see
+        // two distinct bodies sharing the one status (spec); see
         // imageUploadErrorResponseSchema above.
         422: imageUploadErrorResponseSchema,
       },

@@ -1,4 +1,4 @@
-// The core voting UI (war-ui-default-spec.md §6). The API decides which
+// The core voting UI (the spec). The API decides which
 // contestant is left and which is right — this renders that order verbatim
 // and must never reorder the pair.
 import type { NextMatchupResponse } from '../api/client'

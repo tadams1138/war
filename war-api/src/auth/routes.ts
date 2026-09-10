@@ -7,7 +7,7 @@ const REFRESH_COOKIE = 'refresh_token';
 const STATE_COOKIE = 'oauth_state';
 const AUTH_COOKIE_PATH = '/api/v1/auth';
 
-/** The `{ error, reason }` body check #1 of §4.1's "Callback failure responses" table returns. */
+/** The `{ error, reason }` body check #1 of the spec's "Callback failure responses" table returns. */
 export interface OAuthDeclinedView {
   error: 'authorization declined';
   reason: string;
@@ -15,7 +15,7 @@ export interface OAuthDeclinedView {
 
 /**
  * Unlike `voteForbiddenResponseSchema` (matchups/routes.ts), `reason` here
- * is not a closed `enum`: spec §4.1 #1 passes the OAuth provider's `error`
+ * is not a closed `enum`: spec passes the OAuth provider's `error`
  * parameter through verbatim, since the set of codes a provider can send is
  * not this API's vocabulary to close off.
  */
@@ -46,7 +46,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
   app.get<{ Params: { provider: string } }>(
     '/auth/:provider/login',
     // Success is a bare 302 redirect (no body); the only bodied outcome is
-    // an unsupported provider's 404 (spec §11.2.1 discrepancy 2: "confirmed
+    // an unsupported provider's 404 (spec, discrepancy 2: "confirmed
     // redirect-or-empty-404 only -- no body to schema on that route").
     { schema: { response: { 404: {} } } },
     async (request, reply) => {
@@ -61,9 +61,9 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
 
   app.get<{ Params: { provider: string }; Querystring: { code?: string; state?: string; error?: string } }>(
     '/auth/:provider/callback',
-    // Success is a redirect with no body (spec §11.2.1 discrepancy 1: the
-    // stale §7.1 200-body example is superseded by §4.1's cookie flow).
-    // The four failure responses are spec §4.1's "Callback failure
+    // Success is a redirect with no body (spec, discrepancy 1: the
+    // stale 200-body example is superseded by the spec's cookie flow).
+    // The four failure responses are the spec's "Callback failure
     // responses" table, checked in that exact order below.
     { schema: { response: { 400: errorResponseSchema, 403: oauthDeclinedResponseSchema, 502: errorResponseSchema } } },
     async (request, reply) => {
@@ -72,7 +72,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
       }
       const { code, state, error } = request.query;
 
-      // #1 -- the provider declined to grant what was asked (spec §4.1 #1).
+      // #1 -- the provider declined to grant what was asked (spec).
       // Checked first and independent of the state cookie: no code is ever
       // exchanged on this branch, so there is nothing for state validation
       // to protect. An empty `error` (`?error=`) is treated as absent.
@@ -98,13 +98,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
       const callbackUrl = new URL(config.googleRedirectUri);
       callbackUrl.search = new URL(request.url, config.googleRedirectUri).search;
 
-      // #4 -- the error boundary is scoped to the exchange call alone (spec
-      // §4.1 #4). Whatever completeCallback does afterwards (voter upsert,
+      // #4 -- the error boundary is scoped to the exchange call alone
+      // (spec). Whatever completeCallback does afterwards (voter upsert,
       // refresh-token issuance) runs outside this check, so a failure there
       // keeps surfacing as an unmapped 500, exactly as before.
       const exchange = await exchangeGoogleCode(deps, { callbackUrl });
       if (exchange.kind === 'exchangeFailed') {
-        // The 502 body stays deliberately vague (spec §4.1 #4: none of this
+        // The 502 body stays deliberately vague (spec: none of this
         // is safe to show verbatim) -- but the real cause is still worth a
         // server-side record. `request.log` is Fastify's no-op logger under
         // this app's current `logger: false`, so this costs nothing today
@@ -117,7 +117,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
       void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, refreshCookieOptions());
       void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
 
-      // No token of any kind in the redirect (spec §5.1).
+      // No token of any kind in the redirect (spec).
       return reply.redirect(`${config.uiOrigins[0]}/auth/callback`);
     },
   );

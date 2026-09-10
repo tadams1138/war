@@ -38,7 +38,7 @@ test('A voter completes the wizard and activates the War', async ({ page }) => {
     { method: 'POST', path: `${API}/wars/${WAR_ID}/contestants/contestant-2/images`, responses: [{ status: 201, body: { id: 'image-2', display_order: 0 } }] },
     { method: 'POST', path: `${API}/wars/${WAR_ID}/activate`, responses: [{ status: 200, body: activatedWar }] },
     // The post-activation redirect lands on VoteMode, which joins and
-    // requests the first matchup on mount (§6) — stub both so that page
+    // requests the first matchup on mount — stub both so that page
     // renders cleanly rather than surfacing an unrelated error.
     { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 204 }] },
@@ -56,7 +56,7 @@ test('A voter completes the wizard and activates the War', async ({ page }) => {
   await expect(page.getByTestId('review-contestant')).toHaveCount(2)
 
   // Review shows the War's own metadata, carried through from POST /wars's
-  // response rather than re-fetched (spec §6)
+  // response rather than re-fetched (spec)
   await expect(page.getByTestId('review-title')).toHaveText('Miss Universe 2026')
   await expect(page.getByTestId('review-category')).toHaveText('Pageant')
   await expect(page.getByTestId('review-visibility')).toHaveText('public')
@@ -150,7 +150,7 @@ test('Activation is blocked with fewer than 2 contestants', async ({ page }) => 
   // Act
   await page.getByTestId('activate-submit').click()
 
-  // Assert — the API's own validation message is shown verbatim (§6's
+  // Assert — the API's own validation message is shown verbatim (the spec's
   // deliberate exception to the generic 422 copy), and the wizard stayed
   // put rather than redirecting to the vote page
   await expect(page.getByTestId('activate-error')).toContainText('a War needs at least 2 contestants to activate')

@@ -1,5 +1,5 @@
 // Typed errors thrown by api/client.ts and the user-facing copy they map to.
-// war-ui-default-spec.md §8, filtered to the endpoints this slice calls
+// Per the spec, filtered to the endpoints this slice calls
 // (wars list, war detail, next-matchup, cast-vote, join, auth).
 
 export type ApiErrorReason =
@@ -17,12 +17,12 @@ export class ApiError extends Error {
   readonly reason: ApiErrorReason
   readonly status: number
   readonly retryAfterSeconds?: number
-  // The `{ error, details }` shape's `details` array (war-api-spec.md
-  // §11.2.1), when the failing response carried one. Populated only for a
+  // The `{ error, details }` shape's `details` array (the spec), when the
+  // failing response carried one. Populated only for a
   // 'validation' reason whose body actually has it — most callers ignore
-  // this and use `message` instead (§8's generic 422 copy); the CreateWar
+  // this and use `message` instead (the spec's generic 422 copy); the CreateWar
   // wizard's Activate step is the one deliberate exception that surfaces it
-  // verbatim (war-ui-default-spec.md §6).
+  // verbatim (the spec).
   readonly details?: string[]
 
   constructor(reason: ApiErrorReason, status: number, message: string, retryAfterSeconds?: number, details?: string[]) {
@@ -35,7 +35,7 @@ export class ApiError extends Error {
   }
 }
 
-// Pure mapping from a typed reason to the exact user-facing copy in §8's
+// Pure mapping from a typed reason to the exact user-facing copy in the spec's
 // table. `conflict` has no message — MatchupView advances silently instead.
 export function messageForReason(reason: ApiErrorReason, retryAfterSeconds?: number): string {
   switch (reason) {

@@ -17,7 +17,7 @@ export interface BegunLogin {
 }
 
 /**
- * Drives the login leg only (spec §5.1's step 1) and stops before the
+ * Drives the login leg only (the spec's step 1) and stops before the
  * callback -- the shared setup every "begin a login, then do something
  * callback-shaped" test needs (design review finding 7: this used to be
  * three near-identical local copies).
@@ -42,7 +42,7 @@ export async function beginLogin(harness: TestHarness): Promise<BegunLogin> {
 }
 
 /**
- * Drives the real login → callback flow (spec §5.1) against the app, with
+ * Drives the real login → callback flow (spec) against the app, with
  * only the Google network hop stubbed. Returns the refresh-token cookie
  * value the callback set.
  */

@@ -31,7 +31,7 @@ for (const { group, files } of violations) {
     `::error::concurrency group "${group}" is declared by more than one workflow file ` +
       `(${files.join(', ')}). Each pipeline needs its own group — a shared group lets a ` +
       `job queued at an approval gate be silently evicted by the other pipeline's job ` +
-      `entering the same group. See specs/war-infra-spec.md §20.8.`,
+      `entering the same group. See specs/war-spec.md.`,
   );
 }
 

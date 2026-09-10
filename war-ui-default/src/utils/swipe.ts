@@ -1,5 +1,5 @@
 // Swipe-vs-tap gesture disambiguation for ImageCarousel
-// (war-ui-default-spec.md §6). Ambiguity must always resolve toward
+// (the spec). Ambiguity must always resolve toward
 // "swipe", never toward "vote" — a mis-fired vote is unrecoverable.
 export const SWIPE_THRESHOLD_PX = 10
 

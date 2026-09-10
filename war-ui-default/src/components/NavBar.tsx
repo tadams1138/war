@@ -1,4 +1,4 @@
-// Persistent navigation header (war-ui-default-spec.md §4, §6 "NavBar").
+// Persistent navigation header (the spec, "NavBar").
 // Rendered once by App's shell, wrapping every route including the
 // RequireAuth-protected ones — see App.tsx. NavBar itself reads only
 // useAuth().isAuthenticated to choose between two fixed content sets; it
@@ -24,7 +24,7 @@ export function NavBar() {
 
 // Fetched once per authenticated session — `isAuthenticated` only changes
 // on login/logout, not on navigation, so this effect does not refire on
-// every route change (§6, "Identity").
+// every route change ("Identity").
 function AuthenticatedNavLinks() {
   const { logout } = useAuth()
   const identityState = useAsyncResource(() => getMe(), [])

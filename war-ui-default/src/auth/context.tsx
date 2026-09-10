@@ -1,4 +1,4 @@
-// Auth state (JWT held in memory only — war-ui-default-spec.md §2, §7).
+// Auth state (JWT held in memory only — the spec).
 // The token itself lives in api/authState.ts (a plain module, so
 // api/client.ts can read/write it outside React); this provider mirrors
 // "is there a token" into React state so components can react to it, and
@@ -32,8 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(true)
   }, [])
 
-  // Logout always succeeds from the voter's point of view (§8, "Logout
-  // always succeeds from the voter's point of view"): the local state
+  // Logout always succeeds from the voter's point of view: the local state
   // change happens unconditionally and is never gated, delayed, or
   // reversed by DELETE /auth/session's outcome. The request is still
   // attempted best-effort — apiLogout() clears the token itself and never
@@ -49,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     registerUnauthorizedHandler(() => {
       setIsAuthenticated(false)
       // reason=session-expired lets /login show "Please log in to
-      // continue" (§8) — the page that triggered the 401 is about to be
+      // continue" — the page that triggered the 401 is about to be
       // torn down by this navigation, so it cannot reliably show that
       // message itself.
       navigate(loginUrlFor(returnToFromLocation(), 'session-expired'))

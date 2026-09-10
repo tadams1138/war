@@ -1,4 +1,4 @@
-// The CreateWar wizard's Review step view (war-ui-default-spec.md §6).
+// The CreateWar wizard's Review step view (the spec).
 // Rendering only -- state and API calls live in useCreateWarWizard.
 import type { WizardState } from './useCreateWarWizard'
 
@@ -32,7 +32,7 @@ export function ReviewStepView({ state, onActivate }: { state: ReviewState; onAc
           <li key={contestant.id} data-testid="review-contestant">
             <span>{contestant.name}</span>
             {/* An indicator only, never the image itself: the images
-                endpoint returns no URL (war-ui-default-spec.md §6), so
+                endpoint returns no URL (the spec), so
                 nothing the wizard holds after an upload can be rendered
                 as an <img>. */}
             {contestant.hasImage ? (

@@ -1,7 +1,7 @@
-# Managed PostgreSQL — see specs/war-infra-spec.md §5.3
+# Managed PostgreSQL — see specs/war-spec.md
 #
 # The connection pooler is the reason this module exists as more than a single
-# resource. The API must connect through PgBouncer, never directly: §13 of the
+# resource. The API must connect through PgBouncer, never directly: the
 # spec alerts on pool utilisation, and App Platform's instance counts multiplied
 # by a per-instance client pool exhausts a small cluster's connection limit
 # quickly without one.

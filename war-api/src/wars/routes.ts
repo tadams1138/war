@@ -21,7 +21,7 @@ export interface WarsRouteDeps {
  * enum, the preHandler predicate (with its own inline cast), and the
  * handler ternary -- so a future edit to one could silently diverge from
  * the other two. The handler's fallback when `creator` isn't `"me"` is an
- * unfiltered `creatorId` (spec §7.2's default-scoping rule in
+ * unfiltered `creatorId` (the spec's default-scoping rule in
  * `warsRepository.ts` now closes what that would otherwise expose), so
  * this predicate is the one place that decision is made.
  */
@@ -45,8 +45,8 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
             limit: { type: 'string' },
             // The only accepted value is the literal "me"; anything else
             // fails Fastify's own ajv validation and returns its standard
-            // envelope, never this API's `{ error }` shape (spec §7.2,
-            // §11.2.1 "Addendum (2026-09-01)").
+            // envelope, never this API's `{ error }` shape (spec,
+            // "Addendum (2026-09-01)").
             creator: { type: 'string', enum: ['me'] },
           },
         },
@@ -61,7 +61,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       },
       // Deliberately not `bearerAuthRoute`: this route stays open to
       // anonymous callers for every query combination except `creator=me`
-      // (spec §7.2), so it must not carry a `security: [{bearerAuth: []}]`
+      // (spec), so it must not carry a `security: [{bearerAuth: []}]`
       // marker in the OpenAPI document either.
       preHandler: requireAuthIf(auth, (request) => wantsOwnWars(request.query as { creator?: string })),
     },

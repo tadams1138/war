@@ -1,5 +1,5 @@
-// The vote-session state machine for VoteMode (war-ui-default-spec.md §4,
-// §6, §12): join orchestration, matchup fetching, vote submission, error
+// The vote-session state machine for VoteMode (the spec): join
+// orchestration, matchup fetching, vote submission, error
 // classification, and the rate-limit wait. Extracted out of VoteMode so
 // that component is rendering only — the transitions here (409 advances
 // silently, 429 keeps cards busy then re-enables, everything else shows
@@ -65,7 +65,7 @@ export function useVoteSession(warId: string | undefined): VoteSession {
       try {
         await joinWar(id)
       } catch {
-        // Defensive fallback (§12): proceed regardless. If the join truly
+        // Defensive fallback: proceed regardless. If the join truly
         // failed, the first vote attempt surfaces "Join this War to vote".
       }
       await loadNext(id)

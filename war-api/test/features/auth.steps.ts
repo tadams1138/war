@@ -197,7 +197,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the reported reason is "access_denied"', () => {
-      // Pins both halves of §4.1 #1's body (design review finding 4):
+      // Pins both halves of the callback failure #1 body (design review finding 4):
       // "error" is the fixed contract string, "reason" is the provider's
       // code passed through verbatim.
       expect((response.body as { error?: string; reason?: string }).error).toBe('authorization declined');

@@ -1,6 +1,6 @@
 # war
 
-Monorepo for the War platform. Three projects and one set of specifications:
+The War platform. Three projects and one set of specifications:
 
 | Directory | What it is |
 |---|---|
@@ -117,11 +117,7 @@ different.
 war-api/          Backend service
   src/
     auth/           Provider sign-in, token issuance
-    oauth/          OAuth 2.1 authorization/resource server role
-    mcp/
-      allowedActions.ts   Service-layer allowlist — the only import path tools/ may use
-      tools/              One MCP tool handler per file
-    wars/ contestants/ matchups/ votes/ rankings/ ui-registry/
+    wars/ contestants/ matchups/ votes/ rankings/
   db/migrations/    Ordered SQL migrations
   specs/features/   Executable Gherkin
   test/
@@ -154,7 +150,6 @@ fills them.
 | Sign-in | `openid-client`; tokens via `jose` |
 | Images | `sharp` |
 | Object storage | S3-compatible SDK |
-| MCP | `@modelcontextprotocol/sdk` — its `server/auth` module supplies the OAuth wire protocol; `@fastify/express` bridges those Express handlers |
 | API testing | Vitest, Supertest, Testcontainers (a real database, never a mock) |
 | UI | React, Vite, React Router, Tailwind |
 | UI types | `openapi-typescript`, generated from the API's document |

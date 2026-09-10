@@ -1,6 +1,6 @@
 # Cloudflare edge — per-environment DNS and Worker routing. See
-# specs/war-infra-spec.md §5.1, §6, §7. The zone-wide WAF/rate-limit/cache
-# rulesets (§13.1, §13.2) live in terraform/shared instead, applied once —
+# specs/war-spec.md. The zone-wide WAF/rate-limit/cache
+# rulesets live in terraform/shared instead, applied once —
 # see that module for why.
 #
 # /ui/default/* must reach App Platform, not the ui_router Worker below —
@@ -50,7 +50,7 @@ variable "ui_custom_cdn_host" {
 
 locals {
   # Everything not matched by a Worker route proxies to App Platform, which
-  # performs the path→component routing in §6.
+  # performs the path→component routing.
   ui_worker_name    = "war-ui-router-${var.env}"
   media_worker_name = "war-media-router-${var.env}"
 }
@@ -95,7 +95,7 @@ resource "cloudflare_workers_route" "media_router" {
 
 # ── Custom UI router Worker ───────────────────────────────────────────────────
 # Handles /ui/{slug}/* for every slug from one shared bucket, and rewrites
-# storage 404s to that slug's index.html with HTTP 200 (spec §6.1). Object
+# storage 404s to that slug's index.html with HTTP 200 (spec). Object
 # storage cannot do the latter, which is the whole reason this Worker exists.
 
 resource "cloudflare_workers_script" "ui_router" {
@@ -112,7 +112,7 @@ resource "cloudflare_workers_script" "ui_router" {
 }
 
 # Bound only to /ui/*, so the bulk of platform traffic never invokes it and any
-# per-invocation quota applies to custom-UI traffic alone (spec §6.1).
+# per-invocation quota applies to custom-UI traffic alone (spec).
 # /ui/default/* is served by App Platform and must not reach the Worker.
 resource "cloudflare_workers_route" "ui_router" {
   zone_id     = var.zone_id

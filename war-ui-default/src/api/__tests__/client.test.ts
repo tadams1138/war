@@ -80,7 +80,7 @@ describe('getWars', () => {
     expect(receivedAuth).toBeNull()
   })
 
-  it('sends creator=me as a query param when requested (§7.2 MyWars filter)', async () => {
+  it('sends creator=me as a query param when requested (MyWars filter)', async () => {
     // Arrange
     let receivedUrl = ''
     server.use(
@@ -114,7 +114,7 @@ describe('getWars', () => {
     expect(new URL(receivedUrl).searchParams.has('creator')).toBe(false)
   })
 
-  it('serializes status, category, cursor, and limit alongside creator (§7.2 query params)', async () => {
+  it('serializes status, category, cursor, and limit alongside creator (query params)', async () => {
     // Arrange
     let receivedUrl = ''
     server.use(
@@ -223,7 +223,7 @@ describe('getRankings', () => {
   })
 
   it('throws an unauthorized ApiError on 401 — an invite-only War, anonymous request', async () => {
-    // Arrange — the client retries once through a refresh attempt (§7) before
+    // Arrange — the client retries once through a refresh attempt before
     // giving up; stub that endpoint failing too, same as the generic "401
     // handling" tests above.
     server.use(
@@ -535,7 +535,7 @@ describe('uploadContestantImages', () => {
     // Act
     const result = await uploadContestantImages('war-1', 'contestant-1', files)
 
-    // Assert — one request per file (spec §11.2.1), each genuinely multipart
+    // Assert — one request per file (spec), each genuinely multipart
     expect(contentTypes).toHaveLength(2)
     expect(contentTypes.every((type) => type?.startsWith('multipart/form-data'))).toBe(true)
     expect(result).toEqual([
@@ -546,7 +546,7 @@ describe('uploadContestantImages', () => {
 
   it('classifies a 422 with no details array as validation, carrying no details', async () => {
     // Arrange — this route's own 422 is a plain { error } shape, never
-    // { error, details } (spec §11.2.1: deliberately asymmetric).
+    // { error, details } (spec: deliberately asymmetric).
     server.use(
       http.post(`${BASE}/wars/war-1/contestants/contestant-1/images`, () =>
         HttpResponse.json({ error: 'no file uploaded' }, { status: 422 }),
@@ -732,7 +732,7 @@ describe('logout', () => {
   })
 
   it('still clears the in-memory token when DELETE /auth/session fails server-side', async () => {
-    // Arrange — war-ui-default-spec.md §8 "Logout always succeeds from the
+    // Arrange — the spec, "Logout always succeeds from the
     // voter's point of view": the request is attempted best-effort, but a
     // 5xx from it must not stop the token from being cleared.
     setToken('token-abc')

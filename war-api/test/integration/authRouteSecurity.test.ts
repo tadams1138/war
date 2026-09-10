@@ -15,7 +15,7 @@ import { truncateAll } from '../setup/testDb.js';
  * these are implementation-owned regression tests of behaviour the spec
  * requires but the Gherkin does not pin at this granularity.
  */
-describe('OAuth callback state validation (spec §5.1: "API validates state")', () => {
+describe('OAuth callback state validation (spec: "API validates state")', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {
@@ -128,14 +128,14 @@ describe('OAuth callback state validation (spec §5.1: "API validates state")', 
 });
 
 /**
- * The `502` boundary of spec §4.1 #4 -- deliberately not a Gherkin scenario
+ * The `502` boundary of spec -- deliberately not a Gherkin scenario
  * (stage 1's design review reasoning: a wire-level robustness property, the
  * same category as the redirect-URI-pinning tests above). Both the
  * exchange-failure mapping and the downstream-failure exclusion are
  * asserted here so the boundary's scope is pinned exactly, not just its
  * existence.
  */
-describe('Callback exchange failures (spec §4.1 #4)', () => {
+describe('Callback exchange failures (spec)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {
@@ -147,7 +147,7 @@ describe('Callback exchange failures (spec §4.1 #4)', () => {
   it('maps an openid-client/oauth4webapi validation error from the exchange to a 502, not a raw 500', async () => {
     // Arrange: a class-typed error carrying the library's own internal
     // error code as its message -- exactly the shape that reached three
-    // separate users' browsers as an opaque 500 (spec §4.1 #4).
+    // separate users' browsers as an opaque 500 (spec).
     class FakeOperationProcessingError extends Error {
       code = 'OAUTH_INVALID_RESPONSE';
       constructor() {
@@ -206,13 +206,13 @@ describe('Callback exchange failures (spec §4.1 #4)', () => {
 });
 
 /**
- * The `error`-first precedence and independence spec §4.1 #1 requires --
+ * The `error`-first precedence and independence spec requires --
  * checked before, and regardless of, the state-cookie check (design review
  * finding 1: the acceptance scenario's one existing test happens to send a
  * matching cookie, which would pass even a subtly wrong
  * `if (error && expectedState)`).
  */
-describe('OAuth error parameter precedence and independence (spec §4.1 #1)', () => {
+describe('OAuth error parameter precedence and independence (spec)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

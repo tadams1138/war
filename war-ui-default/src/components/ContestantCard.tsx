@@ -1,4 +1,4 @@
-// The core voting UI's per-contestant card (war-ui-default-spec.md §6).
+// The core voting UI's per-contestant card (the spec).
 // Shows image and name only — contestant attributes appear on the War
 // detail page, never here (voting is a fast binary choice).
 import type { MediaItem } from '../api/client'

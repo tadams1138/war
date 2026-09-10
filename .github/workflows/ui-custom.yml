@@ -1,8 +1,8 @@
-# war-ui-{slug} pipeline — see specs/war-infra-spec.md §8.3
+# war-ui-{slug} pipeline — see specs/war-spec.md
 #
 # Custom UIs deploy straight to object storage. There is no App Platform
 # component, no CDN origin, and no routing rule per slug — every custom UI is a
-# key prefix inside one shared bucket (spec §5.5), so deploying is a file sync
+# key prefix inside one shared bucket (spec), so deploying is a file sync
 # and registering a new slug provisions nothing.
 #
 # Called from each war-ui-{slug} repo:
@@ -49,7 +49,7 @@ env:
   NODE_VERSION: '22'
   INFRA_REPO: tadams1138/war
   SPACES_ENDPOINT: https://nyc3.digitaloceanspaces.com
-  MAX_BUNDLE_BYTES: '2097152' # 2 MiB, per spec §8.3
+  MAX_BUNDLE_BYTES: '2097152' # 2 MiB, per the spec
 
 jobs:
   ci:
@@ -160,7 +160,7 @@ jobs:
           path: dist
 
       # Two passes, because index.html and the hashed assets need opposite
-      # caching (spec §7). --delete is scoped to this slug's prefix, so it can
+      # caching (spec). --delete is scoped to this slug's prefix, so it can
       # never touch another custom UI in the shared bucket.
       - name: Sync assets
         run: |

@@ -1,8 +1,8 @@
 import { buildAppWithoutDb } from '../test/setup/testAppNoDb.js';
 
 /**
- * Dev tool for war-ui-default's `generate:api` (war-ui-default-spec.md
- * §5.1): prints this API's OpenAPI document to stdout, built straight from
+ * Dev tool for war-ui-default's `generate:api` (the spec): prints this
+ * API's OpenAPI document to stdout, built straight from
  * the routes' own JSON Schemas rather than fetched from a deployed
  * environment. `buildAppWithoutDb()` is the right harness for this --
  * app.swagger() depends solely on which routes got registered, never on

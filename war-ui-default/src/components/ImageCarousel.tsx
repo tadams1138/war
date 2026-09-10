@@ -1,5 +1,5 @@
 // Shown within a ContestantCard when a contestant has more than one image
-// (war-ui-default-spec.md §6). Horizontal swipe browses images; tap votes.
+// (the spec). Horizontal swipe browses images; tap votes.
 // These must never be confused — ambiguity always resolves toward "swipe",
 // since a mis-fired vote is unrecoverable (votes are final).
 import { useRef, useState } from 'react'
@@ -14,7 +14,7 @@ interface ImageCarouselProps {
   onTap: () => void
   // Extra content (the contestant's name) rendered inside the same
   // gesture-handling element — the whole card is one tap/swipe target and
-  // a single tab stop (war-ui-default-spec.md §6), not just the image.
+  // a single tab stop (the spec), not just the image.
   children?: ReactNode
 }
 

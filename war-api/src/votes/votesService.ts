@@ -22,7 +22,7 @@ export interface CastVoteInput {
   winnerId: string;
 }
 
-/** Casts a vote, enforcing §8.4/§10.1's rules: active War, joined voter, valid winner, final vote. */
+/** Casts a vote, enforcing the spec's rules: active War, joined voter, valid winner, final vote. */
 export async function castVoteForVoter(
   db: Kysely<Database>,
   input: CastVoteInput,

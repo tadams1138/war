@@ -1,4 +1,4 @@
-# Bootstrap placeholder image — see specs/war-infra-spec.md §15.2 and
+# Bootstrap placeholder image — see specs/war-spec.md and
 # terraform/modules/compute/main.tf.
 #
 # terraform/modules/compute/main.tf creates the App Platform app with a
@@ -16,7 +16,7 @@
 FROM busybox:stable
 
 RUN mkdir -p /www && \
-    echo "war bootstrap placeholder — see specs/war-infra-spec.md §15.2" > /www/index.html
+    echo "war bootstrap placeholder — see specs/war-spec.md" > /www/index.html
 
 EXPOSE 8080
 

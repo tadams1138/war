@@ -1,5 +1,5 @@
-// Renders the leaderboard returned by GET /rankings (war-ui-default-spec.md
-// §6). The UI performs no ranking arithmetic and never re-sorts: rows
+// Renders the leaderboard returned by GET /rankings (the spec). The UI
+// performs no ranking arithmetic and never re-sorts: rows
 // render in the exact order the API returned, and `rank` renders exactly
 // as given — "—" for an unranked (`rank: null`) contestant. No win
 // percentage is computed or displayed anywhere here.

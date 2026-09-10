@@ -1,4 +1,4 @@
-// Scheduled task dispatch — see specs/war-infra-spec.md §12, §15.4
+// Scheduled task dispatch — see specs/war-spec.md
 //
 // App Platform has no cron primitive (its jobs are deploy-lifecycle only), so
 // the scheduler role sits at the edge. This Worker has no fetch handler — it is
@@ -6,9 +6,9 @@
 //
 // It calls the App Platform origin directly, which is what lets it reach
 // /api/v1/internal/* despite the WAF rule blocking that path on the public
-// hostname (spec §12.3).
+// hostname (spec).
 //
-// Scheduled tasks are never authoritative (spec §12.1). If this Worker stops
+// Scheduled tasks are never authoritative (spec). If this Worker stops
 // running entirely, expired Wars still reject votes — the API evaluates
 // ends_at lazily on every read and write. Only the stored status column falls
 // behind, so a failure here is a housekeeping incident, not an outage.
@@ -32,7 +32,7 @@ export default {
     }
 
     // Throwing marks the invocation failed, which is what surfaces in edge
-    // analytics and drives the "2 consecutive failed runs" alert (spec §12.4).
+    // analytics and drives the "2 consecutive failed runs" alert (spec).
     if (failures.length > 0) {
       throw new Error(failures.join('; '))
     }
@@ -52,7 +52,7 @@ async function run(task, env) {
     throw new Error(`HTTP ${response.status}`)
   }
 
-  // Every task is idempotent (spec §12.2), so a retry after a partial failure
+  // Every task is idempotent (spec), so a retry after a partial failure
   // is safe and needs no coordination here.
   return response.json()
 }

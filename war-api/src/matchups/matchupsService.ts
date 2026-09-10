@@ -16,7 +16,7 @@ export interface NextMatchupView {
 }
 
 /**
- * The response body JSON Schema for {@link NextMatchupView} (spec §11.2.1).
+ * The response body JSON Schema for {@link NextMatchupView} (spec).
  * `prefetch` is deliberately absent from `required` -- it is present only
  * when a following unvoted pair exists.
  */
@@ -30,7 +30,7 @@ export const nextMatchupResponseSchema = {
       properties: {
         id: { type: 'string', format: 'uuid' },
         // Written as its own copy of `left`'s schema rather than an
-        // internal `$ref`, per spec §11.2.1 -- the two simply describe the
+        // internal `$ref`, per the spec -- the two simply describe the
         // same shape.
         left: contestantViewSchema,
         right: contestantViewSchema,
@@ -74,11 +74,11 @@ function contestantView(
 
 /**
  * Builds the `/matchups/next` response: the voter's next matchup (side
- * decided by the API, spec §8.4), progress, and an advisory prefetch block
+ * decided by the API), progress, and an advisory prefetch block
  * naming the following matchup's media. Fetches both contestants and all
  * four media sets (current pair plus prefetch pair) with two batched
  * queries rather than one per contestant (design review finding 9) — this
- * is the endpoint spec §8.4's 500ms prefetch budget makes most
+ * is the endpoint the spec's 500ms prefetch budget makes most
  * latency-sensitive.
  */
 export async function nextMatchupForVoter(

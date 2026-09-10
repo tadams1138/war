@@ -1,8 +1,8 @@
 -- Up Migration
 
 -- Retires the OAuth 2.1 authorization server's schema. Both objects existed
--- only for the remote MCP feature, which was withdrawn along with every line
--- of code that read them.
+-- only for an integration that was withdrawn along with every line of code
+-- that read them.
 --
 -- SEQUENCING -- this migration must not reach an environment whose *running*
 -- revision still reads `refresh_tokens.resource`. The pre-deploy hook runs

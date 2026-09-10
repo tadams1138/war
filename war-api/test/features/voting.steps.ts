@@ -254,7 +254,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the order pairs are served in differs between them', async () => {
       const matchups = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', setup.war.id).execute();
       // All appearance_counts are still zero, so ordering is purely the
-      // stable per-voter hash tie-break (spec §8.4) — compute it directly
+      // stable per-voter hash tie-break (spec) — compute it directly
       // with the same function production code uses, independently of the
       // HTTP layer, to get a non-flaky comparison of the two voters' orders.
       const orderFor = (voterId: string) =>
@@ -389,7 +389,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they leave the War', () => {
-      // No API models "leaving" (spec §10.2: abandoning is simply not voting
+      // No API models "leaving" (spec: abandoning is simply not voting
       // — there is no skip/leave action). Nothing to do here.
     });
 

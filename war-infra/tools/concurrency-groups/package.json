@@ -1,7 +1,7 @@
 {
   "name": "concurrency-groups-guard",
   "version": "1.0.0",
-  "description": "CI guard: fails if two different workflow files declare the same concurrency.group (specs/war-infra-spec.md §20.8, §19 'Feature: Concurrency Group Isolation')",
+  "description": "CI guard: fails if two different workflow files declare the same concurrency.group (see war-infra/specs/features/pending/routing.feature, 'Feature: Concurrency Group Isolation')",
   "private": true,
   "type": "module",
   "scripts": {

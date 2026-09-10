@@ -1,6 +1,6 @@
-# war-infra pipeline — see specs/war-infra-spec.md §8.4
+# war-infra pipeline — see specs/war-spec.md
 #
-# Spaces provides no state locking (spec §2.1), so the per-environment
+# Spaces provides no state locking (spec), so the per-environment
 # concurrency groups below are what prevent two applies colliding.
 #
 # The production approval gate is a required reviewer on the `production`
@@ -18,7 +18,7 @@ name: war-infra Pipeline
 #
 # platform/** is excluded for the same reason: Terraform creates the App
 # Platform app but does not own its spec (terraform/modules/compute carries
-# `ignore_changes = [spec]`, §5.2). Nothing under terraform/ reads those files
+# `ignore_changes = [spec]`). Nothing under terraform/ reads those files
 # — api.yml renders and applies them — so a platform/{env}.yaml edit would
 # otherwise cost a full plan/apply cycle and a production approval to change
 # nothing.
@@ -40,7 +40,7 @@ on:
 
 # Every `run:` in this workflow executes inside war-infra/, so the
 # `terraform -chdir=terraform/...` paths in the jobs below remain relative to
-# it and are unchanged by the consolidation.
+# it.
 defaults:
   run:
     working-directory: war-infra
@@ -50,7 +50,7 @@ env:
   TF_IN_AUTOMATION: 'true'
   TF_INPUT: '0'
 
-  # Spaces credentials for the S3-compatible state backend (spec §15.1)
+  # Spaces credentials for the S3-compatible state backend (spec)
   AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
 
@@ -62,11 +62,11 @@ env:
   TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
   TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
 
-  # internal_task_token is the only §9 application secret Terraform consumes
+  # internal_task_token is the only application secret Terraform consumes
   # (the scheduler module's Worker needs it to call the internal endpoint).
   # The rest — JWT_SECRET, GOOGLE_CLIENT_ID/SECRET, etc. — are not Terraform
   # inputs; they're substituted straight into platform/{env}.yaml by the
-  # war-api deploy pipeline's own envsubst step (spec §9, §15.7).
+  # war-api deploy pipeline's own envsubst step (spec).
   TF_VAR_internal_task_token: ${{ secrets.INTERNAL_TASK_TOKEN }}
 
 jobs:
@@ -126,7 +126,7 @@ jobs:
   # Account/zone-scoped (registry, Cloudflare zone settings) — applied once,
   # ahead of either environment. staging and production don't reference this
   # state directly, but envs/*/compute expects the registry to already exist
-  # by the time it tries to create an app pointing at it (spec §8.5).
+  # by the time it tries to create an app pointing at it (spec).
   apply-shared:
     name: Apply → Shared
     needs: plan-shared

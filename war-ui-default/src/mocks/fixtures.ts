@@ -1,7 +1,7 @@
 // Fixture builders shared by the client's Vitest unit tests and the MSW
 // handlers the Playwright acceptance suite runs against. Every literal here
 // is shaped by the types generated from war-api's live OpenAPI document
-// (src/api/generated/schema.d.ts, §5.1) — the compiler rejects a fixture
+// (src/api/generated/schema.d.ts) — the compiler rejects a fixture
 // that drifts from what war-api actually declares it returns.
 
 import type { components, paths } from '../api/generated/schema'

@@ -11,7 +11,7 @@ import { oauthDeclinedResponseSchema, type OAuthDeclinedView } from '../../src/a
 import { rankingsResponseSchema, type RankingsView } from '../../src/rankings/rankingsService.js';
 
 /**
- * Pins every response body schema (spec §11.2.1) to full byte-for-byte
+ * Pins every response body schema (spec) to full byte-for-byte
  * agreement with the presenter output it describes. `fast-json-stringify`
  * silently drops any property a schema does not list -- an
  * `objectContaining`/subset assertion would not catch that in either
@@ -29,7 +29,7 @@ function buildProbeApp(schema: object, fixture: unknown) {
   return app;
 }
 
-describe('response body schemas serialize every field (spec §11.2.1)', () => {
+describe('response body schemas serialize every field (spec)', () => {
   it('MediaItem: every field, non-null aspect_ratio', async () => {
     // Arrange
     const fixture: MediaItemView = {
@@ -235,7 +235,7 @@ describe('response body schemas serialize every field (spec §11.2.1)', () => {
     expect(response.body).toBe(JSON.stringify(fixture));
   });
 
-  it('OAuthDeclinedView: an arbitrary provider-supplied reason survives verbatim (spec §4.1 #1: not a closed enum)', async () => {
+  it('OAuthDeclinedView: an arbitrary provider-supplied reason survives verbatim (spec: not a closed enum)', async () => {
     // Arrange
     const fixture: OAuthDeclinedView = { error: 'authorization declined', reason: 'temporarily_unavailable' };
     const app = buildProbeApp(oauthDeclinedResponseSchema, fixture);
@@ -294,7 +294,7 @@ describe('response body schemas serialize every field (spec §11.2.1)', () => {
   });
 });
 
-describe('empty-body statuses stay empty (spec §11.2.1)', () => {
+describe('empty-body statuses stay empty (spec)', () => {
   it.each([
     ['DELETE /auth/session', 204],
     ['POST /wars/:id/join', 204],

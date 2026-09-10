@@ -11,23 +11,26 @@ overview, goals, and roles.
 | [`war-api/`](war-api) | Backend REST API — Node/TypeScript, Fastify, Kysely, PostgreSQL |
 | [`war-ui-default/`](war-ui-default) | Default web frontend — React SPA, Vite, Playwright |
 | [`war-infra/`](war-infra) | Terraform, App Platform specs, Cloudflare Workers, deploy scripts |
-| [`specs/`](specs) | Specifications for all of the above |
+| [`war-ui-custom/`](war-ui-custom) | Not built yet — holds only the pending custom-UI template-contract scenarios |
+| [`specs/`](specs) | The platform specification, [`war-spec.md`](specs/war-spec.md) |
 | [`.github/workflows/`](.github/workflows) | CI/CD for every project |
 
-These were three separate repositories until they were consolidated here; see
-`specs/war-infra-spec.md` §20.6 for why. Their full histories are preserved in this
-one.
+Each project keeps its own `package.json` and `node_modules`; there is no workspace tying
+them together. All commands run from the repository root — `npm --prefix <project>` and
+`terraform -chdir=war-infra/...` reach into a subdirectory without `cd`. See
+[`CLAUDE.md`](CLAUDE.md) for the full command list and the TDD/BDD process this project
+follows.
 
 ## Status
 
-The **Core Voting Loop** slice is live in staging and production: sign in with Google,
-browse Wars, view a War and its contestants, and vote on image-mode matchups, served
-end to end by the API.
+Live in staging and production: sign in with Google, browse Wars, view a War and its
+contestants, vote on image-mode matchups, Rankings, the Create War wizard, and My Wars.
 
-Not yet built: the Rankings page, the Create War wizard, My Wars, video-mode matchups,
-OAuth providers other than Google, API rate limiting, and the custom UI registry.
-`specs/war-api-spec.md` §15 and `specs/war-ui-default-spec.md` §12 are the authoritative
-status markers — a section describing the full design does not mean it has been built.
+Not yet built: video-mode matchups, sign-in providers other than Google, the API's
+per-voter rate limiting, and custom UIs with their registry.
+
+[`PROGRESS.md`](PROGRESS.md) is the authoritative status board — a section of the spec
+describing the full design does not mean it has been built.
 
 ## Environments
 
@@ -39,7 +42,35 @@ UI from a single domain:
 | staging | https://staging.war.tmad.dev |
 | production | https://war.tmad.dev |
 
-## Working in this repo
+## Specification and tests
 
-Build and test commands, and the TDD/BDD process this project follows, are documented in
-[`CLAUDE.md`](CLAUDE.md). All commands run from the repository root.
+`specs/war-spec.md` is the single specification and the contract — one document for the
+whole platform, describing **what** it does in implementation-agnostic terms. Implementation
+detail (stack, folder layout, build commands) lives in [`CLAUDE.md`](CLAUDE.md), not the
+spec. Where a test and the spec disagree, the spec wins (spec section 13).
+
+Executable Gherkin lives with the code that implements it, never in the spec document. It is
+test fixture, not a second copy of the spec, and covers only behaviour that is actually
+built:
+
+| Project | Feature files | Bound by | Run with |
+|---|---|---|---|
+| API | `war-api/specs/features/` | `war-api/test/features/*.steps.ts` (`@amiceli/vitest-cucumber`) | `npm --prefix war-api test` |
+| Default UI | `war-ui-default/features/` | `war-ui-default/tests/acceptance/*.spec.ts` (Playwright, explicit) | `npm --prefix war-ui-default run test:acceptance` |
+| Infrastructure | `war-infra/specs/features/` | — no runner; `war-infra` has no test project | — |
+| Custom UI | `war-ui-custom/specs/features/` | — project does not exist yet | — |
+
+Each project has a `pending/` subdirectory holding scenarios with **no binding**, so nothing
+in it runs: behaviour not built, or built but not yet covered at the acceptance layer.
+
+| File | Scenarios | Why it is pending |
+|---|---|---|
+| `war-api/specs/features/pending/oauth-authentication.feature` | 1 | Same email across two providers yields separate voters — needs a second sign-in provider; only Google is built. |
+| `war-api/specs/features/pending/media-mode.feature` | 8 | `video` media mode is not built. |
+| `war-api/specs/features/pending/rate-limiting.feature` | 3 | The API's per-voter rate limits are not built. |
+| `war-api/specs/features/pending/war-expiry.feature` | 3 | Expiry scenarios beyond those already bound in `../war-expiry.feature`. |
+| `war-ui-default/features/pending/unbound.feature` | 13 | Video-mode playback, plus wording variants of vote-flow and rankings scenarios that already run under other names. |
+| `war-infra/specs/features/pending/routing.feature` | 27 | Edge, routing, concurrency-group and secrets behaviour. No runner in this project; verifiable only by hand against a live environment. |
+| `war-ui-custom/specs/features/pending/template-contract.feature` | 11 | The contract a custom UI bundle must satisfy. `war-ui-custom` does not exist yet. |
+
+To bind a pending API scenario, move the file up one directory and write its `.steps.ts`.
