@@ -155,6 +155,12 @@ Every call to `/auth/refresh` **invalidates the presented token and issues a new
 - Presenting an **already-used** token means the token leaked and both parties now hold it. The entire family is revoked immediately and the response is `401` — the legitimate voter is logged out and must re-authenticate
 - Presenting a revoked or expired token returns `401`
 - `DELETE /auth/session` revokes the whole family
+- **Presenting a token whose `resource` (§6) is non-null returns `401` and revokes the
+  family**, the same response as an already-used token. This endpoint mints a plain,
+  unrestricted access token — it has no `resource` parameter and no way to bind one — so a
+  refresh token that already carries a `resource` (§4.3's authorization server issued it)
+  does not belong here at all. §4.3.7 explains why this is treated as severely as reuse,
+  not merely refused.
 
 Reuse detection is the reason rotation is worth its complexity: without it, a stolen 30-day refresh token grants a year-round silent session with no signal that anything is wrong.
 
@@ -304,7 +310,7 @@ audience on refresh.
 |---|---|
 | The `code` (or `refresh_token`) is unknown, expired, or already used | `400 { "error": "invalid_grant" }` |
 | PKCE verification fails (`authorization_code` grant) | `400 { "error": "invalid_grant" }` — same code as the row above; this endpoint does not distinguish "no such code" from "wrong verifier" |
-| `resource` does not match the value the code/token was originally bound to | `400 { "error": "invalid_target" }` |
+| `resource` does not match the value the code/token was originally bound to | `400 { "error": "invalid_target" }` — for the `refresh_token` grant, that stored value is `refresh_tokens.resource` (§4.3.7); a `NULL`-`resource` (browser) token fails this comparison against any supplied `resource` too |
 
 On success: `200` with `{ "access_token": "<jwt>", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "<token>" }`
 — RFC 6749's standard token response shape, distinct from §7.1's bespoke
@@ -378,6 +384,55 @@ forwards a bearer token it received to any other service** — the two MUSTs the
 authorization spec states plainly, and the reason a separate "does `war-mcp` forward its
 token to `war-api`" question does not arise here: there is no second service to forward
 anything to (§7.9).
+
+#### 4.3.7 Audience binding survives refresh
+
+§4.3.4's access token carries `aud`, but the **refresh token** it comes with is an ordinary
+`refresh_tokens` row (§4.2) with nothing on it recording what that access token was
+audience-bound to — nothing, that is, until this subsection's column exists. Without it, the
+binding §4.3.6 enforces is worth nothing: a holder simply redeems the refresh token at the
+browser flow's own `POST /auth/refresh` (§4.2) instead of `POST /oauth/token`, and receives
+an ordinary, unrestricted access token in return — the audience restriction laundered away
+in one documented, unauthenticated endpoint call. Design review of slice 1's implementation
+found this live (Finding 1(b), design review of `513ee16`) and escalated the fix here, since
+it is a data-model and contract change, not an implementation slip.
+
+**The fix: `refresh_tokens.resource` (§6), fixed for a family's entire life.**
+
+- **Set once, at issuance, never changed.** `exchangeAuthorizationCode` (§4.3.1) writes the
+  authorization code's own `resource` (§4.3.4 — the same value validated against §4.3.2's
+  allow-list when the code was minted) onto the new refresh token family it creates. A
+  browser-flow login (§4.1) writes `NULL`, exactly as today — this is the ordinary case,
+  not a special one, and every browser session in existence today is unaffected by this
+  column's addition (§4.1, §4.2 are otherwise unchanged).
+- **`POST /auth/refresh` (§4.2) refuses a non-`NULL` `resource`.** This endpoint has no
+  `resource` parameter and mints a plain, unrestricted access token — there is no way for it
+  to honor a binding even if it wanted to, so a bound token presented here is refused (`401`)
+  and its family revoked, the same response §4.2 already gives an already-used token. This
+  is deliberately as severe as reuse detection, not a plain refusal: nothing about the
+  ordinary browser flow ever produces a bound token, so the *only* way to present one here is
+  to have obtained it from the AS (§4.3) and to be attempting exactly the audience-laundering
+  §4.3.6 exists to prevent — the same reasoning that makes reuse itself a compromise signal
+  rather than an honest mistake (§4.2).
+- **`POST /oauth/token`'s `refresh_token` grant (§4.3.4) requires the stored `resource` to
+  equal the request's `resource` exactly** — not merely "a valid resource," which is what
+  §4.3.4 said before this section existed to give that check something to compare against.
+  A `NULL`-`resource` (browser) token presented here fails the same comparison (`NULL`
+  never equals a supplied `resource`) and is refused with `invalid_target`, closing the
+  mirror direction: a stolen browser refresh token cannot be laundered *into* an
+  audience-bound token for a resource its login never consented to, either.
+- **Rotation is otherwise unchanged.** The successor token §4.2 issues on every use inherits
+  the same `resource` as its predecessor — rotation changes the token value and `family_id`
+  membership bookkeeping, never the audience a family is bound to. A family's `resource` is
+  set once, at the family's creation, and every rule above reads it, never writes it again.
+
+**The browser flow is unaffected.** `war-ui-default`'s login, its refresh calls, and
+`DELETE /auth/session` all produce and consume only `NULL`-`resource` tokens, exactly as
+before this section existed — the first new rule above never fires for them, and the second
+new rule's comparison (`NULL` against no `resource` parameter, since the SPA's own
+`POST /auth/refresh` call never sends one) is not reached because that call never reaches
+`POST /oauth/token` in the first place. Nothing about `war-ui-default-spec.md` §7's flow
+changes.
 
 ---
 
@@ -529,6 +584,10 @@ refresh_tokens (
   voter_id         UUID REFERENCES voters(id),
   family_id        UUID NOT NULL,                -- one family per login session
   token_hash       TEXT NOT NULL,                -- SHA-256; plaintext is never stored
+  resource         TEXT,                         -- RFC 8707 audience this family is bound
+                                                  -- to; NULL for an ordinary browser session
+                                                  -- (§4.2, §4.3.7) -- fixed for the family's
+                                                  -- life, never set or changed after issuance
   expires_at       TIMESTAMPTZ NOT NULL,
   used_at          TIMESTAMPTZ,                  -- set on rotation; reuse ⇒ revoke family
   revoked_at       TIMESTAMPTZ,
@@ -2203,6 +2262,28 @@ Feature: OAuth 2.1 Authorization Server for Third-Party and Machine Clients
     Given a refresh token originally issued for one resource
     When POST /oauth/token is called with grant_type=refresh_token and a different resource
     Then the response status is 400 with error invalid_target
+
+  Scenario: An AS-issued refresh token cannot be laundered into an unrestricted token
+    Given a refresh token issued by this authorization server, bound to a resource
+    When POST /auth/refresh is called with that refresh token
+    Then the response status is 401
+    And its family is revoked
+
+  Scenario: A browser refresh token cannot be laundered into a resource-bound token
+    Given an ordinary browser-flow refresh token, whose resource is null
+    When POST /oauth/token is called with grant_type=refresh_token and any resource
+    Then the response status is 400 with error invalid_target
+
+  Scenario: A refreshed token keeps the same audience binding across rotation
+    Given a refresh token issued by this authorization server, bound to a resource
+    When POST /oauth/token is called with grant_type=refresh_token and that same resource
+    And the resulting refresh token is used the same way again
+    Then both resulting access tokens' audience is that same resource
+
+  Scenario: The browser flow's own refresh is unaffected
+    Given an ordinary browser-flow refresh token, whose resource is null
+    When POST /auth/refresh is called with it
+    Then it succeeds exactly as before, returning an unrestricted access token
 
   Scenario: A token issued by this server is revocable exactly like a browser session's
     Given an access token obtained via this authorization server
