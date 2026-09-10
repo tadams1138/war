@@ -48,9 +48,10 @@ Gone: the authorize and token endpoints, PKCE, resource indicators, client-metad
 registration, both discovery documents, the SSRF and DNS-rebinding guards, audience binding
 in every direction, the service-layer tool allowlist, their tests, and five dependencies.
 
-`db/migrations/20260105000000_drop_oauth_server_schema.sql` then dropped the
-`authorization_codes` table and the `refresh_tokens.resource` column. It has shipped to
-staging and production; the schema is retired in both.
+The schema followed: the `authorization_codes` table and the `refresh_tokens.resource`
+column were dropped in a migration that has shipped to staging and production. The
+add/drop migration pair was then removed from `db/migrations/` as net-zero churn, since
+every environment is past it and a fresh database never needs those objects.
 
 **Worth recovering from history rather than rewriting**, if the platform ever fetches a
 user-supplied URL again: the SSRF address classifier and the connect-time DNS-rebinding
