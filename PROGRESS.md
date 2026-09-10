@@ -37,34 +37,27 @@ Staging and production both run as a single application per environment containi
 
 ---
 
-## Pending removal
+## Removed
 
-**The remote MCP feature was withdrawn.** `specs/war-spec.md` no longer describes it, nor
-the OAuth 2.1 authorization server that existed only to serve it. The code still contains
-both and needs to come out, back to the auth surface as it stood at `f7a796a`:
+**The remote MCP feature was withdrawn**, along with the OAuth 2.1 authorization server that
+existed only to serve it. The auth surface is back to what it was at `f7a796a`: provider
+sign-in, token delivery, and refresh rotation with reuse detection.
 
-- The OAuth 2.1 authorization/resource server — authorize and token endpoints, PKCE,
-  resource indicators, client-metadata-document registration, both discovery documents, the
-  SSRF and DNS-rebinding guards.
-- Audience binding: the `aud` claim, its enforcement on the REST surface, and the
-  `refresh_tokens.resource` column with its rules in both refresh directions.
-- The MCP endpoint, its ten tools, the service-layer allowlist and its lint rule.
-- Their tests, and the unbound scenarios in `war-api/specs/features/pending/` covering them.
-- Dependencies pulled in for them, where nothing else uses them.
+Gone: the authorization server (authorize and token endpoints, PKCE, resource indicators,
+client-metadata-document registration, both discovery documents, the SSRF and DNS-rebinding
+guards), audience binding in every direction, the MCP endpoint with its ten tools and
+service-layer allowlist, their tests, and five dependencies. The suite returned to
+**449/449** — exactly the baseline recorded before the OAuth work began.
 
-Two things to preserve while removing:
+**Two migrations were deliberately left applied** in staging and production:
+`authorization_codes`, now an unreferenced table, and `refresh_tokens.resource`, now a
+nullable and unread column. Dropping them must be a **separate, later deploy**: the
+pre-deploy migration hook runs while the previous revision is still serving, so dropping the
+column alongside the code removal would break the live service between hook and cutover.
 
-- **The browser sign-in flow must be untouched.** It is live in production. The audience
-  changes reached into shared code — the token helper gained an optional audience parameter,
-  and the identity resolver gained a check that refuses any token carrying one. Both revert,
-  but the surrounding behaviour must not.
-- **The SSRF address classifier and the connect-time DNS-rebinding guard were genuinely good
-  work.** Nothing else uses them today, so they go — but they are worth recovering from
-  history rather than rewriting if the platform ever fetches a user-supplied URL again.
-
-The five blocking defects a design review found in the MCP endpoint are moot once it is
-removed, and are not worth fixing first. Detail, if useful during removal:
-`.claude/reviews/4b038a6cf227cbd0520275a77d9e6d2154bf61ab.md`.
+**Worth recovering from history rather than rewriting**, if the platform ever fetches a
+user-supplied URL again: the SSRF address classifier and the connect-time DNS-rebinding
+guard. Nothing uses them now, but both were correct and non-obvious.
 
 ---
 

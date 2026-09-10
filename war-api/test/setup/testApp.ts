@@ -1,4 +1,3 @@
-import type { OAuthRegisteredClientsStore } from '@modelcontextprotocol/sdk/server/auth/clients.js';
 import type { Kysely } from 'kysely';
 import { buildApp } from '../../src/app.js';
 import { loadConfig, type AppConfig } from '../../src/config.js';
@@ -44,11 +43,11 @@ export interface TestHarness {
   jwtFor: (voterId: string) => Promise<string>;
 }
 
-export async function buildTestHarness(overrides: { oauthClientsStore?: OAuthRegisteredClientsStore } = {}): Promise<TestHarness> {
+export async function buildTestHarness(): Promise<TestHarness> {
   const db = await getTestDb();
   const { config, google, storage } = buildCommonDeps();
 
-  const app = await buildApp({ db, google, storage, config, oauthClientsStore: overrides.oauthClientsStore });
+  const app = await buildApp({ db, google, storage, config });
 
   return {
     app,

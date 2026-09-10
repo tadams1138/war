@@ -8,7 +8,6 @@ function toStored(row: {
   voter_id: string;
   family_id: string;
   token_hash: string;
-  resource: string | null;
   expires_at: Date | string;
   used_at: Date | string | null;
   revoked_at: Date | string | null;
@@ -18,7 +17,6 @@ function toStored(row: {
     voterId: row.voter_id,
     familyId: row.family_id,
     tokenHash: row.token_hash,
-    resource: row.resource,
     expiresAt: new Date(row.expires_at),
     usedAt: row.used_at ? new Date(row.used_at) : null,
     revokedAt: row.revoked_at ? new Date(row.revoked_at) : null,
@@ -37,17 +35,11 @@ export async function findRefreshTokenByHash(
   return row ? toStored(row) : undefined;
 }
 
-/**
- * Starts a new refresh-token family — one per login session (spec §5.2).
- * `resource` binds the family to an RFC 8707 audience for the AS's own
- * flow (§4.3.7); omitted (`null`) for an ordinary browser login (§4.1),
- * exactly as before this parameter existed.
- */
+/** Starts a new refresh-token family — one per login session (spec §5.2). */
 export async function createRefreshTokenFamily(
   db: Kysely<Database>,
   voterId: string,
   tokenHash: string,
-  resource: string | null = null,
 ): Promise<StoredRefreshToken> {
   const row = await db
     .insertInto('refresh_tokens')
@@ -56,7 +48,6 @@ export async function createRefreshTokenFamily(
       voter_id: voterId,
       family_id: newId(),
       token_hash: tokenHash,
-      resource,
       expires_at: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
     })
     .returningAll()
@@ -100,9 +91,6 @@ export async function rotateRefreshToken(
         voter_id: used.voterId,
         family_id: used.familyId,
         token_hash: newTokenHash,
-        // §4.3.7: a family's resource binding is fixed for its whole life --
-        // rotation carries it forward unchanged, never re-derives it.
-        resource: used.resource,
         expires_at: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
       })
       .returningAll()

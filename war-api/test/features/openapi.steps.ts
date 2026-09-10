@@ -60,25 +60,17 @@ function operationFor(document: OpenApiDocument, path: string, method: string): 
 /**
  * The set of `METHOD path` entries the generated document is expected to
  * publish: every actually-registered route, minus `/internal/*` (excluded
- * per spec §7.7), `/oauth/*` and `/.well-known/oauth-*` (excluded per spec
- * §11.2 — the AS/RS wire protocol, not this document's own Fastify-schema
- * shapes), `/mcp` (excluded per spec §7.9 the same way — MCP's own
- * JSON-RPC wire protocol, registered with `schema: { hide: true }` since it
- * has no request/response JSON Schema of its own to publish), and the
- * document's own endpoint (not self-described). Built from Fastify's own
- * routing table, not a hand-copied list, so this is a real drift check
- * rather than a restatement of the spec. Compares at method granularity,
- * not path alone, so a route silently losing a verb (e.g. `POST /wars`
- * dropping out while `GET /wars` remains) still fails.
+ * per spec §7.7) and the document's own endpoint (not self-described).
+ * Built from Fastify's own routing table, not a hand-copied list, so this
+ * is a real drift check rather than a restatement of the spec. Compares at
+ * method granularity, not path alone, so a route silently losing a verb
+ * (e.g. `POST /wars` dropping out while `GET /wars` remains) still fails.
  */
 function expectedPublishedRoutes(routes: RegisteredRoute[]): Set<string> {
   return new Set(
     routes
       .filter((route) => !route.url.startsWith(`${API_PREFIX}/internal`))
       .filter((route) => route.url !== `${API_PREFIX}/openapi.json`)
-      .filter((route) => !route.url.startsWith(`${API_PREFIX}/oauth`))
-      .filter((route) => !route.url.startsWith('/.well-known/oauth-'))
-      .filter((route) => route.url !== `${API_PREFIX}/mcp`)
       .map((route) => `${route.method} ${toDocumentPath(route.url)}`),
   );
 }
