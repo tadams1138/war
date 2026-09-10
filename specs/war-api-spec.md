@@ -62,7 +62,10 @@ war-api/
 ├── src/
 │   ├── auth/           # OAuth handlers, JWT issuance
 │   ├── oauth/          # OAuth 2.1 AS/RS role for third-party & MCP clients (see §4.3)
-│   ├── mcp/            # MCP tool handlers, calling directly into the modules below (see §7.9)
+│   ├── mcp/
+│   │   ├── allowedActions.ts   # the service-layer allowlist — the only import path
+│   │   │                       # tools/ may use to reach another module (see §7.9)
+│   │   └── tools/              # one MCP tool handler per file (see §7.9)
 │   ├── wars/           # War CRUD, lifecycle transitions
 │   ├── contestants/    # Contestant & image management
 │   ├── matchups/       # Matchup generation, next-matchup logic
@@ -194,10 +197,11 @@ endpoint, resource-scoped tokens, and client registration — so that any spec-c
 - A **generic token endpoint** (`POST /oauth/token`) that mints a JWT whose `aud` claim is
   the validated `resource`, plus a refresh token in the existing `refresh_tokens` family
   mechanism.
-- **Client registration**: Dynamic Client Registration ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591),
-  `POST /oauth/register`) for compatibility, and Client ID Metadata Documents (CIMD — a
-  client's `client_id` is itself an `https://` URL this API fetches and validates) as the
-  preferred mechanism, needing no registration call or stored row at all.
+- **Client registration**: Client ID Metadata Documents (CIMD — a client's `client_id` is
+  itself an `https://` URL this API fetches and validates) as the primary mechanism, needing
+  no registration call or stored row at all, and Dynamic Client Registration
+  ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591), `POST /oauth/register`) retained for
+  compatibility with a client that does not speak CIMD.
 - **Discovery**: Authorization Server Metadata ([RFC 8414](https://www.rfc-editor.org/rfc/rfc8414),
   `GET /.well-known/oauth-authorization-server`) and Protected Resource Metadata
   ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728), `GET /.well-known/oauth-protected-resource`),
@@ -266,22 +270,27 @@ the code.
 
 #### 4.3.3 Client registration
 
-**Dynamic Client Registration (RFC 7591, `POST /oauth/register`)** — retained for
-compatibility. Body: `{ redirect_uris: [...], client_name, ... }` (the SDK's handler owns
-the exact schema). On success, inserts an `oauth_clients` row and returns a `client_id`
-(no `client_secret` — every client here is a **public client**: PKCE is the code-interception
-defense, per OAuth 2.1's own guidance for clients that cannot keep a secret confidential,
-which describes exactly an app installed on a user's own phone or desktop).
+**Client ID Metadata Documents — the primary mechanism (§15's build order, slice 1).** A
+client presents an `https://` URL as its `client_id` directly, with no registration call.
+This API fetches that URL, expects a JSON document naming (at minimum) `redirect_uris`, and
+treats it as the client's registration — no `oauth_clients` row is written. Fetching an
+arbitrary client-supplied URL is a real SSRF surface, so this fetch: uses `https://` only;
+resolves and rejects any target resolving to a private, loopback, or link-local address;
+applies a short timeout and a small response-size cap; and is never followed through a
+redirect to a second host without re-validating that host against the same rules. A
+successful fetch MAY be cached briefly (the document is not expected to change
+request-to-request), keyed by the URL.
 
-**Client ID Metadata Documents — preferred.** A client presents an `https://` URL as its
-`client_id` directly, with no registration call. This API fetches that URL, expects a JSON
-document naming (at minimum) `redirect_uris`, and treats it as the client's registration —
-no `oauth_clients` row is written. Fetching an arbitrary client-supplied URL is a real SSRF
-surface, so this fetch: uses `https://` only; resolves and rejects any target resolving to a
-private, loopback, or link-local address; applies a short timeout and a small response-size
-cap; and is never followed through a redirect to a second host without re-validating that
-host against the same rules. A successful fetch MAY be cached briefly (the document is not
-expected to change request-to-request), keyed by the URL.
+**Dynamic Client Registration (RFC 7591, `POST /oauth/register`) — the compatibility path
+(slice 3).** The MCP authorization specification states CIMD as a SHOULD and DCR as a MAY
+it explicitly calls "deprecated and retained for backwards compatibility with authorization
+servers that do not support Client ID Metadata Documents" — since this AS supports CIMD
+from slice 1, DCR exists here only for a client that, for its own reasons, does not. Body:
+`{ redirect_uris: [...], client_name, ... }` (the SDK's handler owns the exact schema). On
+success, inserts an `oauth_clients` row and returns a `client_id` (no `client_secret` —
+every client here is a **public client**: PKCE is the code-interception defense, per OAuth
+2.1's own guidance for clients that cannot keep a secret confidential, which describes
+exactly an app installed on a user's own phone or desktop).
 
 #### 4.3.4 `POST /oauth/token`
 
@@ -990,12 +999,18 @@ architectural constraint an earlier design stated for a separate `war-mcp` clien
 "authorization stays in one place, and rate limiting and moderation apply automatically" —
 is not weakened by folding it in here; it is strengthened structurally. Every MCP tool
 handler below calls the **identical service-layer function** the corresponding REST route
-handler calls (`createWarForVoter`, `patchWar`, `activateWar`, `closeWar`, `listWars`,
-`getWar`, `addContestant`, `patchContestant`, `addContestantImage`) — not a second HTTP
-request to itself, and not a reimplementation. There is exactly one copy of every business
-rule in this document; the MCP surface and the REST surface are two ways of reaching it, not
-two things that could drift apart. A future rate limit (§9.4) or moderation action applied
-at this service's request-handling layer covers both surfaces by construction.
+handler calls — not a second HTTP request to itself, and not a reimplementation. There is
+exactly one copy of every business rule in this document; the MCP surface and the REST
+surface are two ways of reaching it, not two things that could drift apart. A future rate
+limit (§9.4) or moderation action applied at this service's request-handling layer covers
+both surfaces by construction.
+
+**This same in-process design has a sharp edge, and it gets its own subsection below rather
+than a passing mention: calling service functions directly means every service function in
+this codebase is reachable from an MCP tool handler by default, not only the ones a tool
+happens to invoke on purpose.** An HTTP boundary would have made that reach visible — a
+route file lists every endpoint that exists. A bare function import does not. §7.9's
+"Service-layer allowlist" subsection is this document's answer.
 
 Why this API, rather than a separately deployed service, hosts it: see `war-spec.md` §4's
 footnote and the reasoning recorded in this section and §4.3's revision note. In short —
@@ -1014,25 +1029,42 @@ deployment. Revisit if that traffic profile changes.
 
 #### Tool surface
 
-Each tool maps to exactly one endpoint from §7.2–§7.3 that is actually implemented (§15).
+Each tool maps to exactly one endpoint from §7.2–§7.5 that is actually implemented (§15).
 No tool exists for an endpoint this document marks unbuilt.
 
-| Tool | Backed by (same function the REST route calls) |
+| Tool | Backed by (an allowed function — see "Service-layer allowlist" below) |
 |---|---|
 | `create_war` | `createWarForVoter` (§7.2) |
 | `update_war` | `patchWar` (§7.2) |
 | `activate_war` | `activateWar` (§7.2) |
 | `close_war` | `closeWar` (§7.2) |
-| `list_my_wars` | `listWars` with `creatorId` set (§7.2's `creator=me` semantics) |
+| `list_my_wars` | `listWarsForVoter` (§7.2's `creator=me` semantics, new — see below) |
 | `get_war` | `getWar` (§7.2) — no visibility restriction, matching that function's existing behavior exactly |
 | `add_contestant` | `addContestant` (§7.3) |
 | `update_contestant` | `patchContestant` (§7.3) |
 | `upload_image` | `addContestantImage` (§7.3) |
+| `get_rankings` | `rankingsFor` (§7.5) |
 
 Deliberately excluded, as a trim rather than an oversight: contestant/media removal and
-reordering, `join_war` (a voter action, not content authoring), the matchups/voting/rankings
-surface (§7.4–§7.5 — voter-facing, not this tool set's concern), and anything touching
+reordering, `join_war` (a voter action, not content authoring), voting and matchup
+progression (§7.4 — voter-facing, not this tool set's concern), and anything touching
 `video` media mode (not built — §15).
+
+**`get_rankings` reads a War's leaderboard** (`war_id` only) — the one read added alongside
+the content-authoring set, because a creator checking on a War they built is a natural part
+of "help me build and edit War content," not a voting action. It applies `rankingsFor`'s own
+invite-only visibility check unchanged: an anonymous or non-member caller against an
+invite-only War is rejected exactly as `GET /wars/:id/rankings` (§7.5) already rejects one.
+
+**`list_my_wars`'s function is new.** Today, `GET /wars?creator=me` is served straight from
+`warsRepository.listWars` (§7.2) — there is no `warsService` function for it, because the
+route handler itself decides whether to pass a `creatorId`. An MCP tool has no such route
+handler to decide for it, and the allowlist below is a list of *service* functions with no
+repository-level exception carved into it. `listWarsForVoter(db, voterId, filter)` is added
+to `wars/warsService.ts`: a thin wrapper that calls `listWars` with `creatorId` fixed to the
+given `voterId`, forwarding `status`/`category`/`cursor`/`limit` unchanged. This is the
+`list_my_wars` tool's only caller; `GET /wars` itself is untouched and keeps calling
+`listWars` directly, exactly as today.
 
 **`create_war`, `update_war`, `add_contestant`, `update_contestant`** apply no default of
 their own for any field the REST endpoint already defaults (`visibility`, `media_mode`) —
@@ -1053,6 +1085,50 @@ encoding: **the MCP client, not this API, reads the file from wherever it lives*
 user's phone or desktop) — this API has no filesystem to read from regardless, being remote.
 The existing 10MB size ceiling and image-content validation (§11.1, §7.3) apply identically
 after decoding; no new limit is introduced, and none is relaxed.
+
+#### Service-layer allowlist
+
+**Allowed — exactly ten functions, one per tool above:** `createWarForVoter`, `patchWar`,
+`activateWar`, `closeWar`, `listWarsForVoter`, `getWar`, `addContestant`, `patchContestant`,
+`addContestantImage`, `rankingsFor`. Each already owns its own authorization and validation
+guard (creator-only, draft-only, invite-only visibility, schema validation) exactly as it
+does for its REST route; an MCP tool inherits that guard by calling the same function, never
+by re-implementing or bypassing it.
+
+`addContestantImage` internally calls `uploadContestantImage` (`imageUploadService.ts`) to
+do the actual re-encode-and-store work (§11.1) — that call is `addContestantImage`'s own
+implementation detail, already reached only from behind its ownership/draft guard, and is
+not separately exported from the allowlist module: an MCP handler has no reason to call it
+directly, and the allowlist's job is to name what a handler may *import*, not everything a
+permitted call transitively reaches.
+
+**Denied, by name, and why:**
+
+| Function | Why it is denied |
+|---|---|
+| `castVoteForVoter` | Votes are final and unchangeable by design (`war-spec.md` §2); an MCP tool handler must not be a path to casting one. This is the one that matters most on this list — automated, LLM-driven voting is precisely what §9.4's rate limits exist to stop, and a rate limit on the MCP endpoint's request rate does nothing if a single request can still reach the vote itself. |
+| `nextMatchupForVoter`, `joinWar` | The rest of the voting path — no content-authoring tool has a legitimate reason to progress a voter through matchups or join a War on their behalf. |
+| `removeContestant`, `removeContestantMedia`, `reorderContestantMedia` | Already excluded from the tool surface above; denied here too so a *future* tool cannot acquire one of them by a handler simply importing it, without this list ever being revisited. |
+| `beginLogin`, `exchangeGoogleCode`, `completeCallback`, `refresh`, `logout`, `currentVoter`, `authenticatedVoterId` | The entire auth module. Identity is established once, before a tool handler ever runs (§4.3.6's bearer-token check resolves `voterId`); no tool touches token issuance, exchange, or session machinery. |
+
+**Enforcement is a module boundary, not a convention.** A single module,
+`src/mcp/allowedActions.ts`, re-exports exactly the ten allowed functions above and nothing
+else. Every file under `src/mcp/tools/` imports its service-layer call **only** from this
+module — never directly from `wars/warsService.ts`, `contestants/contestantsService.ts`,
+`contestants/mediaService.ts`, `votes/votesService.ts`, `matchups/matchupsService.ts`, or
+`auth/authService.ts`. Two checks make this a structurally visible property rather than a
+convention a later change silently breaks:
+
+- **A lint rule**, scoped to `src/mcp/tools/**/*.ts`, fails the build if any file there
+  imports from one of those six modules directly. Reaching `castVoteForVoter` from a tool
+  handler then requires either widening `allowedActions.ts` — a small, purpose-built file
+  whose diff says exactly what it grants — or bypassing this rule outright, both of which a
+  design review sees, unlike an unremarkable new import line in a large route file.
+- **A unit test** (§11.2's testing convention) imports `allowedActions.ts` and asserts its
+  exports are exactly the ten named above, sorted, no more and no fewer — pinned by the
+  Gherkin scenario "The MCP allowlist exports exactly the approved service functions" (§14).
+  This is what stops the allowlist module itself from being widened unnoticed; the lint
+  rule alone only stops a handler from reaching *around* it.
 
 #### Testing
 
@@ -2115,6 +2191,26 @@ Feature: MCP Resource Server
     Then the request is served by an in-process function call
     And no outbound HTTP request carrying that token is made to any other service
 
+Feature: Service-Layer Allowlist
+
+  Scenario: The MCP allowlist exports exactly the approved service functions
+    Given the src/mcp/allowedActions module
+    When its exports are enumerated
+    Then they are exactly createWarForVoter, patchWar, activateWar, closeWar,
+      listWarsForVoter, getWar, addContestant, patchContestant, addContestantImage,
+      and rankingsFor
+    And no other function is exported
+
+  Scenario: No tool in the registered surface can cast a vote
+    Given the full set of registered MCP tools
+    When their backing functions are enumerated
+    Then castVoteForVoter, nextMatchupForVoter, and joinWar do not appear among them
+
+  Scenario: A tool handler file importing a service module outside the allowlist fails lint
+    Given a file under src/mcp/tools/ that imports directly from votes/votesService.ts
+    When lint runs
+    Then it fails
+
 Feature: MCP Tool Surface
 
   Scenario: create_war sends only the fields supplied
@@ -2173,6 +2269,18 @@ Feature: MCP Tool Surface
     And a base64-encoded payload decoding to over 10MB
     When upload_image is called with it
     Then it is rejected exactly as the multipart route rejects an oversized upload
+
+  Scenario: get_rankings returns a public War's leaderboard
+    Given a valid access token for any authenticated voter
+    And an active public War with recorded votes
+    When get_rankings is called with that War's id
+    Then the same ranking order GET /wars/:id/rankings would return is returned
+
+  Scenario: get_rankings on an invite-only War rejects a non-member
+    Given a valid access token for a voter who is neither the creator nor a member
+    And an invite-only War
+    When get_rankings is called with that War's id
+    Then it is rejected exactly as GET /wars/:id/rankings rejects that same voter
 ```
 
 ### Images
@@ -2742,21 +2850,34 @@ Core Voting Loop slice, live in both staging and production for both repos
   the revision notes at §4.3 and §7.9.
 
 **Build order for §4.3/§7.9** (this is a multi-slice piece of work; the order below is the
-dependency structure, not merely a suggestion):
+dependency structure, not merely a suggestion). **Client ID Metadata Documents are in slice
+1, not Dynamic Client Registration** — the MCP authorization specification states CIMD
+support as a SHOULD for both authorization servers and clients, and DCR as a MAY that is
+itself "deprecated and retained for backwards compatibility with authorization servers that
+do not support Client ID Metadata Documents." Sequencing the deprecated, compatibility-only
+mechanism first would have left slice 1 provable only against a test client, not against
+any real MCP client that speaks solely CIMD — exactly the risk an earlier draft of this
+order left unflagged:
 
-1. **The authorization server core** — `/oauth/authorize`, `/oauth/token`, PKCE, resource
-   indicators (RFC 8707), Dynamic Client Registration, and the two discovery documents,
-   provable against a throwaway test client without the MCP endpoint existing yet. This is
-   ordinary OAuth infrastructure and has no MCP-specific content.
+1. **The authorization server core, with CIMD as its registration mechanism** —
+   `/oauth/authorize`, `/oauth/token`, PKCE, resource indicators (RFC 8707), Client ID
+   Metadata Document resolution (§4.3.3, including its SSRF guards), and the two discovery
+   documents. Provable against a real `https://` CIMD document without the MCP endpoint
+   existing yet, and — unlike a DCR-first sequencing — provable against whatever
+   registration mechanism a real MCP client actually speaks, since CIMD needs no prior
+   registration call at all.
 2. **The MCP endpoint and tool surface** (§7.9), protected by slice 1's resource-server
-   check. Depends on slice 1 for anything to authenticate against.
-3. **Client ID Metadata Documents** (§4.3.3) as the preferred registration path, alongside
-   DCR from slice 1. Independent of slice 2; sequenced after slice 1 because it hardens the
-   same client-resolution code path DCR already exercises.
+   check, including the service-layer allowlist module and both of its enforcement checks
+   (the lint rule and the export-set unit test). Depends on slice 1 for anything to
+   authenticate against.
+3. **Dynamic Client Registration** (§4.3.3) as the compatibility path, alongside CIMD from
+   slice 1. Moved behind slices 1–2 because it is the deprecated mechanism the
+   specification itself says exists only for authorization servers that don't support
+   CIMD — this one already will by slice 1.
 4. **Issuer validation, `WWW-Authenticate` scope challenges, and revocation wiring**
    (§4.3.2, §4.3.6, and `revokeToken` on the `OAuthServerProvider`) — hardening that
-   completes the MCP authorization spec's normative requirements without changing slice 1
-   or 2's observable behavior for a client that never hits these edges.
+   completes the MCP authorization spec's normative requirements without changing slice 1,
+   2, or 3's observable behavior for a client that never hits these edges.
 
 `war-infra-spec.md` §5.2 records the one infrastructure consequence: none of the above adds
 a new deployable, so none of it needs a new App Platform component, deploy pipeline, or
