@@ -94,12 +94,24 @@ export async function claimAuthorizationCode(db: Kysely<Database>, codeHash: str
 }
 
 /**
- * Plain lookup by hash, regardless of `used_at` — used after
- * {@link claimAuthorizationCode} has already marked the row used, to
- * re-inspect its stored `redirect_uri`/`resource`/`voter_id` for the second
- * half of the exchange (`exchangeAuthorizationCode`).
+ * Looks up a code by hash **only if it has already been claimed**
+ * (`used_at` set) — used after {@link claimAuthorizationCode} has already
+ * marked the row used, to re-inspect its stored
+ * `redirect_uri`/`resource`/`voter_id` for the second half of the exchange
+ * (`exchangeAuthorizationCode`). Named (and scoped) deliberately, not as a
+ * general "find any code by hash" lookup (design review of 513ee16, Finding
+ * 7): `exchangeAuthorizationCode`'s correctness used to depend entirely on
+ * its caller having run {@link claimAuthorizationCode} first, with nothing
+ * in the lookup itself enforcing that — a future caller (or anything that
+ * ever sets the SDK's `skipLocalPkceValidation`) could otherwise exchange
+ * an expired or never-claimed code with no error at all.
  */
-export async function findAuthorizationCodeByHash(db: Kysely<Database>, codeHash: string): Promise<StoredAuthorizationCode | undefined> {
-  const row = await db.selectFrom('authorization_codes').selectAll().where('code_hash', '=', codeHash).executeTakeFirst();
+export async function findClaimedAuthorizationCodeByHash(db: Kysely<Database>, codeHash: string): Promise<StoredAuthorizationCode | undefined> {
+  const row = await db
+    .selectFrom('authorization_codes')
+    .selectAll()
+    .where('code_hash', '=', codeHash)
+    .where('used_at', 'is not', null)
+    .executeTakeFirst();
   return row ? toStored(row) : undefined;
 }

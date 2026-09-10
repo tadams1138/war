@@ -73,6 +73,7 @@ export async function completeCallback(deps: AuthDependencies, profile: OAuthPro
 export type RefreshResult =
   | { kind: 'refreshed'; jwt: string; refreshTokenValue: string }
   | { kind: 'reused' }
+  | { kind: 'resourceBound' }
   | { kind: 'invalid' };
 
 /** Exchanges a presented refresh token for a new JWT, rotating it (spec §5.2). */
@@ -86,6 +87,17 @@ export async function refresh(deps: AuthDependencies, presentedTokenValue: strin
   if (decision.kind === 'reuseDetected') {
     await revokeFamily(deps.db, decision.familyId);
     return { kind: 'reused' };
+  }
+  if (decision.token.resource !== null) {
+    // §4.3.7: this endpoint mints a plain, unrestricted access token -- it
+    // has no `resource` parameter and no way to honor a binding even if it
+    // wanted to, so a token that already carries one (minted by the AS,
+    // §4.3) does not belong here at all. Treated as severely as reuse
+    // (family revoked), not a plain refusal: nothing about the ordinary
+    // browser flow ever produces a bound token, so presenting one here is
+    // the audience-laundering attempt §4.3.6 exists to prevent.
+    await revokeFamily(deps.db, decision.token.familyId);
+    return { kind: 'resourceBound' };
   }
 
   const newTokenValue = generateRefreshTokenValue();
@@ -136,5 +148,16 @@ export async function authenticatedVoterId(
   }
   const token = authorizationHeader.slice('Bearer '.length);
   const payload = await verifyAccessToken(token, deps.jwt);
+  if (payload.aud !== undefined) {
+    // An audience-bound token was minted by the OAuth 2.1 authorization
+    // server (§4.3) for exactly one resource (its MCP endpoint, §4.3.6) --
+    // "this API never accepts a token whose aud is not its own resource
+    // identifier" is a MUST that section already states, unimplemented
+    // until now (design review of 513ee16, Finding 1(a)). No REST route
+    // reached through this function is that resource, so any `aud`-bearing
+    // token is refused here, unconditionally. A browser-flow token never
+    // carries `aud` at all (jwt.ts), so this is behaviour-preserving for it.
+    throw new Error('audience-bound token is not valid for this route');
+  }
   return payload.voterId;
 }

@@ -13,6 +13,7 @@ function token(overrides: Partial<StoredRefreshToken> = {}): StoredRefreshToken 
     voterId: 'voter-1',
     familyId: 'family-1',
     tokenHash: 'hash',
+    resource: null,
     expiresAt: new Date('2099-01-01T00:00:00Z'),
     usedAt: null,
     revokedAt: null,

@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import {
   claimAuthorizationCode,
   createAuthorizationCode,
-  findAuthorizationCodeByHash,
+  findClaimedAuthorizationCodeByHash,
 } from '../../src/oauth/authorizationCodesRepository.js';
 import { generateAuthorizationCode, hashAuthorizationCode } from '../../src/oauth/authorizationCodes.js';
 import { makeVoter } from '../setup/fixtures.js';
@@ -112,7 +112,7 @@ describe('authorizationCodesRepository', () => {
     expect(claimedCount).toBe(1);
   });
 
-  it('findAuthorizationCodeByHash finds a row regardless of used_at, for post-claim re-inspection', async () => {
+  it('findClaimedAuthorizationCodeByHash finds an already-claimed row, for post-claim re-inspection', async () => {
     // Arrange
     const db = await getTestDb();
     const voter = await makeVoter(db, 'finder');
@@ -129,10 +129,38 @@ describe('authorizationCodesRepository', () => {
     await claimAuthorizationCode(db, hashAuthorizationCode(plaintext));
 
     // Act
-    const found = await findAuthorizationCodeByHash(db, hashAuthorizationCode(plaintext));
+    const found = await findClaimedAuthorizationCodeByHash(db, hashAuthorizationCode(plaintext));
 
     // Assert
     expect(found).toBeDefined();
     expect(found?.usedAt).not.toBeNull();
+  });
+
+  /**
+   * Design review of 513ee16, Finding 7: unlike the old, unfiltered
+   * `findAuthorizationCodeByHash`, this lookup must never return a row that
+   * has not gone through {@link claimAuthorizationCode} -- a caller cannot
+   * accidentally trust an unclaimed row's contents.
+   */
+  it('findClaimedAuthorizationCodeByHash does not find a row that has never been claimed', async () => {
+    // Arrange
+    const db = await getTestDb();
+    const voter = await makeVoter(db, 'never-claimed');
+    const plaintext = generateAuthorizationCode();
+    await createAuthorizationCode(db, {
+      voterId: voter.id,
+      clientId: 'https://client.test/client-metadata.json',
+      codeHash: hashAuthorizationCode(plaintext),
+      codeChallenge: 'the-real-challenge',
+      redirectUri: 'https://client.test/callback',
+      resource: RESOURCE,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    // Act
+    const found = await findClaimedAuthorizationCodeByHash(db, hashAuthorizationCode(plaintext));
+
+    // Assert
+    expect(found).toBeUndefined();
   });
 });
