@@ -49,11 +49,22 @@ guards), audience binding in every direction, the MCP endpoint with its ten tool
 service-layer allowlist, their tests, and five dependencies. The suite returned to
 **449/449** — exactly the baseline recorded before the OAuth work began.
 
-**Two migrations were deliberately left applied** in staging and production:
-`authorization_codes`, now an unreferenced table, and `refresh_tokens.resource`, now a
-nullable and unread column. Dropping them must be a **separate, later deploy**: the
-pre-deploy migration hook runs while the previous revision is still serving, so dropping the
-column alongside the code removal would break the live service between hook and cutover.
+**The schema retirement is written but must not ship yet.**
+`db/migrations/20260105000000_drop_oauth_server_schema.sql` drops the
+`authorization_codes` table and the `refresh_tokens.resource` column. It is verified against
+a real database — the suite runs migrations fresh and passes 449/449 with it applied — but
+it is **ordering-sensitive in two ways**:
+
+1. **It must not reach an environment whose running revision still reads `resource`.** The
+   pre-deploy hook runs while the previous revision is still serving, so dropping the column
+   before the removal is live there breaks the service between hook and cutover. The removal
+   must be deployed to an environment *first*, on its own.
+2. **Pushing it while a previous deploy waits at a gate will evict that deploy.** Two runs of
+   the same pipeline share the `deploy-production-api` concurrency group, and only one
+   pending run is kept per group — the same eviction mechanism section 12.9 records, now
+   within one pipeline rather than across two.
+
+So: approve the removal's production gate, confirm production is running it, then push this.
 
 **Worth recovering from history rather than rewriting**, if the platform ever fetches a
 user-supplied URL again: the SSRF address classifier and the connect-time DNS-rebinding
