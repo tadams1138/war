@@ -1,4 +1,4 @@
-# App Platform app — see specs/war-infra-spec.md §5.2, §15.2
+# App Platform app — see specs/war-spec.md
 #
 # OWNERSHIP SPLIT — read this before changing anything here.
 #
@@ -97,7 +97,7 @@ resource "digitalocean_app" "war" {
     }
 
     # Alerts are declared here rather than in the YAML so that a pipeline
-    # mistake cannot silently drop monitoring (spec §13). They are re-asserted
+    # mistake cannot silently drop monitoring (spec). They are re-asserted
     # by platform/{env}.yaml; keeping both in sync is intentional redundancy.
     alert {
       rule = "DEPLOYMENT_FAILED"

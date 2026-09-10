@@ -61,7 +61,7 @@ const warSummaryRequired = [
   'contestant_count',
 ];
 
-/** The response body JSON Schema for {@link WarSummaryView} (spec §11.2.1). Registered under `$id: "WarSummary"`. */
+/** The response body JSON Schema for {@link WarSummaryView} (spec). Registered under `$id: "WarSummary"`. */
 export const warSummarySchema = {
   $id: 'WarSummary',
   type: 'object',
@@ -70,7 +70,7 @@ export const warSummarySchema = {
 };
 
 /**
- * The response body JSON Schema for {@link WarDetailView} (spec §11.2.1):
+ * The response body JSON Schema for {@link WarDetailView} (spec):
  * `warSummaryProperties` plus a required `contestants` array. Not
  * registered under a shared `$id` -- only `GET /wars/:id` uses it.
  */

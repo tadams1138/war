@@ -60,7 +60,7 @@ function operationFor(document: OpenApiDocument, path: string, method: string): 
 /**
  * The set of `METHOD path` entries the generated document is expected to
  * publish: every actually-registered route, minus `/internal/*` (excluded
- * per spec §7.7) and the document's own endpoint (not self-described).
+ * per the spec) and the document's own endpoint (not self-described).
  * Built from Fastify's own routing table, not a hand-copied list, so this
  * is a real drift check rather than a restatement of the spec. Compares at
  * method granularity, not path alone, so a route silently losing a verb
@@ -127,7 +127,7 @@ function requestBodySchema(document: OpenApiDocument, path: string, method: stri
   return resolveSchema(document, schema);
 }
 
-/** Asserts a response status is documented with no body (an empty schema), per spec §11.2.1. */
+/** Asserts a response status is documented with no body (an empty schema), per the spec. */
 function expectNoBody(document: OpenApiDocument, path: string, method: string, status: string): void {
   const schema = responseEntry(document, path, method, status).content?.['application/json']?.schema;
   expect(schema).toBeDefined();

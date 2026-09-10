@@ -147,7 +147,7 @@ test('A decided pair is never shown again', async ({ page }) => {
   // rather than replaying a cached first response, and what it rendered
   // from that refetch no longer contains the decided pair. Whether the
   // *server* would actually re-serve a decided pair is enforced by
-  // war-api (war-api-spec.md §9.2), not observable from this repo.
+  // war-api (the spec), not observable from this repo.
   await expect(page.getByText('Once')).toHaveCount(0)
   const nextCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/matchups/next'))
   expect(nextCalls).toHaveLength(2)

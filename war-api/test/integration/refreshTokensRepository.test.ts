@@ -10,7 +10,7 @@ import { getTestDb, truncateAll } from '../setup/testDb.js';
  * The DB is the arbiter here, so this needs the real database rather than a
  * mock — a check-then-act race is invisible to a sequential test.
  */
-describe('rotateRefreshToken concurrency (spec §5.2 reuse detection)', () => {
+describe('rotateRefreshToken concurrency (spec, reuse detection)', () => {
   beforeEach(async () => {
     await truncateAll();
   });

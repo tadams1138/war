@@ -25,7 +25,7 @@ export async function loginAsTestVoter(page: Page, token = 'test-voter-token'): 
 }
 
 // A client-side route change (React Router), not a full page.goto() —
-// page.goto() reloads the page and, correctly per §2/§7, wipes the
+// page.goto() reloads the page and, correctly per the spec, wipes the
 // in-memory JWT loginAsTestVoter just set. This is how an authenticated
 // test reaches a protected route without a real OAuth round trip.
 export async function navigateAuthenticated(page: Page, path: string): Promise<void> {

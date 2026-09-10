@@ -11,7 +11,7 @@ let pool: pg.Pool | undefined;
 
 /**
  * Connects tests to Postgres: `DATABASE_URL` when set (CI's postgres:16-alpine
- * service), otherwise a local Testcontainers Postgres (spec §12). Migrations
+ * service), otherwise a local Testcontainers Postgres (spec). Migrations
  * run once per test process via the same `node-pg-migrate` runner `npm run
  * migrate` uses, against `db/migrations`.
  */

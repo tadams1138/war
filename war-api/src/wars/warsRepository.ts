@@ -73,7 +73,7 @@ export interface ListWarsFilter {
   limit: number;
   /**
    * Scopes the list to Wars created by this voter, across every status --
-   * including their own drafts and invite-only Wars (spec §7.2, §11.2.1
+   * including their own drafts and invite-only Wars (spec,
    * "Addendum (2026-09-01)"). Composes with `status`/`category` exactly as
    * those two already compose with each other. Only ever set from the
    * authenticated requester's own id -- never from a client-supplied one --
@@ -92,7 +92,7 @@ export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Pr
     }
   } else {
     // Default visibility/status scoping, applied whenever `creatorId` is
-    // absent (spec §7.2 "Default scoping (no `creator=me`)"): never a
+    // absent (spec, "Default scoping (no `creator=me`)"): never a
     // `draft` War, never an `invite_only` one, regardless of any `status`
     // filter supplied -- `status=draft` returns empty rather than another
     // voter's drafts, since `status != 'draft'` and `status = 'draft'` can
@@ -154,7 +154,7 @@ export async function setWarStatus(db: Kysely<Database>, id: string, status: str
   return toWar(row);
 }
 
-/** Materialises stored status for expired Wars (spec §6, §8.7). Idempotent. */
+/** Materialises stored status for expired Wars (spec). Idempotent. */
 export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise<number> {
   const rows = await db
     .updateTable('wars')

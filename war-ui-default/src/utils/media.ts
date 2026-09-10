@@ -1,6 +1,6 @@
 // Which image is "primary" for a contestant, and how to build a srcset
 // for one — the single most consequential piece of presentation in a fast
-// binary vote (war-ui-default-spec.md §6). Used by both WarDetail's
+// binary vote (the spec). Used by both WarDetail's
 // gallery and ImageCarousel; kept in one place so the two can never drift.
 import type { MediaItem } from '../api/client'
 

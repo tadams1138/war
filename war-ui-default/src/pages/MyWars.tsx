@@ -1,5 +1,5 @@
 // Every War the authenticated voter created, across every status
-// (war-ui-default-spec.md §4, §6 "MyWars Page"). This is what closes the
+// (the spec "MyWars Page"). This is what closes the
 // gap the CreateWar wizard's own spec text names: a creator who abandons
 // the wizard before Activate has, until this page exists, no way to find
 // that draft War again.

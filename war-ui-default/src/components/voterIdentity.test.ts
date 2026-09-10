@@ -32,7 +32,7 @@ describe('resolveVoterIdentity', () => {
   })
 
   it('falls back to the same label, with no avatar, when the GET /auth/me request fails', () => {
-    // Arrange — war-ui-default-spec.md §6 "NavBar": a failed profile fetch
+    // Arrange — the spec "NavBar": a failed profile fetch
     // never blocks navigation; only the identity slot falls back.
     const state = { status: 'error' as const, message: 'Server error — please try again shortly' }
 

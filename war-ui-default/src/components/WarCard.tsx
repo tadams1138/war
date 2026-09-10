@@ -1,9 +1,9 @@
-// Summary tile used on the Home and MyWars pages (war-ui-default-spec.md
-// §6, "WarCard"): title, category badge, status badge, contestant count,
-// and time remaining (when ends_at is set). MyWars (§6, "MyWars Page") is
+// Summary tile used on the Home and MyWars pages (the spec, "WarCard"):
+// title, category badge, status badge, contestant count,
+// and time remaining (when ends_at is set). MyWars ("MyWars Page") is
 // the first page in this UI to need the status badge and time-remaining
 // fields; Home renders the same full card, it simply has never needed them
-// asserted (§12).
+// asserted.
 import { Link } from 'react-router-dom'
 import type { WarSummary } from '../api/client'
 

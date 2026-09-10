@@ -1,8 +1,8 @@
 -- Up Migration
 
 -- Single-use authorization codes for the OAuth 2.1 authorization server
--- (spec §4.3.4, §6). `oauth_clients` is deliberately not created here:
--- Client ID Metadata Documents (this slice's registration mechanism, §4.3.3)
+-- (spec). `oauth_clients` is deliberately not created here:
+-- Client ID Metadata Documents (this slice's registration mechanism)
 -- need no stored client row at all, and Dynamic Client Registration -- the
 -- only feature that table exists for -- is slice 3.
 CREATE TABLE authorization_codes (

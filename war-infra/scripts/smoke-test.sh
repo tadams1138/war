@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Post-deploy smoke tests — see specs/war-infra-spec.md §8 and §19.
+# Post-deploy smoke tests — see specs/war-spec.md.
 #
 # Usage:
 #   smoke-test.sh <environment> api
@@ -107,7 +107,7 @@ case "$TARGET" in
     header "/api/v1/wars"     content-type "application/json" "war list returns JSON"
     status "/api/v1/auth/me"  401 "protected endpoint rejects anonymous requests"
 
-    # §6 — internal endpoints must be blocked at the edge. Anything other than a
+    # internal endpoints must be blocked at the edge. Anything other than a
     # 2xx is a pass; what matters is that it never succeeds from outside.
     code="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
                  --max-time "$CURL_TIMEOUT" \
@@ -125,10 +125,10 @@ case "$TARGET" in
     status "/"                200 "home page responds"
     header "/"                content-type "text/html" "home page returns HTML"
 
-    # §6.1 — SPA deep links must return index.html with 200, not 404.
+    # SPA deep links must return index.html with 200, not 404.
     status "/wars/smoke-test-nonexistent/vote" 200 "SPA deep link returns 200"
 
-    # index.html must not go meaningfully stale after a deploy (§7), but
+    # index.html must not go meaningfully stale after a deploy, but
     # unlike the custom-UI stack below (which we fully control and holds to
     # a strict no-store), App Platform's static-site hosting has a fixed,
     # non-configurable Cache-Control — public, max-age=10, s-maxage=86400 —
@@ -157,7 +157,7 @@ case "$TARGET" in
     status "/ui/${SLUG}/"     200 "custom UI '${SLUG}' responds"
     header "/ui/${SLUG}/"     content-type "text/html" "custom UI returns HTML"
 
-    # §6.1 — the edge function must rewrite storage 404s to a 200 index.html.
+    # the edge function must rewrite storage 404s to a 200 index.html.
     status "/ui/${SLUG}/smoke-test-nonexistent" 200 "custom UI SPA fallback returns 200"
     ;;
 

@@ -23,11 +23,11 @@ export interface RankingsView {
 }
 
 /**
- * The response body JSON Schema for {@link RankingsView} (spec §11.2.1,
+ * The response body JSON Schema for {@link RankingsView} (spec,
  * "Addendum (2026-08-31)"). Kept beside the interface it mirrors -- see
  * `mediaItemSchema` (`../contestants/mediaPresenter.ts`) for why. `rank` is
  * `["integer", "null"]` since an unranked (zero-appearance) contestant is
- * listed with `rank: null` (spec §8).
+ * listed with `rank: null` (spec).
  */
 export const rankingsResponseSchema = {
   type: 'object',
@@ -58,7 +58,7 @@ export type RankingsOutcome =
   | { kind: 'unauthorized' };
 
 /**
- * Assembles a War's rankings response (spec §9): the invite-only membership
+ * Assembles a War's rankings response (spec): the invite-only membership
  * check, scoring, and view assembly all live here rather than in the route
  * handler, matching the routes → service → repository → presenter layering
  * every other domain in this slice follows (design review finding 8).

@@ -15,7 +15,7 @@ export interface MediaItemView {
 }
 
 /**
- * The response body JSON Schema for {@link MediaItemView} (spec §11.2.1).
+ * The response body JSON Schema for {@link MediaItemView} (spec).
  * Registered under `$id: "MediaItem"` (`registerSharedSchemas`,
  * `src/openapi/schemas.ts`) so other routes' schemas can `$ref` it instead
  * of repeating it. Kept beside the interface it mirrors, on pain of the
@@ -46,9 +46,9 @@ export const mediaItemSchema = {
 };
 
 /**
- * Builds the response shape for a contestant's media array (spec §8, "Media
+ * Builds the response shape for a contestant's media array (spec, "Media
  * Representation"). Which variant widths exist prefers the widths actually
- * written at upload time (`variantWidths`, spec §11.1) so that changing
+ * written at upload time (`variantWidths`, spec) so that changing
  * today's `VARIANT_WIDTHS` later cannot silently break URLs already
  * advertised for existing content (design review finding 15). Rows written
  * before that column existed fall back to filtering the stored source width

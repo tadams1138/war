@@ -10,13 +10,13 @@ export interface AccessTokenPayload {
   exp?: number;
 }
 
-const ACCESS_TOKEN_TTL_SECONDS = 60 * 60; // 1h, spec §5
+const ACCESS_TOKEN_TTL_SECONDS = 60 * 60; // 1h, spec
 
 function key(secret: string): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-/** Issues a signed JWT (1h expiry) carrying the voter's id (spec §5). */
+/** Issues a signed JWT (1h expiry) carrying the voter's id (spec). */
 export async function signAccessToken(voterId: string, options: JwtOptions): Promise<string> {
   return new SignJWT({ voterId })
     .setProtectedHeader({ alg: 'HS256' })

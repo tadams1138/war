@@ -131,7 +131,7 @@ test('The current page is indicated in the navigation', async ({ page }) => {
   // Act
   await navigateAuthenticated(page, '/my-wars')
 
-  // Assert — §6 says the other two links are unmarked; Home is included
+  // Assert — the spec says the other two links are unmarked; Home is included
   // alongside Create War so dropping NavLink's `end` (which would make
   // Home match every route) does not slip through unnoticed.
   await expect(nav(page).getByRole('link', { name: 'My Wars' })).toHaveAttribute('aria-current', 'page')
@@ -156,7 +156,7 @@ test("Logging out returns the navigation to its anonymous state", async ({ page 
 })
 
 test('A failed server-side logout still logs the voter out locally', async ({ page }) => {
-  // Arrange — war-ui-default-spec.md §8, "Logout always succeeds from the
+  // Arrange — the spec, "Logout always succeeds from the
   // voter's point of view": a failing DELETE /auth/session must not gate,
   // delay, or surface an error for the client-side effect. The delay below
   // is what gives this test teeth against the "delay" half of that

@@ -20,7 +20,7 @@ function toMatchup(row: MatchupColumns): Matchup {
   return { id: row.id, warId: row.war_id, contestantAId: row.contestant_a_id, contestantBId: row.contestant_b_id };
 }
 
-/** Generates every unordered pair for a War's contestants (spec §6, §8.2). */
+/** Generates every unordered pair for a War's contestants (spec). */
 export async function generateMatchups(db: Kysely<Database>, warId: string, contestantIds: string[]): Promise<number> {
   const sorted = [...contestantIds].sort();
   const rows: { id: string; war_id: string; contestant_a_id: string; contestant_b_id: string }[] = [];
@@ -55,8 +55,8 @@ export async function findMatchupById(db: Kysely<Database>, id: string): Promise
 
 /**
  * Every pair the voter has not yet voted on, ordered by lowest combined
- * appearance_count with ties broken by a stable per-voter shuffle (spec
- * §8.4) — the first row is the voter's next matchup; further rows compute
+ * appearance_count with ties broken by a stable per-voter shuffle (spec)
+ * — the first row is the voter's next matchup; further rows compute
  * the prefetch block. The `md5(...)` tie-break here is the SQL twin of
  * `stableHash` in `src/matchups/stableHash.ts`, which mirrors this exact
  * expression so tests can predict the order without hitting the database;

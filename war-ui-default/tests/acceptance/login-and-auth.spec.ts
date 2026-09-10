@@ -30,7 +30,7 @@ test('A completed sign-in returns the voter to where they started', async ({ pag
   // Act — selecting a provider leaves the SPA for real (browser
   // navigation), same as the previous scenario; the API then redirects
   // back to /auth/callback carrying no token or returnTo of its own
-  // (war-ui-default-spec.md §7 step 3) — the SPA persisted returnTo itself
+  // (the spec step 3) — the SPA persisted returnTo itself
   // before leaving, in sessionStorage.
   await page.getByTestId('login-provider-google').click()
   await page.goto('/auth/callback')

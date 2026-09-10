@@ -1,4 +1,4 @@
-// The CreateWar wizard's Metadata step view (war-ui-default-spec.md §6).
+// The CreateWar wizard's Metadata step view (the spec).
 // Rendering only -- state and API calls live in useCreateWarWizard.
 import { useState, type FormEvent } from 'react'
 import type { CreateWarPayload } from '../api/client'

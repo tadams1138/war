@@ -1,4 +1,4 @@
-// Browse active public Wars (war-ui-default-spec.md §4, §12).
+// Browse active public Wars (the spec).
 import { Link } from 'react-router-dom'
 import { getWars, type WarSummary } from '../api/client'
 import { useAuth } from '../auth/context'
@@ -39,7 +39,7 @@ function HomeWarList({ wars, isAuthenticated }: { wars: WarSummary[]; isAuthenti
   )
 }
 
-// The empty-state copy is auth-aware (§6, "Home Page"): an anonymous
+// The empty-state copy is auth-aware ("Home Page"): an anonymous
 // visitor's only options are to wait or log in (NavBar already covers the
 // latter), but a signed-in voter is the one visitor who can make an active
 // War exist, so they're pointed at /wars/new instead. This link is in

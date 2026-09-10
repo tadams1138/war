@@ -55,10 +55,10 @@ describe('presentMedia', () => {
     expect(view!.aspect_ratio).toBeCloseTo(1.333, 3);
   });
 
-  it('prefers the recorded variant widths over recomputing from today\'s config (spec §11.1)', () => {
+  it('prefers the recorded variant widths over recomputing from today\'s config (spec)', () => {
     // Arrange: recorded at upload time under widths that differ from the
     // current VARIANT_WIDTHS — simulating the spec's anticipated future
-    // change to variant widths (§11.1) without touching this historical row.
+    // change to variant widths without touching this historical row.
     const items = [media({ width: 2000, height: 1500, variantWidths: [300, 600] })];
 
     // Act

@@ -5,7 +5,7 @@ export interface WarLifecycleFields {
 
 /**
  * A War is treated as closed the instant `ends_at` passes, regardless of what the
- * `status` column currently holds (spec §6, "Effective Status").
+ * `status` column currently holds (spec, "Effective Status").
  */
 export function effectiveStatus(war: WarLifecycleFields, now: Date): string {
   if (war.endsAt !== null && war.endsAt.getTime() <= now.getTime()) {

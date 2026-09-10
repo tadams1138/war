@@ -45,10 +45,10 @@ export interface CastVoteResult {
 
 /**
  * Casts a vote and increments both denormalised counters in one transaction
- * (spec §6, §8.4). The insert is `ON CONFLICT DO NOTHING` against the
+ * (spec). The insert is `ON CONFLICT DO NOTHING` against the
  * `UNIQUE (matchup_id, voter_id)` constraint, which is the real arbiter when
  * two requests for the same voter race (design review finding 2) — the
- * caller's pre-check (spec §10.1) is only a fast path, not the source of
+ * caller's pre-check (spec) is only a fast path, not the source of
  * truth. When the insert is skipped, the counters are **not** touched, so
  * the losing request never double-increments them; it returns the row the
  * winner (or an earlier vote) already wrote.

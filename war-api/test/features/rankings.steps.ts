@@ -187,7 +187,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       warId = activated.id;
 
       // 5 contestants → 10 pairs; simulate many voters so appearance_counts
-      // accumulate while pair selection keeps them balanced (spec §9.1).
+      // accumulate while pair selection keeps them balanced (spec).
       for (let i = 0; i < 30; i += 1) {
         const voter = await makeVoter(harness.db, `voter-${i}`);
         await joinWarAsVoter(harness.db, warId, voter.id);

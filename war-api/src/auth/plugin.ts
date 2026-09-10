@@ -8,7 +8,7 @@ declare module 'fastify' {
 }
 
 /**
- * A Fastify preHandler that requires a valid Bearer JWT (spec §5: "All
+ * A Fastify preHandler that requires a valid Bearer JWT (spec: "All
  * protected endpoints require Authorization: Bearer <jwt>"). Populates
  * `request.voterId` on success, or replies 401 without calling the handler.
  */
@@ -28,7 +28,7 @@ export function requireAuth(deps: AuthDependencies) {
  * and otherwise lets the request through unauthenticated (`request.voterId`
  * stays `undefined`). For an endpoint that is public in general but
  * requires identity for one particular query combination -- `GET
- * /wars?creator=me` (spec §7.2, §11.2.1 "Addendum (2026-09-01)") is the one
+ * /wars?creator=me` (spec, "Addendum (2026-09-01)") is the one
  * caller today -- rather than gating the whole route behind
  * {@link bearerAuthRoute}, which would also mark it `security:
  * [{bearerAuth: []}]` in the OpenAPI document and misdescribe every other
@@ -46,7 +46,7 @@ export function requireAuthIf(deps: AuthDependencies, shouldRequireAuth: (reques
 /**
  * Route options for an endpoint gated by the bearer JWT: the preHandler that
  * enforces it and the OpenAPI marker that documents it, produced together so
- * neither can be added without the other (spec §5, §11.2). Accepts the
+ * neither can be added without the other (spec). Accepts the
  * route's own schema (if any) so adding request/response validation later
  * can never overwrite the security marker.
  */

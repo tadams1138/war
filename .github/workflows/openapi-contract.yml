@@ -1,4 +1,4 @@
-# OpenAPI contract guard — see specs/war-ui-default-spec.md §5.1
+# OpenAPI contract guard — see specs/war-spec.md
 #
 # war-ui-default's request/response types are generated from war-api's own
 # OpenAPI document and committed. Nothing else forces the two to agree: a

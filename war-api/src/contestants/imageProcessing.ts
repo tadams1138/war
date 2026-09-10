@@ -36,7 +36,7 @@ export function extensionFor(mimeType: string): string {
   }
 }
 
-/** Validates upload type and size before any processing (spec §11.1). */
+/** Validates upload type and size before any processing (spec). */
 export function validateImageUpload(input: UploadValidationInput): UploadValidationResult {
   if (input.sizeBytes > MAX_UPLOAD_BYTES) {
     return { ok: false, reason: 'file exceeds the 10MB limit' };
@@ -51,7 +51,7 @@ export function validateImageUpload(input: UploadValidationInput): UploadValidat
  * Re-encodes an uploaded image into WebP variants at 400/800/1600px wide,
  * never upscaling, and never carrying source EXIF metadata forward — sharp
  * omits metadata from its output unless `.withMetadata()` is called, which it
- * never is here (spec §11.1).
+ * never is here (spec).
  */
 export async function processImage(input: Buffer): Promise<ProcessedImage> {
   const metadata = await sharp(input).metadata();

@@ -3,7 +3,7 @@ import request from 'supertest';
 import { buildAppWithoutDb } from '../setup/testAppNoDb.js';
 
 /**
- * Adding `schema.body` to `POST /wars/:id/matchups/:mId/vote` (spec §11.2.1)
+ * Adding `schema.body` to `POST /wars/:id/matchups/:mId/vote` (spec)
  * moved rejection of a malformed body from `castVoteForVoter`'s own
  * `invalidWinner` (422, `{ "error": ... }`) to Fastify's ajv validator (400,
  * `{ statusCode, code, error, message }`) -- a real, observable behavior

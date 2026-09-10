@@ -1,8 +1,8 @@
-// Typed API wrapper — war-ui-default-spec.md §5. Pages and components never
+// Typed API wrapper — the spec. Pages and components never
 // call fetch() directly; every request this slice needs goes through one of
 // the functions below. Request/response body types come from
 // src/api/generated/schema.d.ts, generated from war-api's live OpenAPI
-// document by `npm run generate:api` (§5.1) — nothing here hand-writes a
+// document by `npm run generate:api` — nothing here hand-writes a
 // shape the API is supposed to define.
 
 import type { components, paths } from './generated/schema'
@@ -25,10 +25,10 @@ export type ResolvedAttribute = components['schemas']['ResolvedAttribute']
 type VoteForbiddenBody =
   paths['/wars/{id}/matchups/{mId}/vote']['post']['responses'][403]['content']['application/json']
 // war-api's Fastify routes validate CreateWar-slice request bodies by hand,
-// not through a `schema.body` option (war-api-spec.md §11.2.1) — so, unlike
+// not through a `schema.body` option (the spec) — so, unlike
 // the response types above, there is nothing in the generated document to
 // derive these from. Hand-written to match the documented body shapes
-// (§7.2, §7.3) exactly, same fields the wizard collects.
+// exactly, same fields the wizard collects.
 export interface CreateWarPayload {
   title: string
   category?: string | null
@@ -76,7 +76,7 @@ async function handleUnauthorizedAndRetry(path: string, init: RequestInit): Prom
   return apiFetch(path, init, true)
 }
 
-// Refresh is single-flight (§7): concurrent 401s share one in-flight
+// Refresh is single-flight: concurrent 401s share one in-flight
 // request rather than each firing their own POST /auth/refresh.
 let refreshPromise: Promise<string> | null = null
 
@@ -100,7 +100,7 @@ async function performRefresh(): Promise<string> {
   return body.token
 }
 
-// --- status → typed error mapping (§8, filtered to this slice's endpoints) -----
+// --- status → typed error mapping (filtered to this slice's endpoints) -----
 
 const SIMPLE_REASONS: Partial<Record<number, ApiErrorReason>> = {
   401: 'unauthorized',
@@ -124,8 +124,8 @@ async function ensureOk(response: Response, classify403: Classify403 = classifyD
   throw new ApiError(reason, response.status, messageForReason(reason, retryAfterSeconds), retryAfterSeconds, details)
 }
 
-// The `{ error, details }` shape's `details` array (war-api-spec.md
-// §11.2.1), when the body actually has one — `POST
+// The `{ error, details }` shape's `details` array (the spec), when the
+// body actually has one — `POST
 // /wars/:id/contestants/:cId/images`'s 422 never does (a plain `{ error }`
 // shape, deliberately), so this simply returns undefined there rather than
 // branching per endpoint.
@@ -183,7 +183,7 @@ function parseRetryAfter(headerValue: string | null): number {
 // --- typed wrapper functions -----------------------------------------------
 
 // Serializes every defined param on GetWarsParams (status, category,
-// cursor, limit, creator — war-api-spec.md §7.2) rather than picking one
+// cursor, limit, creator — the spec) rather than picking one
 // out by name, so a caller passing e.g. `status` type-checks and actually
 // reaches the request instead of type-checking and being silently dropped.
 export async function getWars(params: GetWarsParams = {}): Promise<WarListResponse> {
@@ -247,7 +247,7 @@ export async function addContestant(warId: string, payload: AddContestantPayload
   return response.json() as Promise<ContestantDetail>
 }
 
-// One multipart request per file (war-api-spec.md §11.2.1) — sequential,
+// One multipart request per file (the spec) — sequential,
 // not parallel, so each upload's assigned display_order is deterministic
 // (the API appends at "the next display_order" per request it handles).
 export async function uploadContestantImages(warId: string, contestantId: string, files: File[]): Promise<UploadedImage[]> {
@@ -273,8 +273,7 @@ export async function getMe(): Promise<VoterMe> {
   return response.json() as Promise<VoterMe>
 }
 
-// Logout always succeeds from the voter's point of view (§8, "Logout
-// always succeeds from the voter's point of view"): the DELETE is
+// Logout always succeeds from the voter's point of view: the DELETE is
 // attempted best-effort, but its outcome — success, a network failure, or
 // any error status — never stops the in-memory token from being cleared,
 // and is never surfaced to the caller as a rejection.

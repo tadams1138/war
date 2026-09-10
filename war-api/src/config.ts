@@ -1,7 +1,7 @@
 /**
  * The convenience defaults `loadConfig` supplies so tests never have to set
  * every secret explicitly. Named here so `assertProductionConfig` can refuse
- * to boot a real deployment left on any of them (spec §5/§12: auth must not
+ * to boot a real deployment left on any of them (spec: auth must not
  * be silently disabled).
  */
 export const DEFAULT_JWT_SECRET = 'test-secret-do-not-use-in-production';
@@ -132,7 +132,7 @@ const PRODUCTION_RULES: ReadonlyArray<{ failsWhen: (config: AppConfig) => boolea
 
 /**
  * Refuses to let a real deployment boot with a secret left at its test
- * default, or with a required credential unset entirely (spec §5/§12: a
+ * default, or with a required credential unset entirely (spec: a
  * misconfigured deployment must fail loudly, not serve traffic with auth
  * effectively disabled). `loadConfig` itself stays permissive so it remains
  * convenient for tests; only the real process entry point calls this.

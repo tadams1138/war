@@ -1,5 +1,5 @@
 # War — staging environment
-# See specs/war-infra-spec.md §3. Production is the same composition with
+# See specs/war-spec.md. Production is the same composition with
 # larger sizing and a standby database node.
 
 terraform {
@@ -31,7 +31,7 @@ locals {
 }
 
 # ── Credentials ───────────────────────────────────────────────────────────────
-# Supplied by the pipeline as TF_VAR_* from GitHub Actions secrets (spec §9).
+# Supplied by the pipeline as TF_VAR_* from GitHub Actions secrets (spec).
 
 variable "do_token" {
   type      = string
@@ -160,7 +160,7 @@ module "scheduler" {
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # app_id is consumed by the deploy pipelines as the DO_APP_ID environment
-# variable (spec §15.7).
+# variable (spec).
 
 output "app_id" {
   value = module.compute.app_id

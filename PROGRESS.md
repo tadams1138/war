@@ -19,7 +19,8 @@ Staging and production both run as a single application per environment containi
 ### Built
 
 - **Auth** — Google only. Other providers return not-found; the route shape already supports
-  them. All callback failure responses implemented.
+  them. All callback failure responses implemented. Sessions are a JWT plus a rotating
+  refresh-token family with reuse detection.
 - **Domain** — Wars, contestants, contestant schema, matchups, voting, rankings, and the
   internal close-expired-wars endpoint.
 - **War listing** — the caller's-own-Wars filter, and default visibility scoping applied in
@@ -39,32 +40,17 @@ Staging and production both run as a single application per environment containi
 
 ## Removed
 
-**The remote MCP feature was withdrawn**, along with the OAuth 2.1 authorization server that
-existed only to serve it. The auth surface is back to what it was at `f7a796a`: provider
-sign-in, token delivery, and refresh rotation with reuse detection.
+**The OAuth 2.1 authorization server was withdrawn**, along with the integration it existed
+only to serve. The auth surface is provider sign-in, token delivery, and refresh rotation
+with reuse detection — nothing more.
 
-Gone: the authorization server (authorize and token endpoints, PKCE, resource indicators,
-client-metadata-document registration, both discovery documents, the SSRF and DNS-rebinding
-guards), audience binding in every direction, the MCP endpoint with its ten tools and
-service-layer allowlist, their tests, and five dependencies. The suite returned to
-**449/449** — exactly the baseline recorded before the OAuth work began.
+Gone: the authorize and token endpoints, PKCE, resource indicators, client-metadata-document
+registration, both discovery documents, the SSRF and DNS-rebinding guards, audience binding
+in every direction, the service-layer tool allowlist, their tests, and five dependencies.
 
-**The schema retirement is written but must not ship yet.**
-`db/migrations/20260105000000_drop_oauth_server_schema.sql` drops the
-`authorization_codes` table and the `refresh_tokens.resource` column. It is verified against
-a real database — the suite runs migrations fresh and passes 449/449 with it applied — but
-it is **ordering-sensitive in two ways**:
-
-1. **It must not reach an environment whose running revision still reads `resource`.** The
-   pre-deploy hook runs while the previous revision is still serving, so dropping the column
-   before the removal is live there breaks the service between hook and cutover. The removal
-   must be deployed to an environment *first*, on its own.
-2. **Pushing it while a previous deploy waits at a gate will evict that deploy.** Two runs of
-   the same pipeline share the `deploy-production-api` concurrency group, and only one
-   pending run is kept per group — the same eviction mechanism section 12.9 records, now
-   within one pipeline rather than across two.
-
-So: approve the removal's production gate, confirm production is running it, then push this.
+`db/migrations/20260105000000_drop_oauth_server_schema.sql` then dropped the
+`authorization_codes` table and the `refresh_tokens.resource` column. It has shipped to
+staging and production; the schema is retired in both.
 
 **Worth recovering from history rather than rewriting**, if the platform ever fetches a
 user-supplied URL again: the SSRF address classifier and the connect-time DNS-rebinding
@@ -88,17 +74,15 @@ with an auth-aware Home empty state. Live in staging and production.
 
 ## Test coverage gaps
 
-- Video mode, per-voter rate limiting and three War-expiry scenarios sit unbound in
-  `war-api/specs/features/pending/` and describe behaviour that is not built.
+- Video mode, per-voter rate limiting, one cross-provider sign-in scenario, and three
+  War-expiry scenarios sit unbound in `war-api/specs/features/pending/` and describe
+  behaviour that is not built.
 - `war-ui-default/features/pending/` holds 13 unbound scenarios — video mode, plus wording
   variants of scenarios that already run under other names.
 - `war-infra/specs/features/pending/` holds 27 routing and edge scenarios with no runner,
   since that project has no test harness.
-- `war-ui-custom/specs/features/pending/` holds the template contract; that project does not
-  exist yet.
-
-The OAuth and MCP scenarios in `war-api/specs/features/pending/` are removed along with the
-feature.
+- `war-ui-custom/specs/features/pending/` holds the 11-scenario template contract; that
+  project does not exist yet.
 
 ---
 
@@ -109,30 +93,6 @@ feature.
 - The API's address-keyed rate limits need the reverse-proxy hop count configured to key on
   the real client address. **The correct value is unknown** and must come from the provider;
   until then clients behind the same hop share a bucket.
-
----
-
-## To revisit
-
-**MCP, from a fresh perspective.** The requirement — letting a creator build and edit War
-content from an assistant — was never wrong; the design was. It grew from a local process to
-a remote server to a full standards-compliant authorization server inside `war-api`, and the
-auth work came to dominate the feature.
-
-Worth starting from, next time:
-
-- **What clients actually need to reach it**, decided before any design work. Desktop-only
-  and phone-inclusive are different problems, and that question is what invalidated two
-  designs.
-- **Existing identity providers** rather than building one — Keycloak, Authentik, Ory Hydra,
-  Zitadel, Logto self-hosted; Auth0, WorkOS, Clerk, Stytch hosted. Note that the hosting
-  provider offers nothing here: it has no identity or auth product at all.
-- **The reconciliation problem that made outsourcing awkward mid-flight**: `war-api` is
-  already the identity authority, keyed by provider and account id. Any external
-  authorization server has to resolve to those same voters, and running two identity systems
-  is how audience-confusion bugs appear.
-- **Whether the scope justifies the auth surface at all** — a narrower feature reachable by a
-  single trusted client is a materially smaller problem than a public authorization server.
 
 ---
 

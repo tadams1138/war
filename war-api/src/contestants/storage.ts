@@ -2,7 +2,7 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 /**
  * The object-store boundary. In this slice, only image variants and
- * originals cross it (spec §11.1). A test double stands in for tests — a
+ * originals cross it (spec). A test double stands in for tests — a
  * real upload requires a real S3-compatible endpoint, which is exactly the
  * kind of external dependency this codebase's own logic (resizing, EXIF
  * stripping, key layout) should be tested independently of.

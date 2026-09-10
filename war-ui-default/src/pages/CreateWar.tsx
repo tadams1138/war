@@ -1,4 +1,4 @@
-// The War creation wizard (war-ui-default-spec.md §4, §6, §12). Each step
+// The War creation wizard (the spec). Each step
 // calls the API immediately -- the state machine driving that lives in
 // useCreateWarWizard; this component is rendering only, mirroring
 // VoteMode/useVoteSession's split.

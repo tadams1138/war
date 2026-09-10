@@ -952,10 +952,10 @@ failed migration aborts the deployment and never ships. They are plain ordered S
 tracked in a table, must be backwards-compatible — the hook runs while the previous revision
 is still serving — and roll back manually, with point-in-time recovery as the backstop.
 
-Custom UIs are the one remaining consumer of a shared reusable pipeline, since each brand
-lives in its own repository. Such a call resolves its reference when the run is first
-triggered and keeps it for the run's life, so re-running an old failed run silently executes
-the *old* pipeline; prefer a fresh trigger after changing it.
+Custom UIs use a shared reusable pipeline, since each brand lives in its own repository. Such
+a call resolves its reference when the run is first triggered and keeps it for the run's
+life, so re-running an old failed run silently executes the *old* pipeline; prefer a fresh
+trigger after changing it.
 
 ### 12.6 Secrets
 

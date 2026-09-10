@@ -1,5 +1,5 @@
 // War overview and contestant gallery, image mode only
-// (war-ui-default-spec.md §4, §6, §12). No authentication required.
+// (the spec). No authentication required.
 import { useParams } from 'react-router-dom'
 import { getWar, type ContestantDetail } from '../api/client'
 import { ContestantAttributes } from '../components/ContestantAttributes'

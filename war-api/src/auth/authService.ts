@@ -38,7 +38,7 @@ export type ExchangeResult =
 
 /**
  * The one call in the callback flow that is a genuine external dependency
- * (spec §4.1 #4: "a network round-trip to Google"). Split out from
+ * (spec: "a network round-trip to Google"). Split out from
  * {@link completeCallback} so the route can act on *only* this call's
  * failures as the `502` boundary — a failure here (network failure, an
  * invalid/missing `iss`, a missing subject claim, any
@@ -75,7 +75,7 @@ export type RefreshResult =
   | { kind: 'reused' }
   | { kind: 'invalid' };
 
-/** Exchanges a presented refresh token for a new JWT, rotating it (spec §5.2). */
+/** Exchanges a presented refresh token for a new JWT, rotating it (spec). */
 export async function refresh(deps: AuthDependencies, presentedTokenValue: string): Promise<RefreshResult> {
   const stored = await findRefreshTokenByHash(deps.db, hashRefreshToken(presentedTokenValue));
   const decision = decideRefresh(stored, new Date());
@@ -92,7 +92,7 @@ export async function refresh(deps: AuthDependencies, presentedTokenValue: strin
   const rotated = await rotateRefreshToken(deps.db, decision.token, hashRefreshToken(newTokenValue));
   if (rotated.kind === 'lost-race') {
     // Another request already rotated this exact token concurrently — the
-    // same signal as presenting an already-used token (spec §5.2).
+    // same signal as presenting an already-used token (spec).
     await revokeFamily(deps.db, decision.token.familyId);
     return { kind: 'reused' };
   }
@@ -102,7 +102,7 @@ export async function refresh(deps: AuthDependencies, presentedTokenValue: strin
 }
 
 /**
- * Logs out by revoking the whole refresh-token family (spec §5.2) — but only
+ * Logs out by revoking the whole refresh-token family (spec) — but only
  * when the presented refresh-token cookie actually belongs to the
  * authenticated voter making the request. A cookie naming a different
  * voter's family is silently ignored rather than acted on.

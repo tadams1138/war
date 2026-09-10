@@ -1,10 +1,10 @@
-# war-api pipeline — see specs/war-infra-spec.md §8.1
+# war-api pipeline — see specs/war-spec.md
 #
 # Per-environment GitHub Environment variables:
 #   DO_APP_ID          App Platform app id for that environment
 #   PUBLIC_BASE_URL    https://staging.war.tmad.dev | https://war.tmad.dev
 #
-# Repository secrets/variables (spec §9, §15.7) — substituted into
+# Repository secrets/variables (spec) — substituted into
 # war-infra/platform/{env}.yaml by envsubst on every deploy, same mechanism as
 # ${IMAGE_TAG}:
 #   JWT_SECRET, INTERNAL_TASK_TOKEN,
@@ -45,7 +45,7 @@ env:
   REGISTRY: registry.digitalocean.com/war
   IMAGE_NAME: war-api
   # The deployed runtime is 24.x, not the 22 this pinned before — see
-  # specs/war-api-spec.md §15, "Toolchain deviation".
+  # specs/war-spec.md "Toolchain deviation".
   NODE_VERSION: '24'
 
 jobs:
@@ -150,7 +150,7 @@ jobs:
     # gate is pending, not running — a shared group lets the other
     # pipeline's job evict it there, silently. That cancelled a live
     # production security fix (commit 9404ffe) for seven days. See
-    # specs/war-infra-spec.md §20.8.
+    # specs/war-spec.md.
     # Do not unify this with ui-default.yml's group.
     concurrency:
       group: deploy-staging-api
@@ -189,7 +189,7 @@ jobs:
             < war-infra/platform/staging.yaml > "$RUNNER_TEMP/app-spec.yaml"
 
       # --wait blocks until the deployment settles. The PRE_DEPLOY migration job
-      # (spec §10) runs inside it, so a failed migration fails this step and the
+      # (spec) runs inside it, so a failed migration fails this step and the
       # previous revision keeps serving traffic.
       - name: Deploy
         run: doctl apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml" --wait
@@ -214,7 +214,7 @@ jobs:
     # at the production approval gate is pending, not running — a shared
     # group lets the other pipeline's job evict it there, silently. That
     # cancelled a live production security fix (commit 9404ffe) for seven
-    # days. See specs/war-infra-spec.md §20.8.
+    # days. See specs/war-spec.md.
     # Do not unify this with ui-default.yml's group.
     concurrency:
       group: deploy-production-api

@@ -44,8 +44,8 @@ export function extractGroups(content) {
  * single file is not a violation — that is one pipeline serialising its own
  * jobs against itself (e.g. infra.yml's terraform-shared/staging/production
  * plan+apply pairs), an unrelated, legitimate pattern this guard must not
- * flag. See specs/war-infra-spec.md §20.8 and §19 "Feature: Concurrency
- * Group Isolation".
+ * flag. See war-infra/specs/features/pending/routing.feature,
+ * "Feature: Concurrency Group Isolation".
  *
  * @param {{file: string, content: string}[]} workflows
  * @returns {{group: string, files: string[]}[]}

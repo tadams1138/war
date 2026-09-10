@@ -30,7 +30,7 @@ declare global {
     // which — unlike page.goto() — does not reload the page and so
     // preserves the in-memory JWT `login` just set. Acceptance tests use
     // this to reach an authenticated route without a real OAuth round
-    // trip; war-ui-default-spec.md's actual navigation (Link clicks) goes
+    // trip; the spec's actual navigation (Link clicks) goes
     // through the same router underneath.
     __auth?: { login: (token: string) => void; navigate: (path: string) => void }
   }

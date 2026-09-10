@@ -1,5 +1,5 @@
 # App Platform spec — staging
-# See specs/war-infra-spec.md §5.2, §6, §15.2
+# See specs/war-spec.md
 #
 # THIS FILE IS THE SOURCE OF TRUTH FOR THE APP. Terraform creates the app and
 # then ignores its spec (terraform/modules/compute), because the image tag
@@ -23,14 +23,14 @@ domains:
 # Attaching the cluster makes App Platform add this app to the database's
 # trusted sources and expose ${db.DATABASE_URL}. That binding resolves to the
 # POOLED connection string — the API must never open a direct connection
-# (spec §5.3).
+# (spec).
 databases:
   - name: db
     engine: PG
     cluster_name: war-staging-pg
     production: true
 
-# Path → component routing (spec §6). Order matters: the catch-all is last.
+# Path → component routing (spec). Order matters: the catch-all is last.
 # /ui/{slug}/* never reaches here — Cloudflare's Worker handles it upstream.
 ingress:
   rules:
@@ -119,9 +119,9 @@ services:
 
       # Secrets. Not literal values — ${PLACEHOLDER} substituted from GitHub
       # Actions secrets by envsubst immediately before this file is applied
-      # (spec §9). Re-rendered fresh on every deploy, so rotating the GitHub
+      # (spec). Re-rendered fresh on every deploy, so rotating the GitHub
       # secret and redeploying (even a no-op redeploy) is all rotation takes.
-      # Apple/Facebook/Microsoft/Twitter are absent: unimplemented (spec §13),
+      # Apple/Facebook/Microsoft/Twitter are absent: unimplemented (spec),
       # so there is nothing to substitute them with — add them here only once
       # a provider actually exists.
       - key: JWT_SECRET
@@ -166,7 +166,7 @@ static_sites:
       branch: master
       deploy_on_push: false # deploys are pipeline-triggered, never on push
 
-    # The UI is one project inside the monorepo, so the build context is that
+    # The UI is one project directory in this repository, so the build context is that
     # subdirectory rather than the repository root. build_command and
     # output_dir below are both relative to it, so `dist` still means
     # war-ui-default/dist.
@@ -176,7 +176,7 @@ static_sites:
     output_dir: dist
 
     # Returns index.html with HTTP 200 for unmatched paths — this is the
-    # platform half of the SPA fallback rule (spec §6.1). Custom UIs get the
+    # platform half of the SPA fallback rule (spec). Custom UIs get the
     # same behaviour from the edge Worker instead.
     catchall_document: index.html
 
@@ -186,7 +186,7 @@ static_sites:
         value: https://staging.war.tmad.dev/api/v1
 
 # Runs before the new revision receives traffic, while the previous one is still
-# serving. A non-zero exit aborts the deployment (spec §10), which is why the
+# serving. A non-zero exit aborts the deployment (spec), which is why the
 # pipeline passes --wait: without it the stage would pass before this ran.
 jobs:
   - name: migrate

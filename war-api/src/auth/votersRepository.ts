@@ -30,7 +30,7 @@ function toVoter(row: {
 /**
  * Finds the voter for a (provider, provider_user_id) pair, creating one if
  * this is the first login. Two different provider_user_ids always produce
- * two different voters — there is no cross-account merge (spec §5).
+ * two different voters — there is no cross-account merge (spec).
  */
 export async function findOrCreateVoter(
   db: Kysely<Database>,

@@ -1,4 +1,4 @@
-// The CreateWar wizard's Contestants step view (war-ui-default-spec.md §6).
+// The CreateWar wizard's Contestants step view (the spec).
 // Rendering only -- state and API calls live in useCreateWarWizard.
 import { useState, type FormEvent } from 'react'
 import type { WizardContestant, WizardState } from './useCreateWarWizard'

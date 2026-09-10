@@ -1,5 +1,5 @@
 // Resolves NavBar's identity slot from a getMe() AsyncResourceState
-// (war-ui-default-spec.md §6, "NavBar" — Identity). Kept as a pure
+// (the spec, "NavBar" — Identity). Kept as a pure
 // function, separate from NavBar's own rendering, so the fallback rules —
 // including the GET /auth/me failure case the Gherkin has no scenario for —
 // are unit-testable without mounting a component.
@@ -15,7 +15,7 @@ export interface VoterIdentity {
 
 export function resolveVoterIdentity(state: AsyncResourceState<VoterMe>): VoterIdentity {
   if (state.status !== 'loaded') {
-    // Covers both 'loading' and 'error' (§6: a failed profile fetch never
+    // Covers both 'loading' and 'error' (a failed profile fetch never
     // blocks navigation — only the identity slot falls back).
     return { displayName: FALLBACK_DISPLAY_NAME, avatarUrl: null }
   }

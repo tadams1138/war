@@ -1,11 +1,11 @@
-# Object storage — see specs/war-infra-spec.md §5.4, §5.5
+# Object storage — see specs/war-spec.md
 #
 # Two buckets per environment:
 #   war-media-{env}       contestant image variants (public) + originals (private)
 #   war-ui-custom-{env}   every custom UI, keyed by slug prefix
 #
 # There is deliberately no bucket per custom UI. All slugs share one bucket
-# behind one CDN origin, so registering a slug provisions nothing (spec §5.5).
+# behind one CDN origin, so registering a slug provisions nothing (spec).
 
 # Required in every module that uses it, not just the root — Terraform does
 # not infer a non-default-namespace provider's source for a child module from
@@ -36,7 +36,7 @@ resource "digitalocean_spaces_bucket" "media" {
 }
 
 # Variants are public-read. Originals are NOT — they exist only so variant
-# widths can change later without re-uploading (spec §11), and are never served.
+# widths can change later without re-uploading (spec), and are never served.
 resource "digitalocean_spaces_bucket_policy" "media" {
   region = digitalocean_spaces_bucket.media.region
   bucket = digitalocean_spaces_bucket.media.name
@@ -103,7 +103,7 @@ output "ui_custom_bucket" {
   value = digitalocean_spaces_bucket.ui_custom.name
 }
 
-# Bound into the ui-router Worker as STORAGE_CDN_ORIGIN (spec §6.1).
+# Bound into the ui-router Worker as STORAGE_CDN_ORIGIN (spec).
 output "ui_custom_cdn_host" {
   value = digitalocean_cdn.ui_custom.endpoint
 }

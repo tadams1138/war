@@ -1,6 +1,6 @@
 import { randomBytes, createHash } from 'node:crypto';
 
-export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days, spec §5
+export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days, spec
 
 export interface StoredRefreshToken {
   id: string;
@@ -12,12 +12,12 @@ export interface StoredRefreshToken {
   revokedAt: Date | null;
 }
 
-/** Generates a new opaque refresh-token value. Never stored in plaintext (spec §5). */
+/** Generates a new opaque refresh-token value. Never stored in plaintext (spec). */
 export function generateRefreshTokenValue(): string {
   return randomBytes(32).toString('base64url');
 }
 
-/** Hashes a refresh-token value for storage/lookup (spec §5: SHA-256). */
+/** Hashes a refresh-token value for storage/lookup (spec: SHA-256). */
 export function hashRefreshToken(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -28,7 +28,7 @@ export type RefreshDecision =
   | { kind: 'invalid' };
 
 /**
- * Decides what a presented refresh token means (spec §5.2):
+ * Decides what a presented refresh token means (spec):
  * - unknown, expired, or already-revoked ⇒ invalid (401)
  * - already used ⇒ reuse detected, revoke the whole family (401)
  * - otherwise ⇒ rotate: mark used, issue a successor in the same family

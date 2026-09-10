@@ -155,9 +155,9 @@ jobs:
 
   // Real-file regression: exercises the guard against this repository's own
   // workflow files rather than only fixtures, per the delivered state
-  // described in specs/war-infra-spec.md §19 "Feature: Concurrency Group
-  // Isolation", scenario "The api and ui-default pipelines no longer share a
-  // group".
+  // described in war-infra/specs/features/pending/routing.feature,
+  // "Feature: Concurrency Group Isolation", scenario "The api and ui-default
+  // pipelines no longer share a group".
   it('finds no shared groups across this repository\'s actual workflow files', () => {
     // Arrange
     const workflows = [

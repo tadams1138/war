@@ -27,7 +27,7 @@ test('A voter sees every War they created, across every status', async ({ page }
 
 test("My Wars does not show another voter's Wars", async ({ page }) => {
   // Arrange — the mocked GET /wars response stands in for the API's own
-  // creator=me scoping (war-api-spec.md §7.2), exactly as browse-wars.spec.ts
+  // creator=me scoping (the spec), exactly as browse-wars.spec.ts
   // and create-war.spec.ts already mock every other endpoint on this page;
   // this is a UI-level test and does not re-verify the API's own scoping.
   await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])

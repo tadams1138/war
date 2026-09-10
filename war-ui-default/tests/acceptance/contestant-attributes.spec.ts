@@ -114,7 +114,7 @@ test('A url-typed attribute renders as a safe link', async ({ page }) => {
 
 test('Attributes do not appear on vote cards', async ({ page }) => {
   // Arrange — the matchup response the vote screen renders from has no
-  // attributes field at all (war-api-spec.md — matchup.left/right only
+  // attributes field at all (per the API spec — matchup.left/right only
   // carry id/name/media), so this holds structurally as well as visually.
   const matchup = buildMatchupResponse({
     matchup: {

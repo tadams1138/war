@@ -1,6 +1,6 @@
 // Single source of truth for the /login?returnTo=...&reason=... URL
 // contract and the sessionStorage key that carries returnTo across the
-// full-page OAuth round trip (war-ui-default-spec.md §7). Three modules
+// full-page OAuth round trip (the spec). Three modules
 // need to agree on this today (RequireAuth's redirect, AuthProvider's
 // unauthorized redirect, Login's persist-before-navigating-away, and
 // AuthCallback's read-back) — kept in one place so the next one doesn't
@@ -18,7 +18,7 @@ export function loginUrlFor(returnTo: string, reason?: LoginRedirectReason): str
   return `/login?returnTo=${encodedReturnTo}${reasonParam}`
 }
 
-// sessionStorage holds a route path here, never a credential (§2, §7).
+// sessionStorage holds a route path here, never a credential.
 export function storeReturnTo(returnTo: string): void {
   sessionStorage.setItem(RETURN_TO_STORAGE_KEY, returnTo)
 }

@@ -38,7 +38,7 @@ test('Authenticated user browses public Wars', async ({ page }) => {
 
   // Act — Home is already mounted; logging in updates the same page
   // reactively (no reload — a real sign-in never reloads Home either,
-  // since JWT storage is a JS variable, §2/§7) rather than reloading it,
+  // since JWT storage is a JS variable) rather than reloading it,
   // which would wipe the in-memory JWT loginAsTestVoter just set.
   await loginAsTestVoter(page)
 

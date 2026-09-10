@@ -30,7 +30,7 @@ test('Rankings load for an anonymous visitor', async ({ page }) => {
   await expect(firstRowCells.nth(2)).toHaveText('Contestant One')
   await expect(firstRowCells.nth(3)).toHaveText('10')
   await expect(firstRowCells.nth(4)).toHaveText('12')
-  // The Image column (spec §6): c1's media is `c1-media-0` with 400/1600
+  // The Image column (spec): c1's media is `c1-media-0` with 400/1600
   // variants (src/mocks/fixtures.ts's buildMediaItem default).
   const image = rows.nth(0).locator('img')
   await expect(image).toHaveAttribute('alt', 'Contestant One')

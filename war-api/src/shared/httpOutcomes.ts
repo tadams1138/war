@@ -6,7 +6,7 @@ export type HttpFailure = NotFound | Forbidden | NotDraft | NotActive | Validati
 
 /**
  * The response body JSON Schema for the `{ "error": string }` shape every
- * failure response in the Core Voting Loop slice uses (spec §11.2.1) --
+ * failure response in the Core Voting Loop slice uses (spec) --
  * including, but not limited to, the ones `replyForOutcome` itself sends.
  * Not `$id`-registered: shared by direct import/`$ref`-by-object rather
  * than by name, since no route needs to reference it before it exists.
@@ -19,7 +19,7 @@ export const errorResponseSchema = {
 
 /**
  * The response body JSON Schema for the `{ "error": string, "details":
- * string[] }` shape a `'validationError'` outcome sends (spec §11.2.1) --
+ * string[] }` shape a `'validationError'` outcome sends (spec) --
  * `error` is always the literal `"validation error"`; `details` carries the
  * actual per-field messages. Shared by every route whose `replyForOutcome`
  * call can reach the `validationError` branch above; not every 422 in this

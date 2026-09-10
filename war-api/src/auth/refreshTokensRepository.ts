@@ -35,7 +35,7 @@ export async function findRefreshTokenByHash(
   return row ? toStored(row) : undefined;
 }
 
-/** Starts a new refresh-token family — one per login session (spec §5.2). */
+/** Starts a new refresh-token family — one per login session (spec). */
 export async function createRefreshTokenFamily(
   db: Kysely<Database>,
   voterId: string,
@@ -58,8 +58,8 @@ export async function createRefreshTokenFamily(
 export type RotateResult = { kind: 'rotated'; token: StoredRefreshToken } | { kind: 'lost-race' };
 
 /**
- * Marks a token used and inserts its rotated successor, same family (spec
- * §5.2). The marking UPDATE is conditional on the token still being unused
+ * Marks a token used and inserts its rotated successor, same family (spec).
+ * The marking UPDATE is conditional on the token still being unused
  * and unrevoked, and its affected-row count is the arbiter: if a concurrent
  * call already rotated this exact token, this call loses the race and must
  * not also mint a successor, or reuse detection could never trigger (design
@@ -99,7 +99,7 @@ export async function rotateRefreshToken(
   });
 }
 
-/** Revokes every token in a family immediately (spec §5.2: reuse detection / logout). */
+/** Revokes every token in a family immediately (spec: reuse detection / logout). */
 export async function revokeFamily(db: Kysely<Database>, familyId: string): Promise<void> {
   await db
     .updateTable('refresh_tokens')

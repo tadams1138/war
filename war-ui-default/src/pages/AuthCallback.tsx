@@ -1,5 +1,5 @@
 // The API redirects here after setting the httpOnly refresh cookie,
-// carrying no token (war-ui-default-spec.md §7 step 3). This route
+// carrying no token (the spec step 3). This route
 // exchanges that cookie for a JWT and returns the voter to where they
 // started.
 import { useEffect, useState } from 'react'

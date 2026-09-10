@@ -28,7 +28,7 @@ export class FakeGoogleAuthProvider implements GoogleAuthProvider {
    * Makes the next `exchangeCode` call throw `error` instead of resolving a
    * profile -- standing in for a network failure to Google, or an
    * `openid-client`/`oauth4webapi` validation error against Google's
-   * response (spec §4.1 #4), so tests can exercise the callback route's
+   * response (spec), so tests can exercise the callback route's
    * error boundary honestly.
    */
   failNextExchange(error: Error): void {

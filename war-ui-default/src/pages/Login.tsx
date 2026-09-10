@@ -1,4 +1,4 @@
-// OAuth provider selection (war-ui-default-spec.md §4, §7, §12). Buttons
+// OAuth provider selection (the spec). Buttons
 // render for the full provider list even though only Google is live on the
 // API side today — the rest 404 until war-api adds them.
 import { useSearchParams } from 'react-router-dom'

@@ -82,7 +82,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the variants are generated', () => {
-      // Handled by the upload itself (spec §11.1: processing is synchronous).
+      // Handled by the upload itself (spec: processing is synchronous).
     });
 
     Then('no EXIF metadata is present in any variant', async () => {

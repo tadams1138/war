@@ -1,6 +1,6 @@
-// The CreateWar wizard's state machine (war-ui-default-spec.md §4, §6): each
+// The CreateWar wizard's state machine (the spec): each
 // step calls the API immediately rather than staging everything for one
-// final submit, exactly as §6 describes — there is no offline draft here,
+// final submit, exactly as the spec describes — there is no offline draft here,
 // only the draft War itself. Extracted out of the CreateWar page so that
 // component is rendering only, mirroring useVoteSession's split for the
 // same reason.
@@ -41,8 +41,8 @@ interface ReviewStep {
   war: WarSummary
   contestants: WizardContestant[]
   activating: boolean
-  // The API's own validation message(s) shown verbatim, per spec §6's
-  // deliberate exception to §8's generic 422 copy -- never the generic
+  // The API's own validation message(s) shown verbatim, per the spec's
+  // deliberate exception to its generic 422 copy -- never the generic
   // "Something went wrong" text on this step.
   activateDetails: string[] | null
 }
@@ -58,16 +58,16 @@ export interface CreateWarWizard {
   activate: () => Promise<void>
 }
 
-/** The generic §8 422 copy -- every step but Activate uses this, never the raw `details` array. */
+/** The generic 422 copy -- every step but Activate uses this, never the raw `details` array. */
 function genericValidationMessage(error: unknown): string {
   return toUserMessage(error)
 }
 
 /**
- * The Activate step's own error copy (spec §6's deliberate exception to
- * §8): the API's `details` array verbatim when the failure actually carries
- * one, falling back to the generic message otherwise -- extracted out of
- * `activate` below to keep that function's branching within this repo's
+ * The Activate step's own error copy (the spec's deliberate exception to its
+ * generic 422 copy): the API's `details` array verbatim when the failure
+ * actually carries one, falling back to the generic message otherwise --
+ * extracted out of `activate` below to keep that function's branching within this repo's
  * complexity budget (CLAUDE.md, "Code quality").
  */
 function detailsFromActivateError(error: unknown): string[] {
