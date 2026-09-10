@@ -95,15 +95,73 @@ These commands mirror the pipelines in `.github/workflows/`, so local runs match
 
 ## Specs
 
-The specifications in `specs/` are the contract. Keep them up to date as changes land —
-they must stay complete and accurate enough to regenerate the project from alone.
+`specs/war-spec.md` is the single specification and the contract. It describes **what** the
+platform does, in implementation-agnostic terms — no payload shapes, no schemas, no folder
+structures. Keep it accurate enough to rebuild the project from alone, and keep
+implementation detail out of it: that belongs here.
 
-- `specs/war-spec.md` — project overview, goals, roles
-- `specs/war-api-spec.md` — REST API, data model, auth, scoring, vote integrity (§15 tracks what is actually built)
-- `specs/war-ui-default-spec.md` — default web frontend (§12 tracks what is actually built)
-- `specs/war-ui-custom-spec.md` — per-brand custom frontends and their template contract
-- `specs/war-infra-spec.md` — hosting, CI/CD, environments (§20 records structural decisions and their causes)
+`PROGRESS.md` records what is actually built, what is not, known defects, and open
+questions. Update it when something ships.
 
-`war-api/specs/features/` and `war-ui-default/features/` hold executable Gherkin — the
-subset of the specs' scenarios that actually run in CI. They are test fixture, not a
-second copy of the prose, and should not be read as one.
+Executable Gherkin lives with the code that implements it — `war-api/specs/features/`,
+`war-ui-default/features/`, `war-infra/specs/features/`, `war-ui-custom/specs/features/`.
+Each has a `pending/` subdirectory for scenarios with no binding yet. These are test
+fixture, not a second copy of the spec.
+
+## Project layout
+
+Implementation detail, not specification — a rewrite in another language would look
+different.
+
+```
+war-api/          Backend service
+  src/
+    auth/           Provider sign-in, token issuance
+    oauth/          OAuth 2.1 authorization/resource server role
+    mcp/
+      allowedActions.ts   Service-layer allowlist — the only import path tools/ may use
+      tools/              One MCP tool handler per file
+    wars/ contestants/ matchups/ votes/ rankings/ ui-registry/
+  db/migrations/    Ordered SQL migrations
+  specs/features/   Executable Gherkin
+  test/
+
+war-ui-default/   React SPA
+  src/
+    pages/ components/ api/ auth/ router/
+  features/         Executable Gherkin
+  tests/acceptance/ Playwright bindings
+
+war-infra/        Terraform, platform specs, edge functions, deploy scripts
+  terraform/{modules,shared,envs}/
+  platform/         Per-environment application specs
+  edge/             Edge functions
+  tools/            Self-contained CI checkers
+
+.github/workflows/  Pipelines (GitHub reads workflows only from the repo root)
+```
+
+## Current stack
+
+Also implementation detail. The spec states requirements by role; these are what currently
+fills them.
+
+| Concern | Choice |
+|---|---|
+| API runtime | Node.js 24.x, TypeScript |
+| API framework | Fastify — JSON Schema per route, and the OpenAPI document generates from those same schemas |
+| Database | PostgreSQL, via Kysely; migrations by `node-pg-migrate` |
+| Sign-in | `openid-client`; tokens via `jose` |
+| Images | `sharp` |
+| Object storage | S3-compatible SDK |
+| MCP | `@modelcontextprotocol/sdk` — its `server/auth` module supplies the OAuth wire protocol; `@fastify/express` bridges those Express handlers |
+| API testing | Vitest, Supertest, Testcontainers (a real database, never a mock) |
+| UI | React, Vite, React Router, Tailwind |
+| UI types | `openapi-typescript`, generated from the API's document |
+| UI testing | Vitest + Testing Library; Playwright + MSW for acceptance |
+| Edge | Cloudflare — DNS, TLS, CDN, WAF, rate limiting, Workers, cron |
+| Application platform | DigitalOcean App Platform |
+| Database / storage / registry | DigitalOcean Managed PostgreSQL, Spaces, DOCR |
+| IaC | Terraform, state in Spaces |
+| CI/CD | GitHub Actions |
+| Error tracking | Sentry |
