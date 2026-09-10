@@ -9,6 +9,7 @@ import { addContestant, patchContestant, removeContestant } from './contestantsS
 import { addContestantImage, reorderContestantMedia, removeContestantMedia } from './mediaService.js';
 import { listMediaByContestant } from './contestantMediaRepository.js';
 import { presentContestant } from './contestantPresenter.js';
+import { extensionFor } from './imageProcessing.js';
 
 export interface ContestantsRouteDeps {
   db: Kysely<Database>;
@@ -52,17 +53,6 @@ const imageUploadErrorResponseSchema = {
     details: { type: 'array', items: { type: 'string' } },
   },
 };
-
-function extensionFor(mimeType: string): string {
-  switch (mimeType) {
-    case 'image/png':
-      return 'png';
-    case 'image/webp':
-      return 'webp';
-    default:
-      return 'jpg';
-  }
-}
 
 export function registerContestantsRoutes(app: FastifyInstance, deps: ContestantsRouteDeps): void {
   const { db, auth } = deps;

@@ -4,7 +4,7 @@ import type { OAuthServerProvider, AuthorizationParams } from '@modelcontextprot
 import type { OAuthRegisteredClientsStore } from '@modelcontextprotocol/sdk/server/auth/clients.js';
 import type { OAuthClientInformationFull, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
-import { InvalidGrantError, InvalidTargetError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
+import { InvalidGrantError, InvalidTargetError, InvalidTokenError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import type { Database } from '../db/types.js';
 import type { JwtOptions } from '../auth/jwt.js';
 import { signAccessToken, verifyAccessToken as verifyJwt } from '../auth/jwt.js';
@@ -173,18 +173,31 @@ export class WarOAuthServerProvider implements OAuthServerProvider {
   }
 
   /**
-   * Not exercised by anything built in this slice (the resource-server
-   * bearer check on `/api/v1/mcp` itself is slice 2, §4.3.6) — implemented
-   * now only because `OAuthServerProvider` requires it.
+   * The resource server's own bearer-token check (spec §4.3.6), wired as a
+   * Fastify `preHandler` on `/api/v1/mcp` (`src/mcp/route.ts`) — never the
+   * REST surface's `authenticatedVoterId`, which refuses any `aud`-bearing
+   * token outright (the opposite of what this endpoint needs). Slice 1 only
+   * built this far enough to satisfy `OAuthServerProvider`'s interface
+   * shape; this completes it with the two checks that make it actually
+   * protect a resource: the audience must exactly match this deployment's
+   * own MCP resource identifier (an absent `aud` — the browser flow's own
+   * token shape — is included in "does not match"), and the voter id rides
+   * into `AuthInfo.extra`, the only path a tool handler has to learn whose
+   * request it is handling (never a second lookup, per `RequestHandlerExtra`
+   * carrying it through as `extra.authInfo.extra.voterId`).
    */
   async verifyAccessToken(token: string): Promise<AuthInfo> {
     const payload = await verifyJwt(token, this.deps.jwt);
+    if (!isCanonicalResource(payload.aud, this.deps.apiBaseUrl)) {
+      throw new InvalidTokenError('access token audience does not match this resource');
+    }
     return {
       token,
       clientId: '',
       scopes: [],
       expiresAt: payload.exp,
-      resource: payload.aud ? new URL(payload.aud) : undefined,
+      resource: new URL(payload.aud),
+      extra: { voterId: payload.voterId },
     };
   }
 

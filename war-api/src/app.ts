@@ -19,6 +19,7 @@ import { registerSharedSchemas } from './openapi/schemas.js';
 import { registerOAuthCallbackRoute } from './oauth/callbackRoute.js';
 import { registerOAuthAsRoutes, registerOAuthDiscoveryRoutes } from './oauth/routes.js';
 import { WarOAuthServerProvider } from './oauth/provider.js';
+import { registerMcpRoute } from './mcp/route.js';
 import { registerRankingsRoutes } from './rankings/routes.js';
 import { registerWarsRoutes } from './wars/routes.js';
 import type { AppConfig } from './config.js';
@@ -114,6 +115,17 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       });
       registerMatchupsRoutes(instance, { db: deps.db, auth: authDeps, publicBaseUrl: deps.config.s3.publicBaseUrl });
       registerRankingsRoutes(instance, { db: deps.db, auth: authDeps, publicBaseUrl: deps.config.s3.publicBaseUrl });
+      // MCP Streamable HTTP endpoint (spec §7.9) -- an ordinary route in
+      // this same prefixed block, never through the Express bridge above
+      // (that bridge, and registerOAuthAsRoutes's mounting guard, apply
+      // only to the AS's own two routes).
+      registerMcpRoute(instance, {
+        db: deps.db,
+        storage: deps.storage,
+        publicBaseUrl: deps.config.s3.publicBaseUrl,
+        apiBaseUrl: deps.config.apiBaseUrl,
+        oauthProvider,
+      });
     },
     { prefix: API_PREFIX },
   );
