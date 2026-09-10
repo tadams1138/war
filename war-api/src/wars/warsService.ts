@@ -12,6 +12,7 @@ import {
   createWar,
   findWarById,
   isMember,
+  listWars,
   setWarStatus,
   updateWar,
   type War,
@@ -189,6 +190,32 @@ export async function closeWar(db: Kysely<Database>, warId: string, voterId: str
 
   const closed = await setWarStatus(db, warId, 'closed');
   return { kind: 'ok', value: closed };
+}
+
+export interface ListWarsForVoterFilter {
+  status?: string;
+  category?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+/**
+ * `GET /wars?creator=me`'s own semantics (spec §7.2), exposed as a *service*
+ * function for the MCP `list_my_wars` tool (§7.9) to call. Today, that route
+ * is served straight from `warsRepository.listWars` because the route
+ * handler itself decides whether to pass a `creatorId` -- an MCP tool has no
+ * route handler to decide for it, and the service-layer allowlist
+ * (`src/mcp/allowedActions.ts`) is a list of service functions with no
+ * repository-level exception carved into it. `GET /wars` itself is
+ * untouched and keeps calling `listWars` directly, exactly as today.
+ */
+export async function listWarsForVoter(
+  db: Kysely<Database>,
+  voterId: string,
+  filter: ListWarsForVoterFilter = {},
+): Promise<War[]> {
+  const limit = Math.min(filter.limit ?? 20, 100);
+  return listWars(db, { status: filter.status, category: filter.category, cursor: filter.cursor, limit, creatorId: voterId });
 }
 
 export type JoinOutcome = MutationOutcome<void, NotFound | NotActive>;

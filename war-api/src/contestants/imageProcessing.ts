@@ -21,6 +21,24 @@ export interface UploadValidationInput {
 
 export type UploadValidationResult = { ok: true } | { ok: false; reason: string };
 
+/**
+ * Maps an upload's MIME type to the file extension its original is stored
+ * under (spec §11.1). Shared by the multipart REST route
+ * (`contestants/routes.ts`) and the MCP `upload_image` tool (§7.9), which
+ * decodes base64 bytes instead of reading a multipart file but stores the
+ * result identically from this point on.
+ */
+export function extensionFor(mimeType: string): string {
+  switch (mimeType) {
+    case 'image/png':
+      return 'png';
+    case 'image/webp':
+      return 'webp';
+    default:
+      return 'jpg';
+  }
+}
+
 /** Validates upload type and size before any processing (spec §11.1). */
 export function validateImageUpload(input: UploadValidationInput): UploadValidationResult {
   if (input.sizeBytes > MAX_UPLOAD_BYTES) {
