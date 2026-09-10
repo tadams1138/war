@@ -43,7 +43,7 @@ async function startContainer(): Promise<string> {
 /** Wipes all domain tables between scenarios so each test starts from a clean slate. */
 export async function truncateAll(): Promise<void> {
   const instance = await getTestDb();
-  await sql`TRUNCATE TABLE votes, war_memberships, matchups, contestant_media, contestants, refresh_tokens, wars, voters RESTART IDENTITY CASCADE`.execute(
+  await sql`TRUNCATE TABLE votes, war_memberships, matchups, contestant_media, contestants, authorization_codes, refresh_tokens, wars, voters RESTART IDENTITY CASCADE`.execute(
     instance,
   );
 }

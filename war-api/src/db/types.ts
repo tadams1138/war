@@ -101,6 +101,19 @@ export interface VotesTable {
   created_at: GeneratedTimestamp;
 }
 
+export interface AuthorizationCodesTable {
+  id: string;
+  voter_id: string;
+  client_id: string;
+  code_hash: string;
+  code_challenge: string;
+  redirect_uri: string;
+  resource: string;
+  expires_at: Timestamp;
+  used_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+}
+
 export interface Database {
   voters: VotersTable;
   wars: WarsTable;
@@ -110,4 +123,5 @@ export interface Database {
   matchups: MatchupsTable;
   war_memberships: WarMembershipsTable;
   votes: VotesTable;
+  authorization_codes: AuthorizationCodesTable;
 }

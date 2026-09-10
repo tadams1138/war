@@ -48,4 +48,29 @@ describe('jwt', () => {
     // Act & Assert
     await expect(verifyAccessToken(token, { secret, issuer })).rejects.toThrow();
   });
+
+  it('carries no audience claim when none is requested (browser flow, spec §5, unaffected)', async () => {
+    // Arrange
+    const voterId = '11111111-1111-1111-1111-111111111111';
+
+    // Act
+    const token = await signAccessToken(voterId, { secret, issuer });
+    const payload = await verifyAccessToken(token, { secret, issuer });
+
+    // Assert
+    expect(payload.aud).toBeUndefined();
+  });
+
+  it('round-trips a resource audience when one is supplied (spec §4.3.4: aud = the validated resource)', async () => {
+    // Arrange
+    const voterId = '11111111-1111-1111-1111-111111111111';
+    const resource = 'https://api.test/api/v1/mcp';
+
+    // Act
+    const token = await signAccessToken(voterId, { secret, issuer }, resource);
+    const payload = await verifyAccessToken(token, { secret, issuer });
+
+    // Assert
+    expect(payload.aud).toBe(resource);
+  });
 });
