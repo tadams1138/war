@@ -2,6 +2,7 @@ import { authorizationHandler } from '@modelcontextprotocol/sdk/server/auth/hand
 import { tokenHandler } from '@modelcontextprotocol/sdk/server/auth/handlers/token.js';
 import type { FastifyInstance } from 'fastify';
 import { authorizationServerMetadata, protectedResourceMetadata } from './metadata.js';
+import { mcpResourceIdentifier } from './resource.js';
 import type { WarOAuthServerProvider } from './provider.js';
 
 /**
@@ -40,10 +41,41 @@ import type { WarOAuthServerProvider } from './provider.js';
  * discovery documents (`src/oauth/metadata.ts`) are hand-assembled, and only
  * because the SDK's own metadata builder cannot place its hardcoded
  * root-relative endpoint paths under this prefix (see that file's comment).
+ *
+ * **Rate limiting is left at the SDK's own default** (design review of
+ * 513ee16, Finding 4): `rateLimit: false` made `GET /oauth/authorize` an
+ * unauthenticated, unthrottled instruction for this API to make a DNS
+ * lookup plus an HTTPS GET against any host an attacker names (`client_id`
+ * is client-supplied, §4.3.3) — a reflected-request amplifier and a
+ * host/port prober via response timing, reachable by nobody's credentials
+ * at all. Neither handler is passed `rateLimit` here, so each applies its
+ * own built-in `express-rate-limit` (100 req/15 min for `/oauth/authorize`,
+ * 50 req/15 min for `/oauth/token`, both keyed by `request.ip`) rather than
+ * this API hand-rolling a second limiter for two routes the SDK already
+ * throttles correctly out of the box. **Known limitation, not fixed here**:
+ * `request.ip`'s accuracy behind App Platform's own ingress depends on the
+ * bridged Express instance's `trust proxy` setting, which this slice does
+ * not configure (no App Platform proxy-chain depth is documented in
+ * war-infra-spec.md to configure it correctly against) — until that
+ * infrastructure detail is pinned down, every client behind the same
+ * ingress hop may share one bucket rather than being limited individually.
+ * That is strictly better than the unthrottled state this closes: a shared
+ * bucket still bounds worst-case amplification/probing traffic, just not
+ * with per-client precision.
  */
 export function registerOAuthAsRoutes(app: FastifyInstance, apiPrefix: string, provider: WarOAuthServerProvider): void {
-  app.use(`${apiPrefix}/oauth/authorize`, authorizationHandler({ provider, rateLimit: false }));
-  app.use(`${apiPrefix}/oauth/token`, tokenHandler({ provider, rateLimit: false }));
+  if (app.prefix !== '') {
+    // Design review of 513ee16, Finding 8(a): calling this on a
+    // `{ prefix }`-registered child 404s every request silently, with the
+    // reason living only in the comment above -- fail loudly, at
+    // registration time, instead of leaving the next person to add an
+    // Express-only route here to rediscover the trap by request-time 404.
+    throw new Error(
+      `registerOAuthAsRoutes must be called on the top-level app, not an instance with its own prefix ("${app.prefix}") -- see this function's own doc comment`,
+    );
+  }
+  app.use(`${apiPrefix}/oauth/authorize`, authorizationHandler({ provider }));
+  app.use(`${apiPrefix}/oauth/token`, tokenHandler({ provider }));
 }
 
 /**
@@ -52,6 +84,16 @@ export function registerOAuthAsRoutes(app: FastifyInstance, apiPrefix: string, p
  * discoverable without any prior knowledge of this API's own `/api/v1`
  * routing, which is the entire point of a "well-known" URI. Must be
  * registered on the top-level app, never inside the `/api/v1` prefix block.
+ *
+ * The RFC 9728 document is served at the resource-identifier-suffixed path
+ * (`/.well-known/oauth-protected-resource/api/v1/mcp`), never the bare
+ * `/.well-known/oauth-protected-resource` — RFC 9728 §3.1 requires the
+ * suffix whenever the resource identifier carries a path component, which
+ * `${PUBLIC_BASE_URL}/api/v1/mcp` does (spec §4.3.5; design review Finding 6
+ * of 513ee16 caught the original bare-path version of this route as a spec
+ * defect, since fixed at the spec). The suffix is derived from
+ * {@link mcpResourceIdentifier} itself, not a second hardcoded literal, so
+ * the two cannot drift apart.
  */
 export function registerOAuthDiscoveryRoutes(app: FastifyInstance, apiBaseUrl: string): void {
   app.get('/.well-known/oauth-authorization-server', { schema: { hide: true } }, async (_request, reply) => {
@@ -59,7 +101,8 @@ export function registerOAuthDiscoveryRoutes(app: FastifyInstance, apiBaseUrl: s
     return reply.send(authorizationServerMetadata(apiBaseUrl));
   });
 
-  app.get('/.well-known/oauth-protected-resource', { schema: { hide: true } }, async (_request, reply) => {
+  const protectedResourcePath = new URL(mcpResourceIdentifier(apiBaseUrl)).pathname;
+  app.get(`/.well-known/oauth-protected-resource${protectedResourcePath}`, { schema: { hide: true } }, async (_request, reply) => {
     void reply.header('Cache-Control', 'no-store');
     return reply.send(protectedResourceMetadata(apiBaseUrl));
   });

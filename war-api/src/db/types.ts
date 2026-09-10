@@ -52,6 +52,12 @@ export interface RefreshTokensTable {
   voter_id: string;
   family_id: string;
   token_hash: string;
+  /**
+   * RFC 8707 audience this family is bound to (spec §4.2, §4.3.7) -- NULL
+   * for an ordinary browser session, set once at issuance for an AS-minted
+   * family (§4.3) and never changed afterwards.
+   */
+  resource: string | null;
   expires_at: Timestamp;
   used_at: Timestamp | null;
   revoked_at: Timestamp | null;

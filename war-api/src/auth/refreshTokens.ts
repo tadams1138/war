@@ -7,6 +7,8 @@ export interface StoredRefreshToken {
   voterId: string;
   familyId: string;
   tokenHash: string;
+  /** RFC 8707 audience this family is bound to (spec §4.2, §4.3.7); NULL for an ordinary browser session. */
+  resource: string | null;
   expiresAt: Date;
   usedAt: Date | null;
   revokedAt: Date | null;

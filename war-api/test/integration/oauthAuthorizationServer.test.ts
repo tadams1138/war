@@ -6,6 +6,8 @@ import { CimdClientStore } from '../../src/oauth/cimdClientStore.js';
 import { FakeClientsStore } from '../setup/fakeClientsStore.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { loginAndCallback, postRefresh } from '../setup/authFlow.js';
+import { makeVoter } from '../setup/fixtures.js';
 
 const CLIENT_ID = 'https://client.test/client-metadata.json';
 const REDIRECT_URI = 'https://client.test/callback';
@@ -69,6 +71,66 @@ describe('OAuth 2.1 authorization server (spec §4.3)', () => {
     await harness.app.ready();
   });
 
+  describe('CORS on POST /oauth/token for a browser-based MCP client (design review Finding 8(c))', () => {
+    it('the global @fastify/cors policy answers the preflight first and shadows the SDK\'s own permissive cors(), refusing an origin outside uiOrigins -- verified empirically, not reasoned about', async () => {
+      // Arrange & Act: `@fastify/cors` is registered globally (app.ts) ahead
+      // of the Express bridge, allow-listed to `uiOrigins` only. `Origin`
+      // below is deliberately *not* in that list -- an arbitrary
+      // browser-based MCP client, exactly the case Finding 8(c) asked
+      // whether the SDK's own permissive `cors()` on this route would ever
+      // see.
+      const response = await request(harness.app.server)
+        .options('/api/v1/oauth/token')
+        .set('Origin', 'https://mcp-client.test')
+        .set('Access-Control-Request-Method', 'POST');
+
+      // Assert: observed, not assumed -- `@fastify/cors` answers the
+      // preflight itself (204) but omits `Access-Control-Allow-Origin`
+      // entirely for an origin it does not allow-list, which is enough for
+      // a real browser to block the actual request. The SDK's own router
+      // permissive `cors()` (which would have answered `*`) is never
+      // reached: confirmed by the header's absence, not inferred from
+      // registration order alone.
+      expect(response.status).toBe(204);
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+    });
+  });
+
+  describe('Rate limiting on the AS\'s own unauthenticated routes (design review Finding 4)', () => {
+    it('rate-limits GET /oauth/authorize -- an unauthenticated route the SDK would otherwise leave fully unthrottled', async () => {
+      // Arrange & Act
+      const response = await request(harness.app.server).get('/api/v1/oauth/authorize').query({
+        response_type: 'code',
+        client_id: CLIENT_ID,
+        redirect_uri: REDIRECT_URI,
+        code_challenge: pkcePair().challenge,
+        code_challenge_method: 'S256',
+        resource: RESOURCE,
+        state: 'rate-limit-check',
+      });
+
+      // Assert: the SDK's own `express-rate-limit` middleware stamps every
+      // response with these headers once active -- their presence is what
+      // `rateLimit: false` (513ee16) suppressed entirely.
+      expect(response.headers['ratelimit-limit']).toBeDefined();
+    });
+
+    it('rate-limits POST /oauth/token -- the same unauthenticated-amplifier concern applies to the token endpoint', async () => {
+      // Arrange & Act
+      const response = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'authorization_code',
+        code: 'not-a-real-code',
+        code_verifier: 'whatever',
+        redirect_uri: REDIRECT_URI,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+
+      // Assert
+      expect(response.headers['ratelimit-limit']).toBeDefined();
+    });
+  });
+
   describe('discovery documents (spec §4.3.5)', () => {
     it('GET /.well-known/oauth-authorization-server names the authorization and token endpoints and S256', async () => {
       // Arrange & Act
@@ -81,14 +143,22 @@ describe('OAuth 2.1 authorization server (spec §4.3)', () => {
       expect(response.body.code_challenge_methods_supported).toContain('S256');
     });
 
-    it('GET /.well-known/oauth-protected-resource names this resource and its authorization server', async () => {
+    it('GET /.well-known/oauth-protected-resource/api/v1/mcp names this resource and its authorization server (RFC 9728 §3.1 path suffix, spec §4.3.5)', async () => {
       // Arrange & Act
-      const response = await request(harness.app.server).get('/.well-known/oauth-protected-resource');
+      const response = await request(harness.app.server).get('/.well-known/oauth-protected-resource/api/v1/mcp');
 
       // Assert
       expect(response.status).toBe(200);
       expect(response.body.resource).toBe(RESOURCE);
       expect(response.body.authorization_servers).toEqual(['https://api.test']);
+    });
+
+    it('GET /.well-known/oauth-protected-resource (the bare, unsuffixed path) 404s -- it is not a fallback location (spec §4.3.5, design review Finding 6)', async () => {
+      // Arrange & Act
+      const response = await request(harness.app.server).get('/.well-known/oauth-protected-resource');
+
+      // Assert
+      expect(response.status).toBe(404);
     });
   });
 
@@ -413,8 +483,76 @@ describe('OAuth 2.1 authorization server (spec §4.3)', () => {
       expect(response.body.error).toBe('invalid_target');
     });
 
-    it('a token issued by this server is revocable exactly like a browser session\'s (shared refresh_tokens mechanism, spec §4.2/§4.3.1)', async () => {
-      // Arrange: obtain an OAuth-AS-issued JWT + refresh token.
+    it('reuse of an AS-issued refresh token is caught by the identical family-revocation mechanism the browser flow uses (shared refresh_tokens table, spec §4.2/§4.3.1) -- not a second mechanism', async () => {
+      // Arrange: obtain an OAuth-AS-issued refresh token -- a resource-bound
+      // member of the exact same `refresh_tokens` family mechanism spec
+      // §4.2 already defines (rotation, single-use, family-wide revocation
+      // on reuse). Design review of 513ee16 (Finding 1) found the previous
+      // version of this test proved "one shared mechanism" by presenting
+      // this very token as a Bearer to the *browser* surface's own
+      // DELETE /auth/session and asserting 204 -- which is exactly the
+      // cross-audience acceptance §4.3.6's MUST forbids, closed by Finding
+      // 1(a) below. This version proves sharing without crossing audiences:
+      // reuse detection is driven entirely through the AS's own
+      // refresh_token grant, and the assertion is on the shared
+      // `refresh_tokens` table's own state, not on a foreign-audience token
+      // being accepted anywhere.
+      const { verifier, challenge } = pkcePair();
+      const { code } = await authorizeAndGetCode(harness, { challenge });
+      const issued = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: verifier,
+        redirect_uri: REDIRECT_URI,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+      const firstRefreshToken = issued.body.refresh_token as string;
+
+      // Act: rotate once (legitimate use), then replay the now-used token --
+      // exactly the reuse scenario §4.2 defines, driven through the AS's
+      // own refresh_token grant rather than the browser's /auth/refresh, to
+      // prove it is the *same* detection, not a parallel one built for this
+      // slice.
+      const rotated = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'refresh_token',
+        refresh_token: firstRefreshToken,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+      expect(rotated.status).toBe(200);
+      const secondRefreshToken = rotated.body.refresh_token as string;
+
+      const replay = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'refresh_token',
+        refresh_token: firstRefreshToken,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+
+      // Assert: reuse is refused ...
+      expect(replay.status).toBe(400);
+      expect(replay.body.error).toBe('invalid_grant');
+
+      // ... and the *whole family* is revoked through the one shared
+      // `refresh_tokens` mechanism (the same `revoked_at` column and the
+      // same `revokeFamily` function spec §4.2 already defines for the
+      // browser flow's own reuse detection) -- so even the legitimately
+      // rotated successor, never itself reused, is now refused too.
+      const afterReuse = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'refresh_token',
+        refresh_token: secondRefreshToken,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+      expect(afterReuse.status).toBe(400);
+      expect(afterReuse.body.error).toBe('invalid_grant');
+    });
+  });
+
+  describe('Audience enforcement across the whole REST surface (spec §4.3.6 MUST; design review Finding 1(a))', () => {
+    it('refuses an AS-minted access token on an existing browser-flow route (GET /auth/me)', async () => {
+      // Arrange
       const { verifier, challenge } = pkcePair();
       const { code } = await authorizeAndGetCode(harness, { challenge });
       const issued = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
@@ -426,26 +564,132 @@ describe('OAuth 2.1 authorization server (spec §4.3)', () => {
         client_id: CLIENT_ID,
       });
       const accessToken = issued.body.access_token as string;
-      const refreshTokenValue = issued.body.refresh_token as string;
 
-      // Act: revoke via the *browser* surface's own logout, reusing the
-      // identical JWT and refresh-token-family machinery (§4.2) --
-      // proving the two surfaces really do share one mechanism, not two.
-      const logoutResponse = await request(harness.app.server)
-        .delete('/api/v1/auth/session')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .set('Cookie', `refresh_token=${refreshTokenValue}`)
-        .send();
-      expect(logoutResponse.status).toBe(204);
-
-      const subsequentRefresh = await request(harness.app.server)
-        .post('/api/v1/auth/refresh')
-        .set('Cookie', `refresh_token=${refreshTokenValue}`)
-        .set('Origin', 'https://app.test')
-        .send();
+      // Act: present the AS-minted, resource-bound token to a REST route
+      // that is not that resource.
+      const response = await request(harness.app.server).get('/api/v1/auth/me').set('Authorization', `Bearer ${accessToken}`);
 
       // Assert
-      expect(subsequentRefresh.status).toBe(401);
+      expect(response.status).toBe(401);
+    });
+
+    it('still accepts an ordinary browser-flow token (no aud claim) on the same route -- behaviour-preserving', async () => {
+      // Arrange
+      const voter = await makeVoter(harness.db, 'browser-me');
+      const jwt = await harness.jwtFor(voter.id);
+
+      // Act
+      const response = await request(harness.app.server).get('/api/v1/auth/me').set('Authorization', `Bearer ${jwt}`);
+
+      // Assert
+      expect(response.status).toBe(200);
+    });
+  });
+
+  describe('Audience binding survives refresh (spec §4.3.7; design review Finding 1(b))', () => {
+    it('refuses an AS-issued, resource-bound refresh token at the browser flow\'s own POST /auth/refresh, and revokes its family', async () => {
+      // Arrange
+      const { verifier, challenge } = pkcePair();
+      const { code } = await authorizeAndGetCode(harness, { challenge });
+      const issued = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: verifier,
+        redirect_uri: REDIRECT_URI,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+      const boundRefreshToken = issued.body.refresh_token as string;
+
+      // Act: present the AS's own resource-bound refresh token at the
+      // browser flow's plain, unrestricted refresh endpoint -- the exact
+      // audience-laundering path Finding 1(b) found live.
+      const laundered = await postRefresh(harness, boundRefreshToken);
+
+      // Assert: refused, not laundered into an unrestricted token.
+      expect(laundered.status).toBe(401);
+
+      // And treated as severely as reuse -- the whole family is now
+      // revoked, so even the AS's own refresh grant refuses it afterwards.
+      const afterward = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'refresh_token',
+        refresh_token: boundRefreshToken,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+      expect(afterward.status).toBe(400);
+      expect(afterward.body.error).toBe('invalid_grant');
+    });
+
+    it('refuses a browser-flow (NULL-resource) refresh token at POST /oauth/token\'s refresh grant -- the mirror direction', async () => {
+      // Arrange: an ordinary browser login, never touching the AS at all.
+      const { refreshTokenValue } = await loginAndCallback(harness, {
+        providerUserId: 'mirror-direction@example.com',
+        displayName: 'Mirror Direction',
+        avatarUrl: null,
+      });
+
+      // Act
+      const response = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'refresh_token',
+        refresh_token: refreshTokenValue,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+
+      // Assert
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('invalid_target');
+    });
+
+    it('carries the bound resource forward across a second rotation, not just the first', async () => {
+      // Arrange
+      const { verifier, challenge } = pkcePair();
+      const { code } = await authorizeAndGetCode(harness, { challenge });
+      const issued = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: verifier,
+        redirect_uri: REDIRECT_URI,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+
+      // Act: rotate twice.
+      const firstRotation = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'refresh_token',
+        refresh_token: issued.body.refresh_token,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+      expect(firstRotation.status).toBe(200);
+      const secondRotation = await request(harness.app.server).post('/api/v1/oauth/token').type('form').send({
+        grant_type: 'refresh_token',
+        refresh_token: firstRotation.body.refresh_token,
+        resource: RESOURCE,
+        client_id: CLIENT_ID,
+      });
+
+      // Assert
+      expect(secondRotation.status).toBe(200);
+      const payload = decodeJwt(secondRotation.body.access_token as string);
+      expect(payload.aud).toBe(RESOURCE);
+    });
+
+    it('leaves the browser flow\'s own refresh unaffected by the resource column\'s existence', async () => {
+      // Arrange
+      const { refreshTokenValue } = await loginAndCallback(harness, {
+        providerUserId: 'unaffected-by-resource-column@example.com',
+        displayName: 'Unaffected',
+        avatarUrl: null,
+      });
+
+      // Act
+      const response = await postRefresh(harness, refreshTokenValue);
+
+      // Assert
+      expect(response.status).toBe(200);
+      expect((response.body as { token?: string }).token).toBeTruthy();
     });
   });
 });

@@ -63,3 +63,44 @@ describe('rotateRefreshToken concurrency (spec §5.2 reuse detection)', () => {
     expect(original?.usedAt).not.toBeNull();
   });
 });
+
+/**
+ * Design review of 513ee16, Finding 1(b): a family's `resource` binding
+ * (spec §4.2, §4.3.7) is set once at issuance and must survive rotation
+ * unchanged, on both the ordinary NULL case and an AS-bound family.
+ */
+describe('rotateRefreshToken carries `resource` forward (spec §4.3.7)', () => {
+  beforeEach(async () => {
+    await truncateAll();
+  });
+
+  it('carries a bound resource forward onto the rotated successor', async () => {
+    // Arrange
+    const db = await getTestDb();
+    const voter = await makeVoter(db, 'resource-carrier');
+    const initialValue = generateRefreshTokenValue();
+    const stored = await createRefreshTokenFamily(db, voter.id, hashRefreshToken(initialValue), 'https://api.test/api/v1/mcp');
+
+    // Act
+    const result = await rotateRefreshToken(db, stored, hashRefreshToken(generateRefreshTokenValue()));
+
+    // Assert
+    expect(result.kind).toBe('rotated');
+    expect(result.kind === 'rotated' && result.token.resource).toBe('https://api.test/api/v1/mcp');
+  });
+
+  it('leaves an ordinary (NULL-resource) family NULL after rotation', async () => {
+    // Arrange
+    const db = await getTestDb();
+    const voter = await makeVoter(db, 'null-resource-carrier');
+    const initialValue = generateRefreshTokenValue();
+    const stored = await createRefreshTokenFamily(db, voter.id, hashRefreshToken(initialValue));
+
+    // Act
+    const result = await rotateRefreshToken(db, stored, hashRefreshToken(generateRefreshTokenValue()));
+
+    // Assert
+    expect(result.kind).toBe('rotated');
+    expect(result.kind === 'rotated' && result.token.resource).toBeNull();
+  });
+});

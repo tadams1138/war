@@ -14,7 +14,7 @@ import type { GoogleAuthProvider } from '../auth/googleProvider.js';
 import { CimdClientStore } from './cimdClientStore.js';
 import { signPendingAuthorization } from './authorizeState.js';
 import { decoyCodeChallenge, hashAuthorizationCode } from './authorizationCodes.js';
-import { claimAuthorizationCode, findAuthorizationCodeByHash } from './authorizationCodesRepository.js';
+import { claimAuthorizationCode, findClaimedAuthorizationCodeByHash } from './authorizationCodesRepository.js';
 import { mcpResourceIdentifier } from './resource.js';
 
 /** True only for exactly this deployment's own MCP resource identifier (spec §4.3.2, §4.3.4). */
@@ -101,6 +101,13 @@ export class WarOAuthServerProvider implements OAuthServerProvider {
    * narrow remainder of "unknown, expired, or already used" (spec §4.3.4) —
    * an adversarial race against the claim in
    * {@link challengeForAuthorizationCode}, not the ordinary case.
+   *
+   * Looks the code up via {@link findClaimedAuthorizationCodeByHash}, not a
+   * general by-hash lookup (design review of 513ee16, Finding 7): this
+   * method's own correctness must not depend on trusting that its caller
+   * ran the claim first — an unclaimed (or already-expired) code is
+   * unconditionally unknown here, regardless of what any future caller
+   * does or skips.
    */
   async exchangeAuthorizationCode(
     client: OAuthClientInformationFull,
@@ -109,7 +116,7 @@ export class WarOAuthServerProvider implements OAuthServerProvider {
     redirectUri?: string,
     resource?: URL,
   ): Promise<OAuthTokens> {
-    const stored = await findAuthorizationCodeByHash(this.deps.db, hashAuthorizationCode(authorizationCode));
+    const stored = await findClaimedAuthorizationCodeByHash(this.deps.db, hashAuthorizationCode(authorizationCode));
     if (!stored || stored.clientId !== client.client_id) {
       throw new InvalidGrantError('invalid_grant');
     }
@@ -127,17 +134,17 @@ export class WarOAuthServerProvider implements OAuthServerProvider {
 
   /**
    * Generalizes §4.2's existing rotation to a `resource`-bound token (spec
-   * §4.3.1). Since this slice issues tokens for exactly one resource, "does
-   * not match the value the token was bound to" (§4.3.4) and "does not match
-   * this deployment's own canonical resource identifier" (§4.3.2) are the
-   * same check — refreshing can never widen a token onto a resource this
-   * deployment could not have issued for in the first place.
+   * §4.3.1, §4.3.7). The stored family's own `resource` — fixed at
+   * issuance, never re-derived — is the sole source of truth for what this
+   * refresh token is bound to: the request's `resource` must equal it
+   * *exactly*, not merely be canonical on its own. This also closes the
+   * mirror-direction laundering Finding 1(b) of the design review of
+   * 513ee16 found: a `NULL`-resource (browser) token presented here fails
+   * this same comparison against any supplied `resource`, since `NULL`
+   * never equals a request value.
    */
   async exchangeRefreshToken(_client: OAuthClientInformationFull, refreshToken: string, _scopes?: string[], resource?: URL): Promise<OAuthTokens> {
     const requestedResource = resource?.href;
-    if (!isCanonicalResource(requestedResource, this.deps.apiBaseUrl)) {
-      throw new InvalidTargetError('invalid_target');
-    }
 
     const stored = await findRefreshTokenByHash(this.deps.db, hashRefreshToken(refreshToken));
     const decision = decideRefresh(stored, new Date());
@@ -149,6 +156,9 @@ export class WarOAuthServerProvider implements OAuthServerProvider {
       // browser flow -- this is the identical mechanism, not a second one.
       await revokeFamily(this.deps.db, decision.familyId);
       throw new InvalidGrantError('invalid_grant');
+    }
+    if (decision.token.resource !== requestedResource) {
+      throw new InvalidTargetError('invalid_target');
     }
 
     const newTokenValue = generateRefreshTokenValue();
@@ -181,7 +191,9 @@ export class WarOAuthServerProvider implements OAuthServerProvider {
   private async issueTokens(voterId: string, resource: string): Promise<OAuthTokens> {
     const jwt = await signAccessToken(voterId, this.deps.jwt, resource);
     const refreshTokenValue = generateRefreshTokenValue();
-    await createRefreshTokenFamily(this.deps.db, voterId, hashRefreshToken(refreshTokenValue));
+    // §4.3.7: bind the new family to `resource` at issuance, once, so it
+    // survives every future rotation unchanged.
+    await createRefreshTokenFamily(this.deps.db, voterId, hashRefreshToken(refreshTokenValue), resource);
     return { access_token: jwt, token_type: 'Bearer', expires_in: 3600, refresh_token: refreshTokenValue };
   }
 }
