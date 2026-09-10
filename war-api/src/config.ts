@@ -33,6 +33,14 @@ export interface AppConfig {
     clientId: string;
     clientSecret: string;
     redirectUri: string;
+    /**
+     * A second, dedicated Google redirect_uri for the OAuth 2.1
+     * authorization server's own callback (spec §4.3.2) — distinct from
+     * `redirectUri` above (the browser flow's, §4.1) so the two flows never
+     * share a callback route. Requires this second URI to also be
+     * registered with Google (an infra/deployment concern, not this repo's).
+     */
+    oauthServerRedirectUri: string;
   };
   internalTaskToken: string;
   s3: {
@@ -63,6 +71,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       clientId: env.GOOGLE_CLIENT_ID ?? '',
       clientSecret: env.GOOGLE_CLIENT_SECRET ?? '',
       redirectUri: `${apiBaseUrl}/api/v1/auth/google/callback`,
+      oauthServerRedirectUri: `${apiBaseUrl}/api/v1/oauth/google/callback`,
     },
     internalTaskToken: env.INTERNAL_TASK_TOKEN ?? DEFAULT_INTERNAL_TASK_TOKEN,
     s3: {
