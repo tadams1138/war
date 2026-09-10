@@ -21,12 +21,16 @@ on:
     branches: [master]
     paths:
       - 'war-ui-default/**'
+      - '!war-ui-default/**/*.md'
+      - '!war-ui-default/features/pending/**'
       - 'war-infra/scripts/smoke-test.sh'
       - '.github/workflows/ui-default.yml'
   pull_request:
     branches: [master]
     paths:
       - 'war-ui-default/**'
+      - '!war-ui-default/**/*.md'
+      - '!war-ui-default/features/pending/**'
       - 'war-infra/scripts/smoke-test.sh'
       - '.github/workflows/ui-default.yml'
   workflow_dispatch:

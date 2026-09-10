@@ -29,6 +29,8 @@ on:
     branches: [master]
     paths:
       - 'war-api/**'
+      - '!war-api/**/*.md'
+      - '!war-api/specs/features/pending/**'
       - 'war-infra/platform/**'
       - 'war-infra/scripts/smoke-test.sh'
       - '.github/workflows/api.yml'
@@ -36,6 +38,8 @@ on:
     branches: [master]
     paths:
       - 'war-api/**'
+      - '!war-api/**/*.md'
+      - '!war-api/specs/features/pending/**'
       - 'war-infra/platform/**'
       - 'war-infra/scripts/smoke-test.sh'
       - '.github/workflows/api.yml'
