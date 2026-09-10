@@ -394,6 +394,45 @@ A request to the MCP endpoint (§7.9) without a valid, correctly-audienced beare
   the header shape is specified now so a future scoped tool does not need a new error
   convention invented for it).
 
+**The verification mechanism, precisely — this is not `authService.ts`'s
+`authenticatedVoterId`.** That REST-specific helper unconditionally refuses any token
+carrying `aud` at all (design review Finding 1(a) of `513ee16`) — the exact opposite of what
+this endpoint needs, since an audience-bound token is valid *here* and only here. The
+correct function is `WarOAuthServerProvider.verifyAccessToken` (`src/oauth/provider.ts`),
+already implementing the SDK's `OAuthServerProvider` interface method slice 1 built only far
+enough to satisfy that interface's shape — slice 2 **completes** it, rather than replacing
+it or building a second, competing function beside it:
+
+- Already correct, reused unchanged: it delegates to `auth/jwt.ts`'s shared
+  `verifyAccessToken` for signature, issuer, and expiry — the same checks the browser flow's
+  tokens already go through.
+- **Not yet correct — slice 2 must add this:** reject (throw) when `payload.aud` is absent
+  or does not exactly equal `mcpResourceIdentifier(apiBaseUrl)` (`src/oauth/resource.ts`,
+  which already computes the right value). As shipped in slice 1, this method accepts a
+  token with no audience at all and silently returns a `resource`-less `AuthInfo` — adequate
+  for satisfying the SDK's interface shape in a slice that had no resource server yet to
+  protect, not adequate for actually protecting one.
+- **Not yet correct — slice 2 must add this:** carry the voter id into `AuthInfo.extra`
+  (`{ voterId: payload.voterId }`) — the field the SDK's own `AuthInfo` type reserves for
+  exactly this (its `extra?: Record<string, unknown>` member). As shipped, every
+  construction of `AuthInfo` in this codebase leaves `extra` unset, so nothing yet lets an
+  MCP tool handler learn whose request it is handling.
+
+A Fastify `preHandler` registered on `/api/v1/mcp` calls this completed `verifyAccessToken`
+directly — **never** the SDK's own Express-based bearer-auth middleware, matching §4.3.1's
+decision to bridge only the AS's own routes (`/oauth/authorize`, `/oauth/token`), not the
+resource server. A thrown error becomes this section's `401`; on success, the returned
+`AuthInfo` is attached as `request.raw.auth` before the handler delegates to
+`StreamableHTTPServerTransport.handleRequest(request.raw, reply.raw, ...)` (§7.9) — matching
+that method's own declared parameter type (`req: IncomingMessage & { auth?: AuthInfo }`,
+confirmed against the SDK's shipped type declarations): the transport *reads* `auth` from
+whatever request object it is handed, and never constructs one itself, so attaching it
+correctly beforehand is entirely this endpoint's own responsibility. From there the SDK
+carries it the rest of the way on its own: every tool handler (§7.9) receives it as
+`extra.authInfo` (`RequestHandlerExtra`, confirmed against the SDK's shipped type
+declarations), so `extra.authInfo.extra.voterId` is how a tool handler learns which voter it
+is acting for — never a second lookup, and never anything a tool handler resolves itself.
+
 **This API never accepts a token whose `aud` is not its own resource identifier, and never
 forwards a bearer token it received to any other service** — the two MUSTs the MCP
 authorization spec states plainly, and the reason a separate "does `war-mcp` forward its
@@ -1099,6 +1138,16 @@ app, or any other spec-compliant client) instead of `war-ui-default`'s creation 
 |---|---|---|---|
 | `POST`/`GET`/`DELETE` | `/api/v1/mcp` | 🔒 (§4.3.6) | MCP Streamable HTTP endpoint |
 
+**Where this route mounts.** `/api/v1/mcp` is registered as an ordinary Fastify route,
+inside the same `{ prefix: API_PREFIX }` block every other REST route in this document
+already shares (`src/app.ts`) — exactly like `registerWarsRoutes` or
+`registerContestantsRoutes`, never through `@fastify/express`. §4.3.1's bridge, and
+`registerOAuthAsRoutes`'s mounting guard against being called on a prefixed instance
+(design review Finding 8(a) of `513ee16`), apply only to the AS's own two routes
+(`/oauth/authorize`, `/oauth/token`) — neither the bridge nor that guard has anything to
+enforce against a route that was never Express-bridged in the first place, and nothing
+about this endpoint asks it to be.
+
 **One service, one authority, no backdoor.** This is not a separately deployed client of
 this API — it is a second protocol binding served by this same process, alongside REST. The
 architectural constraint an earlier design stated for a separate `war-mcp` client —
@@ -1380,8 +1429,8 @@ Registration of new slugs is an administrative operation (no public endpoint in 
 | Object storage | `@aws-sdk/client-s3` against an S3-compatible endpoint | Provider per `war-infra-spec.md` §14 |
 | Rate limiting | `@fastify/rate-limit` | Per-voter limits complementing the edge rules (§9.4) |
 | MCP server | `@modelcontextprotocol/sdk` ^1.30.0 | `McpServer`/`registerTool` for §7.9's tools, `StreamableHTTPServerTransport` (operates on raw Node `IncomingMessage`/`ServerResponse`, reachable from a Fastify handler via `request.raw`/`reply.raw` — no framework bridge needed for the transport itself) |
-| OAuth AS/RS wire protocol | `@modelcontextprotocol/sdk`'s `server/auth` module (`mcpAuthRouter`, `OAuthServerProvider`) | Implements RFC 8414/9728/7591's exact document shapes and DCR/PKCE mechanics (§4.3.1) so this API only supplies the `OAuthServerProvider` methods that are genuinely this platform's business |
-| Fastify/Express bridge | `@fastify/express` ^4.0.7 | Mounts the SDK's Express-based `mcpAuthRouter` inside this Fastify app for the AS's own routes only (§4.3.1); the resource-server bearer check on `/api/v1/mcp` itself is a plain Fastify `preHandler`, not bridged |
+| OAuth AS/RS wire protocol | `@modelcontextprotocol/sdk`'s `server/auth` module (`authorizationHandler`, `tokenHandler`, `OAuthServerProvider` — not the bundled `mcpAuthRouter`, §4.3.1) | Implements RFC 8414/9728/7591's exact protocol mechanics (PKCE orchestration, parameter validation, error formatting) so this API only supplies the `OAuthServerProvider` methods that are genuinely this platform's business; the two discovery documents are hand-assembled (§4.3.5), not generated by this module |
+| Fastify/Express bridge | `@fastify/express` ^4.0.7 | Bridges the SDK's Express-based `authorizationHandler`/`tokenHandler` request logic into this Fastify app for the AS's own routes only (§4.3.1) — not the bundled `mcpAuthRouter`, which hardcodes root-mounted, DCR-inclusive routing this app's `/api/v1` prefix and slice sequencing don't support; the resource-server bearer check on `/api/v1/mcp` itself is a plain Fastify `preHandler`, not bridged |
 | Testing | Vitest + Supertest + **Testcontainers** | Integration tests run against a real PostgreSQL, not a mock or shared test DB — §7.9's MCP tool tests follow the same convention |
 
 ### 11.1 Image Processing
