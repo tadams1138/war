@@ -237,6 +237,22 @@ value to confirm against the provider during `war-api-spec.md` §7.9's build (§
 2), not a structural change recorded here — but a genuine way this feature could ship and
 then fail silently under real latency if skipped.
 
+**A second real gap, already live in slice 1, not merely a slice-2 risk: this environment's
+reverse-proxy chain depth is undocumented, and the OAuth AS's own rate limiting depends on
+it.** `GET /oauth/authorize` and `POST /oauth/token` (`war-api-spec.md` §4.3) rely on the
+MCP SDK's own `express-rate-limit` default, keyed by `request.ip`. Behind any reverse proxy,
+`request.ip` is only correct if Express's `trust proxy` setting is configured for the exact
+number of proxy hops in front of the app — App Platform's own ingress is at least one such
+hop, and this document does not currently state how many, or how to configure `trust proxy`
+against it. Left unconfigured (as `a0a9a68`'s implementation deliberately left it, recorded
+there as a known limitation rather than solved), every client behind the same ingress hop
+is keyed into one shared bucket rather than limited individually — strictly better than no
+limit at all, but not per-client accuracy. **Needed to close this:** the exact hop count
+from a real client to this API's Node process in each environment, so `war-api`'s Express
+bridge (`war-api-spec.md` §4.3.1) can set `trust proxy` correctly. Track down and record
+that count here before treating this as resolved; until then, the limitation stands exactly
+as `war-api-spec.md` §15 records it.
+
 ### 5.3 Database
 
 - One managed PostgreSQL cluster per environment
@@ -497,6 +513,8 @@ Because every deploy re-renders the spec from the current secret value, **rotati
 `assertProductionConfig` (`war-api/src/config.ts`) refuses to boot if `publicBaseUrl` is left at its localhost default — the same fail-fast guarantee this section previously specified as a dedicated `GOOGLE_REDIRECT_URI` check, now aimed at this field instead (that env var no longer exists). Because the local-dev default depends on the configured port (`` `http://localhost:${port}` ``, not one fixed literal), this isn't a plain identity check against a single exported string like `DEFAULT_JWT_SECRET`; compute the default the same way `loadConfig` does — a small helper taking `port`, shared by both — and compare `publicBaseUrl` against that, so the two cannot drift apart.
 
 This check exists because a deployment left on the default previously redirected real users back to `http://localhost:3000/...` after Google sign-in instead of the real domain — in every deployed environment, since the app never read `PUBLIC_BASE_URL` at all — with nothing in the deploy pipeline or the running process ever erroring. Required unit-test coverage, in `war-api/test/unit/config.test.ts`, following that file's existing `assertProductionConfig` convention exactly (plain Vitest `describe`/`it`, the `fullyPopulatedConfig()` fixture, Arrange/Act/Assert comments):
+
+**A second Google redirect URI needs manual registration, and nothing in this pipeline does it for you.** The OAuth 2.1 authorization server (`war-api-spec.md` §4.3, `config.google.oauthServerRedirectUri`) derives its own callback the same way — `` `${publicBaseUrl}/api/v1/oauth/google/callback` `` — distinct from the browser flow's `/api/v1/auth/google/callback` above. Both are computed from the same `PUBLIC_BASE_URL`, so no new environment variable or pipeline change is needed to produce the value; what's missing is that **Google itself only accepts a redirect URI it has been told about in advance**. This second URI must be added as an additional authorized redirect URI on the same Google Cloud OAuth client (`GOOGLE_CLIENT_ID` above) — one more entry in the console, per environment (staging and production each need their own, exactly as the existing browser-flow URI already does) — before the authorization server's `GET /oauth/authorize` can complete a real Google login. This is a one-time, per-environment, human-run step in the same category as §20.4's `DO_APP_ID` — easy to forget precisely because the code and config are already correct without it, and the failure mode (Google's own `redirect_uri_mismatch` error) surfaces at the authorization server's callback, not anywhere this pipeline would catch it before a real user hits it.
 
 - `assertProductionConfig` throws when `publicBaseUrl` equals its localhost default for the configured port — mirrors the existing "left at its published test default" cases for `jwtSecret`/`internalTaskToken` — with a problem message a case-insensitive match distinguishes from every other check's message.
 - `assertProductionConfig` throws when `publicBaseUrl` is the empty string — mirrors the existing "DATABASE_URL is unset" case. (`loadConfig` itself never produces an empty string here — its `??` fallback always supplies at least the localhost default — so this case exercises `assertProductionConfig` directly against a config object with the field overwritten after construction, the same way the existing tests mutate `config.jwtSecret`/`config.databaseUrl`.)
