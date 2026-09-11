@@ -37,6 +37,7 @@ export interface AppConfig {
   oauthProviders: {
     google: OAuthClientConfig;
     microsoft: OAuthClientConfig;
+    facebook: OAuthClientConfig;
   };
   internalTaskToken: string;
   s3: {
@@ -66,6 +67,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     oauthProviders: {
       google: { clientId: env.GOOGLE_CLIENT_ID ?? '', clientSecret: env.GOOGLE_CLIENT_SECRET ?? '' },
       microsoft: { clientId: env.MICROSOFT_CLIENT_ID ?? '', clientSecret: env.MICROSOFT_CLIENT_SECRET ?? '' },
+      facebook: { clientId: env.FACEBOOK_CLIENT_ID ?? '', clientSecret: env.FACEBOOK_CLIENT_SECRET ?? '' },
     },
     internalTaskToken: env.INTERNAL_TASK_TOKEN ?? DEFAULT_INTERNAL_TASK_TOKEN,
     s3: {
@@ -120,6 +122,7 @@ const PRODUCTION_RULES: ReadonlyArray<{ failsWhen: (config: AppConfig) => boolea
   },
   oauthProviderRule('GOOGLE', (config) => config.oauthProviders.google),
   oauthProviderRule('MICROSOFT', (config) => config.oauthProviders.microsoft),
+  oauthProviderRule('FACEBOOK', (config) => config.oauthProviders.facebook),
   {
     failsWhen: (config) => !config.apiBaseUrl || config.apiBaseUrl === defaultPublicBaseUrl(config.port),
     problem: 'PUBLIC_BASE_URL must be set to a non-default value',
