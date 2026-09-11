@@ -3,6 +3,9 @@
 .claude/reviews/
 .claude/runs/
 
+# Isolated workspaces for subagent-driven implementation work
+.worktrees/
+
 # Node — unanchored so they match in war-api/ and war-ui-default/ alike
 node_modules/
 dist/
