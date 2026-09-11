@@ -30,7 +30,14 @@ export abstract class OpenIdBackedProvider implements OAuthProvider {
 
   private async config(): Promise<client.Configuration> {
     if (!this.configuration) {
-      this.configuration = this.buildConfiguration();
+      // A *rejected* promise must not be cached: discovery is a network call,
+      // so a transient blip would otherwise be replayed to every subsequent
+      // login for this provider until the process restarted. Clearing the
+      // field inside the catch lets the next call retry the build.
+      this.configuration = this.buildConfiguration().catch((error: unknown) => {
+        this.configuration = undefined;
+        throw error;
+      });
     }
     return this.configuration;
   }

@@ -93,12 +93,7 @@ function isAbsoluteHttpUrl(value: string): boolean {
   }
 }
 
-/**
- * Each production-readiness rule as data rather than an inline `if`, so
- * adding a rule (as this file has already had to do twice) means adding an
- * array entry, not editing a function body (Open/Closed).
- */
-/** One PRODUCTION_RULES entry per OAuth provider — Tasks 2-4 each add one call here. */
+/** One PRODUCTION_RULES entry per OAuth provider — one call per provider below. */
 function oauthProviderRule(
   envPrefix: string,
   get: (config: AppConfig) => OAuthClientConfig,
@@ -109,6 +104,11 @@ function oauthProviderRule(
   };
 }
 
+/**
+ * Each production-readiness rule as data rather than an inline `if`, so
+ * adding a rule (as this file has already had to do twice) means adding an
+ * array entry, not editing a function body (Open/Closed).
+ */
 const PRODUCTION_RULES: ReadonlyArray<{ failsWhen: (config: AppConfig) => boolean; problem: string }> = [
   {
     failsWhen: (config) => !config.jwtSecret || config.jwtSecret === DEFAULT_JWT_SECRET,

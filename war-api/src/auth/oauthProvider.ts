@@ -15,6 +15,14 @@ export interface AuthorizationRequest {
 export interface CallbackParams {
   callbackUrl: URL;
   codeVerifier: string;
+  /**
+   * Currently unread by every provider: `openid-client`'s
+   * `authorizationCodeGrant` derives the `redirect_uri` it sends from the
+   * callback URL itself, so nothing has to be told it separately. Kept
+   * deliberately -- for symmetry with `AuthorizationRequest` above, and
+   * reserved for a future provider whose token exchange demands an explicit
+   * `redirect_uri` parameter.
+   */
   redirectUri: string;
 }
 

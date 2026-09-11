@@ -10,6 +10,9 @@ interface FacebookMeResponse {
 
 /** Pure mapping from a Graph API `/me` response to an OAuthProfile. */
 export function mapFacebookProfile(me: FacebookMeResponse): OAuthProfile {
+  if (!me.id) {
+    throw new Error('Facebook did not return an account id');
+  }
   return {
     providerUserId: me.id,
     displayName: typeof me.name === 'string' ? me.name : null,
@@ -19,7 +22,13 @@ export function mapFacebookProfile(me: FacebookMeResponse): OAuthProfile {
 
 export class FacebookProvider extends OpenIdBackedProvider {
   readonly slug = 'facebook';
-  protected readonly scope = 'openid public_profile';
+  // No openid scope -- identity here comes entirely from the Graph /me call
+  // below, never from claims, so `openid` buys nothing and carries real risk:
+  // the Configuration below is hand-built (no jwks_uri, a hand-written
+  // issuer, an unverified signing algorithm), so an id_token Facebook chose
+  // to return would be validated against metadata never checked against a
+  // real response -- and any mismatch would 502 every Facebook login.
+  protected readonly scope = 'public_profile';
   // Identity always comes from the Graph /me call below, never from claims
   // -- see this task's design note on why discovery is used only for
   // endpoints, not identity.
@@ -64,8 +73,21 @@ export class FacebookProvider extends OpenIdBackedProvider {
   }
 
   protected async mapProfile(tokens: TokenResponse): Promise<OAuthProfile> {
+    // The access token travels as a query parameter, which is Facebook's own
+    // documented convention for the classic Graph API `/me` endpoint. This app
+    // runs with `logger: false`, so the URL is never written to a log. Graph
+    // also accepts `Authorization: Bearer`, and moving to it would remove even
+    // the theoretical URL-logging exposure -- but that swap needs verifying
+    // against a live Facebook app before it ships, so it is deliberately not
+    // made here.
+    //
+    // `AbortSignal.timeout` because Node's fetch has no default timeout: a
+    // hung provider would otherwise hold the callback request open
+    // indefinitely. The abort throws, which the callback's existing 502
+    // boundary already covers.
     const response = await fetch(
       `https://graph.facebook.com/v21.0/me?fields=id,name,picture&access_token=${encodeURIComponent(tokens.access_token)}`,
+      { signal: AbortSignal.timeout(5000) },
     );
     if (!response.ok) {
       throw new Error(`Facebook /me request failed with status ${response.status}`);
