@@ -213,6 +213,16 @@ as the provider sent it, never a reconstruction carrying only the code. Provider
 additional parameters — at minimum an issuer identifier — that the exchange validates, so a
 reconstructed URL fails.
 
+**Every sign-in is bound to the browser that started it.** Alongside the anti-forgery state
+value, each login attempt generates its own single-use secret — a *code verifier* — held
+server-side in the same `HttpOnly` cookie manner, never exposed to page scripts. Only a
+cryptographic derivative of it, the *code challenge*, accompanies the authorization request;
+the verifier itself is presented at the code exchange, which proves the exchange comes from
+the same client that began the flow. An intercepted authorization code is therefore useless
+on its own. A verifier missing at the callback is treated exactly as a state mismatch, since
+both cookies are set and cleared together and neither half is safe to exchange without the
+other.
+
 **Callback failures are distinguishable, and never surface an upstream library's internal
 error text.** Checked in order, each short-circuiting the rest:
 

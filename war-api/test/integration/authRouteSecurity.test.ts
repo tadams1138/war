@@ -36,6 +36,11 @@ describe('Login sets PKCE state alongside the OAuth state cookie', () => {
     expect(extractCookieValue(response.get('Set-Cookie'), 'oauth_pkce')).toBeTruthy();
   });
 
+  // Note: this is a *route-wiring* check only — the provider here is
+  // FakeOAuthProvider, so the challenge in this URL is whatever the double
+  // chose to emit. That the challenge is a real S256 derivation of the
+  // verifier is proved in test/unit/auth/openIdBackedProvider.test.ts,
+  // against the production OpenIdBackedProvider.
   it('carries a PKCE code_challenge derived from the cookie in the authorization URL', async () => {
     // Arrange
     const agent = request(harness.app.server);
@@ -106,7 +111,7 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
 
   it('accepts a callback whose state matches the cookie', async () => {
     // Arrange
-    const { agent, stateCookie, cookieHeader, advertisedRedirectUri } = await beginLogin(harness);
+    const { agent, stateCookie, pkceCookie, cookieHeader, advertisedRedirectUri } = await beginLogin(harness);
     const code = randomUUID();
     harness.google.registerCode(code, { providerUserId: 'matches@example.com', displayName: 'Matches', avatarUrl: null });
 
@@ -117,6 +122,9 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
     expect(response.status).toBeGreaterThanOrEqual(300);
     expect(response.status).toBeLessThan(400);
     expect(extractCookieValue(response.get('Set-Cookie'), 'refresh_token')).toBeTruthy();
+    // The PKCE verifier that reaches the exchange must be the very one the
+    // login leg set in the cookie -- not merely some verifier at each end.
+    expect(harness.google.lastCodeVerifier).toBe(pkceCookie);
     // The redirect_uri Google sees in the exchange leg must equal the one it
     // saw in the authorization leg -- not just each independently matching
     // the same hardcoded literal -- since Google compares the two for exact

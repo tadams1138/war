@@ -75,9 +75,8 @@ with an auth-aware Home empty state. Live in staging and production.
 
 ## Test coverage gaps
 
-- Video mode, per-voter rate limiting, one cross-provider sign-in scenario, and three
-  War-expiry scenarios sit unbound in `war-api/specs/features/pending/` and describe
-  behaviour that is not built.
+- Video mode, per-voter rate limiting, and three War-expiry scenarios sit unbound in
+  `war-api/specs/features/pending/` and describe behaviour that is not built.
 - `war-ui-default/features/pending/` holds 13 unbound scenarios — video mode, plus wording
   variants of scenarios that already run under other names.
 - `war-infra/specs/features/pending/` holds 27 routing and edge scenarios with no runner,

@@ -23,4 +23,9 @@ describe('mapFacebookProfile', () => {
     // Assert
     expect(profile).toEqual({ providerUserId: 'fb-456', displayName: null, avatarUrl: null });
   });
+
+  it('throws when there is no account id to identify the voter by', () => {
+    // Arrange / Act / Assert
+    expect(() => mapFacebookProfile({ id: '' })).toThrow('Facebook did not return an account id');
+  });
 });

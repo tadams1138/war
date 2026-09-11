@@ -1,6 +1,5 @@
-// OAuth provider selection (the spec). Buttons
-// render for the full provider list even though only Google is live on the
-// API side today — the rest 404 until war-api adds them.
+// OAuth provider selection (the spec). Buttons render for the full provider
+// list; Apple 404s until it's implemented (see PROGRESS.md).
 import { useSearchParams } from 'react-router-dom'
 import { providerLoginUrl } from '../api/client'
 import { storeReturnTo } from '../auth/returnTo'

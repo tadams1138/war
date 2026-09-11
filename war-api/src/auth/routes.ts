@@ -88,10 +88,14 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
       // to protect. An empty `error` (`?error=`) is treated as absent.
       if (error) {
         const body: OAuthDeclinedView = { error: 'authorization declined', reason: error };
+        void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
+        void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
         return reply.code(403).send(body);
       }
 
       if (!code) {
+        void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
+        void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
         return reply.code(400).send({ error: 'missing code' });
       }
       const expectedState = request.cookies[STATE_COOKIE];
@@ -107,9 +111,10 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
 
       // The provider's real callback query, verbatim -- RFC 9207's `iss` and the rest,
       // which the token-exchange library validates straight off this URL. The
-      // origin and path come from the one redirect_uri this app ever advertises
-      // (the same config value the login leg sends above), so the two legs
-      // cannot diverge and nothing off the request line can steer them.
+      // origin and path come from `redirectUriFor`, the same pure function the
+      // login leg above calls with the same provider slug, so the two legs
+      // cannot diverge for a given provider and nothing off the request line
+      // can steer them.
       const redirectUri = redirectUriFor(config.apiBaseUrl, provider.slug);
       const callbackUrl = new URL(redirectUri);
       callbackUrl.search = new URL(request.url, redirectUri).search;

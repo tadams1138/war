@@ -23,4 +23,9 @@ describe('mapTwitterProfile', () => {
     // Assert
     expect(profile).toEqual({ providerUserId: 'tw-456', displayName: null, avatarUrl: null });
   });
+
+  it('throws when there is no account id to identify the voter by', () => {
+    // Arrange / Act / Assert
+    expect(() => mapTwitterProfile({ data: { id: '' } })).toThrow('Twitter/X did not return an account id');
+  });
 });

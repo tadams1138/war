@@ -5,7 +5,13 @@ import { MicrosoftProvider } from './providers/microsoft.js';
 import { FacebookProvider } from './providers/facebook.js';
 import { TwitterProvider } from './providers/twitter.js';
 
-const FACTORIES: Record<string, (config: OAuthClientConfig) => OAuthProvider> = {
+/**
+ * Keyed by `AppConfig['oauthProviders']` rather than plain `string`, so a
+ * missing or stray key is a compile error here instead of a silent `undefined`
+ * at runtime -- which is also what makes the lookup in `buildProviderRegistry`
+ * below provably safe rather than merely currently-true.
+ */
+const FACTORIES: Record<keyof AppConfig['oauthProviders'], (config: OAuthClientConfig) => OAuthProvider> = {
   google: (config) => new GoogleProvider(config.clientId, config.clientSecret),
   microsoft: (config) => new MicrosoftProvider(config.clientId, config.clientSecret),
   facebook: (config) => new FacebookProvider(config.clientId, config.clientSecret),
@@ -18,9 +24,12 @@ function isConfigured(config: OAuthClientConfig): boolean {
 
 /**
  * Builds the set of providers actually usable in this process. A provider
- * appears only when every one of its required config fields is set, so
- * local dev and CI can run with only Google configured while production
- * requires all of them (config.ts's PRODUCTION_RULES enforces that).
+ * appears only when every one of its required config fields is set, so the
+ * registry itself tolerates partial configuration -- which is what lets tests
+ * construct a config carrying only a subset of providers. No real process
+ * boot relies on that tolerance: `server.ts` calls `assertProductionConfig`
+ * unconditionally, so every actual boot requires all four providers'
+ * credentials (config.ts's PRODUCTION_RULES).
  */
 export function buildProviderRegistry(config: AppConfig): ReadonlyMap<string, OAuthProvider> {
   const providers = new Map<string, OAuthProvider>();
