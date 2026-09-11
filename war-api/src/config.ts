@@ -36,6 +36,7 @@ export interface AppConfig {
   apiBaseUrl: string;
   oauthProviders: {
     google: OAuthClientConfig;
+    microsoft: OAuthClientConfig;
   };
   internalTaskToken: string;
   s3: {
@@ -64,6 +65,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     apiBaseUrl,
     oauthProviders: {
       google: { clientId: env.GOOGLE_CLIENT_ID ?? '', clientSecret: env.GOOGLE_CLIENT_SECRET ?? '' },
+      microsoft: { clientId: env.MICROSOFT_CLIENT_ID ?? '', clientSecret: env.MICROSOFT_CLIENT_SECRET ?? '' },
     },
     internalTaskToken: env.INTERNAL_TASK_TOKEN ?? DEFAULT_INTERNAL_TASK_TOKEN,
     s3: {
@@ -117,6 +119,7 @@ const PRODUCTION_RULES: ReadonlyArray<{ failsWhen: (config: AppConfig) => boolea
     problem: 'DATABASE_URL must be set',
   },
   oauthProviderRule('GOOGLE', (config) => config.oauthProviders.google),
+  oauthProviderRule('MICROSOFT', (config) => config.oauthProviders.microsoft),
   {
     failsWhen: (config) => !config.apiBaseUrl || config.apiBaseUrl === defaultPublicBaseUrl(config.port),
     problem: 'PUBLIC_BASE_URL must be set to a non-default value',

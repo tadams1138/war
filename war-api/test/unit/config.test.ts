@@ -14,6 +14,8 @@ function fullyPopulatedConfig(): AppConfig {
     INTERNAL_TASK_TOKEN: 'a-real-internal-task-token',
     GOOGLE_CLIENT_ID: 'a-real-client-id',
     GOOGLE_CLIENT_SECRET: 'a-real-client-secret',
+    MICROSOFT_CLIENT_ID: 'a-real-client-id',
+    MICROSOFT_CLIENT_SECRET: 'a-real-client-secret',
     PUBLIC_BASE_URL: 'https://staging.war.tmad.dev',
     UI_ORIGINS: 'https://staging.war.tmad.dev',
   } as NodeJS.ProcessEnv);
