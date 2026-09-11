@@ -22,6 +22,7 @@ export interface CommonAppDeps {
   config: AppConfig;
   google: FakeOAuthProvider;
   microsoft: FakeOAuthProvider;
+  facebook: FakeOAuthProvider;
   providers: ReadonlyMap<string, OAuthProvider>;
   storage: InMemoryObjectStorage;
 }
@@ -36,13 +37,16 @@ export function buildCommonDeps(): CommonAppDeps {
   const config = testConfig();
   const google = new FakeOAuthProvider('google');
   const microsoft = new FakeOAuthProvider('microsoft');
+  const facebook = new FakeOAuthProvider('facebook');
   return {
     config,
     google,
     microsoft,
+    facebook,
     providers: new Map<string, OAuthProvider>([
       ['google', google],
       ['microsoft', microsoft],
+      ['facebook', facebook],
     ]),
     storage: new InMemoryObjectStorage(config.s3.publicBaseUrl),
   };
@@ -53,6 +57,7 @@ export interface TestHarness {
   db: Kysely<Database>;
   google: FakeOAuthProvider;
   microsoft: FakeOAuthProvider;
+  facebook: FakeOAuthProvider;
   providers: ReadonlyMap<string, OAuthProvider>;
   storage: InMemoryObjectStorage;
   config: AppConfig;
@@ -61,7 +66,7 @@ export interface TestHarness {
 
 export async function buildTestHarness(): Promise<TestHarness> {
   const db = await getTestDb();
-  const { config, google, microsoft, providers, storage } = buildCommonDeps();
+  const { config, google, microsoft, facebook, providers, storage } = buildCommonDeps();
 
   const app = await buildApp({ db, providers, storage, config });
 
@@ -70,6 +75,7 @@ export async function buildTestHarness(): Promise<TestHarness> {
     db,
     google,
     microsoft,
+    facebook,
     providers,
     storage,
     config,

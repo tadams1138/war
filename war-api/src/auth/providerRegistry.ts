@@ -2,10 +2,12 @@ import type { AppConfig, OAuthClientConfig } from '../config.js';
 import type { OAuthProvider } from './oauthProvider.js';
 import { GoogleProvider } from './providers/google.js';
 import { MicrosoftProvider } from './providers/microsoft.js';
+import { FacebookProvider } from './providers/facebook.js';
 
 const FACTORIES: Record<string, (config: OAuthClientConfig) => OAuthProvider> = {
   google: (config) => new GoogleProvider(config.clientId, config.clientSecret),
   microsoft: (config) => new MicrosoftProvider(config.clientId, config.clientSecret),
+  facebook: (config) => new FacebookProvider(config.clientId, config.clientSecret),
 };
 
 function isConfigured(config: OAuthClientConfig): boolean {
