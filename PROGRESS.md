@@ -18,9 +18,9 @@ Staging and production both run as a single application per environment containi
 
 ### Built
 
-- **Auth** — Google only. Other providers return not-found; the route shape already supports
-  them. All callback failure responses implemented. Sessions are a JWT plus a rotating
-  refresh-token family with reuse detection.
+- **Auth** — Google, Microsoft, Facebook, and Twitter/X. Apple returns not-found (see *To
+  revisit*). All callback failure responses implemented. Sessions are a JWT plus a rotating
+  refresh-token family with reuse detection, now PKCE-protected on every provider.
 - **Domain** — Wars, contestants, contestant schema, matchups, voting, rankings, and the
   internal close-expired-wars endpoint.
 - **War listing** — the caller's-own-Wars filter, and default visibility scoping applied in
@@ -31,7 +31,7 @@ Staging and production both run as a single application per environment containi
 
 ### Not built
 
-- Apple, Facebook, Microsoft, Twitter/X sign-in; linking providers to one voter.
+- Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Per-voter rate limiting. The edge's volumetric limits are live; the API's own are not.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
@@ -91,6 +91,11 @@ with an auth-aware Home empty state. Live in staging and production.
 
 - Each provider's redirect URI must be registered by hand with that provider, per
   environment. Nothing in the pipeline does it.
+- Google, Microsoft, Facebook, and Twitter/X apps must all be registered, with secrets set in
+  GitHub and both environments' redirect URIs registered, **before this deploys to that
+  environment** — `assertProductionConfig` now refuses to boot with any of the four
+  unconfigured. Bring staging up first, confirm all four buttons work end-to-end, then
+  production.
 - The API's address-keyed rate limits need the reverse-proxy hop count configured to key on
   the real client address. **The correct value is unknown** and must come from the provider;
   until then clients behind the same hop share a bucket.
