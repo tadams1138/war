@@ -18,6 +18,8 @@ function fullyPopulatedConfig(): AppConfig {
     MICROSOFT_CLIENT_SECRET: 'a-real-client-secret',
     FACEBOOK_CLIENT_ID: 'a-real-client-id',
     FACEBOOK_CLIENT_SECRET: 'a-real-client-secret',
+    TWITTER_CLIENT_ID: 'a-real-client-id',
+    TWITTER_CLIENT_SECRET: 'a-real-client-secret',
     PUBLIC_BASE_URL: 'https://staging.war.tmad.dev',
     UI_ORIGINS: 'https://staging.war.tmad.dev',
   } as NodeJS.ProcessEnv);
