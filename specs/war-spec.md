@@ -194,8 +194,8 @@ recomputation. They drive both pair selection and rankings.
 
 ### 5.1 Sign-in
 
-OAuth is the only way to sign in. Google is the first provider; Apple, Facebook, Microsoft
-and Twitter/X are designed for and reachable without structural change.
+OAuth is the only way to sign in, across four providers: Google, Microsoft, Facebook, and
+Twitter/X. Apple is designed for and reachable without structural change.
 
 - Each (provider, provider account id) pair maps to exactly one voter
 - Providers may not be linked to one another; the same person signing in through two
