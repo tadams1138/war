@@ -32,7 +32,7 @@ function unusableDb(): Kysely<Database> {
  * Schemas, never on data, so it needs no Postgres/Testcontainers dependency.
  */
 export async function buildAppWithoutDb(): Promise<NoDbHarness> {
-  const { config, google, storage } = buildCommonDeps();
-  const app = await buildApp({ db: unusableDb(), google, storage, config });
+  const { config, providers, storage } = buildCommonDeps();
+  const app = await buildApp({ db: unusableDb(), providers, storage, config });
   return { app };
 }

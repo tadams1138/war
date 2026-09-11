@@ -1,10 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import { beginLogin, completeCallback, currentVoter, exchangeGoogleCode, logout, refresh, type AuthDependencies } from './authService.js';
+import { beginLogin, completeCallback, currentVoter, exchangeAuthorizationCode, logout, refresh, type AuthDependencies } from './authService.js';
 import { bearerAuthRoute } from './plugin.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
 
 const REFRESH_COOKIE = 'refresh_token';
 const STATE_COOKIE = 'oauth_state';
+const PKCE_COOKIE = 'oauth_pkce';
 const AUTH_COOKIE_PATH = '/api/v1/auth';
 
 /** The `{ error, reason }` body check #1 of the spec's "Callback failure responses" table returns. */
@@ -30,7 +31,12 @@ export const oauthDeclinedResponseSchema = {
 
 export interface AuthRouteConfig {
   uiOrigins: string[];
-  googleRedirectUri: string;
+  apiBaseUrl: string;
+}
+
+/** Every provider's callback lives at the same path shape, so the redirect_uri is derived, not configured. */
+function redirectUriFor(apiBaseUrl: string, providerSlug: string): string {
+  return `${apiBaseUrl}/api/v1/auth/${providerSlug}/callback`;
 }
 
 function refreshCookieOptions() {
@@ -50,11 +56,14 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
     // redirect-or-empty-404 only -- no body to schema on that route").
     { schema: { response: { 404: {} } } },
     async (request, reply) => {
-      if (request.params.provider !== 'google') {
+      const provider = deps.providers.get(request.params.provider);
+      if (!provider) {
         return reply.code(404).send();
       }
-      const { state, authorizationUrl } = await beginLogin(deps, config.googleRedirectUri);
+      const redirectUri = redirectUriFor(config.apiBaseUrl, provider.slug);
+      const { state, codeVerifier, authorizationUrl } = await beginLogin(deps, provider, redirectUri);
       void reply.setCookie(STATE_COOKIE, state, { ...refreshCookieOptions(), maxAge: 600 });
+      void reply.setCookie(PKCE_COOKIE, codeVerifier, { ...refreshCookieOptions(), maxAge: 600 });
       return reply.redirect(authorizationUrl);
     },
   );
@@ -67,7 +76,8 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
     // responses" table, checked in that exact order below.
     { schema: { response: { 400: errorResponseSchema, 403: oauthDeclinedResponseSchema, 502: errorResponseSchema } } },
     async (request, reply) => {
-      if (request.params.provider !== 'google') {
+      const provider = deps.providers.get(request.params.provider);
+      if (!provider) {
         return reply.code(404).send();
       }
       const { code, state, error } = request.query;
@@ -85,37 +95,46 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
         return reply.code(400).send({ error: 'missing code' });
       }
       const expectedState = request.cookies[STATE_COOKIE];
-      if (!expectedState || !state || expectedState !== state) {
+      const codeVerifier = request.cookies[PKCE_COOKIE];
+      // The state and PKCE cookies are always set and cleared together, so
+      // a mismatch or an absence of either is one failure mode, not two:
+      // there is nothing safe to exchange without both.
+      if (!expectedState || !state || expectedState !== state || !codeVerifier) {
         void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
+        void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
         return reply.code(400).send({ error: 'state mismatch' });
       }
 
-      // Google's real callback query, verbatim -- RFC 9207's `iss` and the rest,
+      // The provider's real callback query, verbatim -- RFC 9207's `iss` and the rest,
       // which the token-exchange library validates straight off this URL. The
       // origin and path come from the one redirect_uri this app ever advertises
       // (the same config value the login leg sends above), so the two legs
       // cannot diverge and nothing off the request line can steer them.
-      const callbackUrl = new URL(config.googleRedirectUri);
-      callbackUrl.search = new URL(request.url, config.googleRedirectUri).search;
+      const redirectUri = redirectUriFor(config.apiBaseUrl, provider.slug);
+      const callbackUrl = new URL(redirectUri);
+      callbackUrl.search = new URL(request.url, redirectUri).search;
 
       // #4 -- the error boundary is scoped to the exchange call alone
       // (spec). Whatever completeCallback does afterwards (voter upsert,
       // refresh-token issuance) runs outside this check, so a failure there
       // keeps surfacing as an unmapped 500, exactly as before.
-      const exchange = await exchangeGoogleCode(deps, { callbackUrl });
+      const exchange = await exchangeAuthorizationCode(deps, provider, { callbackUrl, codeVerifier, redirectUri });
       if (exchange.kind === 'exchangeFailed') {
         // The 502 body stays deliberately vague (spec: none of this
         // is safe to show verbatim) -- but the real cause is still worth a
         // server-side record. `request.log` is Fastify's no-op logger under
         // this app's current `logger: false`, so this costs nothing today
         // and activates the moment logging is turned on.
-        request.log.error({ err: exchange.cause }, 'google code exchange failed');
-        return reply.code(502).send({ error: 'authentication with Google failed' });
+        request.log.error({ err: exchange.cause }, `${provider.slug} code exchange failed`);
+        void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
+        void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
+        return reply.code(502).send({ error: `authentication with ${provider.slug} failed` });
       }
-      const result = await completeCallback(deps, exchange.profile);
+      const result = await completeCallback(deps, provider.slug, exchange.profile);
 
       void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, refreshCookieOptions());
       void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
+      void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
 
       // No token of any kind in the redirect (spec).
       return reply.redirect(`${config.uiOrigins[0]}/auth/callback`);

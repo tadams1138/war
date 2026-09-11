@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { newId } from '../db/uuid.js';
-import type { OAuthProfile } from './googleProvider.js';
+import type { OAuthProfile } from './oauthProvider.js';
 
 export interface Voter {
   id: string;

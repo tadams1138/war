@@ -58,8 +58,7 @@ describe('assertProductionConfig', () => {
   it('throws when Google client credentials are unset', () => {
     // Arrange
     const config = fullyPopulatedConfig();
-    config.google.clientId = '';
-    config.google.clientSecret = '';
+    config.oauthProviders.google = { clientId: '', clientSecret: '' };
 
     // Act & Assert
     expect(() => assertProductionConfig(config)).toThrow();
@@ -91,14 +90,13 @@ describe('assertProductionConfig', () => {
     expect(() => assertProductionConfig(config)).toThrow();
   });
 
-  it('does not throw when apiBaseUrl is a real, non-default value, and google.redirectUri is derived from it', () => {
+  it('does not throw when apiBaseUrl is a real, non-default value', () => {
     // Arrange
     const config = fullyPopulatedConfig();
 
     // Act & Assert
     expect(() => assertProductionConfig(config)).not.toThrow();
     expect(config.apiBaseUrl).toBe('https://staging.war.tmad.dev');
-    expect(config.google.redirectUri).toBe('https://staging.war.tmad.dev/api/v1/auth/google/callback');
   });
 
   it('throws when apiBaseUrl has a trailing slash', () => {
