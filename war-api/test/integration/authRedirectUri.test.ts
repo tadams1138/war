@@ -6,7 +6,7 @@ import { buildAppWithoutDb } from '../setup/testAppNoDb.js';
  * Closes the observability gap that let the original PUBLIC_BASE_URL bug
  * (spec) reach every deployment undetected: nothing
  * in the suite previously inspected the `redirect_uri` that actually reaches
- * Google, only `config.google.redirectUri` one layer above the wire. Runs
+ * Google, only the computed `redirectUri` one layer above the wire. Runs
  * DB-free via `buildAppWithoutDb()` -- `beginLogin` never touches the
  * database, it only generates state and calls `google.authorizationUrl`.
  */

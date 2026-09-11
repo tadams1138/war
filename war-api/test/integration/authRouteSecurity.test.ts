@@ -15,6 +15,41 @@ import { truncateAll } from '../setup/testDb.js';
  * these are implementation-owned regression tests of behaviour the spec
  * requires but the Gherkin does not pin at this granularity.
  */
+describe('Login sets PKCE state alongside the OAuth state cookie', () => {
+  let harness: TestHarness;
+
+  beforeEach(async () => {
+    await truncateAll();
+    harness = await buildTestHarness();
+    await harness.app.ready();
+  });
+
+  it('sets an oauth_pkce cookie in addition to oauth_state', async () => {
+    // Arrange
+    const agent = request(harness.app.server);
+
+    // Act
+    const response = await agent.get('/api/v1/auth/google/login');
+
+    // Assert
+    expect(extractCookieValue(response.get('Set-Cookie'), 'oauth_state')).toBeTruthy();
+    expect(extractCookieValue(response.get('Set-Cookie'), 'oauth_pkce')).toBeTruthy();
+  });
+
+  it('carries a PKCE code_challenge derived from the cookie in the authorization URL', async () => {
+    // Arrange
+    const agent = request(harness.app.server);
+
+    // Act
+    const response = await agent.get('/api/v1/auth/google/login');
+
+    // Assert
+    const location = new URL(response.headers.location as string);
+    expect(location.searchParams.get('code_challenge')).toBeTruthy();
+    expect(location.searchParams.get('code_challenge_method')).toBe('S256');
+  });
+});
+
 describe('OAuth callback state validation (spec: "API validates state")', () => {
   let harness: TestHarness;
 
@@ -71,15 +106,12 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
 
   it('accepts a callback whose state matches the cookie', async () => {
     // Arrange
-    const { agent, stateCookie, advertisedRedirectUri } = await beginLogin(harness);
+    const { agent, stateCookie, cookieHeader, advertisedRedirectUri } = await beginLogin(harness);
     const code = randomUUID();
     harness.google.registerCode(code, { providerUserId: 'matches@example.com', displayName: 'Matches', avatarUrl: null });
 
     // Act
-    const response = await agent
-      .get('/api/v1/auth/google/callback')
-      .query({ code, state: stateCookie })
-      .set('Cookie', `oauth_state=${stateCookie}`);
+    const response = await agent.get('/api/v1/auth/google/callback').query({ code, state: stateCookie }).set('Cookie', cookieHeader);
 
     // Assert
     expect(response.status).toBeGreaterThanOrEqual(300);
@@ -95,7 +127,7 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
 
   it('passes Google\'s real callback query parameters (e.g. iss) through to exchangeCode unchanged, not a synthetic reconstruction', async () => {
     // Arrange
-    const { agent, stateCookie } = await beginLogin(harness);
+    const { agent, stateCookie, cookieHeader } = await beginLogin(harness);
     const code = randomUUID();
     harness.google.registerCode(code, { providerUserId: 'iss-fidelity@example.com', displayName: 'Iss Fidelity', avatarUrl: null });
 
@@ -112,7 +144,7 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
         authuser: '0',
         prompt: 'consent',
       })
-      .set('Cookie', `oauth_state=${stateCookie}`);
+      .set('Cookie', cookieHeader);
 
     // Assert
     expect(response.status).toBeGreaterThanOrEqual(300);
@@ -155,27 +187,27 @@ describe('Callback exchange failures (spec)', () => {
         this.name = 'OperationProcessingError';
       }
     }
-    const { agent, stateCookie } = await beginLogin(harness);
+    const { agent, stateCookie, cookieHeader } = await beginLogin(harness);
     const code = randomUUID();
     harness.google.failNextExchange(new FakeOperationProcessingError());
 
     // Act
-    const response = await agent.get('/api/v1/auth/google/callback').query({ code, state: stateCookie }).set('Cookie', `oauth_state=${stateCookie}`);
+    const response = await agent.get('/api/v1/auth/google/callback').query({ code, state: stateCookie }).set('Cookie', cookieHeader);
 
     // Assert
     expect(response.status).toBe(502);
-    expect((response.body as { error?: string }).error).toBe('authentication with Google failed');
+    expect((response.body as { error?: string }).error).toBe('authentication with google failed');
     expect((response.body as { error?: string }).error).not.toContain('OAUTH_INVALID_RESPONSE');
   });
 
   it('maps a network failure reaching Google to a 502', async () => {
     // Arrange
-    const { agent, stateCookie } = await beginLogin(harness);
+    const { agent, stateCookie, cookieHeader } = await beginLogin(harness);
     const code = randomUUID();
     harness.google.failNextExchange(new Error('getaddrinfo ENOTFOUND accounts.google.com'));
 
     // Act
-    const response = await agent.get('/api/v1/auth/google/callback').query({ code, state: stateCookie }).set('Cookie', `oauth_state=${stateCookie}`);
+    const response = await agent.get('/api/v1/auth/google/callback').query({ code, state: stateCookie }).set('Cookie', cookieHeader);
 
     // Assert
     expect(response.status).toBe(502);
@@ -186,7 +218,7 @@ describe('Callback exchange failures (spec)', () => {
     // Arrange: a provider_user_id exceeding voters.provider_user_id's
     // VARCHAR(256) forces the insert itself to fail -- a real defect in
     // this API's own logic, not the provider's response being unusable.
-    const { agent, stateCookie } = await beginLogin(harness);
+    const { agent, stateCookie, cookieHeader } = await beginLogin(harness);
     const code = randomUUID();
     harness.google.registerCode(code, {
       providerUserId: 'x'.repeat(300),
@@ -195,7 +227,7 @@ describe('Callback exchange failures (spec)', () => {
     });
 
     // Act
-    const response = await agent.get('/api/v1/auth/google/callback').query({ code, state: stateCookie }).set('Cookie', `oauth_state=${stateCookie}`);
+    const response = await agent.get('/api/v1/auth/google/callback').query({ code, state: stateCookie }).set('Cookie', cookieHeader);
 
     // Assert: a 500 alone doesn't prove it happened *downstream* of a
     // successful exchange -- pin that the exchange itself actually ran

@@ -17,6 +17,11 @@ export function defaultPublicBaseUrl(port: number): string {
   return `http://localhost:${port}`;
 }
 
+export interface OAuthClientConfig {
+  clientId: string;
+  clientSecret: string;
+}
+
 export interface AppConfig {
   port: number;
   databaseUrl: string;
@@ -29,10 +34,8 @@ export interface AppConfig {
    * differently-scoped `s3.publicBaseUrl` below (the media CDN's origin).
    */
   apiBaseUrl: string;
-  google: {
-    clientId: string;
-    clientSecret: string;
-    redirectUri: string;
+  oauthProviders: {
+    google: OAuthClientConfig;
   };
   internalTaskToken: string;
   s3: {
@@ -59,10 +62,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     jwtSecret: env.JWT_SECRET ?? DEFAULT_JWT_SECRET,
     jwtIssuer: env.JWT_ISSUER ?? 'war-api',
     apiBaseUrl,
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID ?? '',
-      clientSecret: env.GOOGLE_CLIENT_SECRET ?? '',
-      redirectUri: `${apiBaseUrl}/api/v1/auth/google/callback`,
+    oauthProviders: {
+      google: { clientId: env.GOOGLE_CLIENT_ID ?? '', clientSecret: env.GOOGLE_CLIENT_SECRET ?? '' },
     },
     internalTaskToken: env.INTERNAL_TASK_TOKEN ?? DEFAULT_INTERNAL_TASK_TOKEN,
     s3: {
@@ -91,6 +92,17 @@ function isAbsoluteHttpUrl(value: string): boolean {
  * adding a rule (as this file has already had to do twice) means adding an
  * array entry, not editing a function body (Open/Closed).
  */
+/** One PRODUCTION_RULES entry per OAuth provider — Tasks 2-4 each add one call here. */
+function oauthProviderRule(
+  envPrefix: string,
+  get: (config: AppConfig) => OAuthClientConfig,
+): { failsWhen: (config: AppConfig) => boolean; problem: string } {
+  return {
+    failsWhen: (config) => !get(config).clientId || !get(config).clientSecret,
+    problem: `${envPrefix}_CLIENT_ID and ${envPrefix}_CLIENT_SECRET must be set`,
+  };
+}
+
 const PRODUCTION_RULES: ReadonlyArray<{ failsWhen: (config: AppConfig) => boolean; problem: string }> = [
   {
     failsWhen: (config) => !config.jwtSecret || config.jwtSecret === DEFAULT_JWT_SECRET,
@@ -104,10 +116,7 @@ const PRODUCTION_RULES: ReadonlyArray<{ failsWhen: (config: AppConfig) => boolea
     failsWhen: (config) => !config.databaseUrl,
     problem: 'DATABASE_URL must be set',
   },
-  {
-    failsWhen: (config) => !config.google.clientId || !config.google.clientSecret,
-    problem: 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set',
-  },
+  oauthProviderRule('GOOGLE', (config) => config.oauthProviders.google),
   {
     failsWhen: (config) => !config.apiBaseUrl || config.apiBaseUrl === defaultPublicBaseUrl(config.port),
     problem: 'PUBLIC_BASE_URL must be set to a non-default value',
@@ -116,8 +125,9 @@ const PRODUCTION_RULES: ReadonlyArray<{ failsWhen: (config: AppConfig) => boolea
     // Only judges shape once a real (non-empty) value is present -- the rule
     // above already owns "missing entirely", so this stays a single concern:
     // a present PUBLIC_BASE_URL whose shape would break the derived
-    // google.redirectUri (e.g. a trailing slash doubling the `/` before
-    // `api/v1/...`, which Google's exact redirect_uri match rejects outright).
+    // per-provider callback redirect_uri (e.g. a trailing slash doubling the
+    // `/` before `api/v1/...`, which a provider's exact redirect_uri match
+    // rejects outright).
     failsWhen: (config) =>
       config.apiBaseUrl !== '' && (config.apiBaseUrl.endsWith('/') || !isAbsoluteHttpUrl(config.apiBaseUrl)),
     problem: 'PUBLIC_BASE_URL must not end with a trailing slash and must be an absolute http(s) URL',

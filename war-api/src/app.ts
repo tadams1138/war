@@ -6,7 +6,7 @@ import type { Kysely } from 'kysely';
 import packageJson from '../package.json' with { type: 'json' };
 import type { Database } from './db/types.js';
 import type { AuthDependencies } from './auth/authService.js';
-import type { GoogleAuthProvider } from './auth/googleProvider.js';
+import type { OAuthProvider } from './auth/oauthProvider.js';
 import { registerAuthRoutes } from './auth/routes.js';
 import type { ObjectStorage } from './contestants/storage.js';
 import { registerContestantsRoutes } from './contestants/routes.js';
@@ -20,7 +20,7 @@ import type { AppConfig } from './config.js';
 
 export interface AppDeps {
   db: Kysely<Database>;
-  google: GoogleAuthProvider;
+  providers: ReadonlyMap<string, OAuthProvider>;
   storage: ObjectStorage;
   config: AppConfig;
 }
@@ -46,7 +46,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   const authDeps: AuthDependencies = {
     db: deps.db,
-    google: deps.google,
+    providers: deps.providers,
     jwt: { secret: deps.config.jwtSecret, issuer: deps.config.jwtIssuer },
   };
 
@@ -55,7 +55,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       registerOpenApiRoutes(instance);
       registerAuthRoutes(instance, authDeps, {
         uiOrigins: deps.config.uiOrigins,
-        googleRedirectUri: deps.config.google.redirectUri,
+        apiBaseUrl: deps.config.apiBaseUrl,
       });
       registerWarsRoutes(instance, {
         db: deps.db,
