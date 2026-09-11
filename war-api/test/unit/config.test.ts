@@ -70,6 +70,33 @@ describe('assertProductionConfig', () => {
     expect(() => assertProductionConfig(config)).toThrow();
   });
 
+  it('throws when Microsoft client credentials are unset', () => {
+    // Arrange
+    const config = fullyPopulatedConfig();
+    config.oauthProviders.microsoft = { clientId: '', clientSecret: '' };
+
+    // Act & Assert
+    expect(() => assertProductionConfig(config)).toThrow(/microsoft/i);
+  });
+
+  it('throws when Facebook client credentials are unset', () => {
+    // Arrange
+    const config = fullyPopulatedConfig();
+    config.oauthProviders.facebook = { clientId: '', clientSecret: '' };
+
+    // Act & Assert
+    expect(() => assertProductionConfig(config)).toThrow(/facebook/i);
+  });
+
+  it('throws when Twitter/X client credentials are unset', () => {
+    // Arrange
+    const config = fullyPopulatedConfig();
+    config.oauthProviders.twitter = { clientId: '', clientSecret: '' };
+
+    // Act & Assert
+    expect(() => assertProductionConfig(config)).toThrow(/twitter/i);
+  });
+
   it('does not throw for a fully-populated production config', () => {
     // Arrange
     const config = fullyPopulatedConfig();

@@ -8,8 +8,8 @@
 # war-infra/platform/{env}.yaml by envsubst on every deploy, same mechanism as
 # ${IMAGE_TAG}:
 #   JWT_SECRET, INTERNAL_TASK_TOKEN,
-#   GOOGLE_CLIENT_SECRET   secrets
-#   GOOGLE_CLIENT_ID                       variable (not secret)
+#   GOOGLE_CLIENT_SECRET, MICROSOFT_CLIENT_SECRET, FACEBOOK_CLIENT_SECRET, TWITTER_CLIENT_SECRET   secrets
+#   GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID, FACEBOOK_CLIENT_ID, TWITTER_CLIENT_ID   variables (not secrets)
 #   SPACES_ACCESS_KEY_ID, SPACES_SECRET_ACCESS_KEY   secrets (same Spaces
 #     credentials used elsewhere; substituted into the spec's S3_* keys)
 #
@@ -176,6 +176,12 @@ jobs:
           S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          FACEBOOK_CLIENT_ID: ${{ vars.FACEBOOK_CLIENT_ID }}
+          FACEBOOK_CLIENT_SECRET: ${{ secrets.FACEBOOK_CLIENT_SECRET }}
+          TWITTER_CLIENT_ID: ${{ vars.TWITTER_CLIENT_ID }}
+          TWITTER_CLIENT_SECRET: ${{ secrets.TWITTER_CLIENT_SECRET }}
         # The explicit variable list is load-bearing, not tidiness: envsubst
         # with no list substitutes every $VAR/${VAR} it finds, and
         # platform/{env}.yaml's run_command intentionally contains
@@ -189,7 +195,7 @@ jobs:
         # platform/{env}.yaml for this step to substitute must be added here
         # too, or it silently stops being substituted instead of erroring.
         run: |
-          envsubst '$IMAGE_TAG $JWT_SECRET $INTERNAL_TASK_TOKEN $S3_ACCESS_KEY_ID $S3_SECRET_ACCESS_KEY $GOOGLE_CLIENT_ID $GOOGLE_CLIENT_SECRET' \
+          envsubst '$IMAGE_TAG $JWT_SECRET $INTERNAL_TASK_TOKEN $S3_ACCESS_KEY_ID $S3_SECRET_ACCESS_KEY $GOOGLE_CLIENT_ID $GOOGLE_CLIENT_SECRET $MICROSOFT_CLIENT_ID $MICROSOFT_CLIENT_SECRET $FACEBOOK_CLIENT_ID $FACEBOOK_CLIENT_SECRET $TWITTER_CLIENT_ID $TWITTER_CLIENT_SECRET' \
             < war-infra/platform/staging.yaml > "$RUNNER_TEMP/app-spec.yaml"
 
       # --wait blocks until the deployment settles. The PRE_DEPLOY migration job
@@ -241,10 +247,16 @@ jobs:
           S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          FACEBOOK_CLIENT_ID: ${{ vars.FACEBOOK_CLIENT_ID }}
+          FACEBOOK_CLIENT_SECRET: ${{ secrets.FACEBOOK_CLIENT_SECRET }}
+          TWITTER_CLIENT_ID: ${{ vars.TWITTER_CLIENT_ID }}
+          TWITTER_CLIENT_SECRET: ${{ secrets.TWITTER_CLIENT_SECRET }}
         # See the staging job's identical step for why the variable list is
         # required, not optional tidiness.
         run: |
-          envsubst '$IMAGE_TAG $JWT_SECRET $INTERNAL_TASK_TOKEN $S3_ACCESS_KEY_ID $S3_SECRET_ACCESS_KEY $GOOGLE_CLIENT_ID $GOOGLE_CLIENT_SECRET' \
+          envsubst '$IMAGE_TAG $JWT_SECRET $INTERNAL_TASK_TOKEN $S3_ACCESS_KEY_ID $S3_SECRET_ACCESS_KEY $GOOGLE_CLIENT_ID $GOOGLE_CLIENT_SECRET $MICROSOFT_CLIENT_ID $MICROSOFT_CLIENT_SECRET $FACEBOOK_CLIENT_ID $FACEBOOK_CLIENT_SECRET $TWITTER_CLIENT_ID $TWITTER_CLIENT_SECRET' \
             < war-infra/platform/production.yaml > "$RUNNER_TEMP/app-spec.yaml"
 
       - name: Deploy

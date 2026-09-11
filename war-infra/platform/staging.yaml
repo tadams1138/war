@@ -116,14 +116,23 @@ services:
       - key: GOOGLE_CLIENT_ID
         scope: RUN_TIME
         value: ${GOOGLE_CLIENT_ID}
+      - key: MICROSOFT_CLIENT_ID
+        scope: RUN_TIME
+        value: ${MICROSOFT_CLIENT_ID}
+      - key: FACEBOOK_CLIENT_ID
+        scope: RUN_TIME
+        value: ${FACEBOOK_CLIENT_ID}
+      - key: TWITTER_CLIENT_ID
+        scope: RUN_TIME
+        value: ${TWITTER_CLIENT_ID}
 
       # Secrets. Not literal values — ${PLACEHOLDER} substituted from GitHub
       # Actions secrets by envsubst immediately before this file is applied
       # (spec). Re-rendered fresh on every deploy, so rotating the GitHub
       # secret and redeploying (even a no-op redeploy) is all rotation takes.
-      # Apple/Facebook/Microsoft/Twitter are absent: unimplemented (spec),
-      # so there is nothing to substitute them with — add them here only once
-      # a provider actually exists.
+      # Apple is absent: unimplemented (see PROGRESS.md's "To revisit"),
+      # so there is nothing to substitute it with — add it here only once
+      # the provider actually exists.
       - key: JWT_SECRET
         scope: RUN_TIME
         type: SECRET
@@ -144,6 +153,18 @@ services:
         scope: RUN_TIME
         type: SECRET
         value: ${GOOGLE_CLIENT_SECRET}
+      - key: MICROSOFT_CLIENT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: ${MICROSOFT_CLIENT_SECRET}
+      - key: FACEBOOK_CLIENT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: ${FACEBOOK_CLIENT_SECRET}
+      - key: TWITTER_CLIENT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: ${TWITTER_CLIENT_SECRET}
 
     alerts:
       - rule: CPU_UTILIZATION
