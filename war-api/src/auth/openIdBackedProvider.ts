@@ -17,7 +17,7 @@ export abstract class OpenIdBackedProvider implements OAuthProvider {
   abstract readonly slug: string;
   /** Space-separated OAuth scopes to request, e.g. "openid email profile". */
   protected abstract readonly scope: string;
-  /** False for providers with no id_token (Twitter/X). Defaults true (every OIDC provider). */
+  /** False for providers with no id_token (Twitter/X, Facebook). Defaults true (every OIDC provider). */
   protected readonly idTokenExpected: boolean = true;
 
   private configuration: Promise<client.Configuration> | undefined;
