@@ -97,6 +97,19 @@ with an auth-aware Home empty state. Live in staging and production.
 
 ---
 
+## To revisit
+
+**Apple sign-in.** Deferred — needs a paid Apple Developer Program membership ($99/yr),
+which we don't have yet. Design is otherwise settled, so this is a cost decision, not an open
+question: the client secret is an ES256-signed JWT (`iss` the team id, `sub` the client id,
+signed with a `.p8` private key, re-signed per exchange since Apple caps its lifetime at six
+months); there is no userinfo endpoint, so identity is `sub`-only from the id token; and
+`openid` scope alone (skipping `name`/`email`) keeps the callback an ordinary GET rather than
+Apple's `form_post` POST. Implement once the account exists — it slots into the same provider
+abstraction Microsoft, Facebook, and Twitter/X use.
+
+---
+
 ## Designed but not specified
 
 **Platform moderation.** Agreed in discussion, never written into the spec: an administrator
