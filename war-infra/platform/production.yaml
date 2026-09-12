@@ -115,16 +115,22 @@ services:
         value: war-media-production
       - key: GOOGLE_CLIENT_ID
         scope: RUN_TIME
-        value: ${GOOGLE_CLIENT_ID}
+        # Quoted: an all-digit client id (Facebook's app ids are exactly
+        # this shape) parses as a YAML number instead of a string once
+        # envsubst substitutes it, and DigitalOcean's app spec rejects a
+        # numeric `value` outright ("cannot unmarshal number into ... value
+        # of type string"). Quoting keeps every substitution a string
+        # regardless of what the id happens to look like.
+        value: "${GOOGLE_CLIENT_ID}"
       - key: MICROSOFT_CLIENT_ID
         scope: RUN_TIME
-        value: ${MICROSOFT_CLIENT_ID}
+        value: "${MICROSOFT_CLIENT_ID}"
       - key: FACEBOOK_CLIENT_ID
         scope: RUN_TIME
-        value: ${FACEBOOK_CLIENT_ID}
+        value: "${FACEBOOK_CLIENT_ID}"
       - key: TWITTER_CLIENT_ID
         scope: RUN_TIME
-        value: ${TWITTER_CLIENT_ID}
+        value: "${TWITTER_CLIENT_ID}"
 
       # Secrets. Not literal values — ${PLACEHOLDER} substituted from GitHub
       # Actions secrets by envsubst immediately before this file is applied
