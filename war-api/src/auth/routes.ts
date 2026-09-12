@@ -127,9 +127,8 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
       if (exchange.kind === 'exchangeFailed') {
         // The 502 body stays deliberately vague (spec: none of this
         // is safe to show verbatim) -- but the real cause is still worth a
-        // server-side record. `request.log` is Fastify's no-op logger under
-        // this app's current `logger: false`, so this costs nothing today
-        // and activates the moment logging is turned on.
+        // server-side record, which `request.log` now actually is (see
+        // app.ts's logger config).
         request.log.error({ err: exchange.cause }, `${provider.slug} code exchange failed`);
         void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
         void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
