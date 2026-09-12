@@ -17,6 +17,7 @@ import { registerSharedSchemas } from './openapi/schemas.js';
 import { registerRankingsRoutes } from './rankings/routes.js';
 import { registerWarsRoutes } from './wars/routes.js';
 import type { AppConfig } from './config.js';
+import { redactedRequestSerializer } from './logging.js';
 
 export interface AppDeps {
   db: Kysely<Database>;
@@ -29,7 +30,14 @@ const API_PREFIX = '/api/v1';
 const API_TITLE = 'War API';
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
+  // Request/response logging (method, redacted url, status, timing) to
+  // stdout, which App Platform's Runtime Logs capture automatically. Was
+  // `logger: false` until a Twitter/X sign-in failure on staging turned
+  // out to be undiagnosable with it off -- there was no way to tell
+  // whether a request had even reached this process. `req`'s url is
+  // redacted because the auth callback route's query string carries a
+  // provider's one-time OAuth code/state.
+  const app = Fastify({ logger: { level: 'info', serializers: { req: redactedRequestSerializer } } });
 
   await app.register(cookie);
   await app.register(cors, { origin: deps.config.uiOrigins, credentials: true });
