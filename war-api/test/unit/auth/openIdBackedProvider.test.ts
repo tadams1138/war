@@ -21,6 +21,14 @@ class StubProvider extends OpenIdBackedProvider {
   /** How many times `buildConfiguration` has actually been called. */
   buildCount = 0;
 
+  /**
+   * The exact `Configuration` instance `buildConfiguration` created --
+   * kept so tests can inspect it *after* the base class has finished with
+   * it (e.g. `.timeout`, which the base class sets post-construction, not
+   * something this stub's own `buildConfiguration` ever touches).
+   */
+  createdConfiguration: client.Configuration | undefined;
+
   protected buildConfiguration(): Promise<client.Configuration> {
     this.buildCount += 1;
     const failure = this.buildFailures.shift();
@@ -32,7 +40,9 @@ class StubProvider extends OpenIdBackedProvider {
       authorization_endpoint: 'https://stub.test/o/authorize',
       token_endpoint: 'https://stub.test/o/token',
     };
-    return Promise.resolve(new client.Configuration(server, 'stub-client-id', 'stub-client-secret'));
+    const configuration = new client.Configuration(server, 'stub-client-id', 'stub-client-secret');
+    this.createdConfiguration = configuration;
+    return Promise.resolve(configuration);
   }
 
   protected mapProfile(_tokens: TokenResponse): Promise<OAuthProfile> {
@@ -132,5 +142,30 @@ describe('OpenIdBackedProvider configuration caching', () => {
     // Assert
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(provider.buildCount).toBe(2);
+  });
+});
+
+describe('OpenIdBackedProvider request timeout', () => {
+  it('bounds the Configuration to a short timeout, so a provider that never responds fails fast instead of hanging the request indefinitely', async () => {
+    // Arrange
+    const provider = new StubProvider();
+    const request = {
+      state: 'a-state-value',
+      codeVerifier: CODE_VERIFIER,
+      redirectUri: 'https://api.test/api/v1/auth/stub/callback',
+    };
+
+    // Act
+    await provider.authorizationUrl(request);
+
+    // Assert -- openid-client's own "30 second default" only applies to a
+    // few standalone calls like discovery(); a Configuration's own
+    // `.timeout` defaults to undefined, which its internal `signal()`
+    // helper turns into *no* AbortSignal at all (unbounded) rather than a
+    // 30-second one. Left unset, the token-exchange request this
+    // Configuration eventually makes can hang forever if the provider is
+    // slow or unreachable, surfacing as a raw platform gateway timeout
+    // instead of this app's own clean 502.
+    expect(provider.createdConfiguration?.timeout).toBe(10);
   });
 });
