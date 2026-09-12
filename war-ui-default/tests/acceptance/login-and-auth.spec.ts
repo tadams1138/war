@@ -2,7 +2,7 @@
 import { expect, test } from '@playwright/test'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
 
-const PROVIDERS = ['google', 'apple', 'facebook', 'microsoft', 'twitter']
+const PROVIDERS = ['google', 'facebook', 'microsoft', 'twitter']
 
 test('Voter selects an OAuth provider', async ({ page }) => {
   // Arrange
@@ -12,6 +12,10 @@ test('Voter selects an OAuth provider', async ({ page }) => {
   for (const provider of PROVIDERS) {
     await expect(page.getByTestId(`login-provider-${provider}`)).toBeVisible()
   }
+
+  // Assert — Apple is designed for but not built (PROGRESS.md "To revisit"),
+  // so no button for it should render
+  await expect(page.getByTestId('login-provider-apple')).toHaveCount(0)
 
   // Act
   await Promise.all([

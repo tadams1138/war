@@ -1,12 +1,12 @@
-// OAuth provider selection (the spec). Buttons render for the full provider
-// list; Apple 404s until it's implemented (see PROGRESS.md).
+// OAuth provider selection (the spec). Apple is left off this list --
+// designed for but not built (PROGRESS.md "To revisit") -- rather than
+// shown as a button that 404s.
 import { useSearchParams } from 'react-router-dom'
 import { providerLoginUrl } from '../api/client'
 import { storeReturnTo } from '../auth/returnTo'
 
 const PROVIDERS = [
   { slug: 'google', label: 'Google' },
-  { slug: 'apple', label: 'Apple' },
   { slug: 'facebook', label: 'Facebook' },
   { slug: 'microsoft', label: 'Microsoft' },
   { slug: 'twitter', label: 'Twitter / X' },
