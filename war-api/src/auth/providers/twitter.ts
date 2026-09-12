@@ -18,6 +18,24 @@ export function mapTwitterProfile(me: TwitterMeResponse): OAuthProfile {
   };
 }
 
+/**
+ * A `client.ClientAuth` that sends "Basic base64(clientId:clientSecret)"
+ * without RFC 6749 Appendix B's form-url-encoding step -- unlike
+ * oauth4webapi's own `ClientSecretBasic`, which applies it. Confirmed
+ * directly against `https://api.twitter.com/2/oauth2/token` with real
+ * credentials: a plain, unencoded Basic header authenticates successfully
+ * there, while the RFC-compliant form-encoded version this app's real
+ * client secret produces (it contains reserved characters) fails with a
+ * generic `{"error":"unauthorized_client","error_description":"Missing
+ * valid authorization header"}` -- Twitter/X's token endpoint evidently
+ * never URL-decodes the credentials before splitting on ':'.
+ */
+export function rawClientSecretBasic(clientId: string, clientSecret: string): client.ClientAuth {
+  return (_as, _client, _body, headers) => {
+    headers.set('authorization', `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`);
+  };
+}
+
 export class TwitterProvider extends OpenIdBackedProvider {
   readonly slug = 'twitter';
   // No openid scope -- Twitter/X's OAuth 2.0 API issues no id_token at all.
@@ -41,8 +59,11 @@ export class TwitterProvider extends OpenIdBackedProvider {
     };
     // Confidential client: the secret travels via HTTP Basic on the token
     // request, which is what Twitter/X's OAuth 2.0 implementation expects
-    // from a server-side (non-public) client.
-    return Promise.resolve(new client.Configuration(server, this.clientId, this.clientSecret, client.ClientSecretBasic(this.clientSecret)));
+    // from a server-side (non-public) client. `rawClientSecretBasic`, not
+    // oauth4webapi's own `ClientSecretBasic` -- see its doc comment.
+    return Promise.resolve(
+      new client.Configuration(server, this.clientId, this.clientSecret, rawClientSecretBasic(this.clientId, this.clientSecret)),
+    );
   }
 
   protected async mapProfile(tokens: TokenResponse): Promise<OAuthProfile> {
