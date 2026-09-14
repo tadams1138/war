@@ -1,1 +1,165 @@
-/* populated in Task 8 */
+/* Visual treatment per theme (the spec, "Visual Theme" / "Theme
+   switching"): color, type, and a signature shape per theme, selected by
+   the [data-theme] attribute each themed page sets on its <main>.
+   Arrangement/breakpoints live in layout.css, not here. This is a first
+   pass on each theme's identity — decorative flourishes from the approved
+   mockup (CRT scanlines, washi tape, HUD corner brackets) are a later,
+   separate visual-polish pass, not required for the theme to be
+   recognizable and correctly switchable. */
+
+[data-theme] {
+  background: var(--t-bg);
+  color: var(--t-text);
+  padding: 1rem 1rem 2rem;
+}
+
+/* ---------- Arcade Showdown ---------- */
+[data-theme='arcade'] {
+  --t-bg: #0d0b1a;
+  --t-surface: #1a1630;
+  --t-text: #ede6d6;
+  --t-accent1: #ff3e7f;
+  --t-accent2: #35e8d4;
+  --t-accent3: #f4e04d;
+  --t-display-font: 'Press Start 2P', monospace;
+  --t-body-font: 'Share Tech Mono', monospace;
+  font-family: var(--t-body-font);
+}
+[data-theme='arcade'] h1,
+[data-theme='arcade'] h2,
+[data-theme='arcade'] h3 {
+  font-family: var(--t-display-font);
+}
+[data-theme='arcade'] .war-card,
+[data-theme='arcade'] .contestant-card {
+  background: var(--t-surface);
+  border: 2px solid var(--t-accent2);
+}
+[data-theme='arcade'] .vs-divider {
+  background: linear-gradient(135deg, var(--t-accent1), var(--t-accent2));
+  color: #0d0b1a;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  font-family: var(--t-display-font);
+  font-size: 0.9rem;
+}
+[data-theme='arcade'] button {
+  font-family: var(--t-body-font);
+  background: var(--t-accent1);
+  color: #0d0b1a;
+  border: none;
+  box-shadow: 3px 3px 0 var(--t-accent3);
+}
+[data-theme='arcade'] .progress-track {
+  background: var(--t-surface);
+  border: 2px solid var(--t-accent2);
+}
+[data-theme='arcade'] .progress-fill {
+  background: var(--t-accent1);
+}
+[data-theme='arcade'] .rankings-table th {
+  font-family: var(--t-display-font);
+  color: var(--t-accent2);
+  font-size: 0.7rem;
+}
+
+/* ---------- Fight Card ---------- */
+[data-theme='fight_card'] {
+  --t-bg: #141a26;
+  --t-surface: #1d2433;
+  --t-text: #efe9dd;
+  --t-accent1: #e8442c;
+  --t-accent2: #d8ae53;
+  --t-accent3: #475168;
+  --t-display-font: 'Anton', sans-serif;
+  --t-body-font: 'Work Sans', sans-serif;
+  font-family: var(--t-body-font);
+}
+[data-theme='fight_card'] h1,
+[data-theme='fight_card'] h2,
+[data-theme='fight_card'] h3 {
+  font-family: var(--t-display-font);
+  letter-spacing: 0.02em;
+}
+[data-theme='fight_card'] .war-card,
+[data-theme='fight_card'] .contestant-card {
+  background: var(--t-surface);
+  border-left: 4px solid var(--t-accent2);
+}
+[data-theme='fight_card'] .vs-divider {
+  background: var(--t-accent1);
+  color: #fff;
+  transform: rotate(-6deg);
+  clip-path: polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%);
+  font-family: var(--t-display-font);
+  font-size: 1.4rem;
+}
+[data-theme='fight_card'] button {
+  font-family: var(--t-body-font);
+  font-weight: 600;
+  background: var(--t-accent2);
+  color: #141a26;
+  border: none;
+  clip-path: polygon(6% 0, 100% 0, 94% 100%, 0 100%);
+}
+[data-theme='fight_card'] .progress-fill {
+  background: linear-gradient(90deg, var(--t-accent2), #efd28c);
+}
+[data-theme='fight_card'] .rankings-table th {
+  font-family: var(--t-display-font);
+  color: var(--t-accent2);
+}
+
+/* ---------- Tape & Prints ---------- */
+[data-theme='scrapbook'] {
+  --t-bg: #123b3a;
+  --t-surface: #e8dcc3;
+  --t-text: #f3ede0;
+  --t-text-on-surface: #2b2118;
+  --t-accent1: #ff6f59;
+  --t-accent2: #ffc857;
+  --t-accent3: #4e8d7c;
+  --t-display-font: 'Permanent Marker', cursive;
+  --t-body-font: 'Quicksand', sans-serif;
+  font-family: var(--t-body-font);
+}
+[data-theme='scrapbook'] h1,
+[data-theme='scrapbook'] h2,
+[data-theme='scrapbook'] h3 {
+  font-family: var(--t-display-font);
+}
+[data-theme='scrapbook'] .war-card,
+[data-theme='scrapbook'] .contestant-card {
+  background: var(--t-surface);
+  color: var(--t-text-on-surface);
+  border-radius: 3px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+}
+[data-theme='scrapbook'] .vs-divider {
+  background: #fff;
+  color: var(--t-accent1);
+  border-radius: 50%;
+  transform: rotate(-8deg);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  font-family: var(--t-display-font);
+  font-size: 1.2rem;
+}
+[data-theme='scrapbook'] button {
+  font-family: var(--t-body-font);
+  font-weight: 600;
+  background: var(--t-accent1);
+  color: #2b2118;
+  border: none;
+  border-radius: 20px;
+}
+[data-theme='scrapbook'] .progress-track {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 7px;
+}
+[data-theme='scrapbook'] .progress-fill {
+  background: var(--t-accent1);
+  border-radius: 7px;
+}
+[data-theme='scrapbook'] .rankings-table th {
+  font-family: var(--t-display-font);
+  color: var(--t-accent1);
+}
