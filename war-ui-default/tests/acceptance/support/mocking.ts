@@ -2,7 +2,7 @@
 // (src/mocks/testHooks.ts). See that module's comment for why this exists:
 // a Playwright test runs in Node and cannot hand a live closure across to
 // the browser, so scenarios are serialized as data instead.
-import type { Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import type { HandlerRecipe } from '../../../src/mocks/scenarios'
 
 export const API = '/api/v1'
@@ -42,4 +42,19 @@ export interface MswCallLogEntry {
 
 export async function getCallLog(page: Page): Promise<MswCallLogEntry[]> {
   return page.evaluate(() => window.__mswCallLog ?? [])
+}
+
+// A one-shot getCallLog() right after triggering a request races the
+// request itself under load (CI's shared runners, not a local machine,
+// is where this actually shows up) — the click/setInputFiles call resolves
+// once the DOM event dispatches, not once the async work it kicked off has
+// reached the network layer. Polls until `predicate` holds, or fails with
+// Playwright's own timeout/diff instead of a misleading assertion on a
+// too-early snapshot.
+export async function waitForCallLog(
+  page: Page,
+  predicate: (log: MswCallLogEntry[]) => boolean,
+): Promise<MswCallLogEntry[]> {
+  await expect.poll(async () => predicate(await getCallLog(page))).toBe(true)
+  return getCallLog(page)
 }

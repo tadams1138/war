@@ -1,7 +1,7 @@
 // Binds features/create-war.feature.
 import { expect, test, type Page } from '@playwright/test'
 import { buildContestant, buildWarSummary } from '../../src/mocks/fixtures'
-import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
 
 const WAR_ID = 'war-create-1'
 
@@ -269,7 +269,10 @@ test('A second image can be added to a contestant after the first upload succeed
   await item
     .getByTestId('contestant-image-input')
     .setInputFiles({ name: 'b.png', mimeType: 'image/png', buffer: PNG_BUFFER })
-  const calls = await getCallLog(page)
+  const calls = await waitForCallLog(
+    page,
+    (log) => log.filter((c) => c.method === 'POST' && c.url.endsWith('/images')).length >= 2,
+  )
   expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/images')).length).toBe(2)
 })
 

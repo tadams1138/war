@@ -4,7 +4,7 @@
 // no UI route calling them (PROGRESS.md).
 import { expect, test } from '@playwright/test'
 import { buildContestant, buildMediaItem, buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
-import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
 
 const WAR_ID = 'war-edit-1'
 
@@ -41,9 +41,11 @@ test('Changing the title persists it', async ({ page }) => {
   await page.getByTestId('edit-war-title-input').fill('New Title')
   await page.getByTestId('edit-war-metadata-submit').click()
 
-  // Assert
+  // Assert — toHaveValue alone would not wait for the save: the input's
+  // value is local state, already 'New Title' the instant fill() resolves,
+  // regardless of whether the PATCH has even been sent yet.
   await expect(page.getByTestId('edit-war-title-input')).toHaveValue('New Title')
-  const calls = await getCallLog(page)
+  const calls = await waitForCallLog(page, (log) => log.some((c) => c.method === 'PATCH' && c.url.endsWith(`/wars/${WAR_ID}`)))
   const patchCall = calls.find((c) => c.method === 'PATCH' && c.url.endsWith(`/wars/${WAR_ID}`))
   expect(JSON.parse(patchCall!.body ?? '{}')).toMatchObject({ title: 'New Title' })
 })
