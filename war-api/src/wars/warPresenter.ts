@@ -28,7 +28,7 @@ export interface WarSummaryView {
  * merging. Kept beside the interfaces they mirror -- see `mediaItemSchema`
  * (`../contestants/mediaPresenter.ts`) for why.
  */
-const warSummaryProperties = {
+export const warSummaryProperties = {
   id: { type: 'string', format: 'uuid' },
   title: { type: 'string' },
   category: { type: ['string', 'null'] },

@@ -108,6 +108,11 @@ freshness only.
 A participant in a War: a name, an optional bio, media appropriate to the War's media mode,
 and values for the fields the War's schema declares.
 
+A bio supports a constrained set of formatting — emphasis, lists, and links — entered as
+plain text and rendered accordingly wherever a bio is shown; nothing else survives rendering,
+so no other markup a bio contains can affect the page around it. It is never shown on a vote
+card (10.3) — a fast binary choice has no room for it — only on the War's detail page.
+
 ### Contestant Schema
 
 Different campaigns describe contestants with entirely different facts. A pageant needs
@@ -745,9 +750,17 @@ creator ever reaches them.
 
 **My Wars** lists every War the voter created, most recent first, each as a full war card
 including status — a creator needs status at a glance to tell a draft from an active or closed
-War. Selecting one opens its detail page. This page adds no edit, resume, or delete
-affordance; reaching a draft again does not change what can be done with it. Its empty state
-links to the wizard.
+War. Selecting one opens its detail page. A draft's card additionally carries an edit
+affordance — an active or closed War does not, since editing is draft-only (10.2). This page
+adds no resume or delete affordance beyond that; its empty state links to the wizard.
+
+**Editing a draft** reopens the same fields the wizard collected — title, category,
+visibility, end date, and each contestant's name, bio, and images (add, remove, reorder, up to
+the per-contestant cap) — as one page rather than a step sequence, since there is no fixed
+order left to walk once a draft already exists. It is reachable only from a draft's own My
+Wars card, not from the public War detail page; identity of "this is a War I can edit" comes
+from that entry point; opening it any other way for a War that has left draft shows a
+not-editable message instead of the form.
 
 Both empty-state links to the wizard remain even though the header also carries one. An empty
 state is a page's *entire* visible content at that moment, and the one visitor with something

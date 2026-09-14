@@ -64,6 +64,59 @@ test('The War detail page requires no authentication', async ({ page }) => {
   await expect(page.getByTestId('contestant-gallery-item')).toHaveCount(1)
 })
 
+test("A contestant's formatted bio renders on the War detail page", async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: 'war-bio',
+    contestants: [
+      buildContestant({
+        id: 'c-1',
+        name: 'Ada',
+        bio: 'A **brilliant** mathematician.\n\n- Loves *logic*\n- [Her work](https://example.test/ada)',
+      }),
+    ],
+  })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-bio`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await page.goto('/wars/war-bio')
+
+  // Assert
+  const bio = page.getByTestId('contestant-bio')
+  await expect(bio.locator('strong')).toHaveText('brilliant')
+  await expect(bio.locator('em')).toHaveText('logic')
+  await expect(bio.locator('li')).toHaveCount(2)
+  await expect(bio.locator('a')).toHaveAttribute('href', 'https://example.test/ada')
+})
+
+test('An adversarial bio never executes and never renders as raw HTML', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: 'war-bio-xss',
+    contestants: [
+      buildContestant({
+        id: 'c-1',
+        name: 'Ada',
+        bio: 'hello<script>window.__pwned = true</script>world<img src=x onerror="window.__pwned = true">',
+      }),
+    ],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-bio-xss`, responses: [{ status: 200, body: detail }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-bio-xss')
+
+  // Assert
+  const bio = page.getByTestId('contestant-bio')
+  await expect(bio).toBeVisible()
+  const pwned = await page.evaluate(() => (window as unknown as { __pwned?: boolean }).__pwned)
+  expect(pwned).toBeUndefined()
+  await expect(bio.locator('script')).toHaveCount(0)
+  await expect(bio.locator('img[onerror]')).toHaveCount(0)
+})
+
 test("A War that doesn't exist shows a not-found message", async ({ page }) => {
   // Arrange
   await useScenario(page, [

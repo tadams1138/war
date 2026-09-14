@@ -42,6 +42,13 @@ export interface AddContestantPayload {
 }
 export type UploadedImage =
   paths['/wars/{id}/contestants/{cId}/images']['post']['responses'][201]['content']['application/json']
+// PATCH /wars/:id and its contestant/media counterparts do carry a
+// documented `schema.body` (unlike the two payloads above), so their
+// request shapes come from the generated document like every response
+// type does.
+export type PatchWarPayload = paths['/wars/{id}']['patch']['requestBody']['content']['application/json']
+export type PatchContestantPayload =
+  paths['/wars/{id}/contestants/{cId}']['patch']['requestBody']['content']['application/json']
 
 // --- low-level request pipeline -------------------------------------------------
 
@@ -168,6 +175,16 @@ function classifyVote403(body: unknown): ApiErrorReason {
   return (reason && VOTE_403_REASONS[reason]) || 'war-closed'
 }
 
+// The four edit routes' 403 has no discriminator field either (like
+// join's) — httpOutcomes.ts sends one of exactly two literal `error`
+// strings, so the message text itself is the only signal available. Every
+// caller of this classifier passes it to `ensureOk`, never reads it
+// directly.
+function classifyEditForbidden(body: unknown): ApiErrorReason {
+  const message = (body as { error?: string } | null)?.error
+  return message === 'War is no longer editable' ? 'not-draft' : 'forbidden'
+}
+
 async function safeReadJson<T>(response: Response): Promise<T | null> {
   try {
     return (await response.clone().json()) as T
@@ -262,6 +279,57 @@ export async function uploadContestantImages(warId: string, contestantId: string
     results.push((await response.json()) as UploadedImage)
   }
   return results
+}
+
+export async function patchWar(warId: string, payload: PatchWarPayload): Promise<WarSummary> {
+  const response = await ensureOk(
+    await apiFetch(`/wars/${warId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+    classifyEditForbidden,
+  )
+  return response.json() as Promise<WarSummary>
+}
+
+export async function patchContestant(
+  warId: string,
+  contestantId: string,
+  payload: PatchContestantPayload,
+): Promise<ContestantDetail> {
+  const response = await ensureOk(
+    await apiFetch(`/wars/${warId}/contestants/${contestantId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+    classifyEditForbidden,
+  )
+  return response.json() as Promise<ContestantDetail>
+}
+
+export async function reorderContestantMedia(
+  warId: string,
+  contestantId: string,
+  mediaId: string,
+  displayOrder: number,
+): Promise<void> {
+  await ensureOk(
+    await apiFetch(`/wars/${warId}/contestants/${contestantId}/media/${mediaId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_order: displayOrder }),
+    }),
+    classifyEditForbidden,
+  )
+}
+
+export async function deleteContestantMedia(warId: string, contestantId: string, mediaId: string): Promise<void> {
+  await ensureOk(
+    await apiFetch(`/wars/${warId}/contestants/${contestantId}/media/${mediaId}`, { method: 'DELETE' }),
+    classifyEditForbidden,
+  )
 }
 
 export async function activateWar(warId: string): Promise<WarSummary> {

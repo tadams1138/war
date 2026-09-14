@@ -40,7 +40,7 @@ function MyWarsList({ wars }: { wars: WarSummary[] }) {
     <ul className="war-grid">
       {wars.map((war) => (
         <li key={war.id}>
-          <WarCard war={war} />
+          <WarCard war={war} showEditLink />
         </li>
       ))}
     </ul>

@@ -16,10 +16,10 @@ async function enableMocking(): Promise<void> {
     // Pushed synchronously so a caller reading the log right after
     // triggering the request (e.g. an in-flight-state assertion) sees it —
     // an awaited push here would race that read under load. The body, only
-    // needed for POST assertions, is attached once its clone resolves.
+    // needed for POST/PATCH assertions, is attached once its clone resolves.
     const entry: MswCallLogEntry = { method: request.method, url: request.url, time: Date.now() }
     window.__mswCallLog?.push(entry)
-    if (request.method === 'POST') {
+    if (request.method === 'POST' || request.method === 'PATCH') {
       void request
         .clone()
         .text()

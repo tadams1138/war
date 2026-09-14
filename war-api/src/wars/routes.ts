@@ -5,7 +5,7 @@ import { bearerAuthRoute, requireAuthIf } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
 import { countContestantsByWarIds, countContestantsForWar } from '../contestants/contestantsRepository.js';
-import { presentWarDetail, presentWarSummary, warDetailResponseSchema } from './warPresenter.js';
+import { presentWarDetail, presentWarSummary, warDetailResponseSchema, warSummaryProperties } from './warPresenter.js';
 import { activateWar, closeWar, createWarForVoter, getWar, joinWar, patchWar } from './warsService.js';
 import { closeExpiredWars, listWars } from './warsRepository.js';
 
@@ -123,7 +123,24 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
 
   app.patch<{ Params: { id: string } }>(
     '/wars/:id',
-    bearerAuthRoute(auth),
+    bearerAuthRoute(auth, {
+      body: {
+        type: 'object',
+        properties: {
+          title: warSummaryProperties.title,
+          category: warSummaryProperties.category,
+          visibility: warSummaryProperties.visibility,
+          contestant_schema: warSummaryProperties.contestant_schema,
+          ends_at: warSummaryProperties.ends_at,
+        },
+      },
+      response: {
+        200: { $ref: 'WarSummary#' },
+        403: errorResponseSchema,
+        404: errorResponseSchema,
+        422: validationErrorResponseSchema,
+      },
+    }),
     async (request, reply) => {
       const body = request.body as Record<string, unknown>;
       const outcome = await patchWar(

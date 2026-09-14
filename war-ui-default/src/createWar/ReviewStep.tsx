@@ -44,7 +44,7 @@ export function ReviewStepView({
                 endpoint returns no URL (the spec), so
                 nothing the wizard holds after an upload can be rendered
                 as an <img>. */}
-            {contestant.hasImage ? (
+            {contestant.imageCount > 0 ? (
               <span data-testid="review-contestant-has-image">Image attached</span>
             ) : (
               <span data-testid="review-contestant-no-image">No image</span>

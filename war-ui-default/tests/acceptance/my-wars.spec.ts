@@ -80,6 +80,34 @@ test('No Wars created yet', async ({ page }) => {
   await expect(page.getByTestId('my-wars-create-war-cta')).toBeVisible()
 })
 
+test('A draft War card shows an Edit link', async ({ page }) => {
+  // Arrange
+  const war = buildWarSummary({ id: 'war-draft-1', title: 'My Draft War', status: 'draft' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/my-wars')
+
+  // Assert
+  await expect(page.getByTestId('war-card').getByTestId('edit-war-link')).toBeVisible()
+})
+
+test('An active War card shows no Edit link', async ({ page }) => {
+  // Arrange
+  const war = buildWarSummary({ id: 'war-active-1', title: 'My Active War', status: 'active' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/my-wars')
+
+  // Assert
+  await expect(page.getByTestId('war-card').getByTestId('edit-war-link')).toHaveCount(0)
+})
+
 test('My Wars requires authentication', async ({ page }) => {
   // Act
   await page.goto('/my-wars')

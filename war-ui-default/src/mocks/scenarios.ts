@@ -14,7 +14,7 @@ export interface RecipeResponse {
 }
 
 export interface HandlerRecipe {
-  method: 'GET' | 'POST' | 'DELETE'
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   // Full request path, e.g. '/api/v1/wars/war-1/matchups/next'. Matched
   // literally — recipes always target one concrete War/matchup fixture, so
   // there is no need for msw's :param matching here.
@@ -24,7 +24,7 @@ export interface HandlerRecipe {
   responses: RecipeResponse[]
 }
 
-const METHOD_FNS = { GET: http.get, POST: http.post, DELETE: http.delete } as const
+const METHOD_FNS = { GET: http.get, POST: http.post, PATCH: http.patch, DELETE: http.delete } as const
 
 export function buildScenarioHandlers(recipes: HandlerRecipe[]): RequestHandler[] {
   return recipes.map(buildHandler)

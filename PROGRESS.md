@@ -78,22 +78,37 @@ with an auth-aware Home empty state. Live in staging and production.
   WarDetail/VoteMode/Rankings publish their War's own resolved theme up to the nav. Login was
   redesigned to a themed, centered panel with brand-guideline-accurate provider logos (see the
   google-oauth/facebook-oauth/microsoft-oauth/twitter-x-oauth skills' "Sign-in button
-  branding" sections).
+  branding" sections). Since fixed: the nav bar wasn't actually right-aligned despite the
+  design calling for it, and the theme `<select>` inherited a theme's (light) text color onto
+  the browser's own (white) control background, unreadable in every theme.
+- **Editing a draft War.** `PATCH /wars/:id` and `PATCH /wars/:id/contestants/:cId` (both
+  already draft-only, creator-only server-side) now have a UI route, `/wars/:id/edit`,
+  reachable from a draft's own My Wars card. Covers title/category/visibility/end date, and
+  each contestant's name, bio, and image gallery (add, remove, reorder, up to the ten-image
+  cap) — the media reorder/delete routes gained UI callers too. The three PATCH/DELETE routes
+  also gained OpenAPI request/response schemas (previously undocumented, `requestBody: never`
+  in the generated client) so the new client functions are properly typed. Editing an active
+  War remains out of scope — the API still 403s any PATCH once a War leaves draft, by design.
+- **Contestant bio formatting.** A constrained markdown subset — bold, italic, bullet/numbered
+  lists, links — entered via a small toolbar (`BioEditor`) and rendered sanitized
+  (`marked` + `DOMPurify`, allow-listing exactly those elements) via `BioContent`. Storage is
+  unchanged (`bio` stays a plain `TEXT` column holding markdown source — no schema change).
+  Now rendered on War Detail, closing the "write-only" gap this used to be.
+- **Wizard multi-image fix.** CreateWar's Contestants step used to hide its file input forever
+  after a contestant's first successful image upload (`hasImage: boolean`); it now tracks a
+  count and keeps offering the input up to the ten-image cap, matching what the API always
+  allowed.
 
 ### Not built
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
-- **Editing a War after the CreateWar wizard.** `PATCH /wars/:id` and `PATCH
-  /contestants/:id` exist server-side (draft-only, creator-only) but no UI route calls them —
-  a creator who leaves the wizard has no way back into a draft's fields short of the API
-  directly. Once a War is active, there is no edit path at all, API or UI.
-- **Deleting a War.** No delete capability exists anywhere for a War itself, draft or active
-  — not in the UI, not in the API (`DELETE /wars/:id` isn't a route). Contestant- and
-  media-level delete exist server-side (draft-only) but aren't wired into any UI either.
-- **Contestant bio formatting.** `bio` is a plain nullable string with no markdown/rich-text
-  support anywhere in the stack, entered via a single-line `<input>`, and — separately — never
-  rendered anywhere in the UI today (write-only from a voter's perspective).
+- **Editing an active War.** The API rejects any PATCH once a War leaves draft (by design,
+  fairness during voting); no UI or API path exists to change anything about a live War short
+  of closing it.
+- **Deleting a War.** No delete capability exists anywhere for a War itself, draft or active —
+  not in the UI, not in the API (`DELETE /wars/:id` isn't a route). Contestant-level delete
+  still has no UI caller either (only its own media's delete/reorder do, via EditWar).
 
 ---
 
