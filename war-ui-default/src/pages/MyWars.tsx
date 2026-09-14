@@ -7,12 +7,16 @@ import { Link } from 'react-router-dom'
 import { getWars, type WarSummary } from '../api/client'
 import { WarCard } from '../components/WarCard'
 import { useAsyncResource } from '../hooks/useAsyncResource'
+import { ThemeSwitcher } from '../theme/ThemeSwitcher'
+import { useTheme } from '../theme/useTheme'
 
 export function MyWars() {
   const state = useAsyncResource(() => getWars({ creator: 'me' }), [])
+  const [theme, setTheme] = useTheme('home', 'arcade')
 
   return (
-    <main>
+    <main data-theme={theme}>
+      <ThemeSwitcher theme={theme} onChange={setTheme} />
       <h1>My Wars</h1>
       {state.status === 'loading' && <p>Loading…</p>}
       {state.status === 'error' && <p role="alert">{state.message}</p>}

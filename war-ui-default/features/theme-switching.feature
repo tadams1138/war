@@ -16,3 +16,14 @@ Feature: Theme Switching
     When a voter chooses "Tape & Prints" on the first War's detail page
     And they view the second War's detail page
     Then the second War's page renders with theme "arcade"
+
+  Scenario: Home renders in "arcade" until the voter chooses otherwise
+    Given no theme has been chosen for Home yet
+    When a voter views Home
+    Then the page renders with theme "arcade"
+
+  Scenario: Choosing a theme on Home does not change what a War's own page shows
+    Given a War whose theme is "fight_card"
+    When a voter chooses the "Tape & Prints" theme on Home
+    And they view that War's detail page
+    Then the War's page still renders with theme "fight_card"
