@@ -146,3 +146,35 @@ test('A failed refresh is terminal', async ({ page }) => {
   const refreshCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/auth/refresh'))
   expect(refreshCalls).toHaveLength(1)
 })
+
+test('The login page is themed and its content is centered', async ({ page }) => {
+  // Arrange / Act
+  await page.goto('/login')
+
+  // Assert — a theme scope, same attribute-based mechanism every other page
+  // uses (features/theme-switching.feature), not a one-off for this page.
+  await expect(page.locator('main')).toHaveAttribute('data-theme', 'arcade')
+
+  // Assert — the provider list lives inside one centered panel, not loose
+  // in the page body.
+  const panel = page.getByTestId('login-panel')
+  await expect(panel).toBeVisible()
+  await expect(panel.getByTestId('login-provider-google')).toBeVisible()
+})
+
+test("Each provider button shows that provider's logo", async ({ page }) => {
+  // Arrange / Act
+  await page.goto('/login')
+
+  // Assert — an accessible graphic, not text-only, beside each label.
+  const providerNames: Record<(typeof PROVIDERS)[number], string> = {
+    google: 'Google',
+    facebook: 'Facebook',
+    microsoft: 'Microsoft',
+    twitter: 'X',
+  }
+  for (const provider of PROVIDERS) {
+    const button = page.getByTestId(`login-provider-${provider}`)
+    await expect(button.getByRole('img', { name: `${providerNames[provider]} logo` })).toBeVisible()
+  }
+})

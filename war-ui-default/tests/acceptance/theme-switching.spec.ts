@@ -3,6 +3,14 @@ import { expect, test } from '@playwright/test'
 import { buildMatchupResponse, buildRankingsResponse, buildWarDetail } from '../../src/mocks/fixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
 
+function nav(page: import('@playwright/test').Page) {
+  return page.getByRole('navigation', { name: 'Primary' })
+}
+
+function themeSelect(page: import('@playwright/test').Page) {
+  return nav(page).getByTestId('nav-theme-select')
+}
+
 test("A War's detail page renders in its creator-chosen theme by default", async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
@@ -13,6 +21,7 @@ test("A War's detail page renders in its creator-chosen theme by default", async
 
   // Assert
   await expect(page.locator('main')).toHaveAttribute('data-theme', 'fight_card')
+  await expect(nav(page)).toHaveAttribute('data-theme', 'fight_card')
 })
 
 test("A voter's own theme choice overrides the War's default, only for that War", async ({ page }) => {
@@ -22,11 +31,12 @@ test("A voter's own theme choice overrides the War's default, only for that War"
 
   // Act
   await page.goto('/wars/war-1')
-  await page.getByTestId('theme-option-scrapbook').click()
+  await themeSelect(page).selectOption('scrapbook')
   await page.reload()
 
   // Assert
   await expect(page.locator('main')).toHaveAttribute('data-theme', 'scrapbook')
+  await expect(nav(page)).toHaveAttribute('data-theme', 'scrapbook')
 })
 
 test("A voter's theme choice for one War does not affect a different War", async ({ page }) => {
@@ -40,7 +50,7 @@ test("A voter's theme choice for one War does not affect a different War", async
 
   // Act
   await page.goto('/wars/war-1')
-  await page.getByTestId('theme-option-scrapbook').click()
+  await themeSelect(page).selectOption('scrapbook')
   await page.goto('/wars/war-2')
 
   // Assert
@@ -102,8 +112,42 @@ test('Choosing a theme on Home does not change what a War\'s own page shows', as
 
   // Act
   await page.goto('/')
-  await page.getByTestId('theme-option-scrapbook').click()
+  await themeSelect(page).selectOption('scrapbook')
   await page.goto('/wars/war-1')
+
+  // Assert
+  await expect(page.locator('main')).toHaveAttribute('data-theme', 'fight_card')
+})
+
+test('The nav theme menu is present and usable on pages with no War in scope', async ({ page }) => {
+  // Arrange
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
+
+  // Act / Assert
+  await page.goto('/login')
+  await expect(themeSelect(page)).toBeVisible()
+
+  // Act
+  await themeSelect(page).selectOption('scrapbook')
+  await page.goto('/')
+
+  // Assert
+  await expect(page.locator('main')).toHaveAttribute('data-theme', 'scrapbook')
+})
+
+test('The Create War wizard renders in the "home" theme and can be changed from the nav', async ({ page }) => {
+  // Arrange
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/wars/new')
+
+  // Assert
+  await expect(page.locator('main')).toHaveAttribute('data-theme', 'arcade')
+
+  // Act
+  await themeSelect(page).selectOption('fight_card')
 
   // Assert
   await expect(page.locator('main')).toHaveAttribute('data-theme', 'fight_card')

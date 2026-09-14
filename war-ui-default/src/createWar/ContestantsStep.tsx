@@ -1,6 +1,7 @@
 // The CreateWar wizard's Contestants step view (the spec).
 // Rendering only -- state and API calls live in useCreateWarWizard.
 import { useState, type FormEvent } from 'react'
+import type { Theme } from '../theme/themeCookie'
 import type { WizardContestant, WizardState } from './useCreateWarWizard'
 
 type ContestantsState = Extract<WizardState, { step: 'contestants' }>
@@ -10,11 +11,13 @@ export function ContestantsStepView({
   onAddContestant,
   onAttachImages,
   onContinue,
+  theme,
 }: {
   state: ContestantsState
   onAddContestant: (name: string, bio?: string) => void
   onAttachImages: (contestantId: string, files: File[]) => void
   onContinue: () => void
+  theme: Theme
 }) {
   const [name, setName] = useState('')
   const [bio, setBio] = useState('')
@@ -27,7 +30,7 @@ export function ContestantsStepView({
   }
 
   return (
-    <main>
+    <main data-theme={theme}>
       <h1>Add contestants</h1>
       <form onSubmit={handleAdd}>
         <label>

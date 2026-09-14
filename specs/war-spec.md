@@ -632,25 +632,28 @@ not a possible failure mode.
 Content depends only on whether the visitor is authenticated; there is no partial or
 transitional state.
 
-- **Anonymous:** Home and sign-in. No links to authenticated destinations — offering an action
+- **Anonymous:** sign-in only. No links to authenticated destinations — offering an action
   that only ends in a redirect is friction the header exists to remove.
-- **Authenticated:** Home, My Wars, Create War, the voter's identity, and a sign-out control,
-  always together.
+- **Authenticated:** a single identity control (the voter's avatar and name) that opens a menu
+  holding Home, My Wars, Create War, and a sign-out control, always together. The control is
+  closed by default, so the persistent header stays small regardless of how many destinations
+  it holds.
 
-**Create War is a top-level action**, not something reached through My Wars — the tradeoff
-being a second top-level item rather than a leaner header. My Wars remains a separate
+**Create War is a top-level action** within that menu, not something reached through My
+Wars — the tradeoff being a second item rather than a leaner menu. My Wars remains a separate
 destination for *reviewing* Wars.
 
 Identity comes from the voter's profile, fetched once per session rather than per navigation.
 A missing display name renders a fixed fallback, never a blank or the literal word "null". A
 missing avatar renders no image and no placeholder. **If the profile fetch fails entirely, the
-full navigation still renders** — only the identity slot falls back. A failed profile fetch
-never blocks navigation.
+full menu still renders** — only the identity control's own label falls back. A failed profile
+fetch never blocks navigation.
 
-The current route is marked as such; on a route the header has no link for, none is marked.
-The header is a labelled landmark so assistive technology can jump to it, every link is
-keyboard reachable, and the sign-out control is a real button because it performs an action
-rather than navigating.
+The current route is marked as such within the open menu; on a route the menu has no item
+for, none is marked. The header is a labelled landmark so assistive technology can jump to
+it, every menu item is keyboard reachable, the menu closes on selecting an item, clicking
+outside it, or pressing Escape, and the sign-out control is a real button because it performs
+an action rather than navigating.
 
 ### 10.3 Voting interface
 
@@ -716,12 +719,14 @@ rounded up at a day or more, and whole hours rounded up below that with a one-ho
 a War ending in minutes reads "1 hour" rather than "0 hours" or a misleading "1 day".
 
 **Theme switching.** A War's detail, vote, and rankings pages render in its creator-chosen
-theme (§4) until the voter viewing them picks a different one from the switcher on those same
-pages. That pick is remembered only on the device it was made on, independently per War — it
-is not part of the voter's account, so it does not follow them to a different browser, and it
-never changes what any other voter sees. Home and My Wars list Wars of more than one theme at
-once and are not themed by any single War; they render in `arcade` until the voter picks a
-theme for those pages specifically, remembered the same way.
+theme (§4) until the voter viewing them picks a different one from the theme control in the
+persistent navigation header — reachable from every page, not just the themed ones. That pick
+is remembered only on the device it was made on, independently per War — it is not part of
+the voter's account, so it does not follow them to a different browser, and it never changes
+what any other voter sees. Home, My Wars, the creation wizard, and sign-in are not themed by
+any single War; they render in `arcade` until the voter picks a theme for those pages as a
+group, remembered the same way. The navigation header itself always renders in whichever
+theme the current page is showing.
 
 **Home** browses active public Wars. Its empty state is **auth-aware**: an anonymous visitor
 is told to check back, since waiting or signing in really are their only options; an

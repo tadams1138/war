@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { getThemePreference, setThemePreference, type Theme } from './themeCookie'
 
 /**
@@ -14,10 +14,17 @@ export function useTheme(key: string, fallback: Theme): [Theme, (theme: Theme) =
   const [, forceRender] = useState(0)
   const theme = getThemePreference(key) ?? fallback
 
-  function choose(next: Theme): void {
-    setThemePreference(key, next)
-    forceRender((count) => count + 1)
-  }
+  // Stable across re-renders (for a given key) so a consumer that publishes
+  // this function into an effect's dependency array (NavBar syncing via
+  // ThemeContext — see usePublishTheme) does not refire that effect, and
+  // therefore re-render, on every single render.
+  const choose = useCallback(
+    (next: Theme): void => {
+      setThemePreference(key, next)
+      forceRender((count) => count + 1)
+    },
+    [key],
+  )
 
   return [theme, choose]
 }

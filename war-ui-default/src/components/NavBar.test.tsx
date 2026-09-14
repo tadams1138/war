@@ -7,10 +7,12 @@
 // component testing.
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NavBar } from './NavBar'
 import { AuthProvider } from '../auth/context'
+import { ThemeProvider } from '../theme/ThemeContext'
 import { __resetAuthStateForTests, setToken } from '../api/authState'
 import * as client from '../api/client'
 
@@ -22,9 +24,11 @@ vi.mock('../api/client', async (importOriginal) => {
 function renderNavBar() {
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <NavBar />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <NavBar />
+        </AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>,
   )
 }
@@ -43,15 +47,17 @@ describe('NavBar', () => {
   it('still renders Home, My Wars, Create War and Log out when GET /auth/me fails', async () => {
     // Arrange
     vi.mocked(client.getMe).mockRejectedValue(new Error('server error'))
+    const user = userEvent.setup()
 
     // Act
     renderNavBar()
-
-    // Assert — the identity slot falls back, but navigation is unaffected.
     await waitFor(() => expect(screen.getByTestId('nav-identity')).toHaveTextContent('Voter'))
-    expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'My Wars' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Create War' })).toBeInTheDocument()
+    await user.click(screen.getByTestId('nav-identity'))
+
+    // Assert — the identity slot falls back, but the menu is unaffected.
+    expect(screen.getByRole('menuitem', { name: 'Home' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'My Wars' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Create War' })).toBeInTheDocument()
     expect(screen.getByTestId('nav-logout')).toBeInTheDocument()
   })
 

@@ -5,13 +5,14 @@ import { getWar, type ContestantDetail } from '../api/client'
 import { ContestantAttributes } from '../components/ContestantAttributes'
 import { ContestantThumbnail } from '../components/ContestantThumbnail'
 import { useAsyncResource } from '../hooks/useAsyncResource'
-import { ThemeSwitcher } from '../theme/ThemeSwitcher'
+import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
 export function WarDetail() {
   const { id } = useParams<{ id: string }>()
   const state = useAsyncResource(id ? () => getWar(id) : undefined, [id])
   const [theme, setTheme] = useTheme(id ?? '', state.status === 'loaded' ? state.value.theme : 'arcade')
+  usePublishTheme(id ?? '', theme, setTheme)
 
   if (state.status === 'loading') return <p>Loading…</p>
   if (state.status === 'error') return <p role="alert">{state.message}</p>
@@ -19,7 +20,6 @@ export function WarDetail() {
   const war = state.value
   return (
     <main data-theme={theme}>
-      <ThemeSwitcher theme={theme} onChange={setTheme} />
       <h1>{war.title}</h1>
       {war.category && <p>{war.category}</p>}
       <ul>

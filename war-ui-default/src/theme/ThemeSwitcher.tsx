@@ -1,7 +1,8 @@
 // Lets a voter override the theme they see for one scope — a specific War,
-// or 'home' for Home/My Wars (the spec, "Theme switching"). Has no
-// persistence logic of its own; the page that renders this owns the
-// useTheme() call and passes both props down.
+// or 'home' for every other route (the spec, "Theme switching"). Lives in
+// NavBar so it's reachable from anywhere; has no persistence logic of its
+// own — the caller owns the useTheme()/ThemeContext call and passes both
+// props down.
 import { THEME_LABELS, THEMES, type Theme } from './themeCookie'
 
 interface ThemeSwitcherProps {
@@ -11,18 +12,17 @@ interface ThemeSwitcherProps {
 
 export function ThemeSwitcher({ theme, onChange }: ThemeSwitcherProps) {
   return (
-    <div data-testid="theme-switcher" role="radiogroup" aria-label="Theme">
+    <select
+      data-testid="nav-theme-select"
+      aria-label="Theme"
+      value={theme}
+      onChange={(event) => onChange(event.target.value as Theme)}
+    >
       {THEMES.map((option) => (
-        <button
-          key={option}
-          type="button"
-          data-testid={`theme-option-${option}`}
-          aria-pressed={option === theme}
-          onClick={() => onChange(option)}
-        >
+        <option key={option} value={option}>
           {THEME_LABELS[option]}
-        </button>
+        </option>
       ))}
-    </div>
+    </select>
   )
 }
