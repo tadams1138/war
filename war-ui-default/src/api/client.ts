@@ -33,6 +33,7 @@ export interface CreateWarPayload {
   title: string
   category?: string | null
   visibility?: 'public' | 'invite_only'
+  theme?: 'arcade' | 'fight_card' | 'scrapbook'
   ends_at?: string | null
 }
 export interface AddContestantPayload {

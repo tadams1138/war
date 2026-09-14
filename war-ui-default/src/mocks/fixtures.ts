@@ -58,6 +58,7 @@ export function buildWarSummary(overrides: Partial<WarSummary> = {}): WarSummary
     status: 'active',
     visibility: 'public',
     media_mode: 'image',
+    theme: 'arcade',
     contestant_schema: [],
     ends_at: null,
     contestant_count: 0,
@@ -110,6 +111,7 @@ export function buildRankingsResponse(overrides: Partial<RankingsResponse> = {})
   return {
     war_id: 'war-1',
     status: 'active',
+    theme: 'arcade',
     updated_at: '2026-04-28T12:00:00.000Z',
     rankings: [
       buildRankingEntry({ rank: 1, contestant: { id: 'contestant-1', name: 'Contestant One' }, wins: 5, appearances: 6 }),
