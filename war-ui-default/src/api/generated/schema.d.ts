@@ -392,6 +392,8 @@ export interface paths {
                             visibility: "public" | "invite_only";
                             /** @enum {string} */
                             media_mode: "image";
+                            /** @enum {string} */
+                            theme: "arcade" | "fight_card" | "scrapbook";
                             contestant_schema: {
                                 key: string;
                                 label: string;
@@ -1127,6 +1129,8 @@ export interface paths {
                             war_id: string;
                             /** @enum {string} */
                             status: "draft" | "active" | "closed";
+                            /** @enum {string} */
+                            theme: "arcade" | "fight_card" | "scrapbook";
                             /** Format: date-time */
                             updated_at: string;
                             rankings: {
@@ -1209,6 +1213,8 @@ export interface components {
             visibility: "public" | "invite_only";
             /** @enum {string} */
             media_mode: "image";
+            /** @enum {string} */
+            theme: "arcade" | "fight_card" | "scrapbook";
             contestant_schema: {
                 key: string;
                 label: string;
