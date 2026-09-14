@@ -25,6 +25,8 @@ Staging and production both run as a single application per environment containi
   internal close-expired-wars endpoint.
 - **War listing** — the caller's-own-Wars filter, and default visibility scoping applied in
   the data-access layer so every caller inherits it.
+- **Visual theme** — each War carries a creator-chosen theme (`arcade`/`fight_card`/
+  `scrapbook`, default `arcade`), surfaced on `WarSummary` and the rankings response.
 - **Published API contract**, generated from route definitions. A CI guard fails the build
   if the committed client types drift.
 - **Health check.**
@@ -65,6 +67,10 @@ guard. Nothing uses them now, but both were correct and non-obvious.
 
 Core voting loop, Rankings, the CreateWar wizard, MyWars, and a persistent navigation header
 with an auth-aware Home empty state. Live in staging and production.
+
+- **Visual themes** — the three themes render on WarDetail, VoteMode, Rankings, and Home/My
+  Wars, with a per-device, per-War voter override (cookie-based, never synced to the server or
+  other devices) and a theme picker in the CreateWar wizard.
 
 ### Not built
 
