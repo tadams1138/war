@@ -91,7 +91,21 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
 
   app.patch<{ Params: { id: string; cId: string } }>(
     '/wars/:id/contestants/:cId',
-    bearerAuthRoute(auth),
+    bearerAuthRoute(auth, {
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          bio: { type: ['string', 'null'] },
+        },
+      },
+      response: {
+        200: { $ref: 'ContestantDetail#' },
+        403: errorResponseSchema,
+        404: errorResponseSchema,
+        422: validationErrorResponseSchema,
+      },
+    }),
     async (request, reply) => {
       const body = request.body as Record<string, unknown>;
       const outcome = await patchContestant(
@@ -174,7 +188,17 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
 
   app.patch<{ Params: { id: string; cId: string; mId: string } }>(
     '/wars/:id/contestants/:cId/media/:mId',
-    bearerAuthRoute(auth),
+    bearerAuthRoute(auth, {
+      body: {
+        type: 'object',
+        properties: { display_order: { type: 'integer' } },
+      },
+      response: {
+        204: {},
+        403: errorResponseSchema,
+        404: errorResponseSchema,
+      },
+    }),
     async (request, reply) => {
       const body = request.body as { display_order?: number };
       const outcome = await reorderContestantMedia(
@@ -195,7 +219,13 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
 
   app.delete<{ Params: { id: string; cId: string; mId: string } }>(
     '/wars/:id/contestants/:cId/media/:mId',
-    bearerAuthRoute(auth),
+    bearerAuthRoute(auth, {
+      response: {
+        204: {},
+        403: errorResponseSchema,
+        404: errorResponseSchema,
+      },
+    }),
     async (request, reply) => {
       const outcome = await removeContestantMedia(
         db,

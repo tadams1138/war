@@ -15,10 +15,13 @@ import {
 } from '../api/client'
 import { ApiError, toUserMessage } from '../api/errors'
 
+// A count, not a boolean -- the wizard's own multi-image cap check
+// (ContestantsStep hides the file input at MAX_IMAGES_PER_CONTESTANT)
+// needs to know how many, not merely whether any exist.
 export interface WizardContestant {
   id: string
   name: string
-  hasImage: boolean
+  imageCount: number
 }
 
 interface MetadataStep {
@@ -110,7 +113,7 @@ export function useCreateWarWizard(onActivated: (war: WarSummary) => void): Crea
           ? prev
           : {
               ...prev,
-              contestants: [...prev.contestants, { id: contestant.id, name: contestant.name, hasImage: false }],
+              contestants: [...prev.contestants, { id: contestant.id, name: contestant.name, imageCount: 0 }],
               submittingContestant: false,
               nameError: null,
             },
@@ -126,11 +129,16 @@ export function useCreateWarWizard(onActivated: (war: WarSummary) => void): Crea
     if (state.step !== 'contestants' || files.length === 0) return
     const { war } = state
     try {
-      await uploadContestantImages(war.id, contestantId, files)
+      const uploaded = await uploadContestantImages(war.id, contestantId, files)
       setState((prev) =>
         prev.step !== 'contestants'
           ? prev
-          : { ...prev, contestants: prev.contestants.map((c) => (c.id === contestantId ? { ...c, hasImage: true } : c)) },
+          : {
+              ...prev,
+              contestants: prev.contestants.map((c) =>
+                c.id === contestantId ? { ...c, imageCount: c.imageCount + uploaded.length } : c,
+              ),
+            },
       )
     } catch (error) {
       setState((prev) => (prev.step !== 'contestants' ? prev : { ...prev, imageError: genericValidationMessage(error) }))

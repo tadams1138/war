@@ -6,6 +6,7 @@ import {
   addContestant,
   castVote,
   createWar,
+  deleteContestantMedia,
   getMe,
   getNextMatchup,
   getRankings,
@@ -13,8 +14,11 @@ import {
   getWars,
   joinWar,
   logout,
+  patchContestant,
+  patchWar,
   providerLoginUrl,
   refreshSession,
+  reorderContestantMedia,
   uploadContestantImages,
 } from '../client'
 import { __resetAuthStateForTests, getToken, registerUnauthorizedHandler, setToken } from '../authState'
@@ -589,6 +593,169 @@ describe('activateWar', () => {
     await expect(activateWar('war-1')).rejects.toMatchObject({
       reason: 'validation',
       details: ['a War needs at least 2 contestants to activate'],
+    })
+  })
+})
+
+describe('patchWar', () => {
+  it('sends only the changed fields as JSON and resolves with the updated WarSummary on 200', async () => {
+    // Arrange
+    let receivedBody: unknown
+    const war = buildWarSummary({ id: 'war-1', title: 'New Title' })
+    server.use(
+      http.patch(`${BASE}/wars/war-1`, async ({ request }) => {
+        receivedBody = await request.json()
+        return HttpResponse.json(war)
+      }),
+    )
+
+    // Act
+    const result = await patchWar('war-1', { title: 'New Title' })
+
+    // Assert
+    expect(receivedBody).toEqual({ title: 'New Title' })
+    expect(result.title).toBe('New Title')
+  })
+
+  it('classifies a "War is no longer editable" 403 as not-draft', async () => {
+    // Arrange
+    server.use(
+      http.patch(`${BASE}/wars/war-1`, () =>
+        HttpResponse.json({ error: 'War is no longer editable' }, { status: 403 }),
+      ),
+    )
+
+    // Act / Assert
+    await expect(patchWar('war-1', { title: 'New Title' })).rejects.toMatchObject({
+      reason: 'not-draft',
+      message: 'This War is no longer editable',
+    })
+  })
+
+  it('classifies any other 403 body as forbidden', async () => {
+    // Arrange
+    server.use(http.patch(`${BASE}/wars/war-1`, () => HttpResponse.json({ error: 'forbidden' }, { status: 403 })))
+
+    // Act / Assert
+    await expect(patchWar('war-1', { title: 'New Title' })).rejects.toMatchObject({
+      reason: 'forbidden',
+      message: "This isn't your War",
+    })
+  })
+
+  it('throws a not-found ApiError on 404', async () => {
+    // Arrange
+    server.use(http.patch(`${BASE}/wars/missing`, () => HttpResponse.json({ error: 'not found' }, { status: 404 })))
+
+    // Act / Assert
+    await expect(patchWar('missing', { title: 'x' })).rejects.toMatchObject({ reason: 'not-found' })
+  })
+
+  it('carries the details array on a 422 validation failure', async () => {
+    // Arrange
+    server.use(
+      http.patch(`${BASE}/wars/war-1`, () =>
+        HttpResponse.json({ error: 'validation error', details: ['title must be a non-empty string'] }, { status: 422 }),
+      ),
+    )
+
+    // Act / Assert
+    await expect(patchWar('war-1', { title: '' })).rejects.toMatchObject({
+      reason: 'validation',
+      details: ['title must be a non-empty string'],
+    })
+  })
+})
+
+describe('patchContestant', () => {
+  it('sends only the changed fields as JSON and resolves with the updated ContestantDetail on 200', async () => {
+    // Arrange
+    let receivedBody: unknown
+    server.use(
+      http.patch(`${BASE}/wars/war-1/contestants/contestant-1`, async ({ request }) => {
+        receivedBody = await request.json()
+        return HttpResponse.json(buildContestant({ id: 'contestant-1', name: 'Maria', bio: '**bold**' }))
+      }),
+    )
+
+    // Act
+    const result = await patchContestant('war-1', 'contestant-1', { bio: '**bold**' })
+
+    // Assert
+    expect(receivedBody).toEqual({ bio: '**bold**' })
+    expect(result.bio).toBe('**bold**')
+  })
+
+  it('classifies a "War is no longer editable" 403 as not-draft', async () => {
+    // Arrange
+    server.use(
+      http.patch(`${BASE}/wars/war-1/contestants/contestant-1`, () =>
+        HttpResponse.json({ error: 'War is no longer editable' }, { status: 403 }),
+      ),
+    )
+
+    // Act / Assert
+    await expect(patchContestant('war-1', 'contestant-1', { name: 'x' })).rejects.toMatchObject({
+      reason: 'not-draft',
+    })
+  })
+})
+
+describe('reorderContestantMedia', () => {
+  it('sends display_order as JSON and resolves on 204', async () => {
+    // Arrange
+    let receivedBody: unknown
+    server.use(
+      http.patch(`${BASE}/wars/war-1/contestants/contestant-1/media/media-1`, async ({ request }) => {
+        receivedBody = await request.json()
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+
+    // Act
+    await expect(reorderContestantMedia('war-1', 'contestant-1', 'media-1', 2)).resolves.toBeUndefined()
+
+    // Assert
+    expect(receivedBody).toEqual({ display_order: 2 })
+  })
+
+  it('throws a not-found ApiError on 404', async () => {
+    // Arrange
+    server.use(
+      http.patch(`${BASE}/wars/war-1/contestants/contestant-1/media/missing`, () =>
+        HttpResponse.json({ error: 'not found' }, { status: 404 }),
+      ),
+    )
+
+    // Act / Assert
+    await expect(reorderContestantMedia('war-1', 'contestant-1', 'missing', 0)).rejects.toMatchObject({
+      reason: 'not-found',
+    })
+  })
+})
+
+describe('deleteContestantMedia', () => {
+  it('resolves on 204', async () => {
+    // Arrange
+    server.use(
+      http.delete(`${BASE}/wars/war-1/contestants/contestant-1/media/media-1`, () => new HttpResponse(null, { status: 204 })),
+    )
+
+    // Act / Assert
+    await expect(deleteContestantMedia('war-1', 'contestant-1', 'media-1')).resolves.toBeUndefined()
+  })
+
+  it('classifies a "War is no longer editable" 403 as not-draft', async () => {
+    // Arrange
+    server.use(
+      http.delete(`${BASE}/wars/war-1/contestants/contestant-1/media/media-1`, () =>
+        HttpResponse.json({ error: 'War is no longer editable' }, { status: 403 }),
+      ),
+    )
+
+    // Act / Assert
+    await expect(deleteContestantMedia('war-1', 'contestant-1', 'media-1')).rejects.toMatchObject({
+      reason: 'not-draft',
     })
   })
 })

@@ -4,6 +4,12 @@ import { useState, type FormEvent } from 'react'
 import type { Theme } from '../theme/themeCookie'
 import type { WizardContestant, WizardState } from './useCreateWarWizard'
 
+// Mirrors war-api's own per-contestant cap
+// (war-api/src/contestants/imageUploadService.ts) -- purely a UX
+// convenience so the wizard stops offering an input it knows the API
+// would 422; the API remains the actual enforcement point.
+const MAX_IMAGES_PER_CONTESTANT = 10
+
 type ContestantsState = Extract<WizardState, { step: 'contestants' }>
 
 export function ContestantsStepView({
@@ -77,9 +83,12 @@ function ContestantListItem({
   return (
     <li data-testid="wizard-contestant">
       <span>{contestant.name}</span>
-      {contestant.hasImage ? (
-        <span data-testid="contestant-has-image">Image added</span>
-      ) : (
+      {contestant.imageCount > 0 && (
+        <span data-testid="contestant-has-image">
+          {contestant.imageCount} {contestant.imageCount === 1 ? 'image' : 'images'} added
+        </span>
+      )}
+      {contestant.imageCount < MAX_IMAGES_PER_CONTESTANT ? (
         <label>
           Image
           <input
@@ -93,6 +102,8 @@ function ContestantListItem({
             }}
           />
         </label>
+      ) : (
+        <span data-testid="contestant-image-cap-reached">Maximum of {MAX_IMAGES_PER_CONTESTANT} images reached</span>
       )}
     </li>
   )

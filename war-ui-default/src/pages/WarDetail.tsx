@@ -2,6 +2,7 @@
 // (the spec). No authentication required.
 import { useParams } from 'react-router-dom'
 import { getWar, type ContestantDetail } from '../api/client'
+import { BioContent } from '../bio/BioContent'
 import { ContestantAttributes } from '../components/ContestantAttributes'
 import { ContestantThumbnail } from '../components/ContestantThumbnail'
 import { useAsyncResource } from '../hooks/useAsyncResource'
@@ -38,6 +39,7 @@ function ContestantGalleryItem({ contestant }: { contestant: ContestantDetail })
     <div data-testid="contestant-gallery-item">
       <ContestantThumbnail media={contestant.media} name={contestant.name} />
       <h2>{contestant.name}</h2>
+      <BioContent bio={contestant.bio} />
       <ContestantAttributes attributes={contestant.attributes} />
     </div>
   )

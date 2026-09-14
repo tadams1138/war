@@ -232,6 +232,47 @@ test('Review shows an image-attached indicator, not the image itself', async ({ 
   await expect(page.locator('main img')).toHaveCount(0)
 })
 
+test('A second image can be added to a contestant after the first upload succeeds', async ({ page }) => {
+  // Arrange
+  const createdWar = buildWarSummary({ id: WAR_ID, status: 'draft' })
+  const contestantOne = buildContestant({ id: 'contestant-1', name: 'Contestant One' })
+  await useScenario(page, [
+    { method: 'POST', path: `${API}/wars`, responses: [{ status: 201, body: createdWar }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/contestants`, responses: [{ status: 201, body: contestantOne }] },
+    {
+      method: 'POST',
+      path: `${API}/wars/${WAR_ID}/contestants/contestant-1/images`,
+      responses: [
+        { status: 201, body: { id: 'image-1', display_order: 0 } },
+        { status: 201, body: { id: 'image-2', display_order: 1 } },
+      ],
+    },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/wars/new')
+  await page.getByTestId('metadata-title-input').fill('Some War')
+  await page.getByTestId('metadata-submit').click()
+  await page.getByTestId('contestant-name-input').fill('Contestant One')
+  await page.getByTestId('add-contestant-submit').click()
+  const item = page.getByTestId('wizard-contestant').filter({ hasText: 'Contestant One' })
+
+  // Act — first upload
+  await item
+    .getByTestId('contestant-image-input')
+    .setInputFiles({ name: 'a.png', mimeType: 'image/png', buffer: PNG_BUFFER })
+  await expect(item.getByTestId('contestant-has-image')).toBeVisible()
+
+  // Assert — the file input survives past the first upload, and a second
+  // upload for the same contestant succeeds
+  await expect(item.getByTestId('contestant-image-input')).toBeVisible()
+  await item
+    .getByTestId('contestant-image-input')
+    .setInputFiles({ name: 'b.png', mimeType: 'image/png', buffer: PNG_BUFFER })
+  const calls = await getCallLog(page)
+  expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/images')).length).toBe(2)
+})
+
 test('Creating a War requires authentication', async ({ page }) => {
   // Act
   await page.goto('/wars/new')

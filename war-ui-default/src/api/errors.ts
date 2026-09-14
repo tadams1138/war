@@ -6,6 +6,8 @@ export type ApiErrorReason =
   | 'unauthorized' // 401
   | 'war-closed' // 403 — War is closed to voting
   | 'not-joined' // 403 — voter has not joined the War
+  | 'forbidden' // 403 — the caller isn't the War's creator
+  | 'not-draft' // 403 — the War has left draft and is no longer editable
   | 'not-found' // 404
   | 'conflict' // 409 — already voted; handled silently by the caller
   | 'rate-limited' // 429
@@ -45,6 +47,10 @@ export function messageForReason(reason: ApiErrorReason, retryAfterSeconds?: num
       return 'This War is locked — voting is closed'
     case 'not-joined':
       return 'Join this War to vote'
+    case 'forbidden':
+      return "This isn't your War"
+    case 'not-draft':
+      return 'This War is no longer editable'
     case 'not-found':
       return "This War doesn't exist or has been removed"
     case 'conflict':

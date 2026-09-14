@@ -13,6 +13,18 @@
   padding: 1rem 1rem 2rem;
 }
 
+/* Native <select> ignores an inherited `background` and renders its own
+   (white, on Windows/Chrome) — so the inherited --t-text alone left the nav
+   theme picker light text on white, unreadable. Give it the same
+   surface/on-surface pairing cards already use so it's never text-color-only. */
+[data-theme] .nav-bar select {
+  background: var(--t-surface);
+  color: var(--t-text-on-surface, var(--t-text));
+  border: 1px solid var(--t-accent2);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+}
+
 /* ---------- Arcade Showdown ---------- */
 [data-theme='arcade'] {
   --t-bg: #0d0b1a;
