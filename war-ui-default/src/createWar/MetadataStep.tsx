@@ -2,16 +2,10 @@
 // Rendering only -- state and API calls live in useCreateWarWizard.
 import { useState, type FormEvent } from 'react'
 import type { CreateWarPayload } from '../api/client'
-import { THEMES, type Theme } from '../theme/themeCookie'
+import { THEME_LABELS, THEMES, type Theme } from '../theme/themeCookie'
 import type { WizardState } from './useCreateWarWizard'
 
 type MetadataState = Extract<WizardState, { step: 'metadata' }>
-
-const THEME_LABELS: Record<Theme, string> = {
-  arcade: 'Arcade Showdown',
-  fight_card: 'Fight Card',
-  scrapbook: 'Tape & Prints',
-}
 
 export function MetadataStepView({ state, onSubmit }: { state: MetadataState; onSubmit: (payload: CreateWarPayload) => void }) {
   const [title, setTitle] = useState('')

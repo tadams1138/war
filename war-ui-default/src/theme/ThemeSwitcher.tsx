@@ -2,13 +2,7 @@
 // or 'home' for Home/My Wars (the spec, "Theme switching"). Has no
 // persistence logic of its own; the page that renders this owns the
 // useTheme() call and passes both props down.
-import { THEMES, type Theme } from './themeCookie'
-
-const LABELS: Record<Theme, string> = {
-  arcade: 'Arcade Showdown',
-  fight_card: 'Fight Card',
-  scrapbook: 'Tape & Prints',
-}
+import { THEME_LABELS, THEMES, type Theme } from './themeCookie'
 
 interface ThemeSwitcherProps {
   theme: Theme
@@ -26,7 +20,7 @@ export function ThemeSwitcher({ theme, onChange }: ThemeSwitcherProps) {
           aria-pressed={option === theme}
           onClick={() => onChange(option)}
         >
-          {LABELS[option]}
+          {THEME_LABELS[option]}
         </button>
       ))}
     </div>
