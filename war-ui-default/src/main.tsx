@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import type { MswCallLogEntry } from './mocks/testHooks'
 import './index.css'
 
 async function enableMocking(): Promise<void> {
@@ -11,9 +12,21 @@ async function enableMocking(): Promise<void> {
   ])
 
   window.__mswCallLog = []
-  worker.events.on('request:start', async ({ request }) => {
-    const body = request.method === 'POST' ? await request.clone().text() : undefined
-    window.__mswCallLog?.push({ method: request.method, url: request.url, time: Date.now(), body })
+  worker.events.on('request:start', ({ request }) => {
+    // Pushed synchronously so a caller reading the log right after
+    // triggering the request (e.g. an in-flight-state assertion) sees it —
+    // an awaited push here would race that read under load. The body, only
+    // needed for POST assertions, is attached once its clone resolves.
+    const entry: MswCallLogEntry = { method: request.method, url: request.url, time: Date.now() }
+    window.__mswCallLog?.push(entry)
+    if (request.method === 'POST') {
+      void request
+        .clone()
+        .text()
+        .then((body) => {
+          entry.body = body
+        })
+    }
   })
 
   await worker.start({ onUnhandledRequest: 'bypass' })
