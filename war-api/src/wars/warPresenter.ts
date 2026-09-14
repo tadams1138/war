@@ -5,6 +5,7 @@ import { listMediaByContestants } from '../contestants/contestantMediaRepository
 import { presentContestant, type ContestantDetailView } from '../contestants/contestantPresenter.js';
 import { effectiveStatus } from './effectiveStatus.js';
 import type { War } from './warsRepository.js';
+import { THEMES } from './theme.js';
 
 export interface WarSummaryView {
   id: string;
@@ -13,6 +14,7 @@ export interface WarSummaryView {
   status: string;
   visibility: string;
   media_mode: string;
+  theme: string;
   contestant_schema: unknown;
   ends_at: string | null;
   contestant_count: number;
@@ -33,6 +35,7 @@ const warSummaryProperties = {
   status: { type: 'string', enum: ['draft', 'active', 'closed'] },
   visibility: { type: 'string', enum: ['public', 'invite_only'] },
   media_mode: { type: 'string', enum: ['image'] },
+  theme: { type: 'string', enum: [...THEMES] },
   contestant_schema: {
     type: 'array',
     items: {
@@ -56,6 +59,7 @@ const warSummaryRequired = [
   'status',
   'visibility',
   'media_mode',
+  'theme',
   'contestant_schema',
   'ends_at',
   'contestant_count',
@@ -91,6 +95,7 @@ export function presentWarSummary(war: War, now: Date, contestantCount: number):
     status: effectiveStatus(war, now),
     visibility: war.visibility,
     media_mode: war.mediaMode,
+    theme: war.theme,
     contestant_schema: war.contestantSchema,
     ends_at: war.endsAt ? war.endsAt.toISOString() : null,
     contestant_count: contestantCount,

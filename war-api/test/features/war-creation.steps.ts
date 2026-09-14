@@ -91,6 +91,75 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario("A War's theme defaults to \"arcade\"", ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('an authenticated voter', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+    });
+
+    When('they POST a title to /api/v1/wars', async () => {
+      response = await authedPost(creatorId, '/api/v1/wars', { title: 'Miss Universe 2026' });
+    });
+
+    Then('a new War is created in "draft" status', () => {
+      expect(response.status).toBe(201);
+      expect(response.body.status).toBe('draft');
+    });
+
+    And('its theme defaults to "arcade"', () => {
+      expect(response.body.theme).toBe('arcade');
+    });
+  });
+
+  Scenario("A creator sets a War's theme at creation", ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('an authenticated voter', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+    });
+
+    When('they POST a title and theme "fight_card" to /api/v1/wars', async () => {
+      response = await authedPost(creatorId, '/api/v1/wars', { title: 'Miss Universe 2026', theme: 'fight_card' });
+    });
+
+    Then('a new War is created in "draft" status', () => {
+      expect(response.status).toBe(201);
+      expect(response.body.status).toBe('draft');
+    });
+
+    And('its theme is "fight_card"', () => {
+      expect(response.body.theme).toBe('fight_card');
+    });
+  });
+
+  Scenario('An invalid theme is rejected', ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('an authenticated voter', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+    });
+
+    When('they POST a title and theme "neon" to /api/v1/wars', async () => {
+      response = await authedPost(creatorId, '/api/v1/wars', { title: 'Miss Universe 2026', theme: 'neon' });
+    });
+
+    Then('the response status is 422', () => {
+      expect(response.status).toBe(422);
+    });
+
+    And('no War is created', async () => {
+      const rows = await harness.db.selectFrom('wars').selectAll().where('creator_id', '=', creatorId).execute();
+      expect(rows).toHaveLength(0);
+    });
+  });
+
   Scenario('The creator adds a contestant to their draft War', ({ Given, When, Then, And }) => {
     let warId: string;
     let creatorId: string;

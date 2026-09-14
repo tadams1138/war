@@ -23,6 +23,7 @@ export async function makeVoter(db: Kysely<Database>, seed: string): Promise<Vot
 export interface DraftWarOptions {
   title?: string;
   visibility?: string;
+  theme?: string;
   contestantSchema?: ContestantSchemaField[];
   endsAt?: Date | null;
 }
@@ -34,6 +35,7 @@ export async function makeDraftWar(db: Kysely<Database>, creatorId: string, opti
     category: null,
     visibility: options.visibility ?? 'public',
     mediaMode: 'image',
+    theme: options.theme ?? 'arcade',
     contestantSchema: options.contestantSchema ?? [],
     endsAt: options.endsAt ?? null,
   });

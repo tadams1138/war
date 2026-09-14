@@ -17,6 +17,24 @@ Feature: War Creation
     When they POST to /api/v1/wars
     Then the response status is 401
 
+  Scenario: A War's theme defaults to "arcade"
+    Given an authenticated voter
+    When they POST a title to /api/v1/wars
+    Then a new War is created in "draft" status
+    And its theme defaults to "arcade"
+
+  Scenario: A creator sets a War's theme at creation
+    Given an authenticated voter
+    When they POST a title and theme "fight_card" to /api/v1/wars
+    Then a new War is created in "draft" status
+    And its theme is "fight_card"
+
+  Scenario: An invalid theme is rejected
+    Given an authenticated voter
+    When they POST a title and theme "neon" to /api/v1/wars
+    Then the response status is 422
+    And no War is created
+
   Scenario: The creator adds a contestant to their draft War
     Given a draft War created by the requester
     When they POST a name to /api/v1/wars/:id/contestants
