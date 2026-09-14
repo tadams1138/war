@@ -14,7 +14,7 @@ interface RankingsTableProps {
 
 export function RankingsTable({ rankings }: RankingsTableProps) {
   return (
-    <table data-testid="rankings-table">
+    <table data-testid="rankings-table" className="rankings-table">
       <thead>
         <tr>
           <th>Rank</th>

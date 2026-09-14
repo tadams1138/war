@@ -33,7 +33,7 @@ function MyWarsList({ wars }: { wars: WarSummary[] }) {
     )
   }
   return (
-    <ul>
+    <ul className="war-grid">
       {wars.map((war) => (
         <li key={war.id}>
           <WarCard war={war} />

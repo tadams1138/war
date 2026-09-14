@@ -12,8 +12,11 @@ interface MatchupViewProps {
 
 export function MatchupView({ matchup, votingInFlight, onSelect }: MatchupViewProps) {
   return (
-    <div data-testid="matchup-view" style={{ display: 'flex', gap: '1rem' }}>
+    <div data-testid="matchup-view" className="matchup-view">
       <ContestantCard contestant={matchup.left} disabled={votingInFlight} onVote={onSelect} />
+      <div className="vs-divider" data-testid="vs-divider" aria-hidden="true">
+        VS
+      </div>
       <ContestantCard contestant={matchup.right} disabled={votingInFlight} onVote={onSelect} />
     </div>
   )
