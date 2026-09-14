@@ -254,6 +254,7 @@ describe('response body schemas serialize every field (spec)', () => {
     const fixture: RankingsView = {
       war_id: 'a5b1e2c4-6666-4a11-8a11-000000000001',
       status: 'active',
+      theme: 'arcade',
       updated_at: '2026-04-28T12:00:00.000Z',
       rankings: [
         {
