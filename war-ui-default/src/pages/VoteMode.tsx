@@ -3,13 +3,16 @@
 // requested — there is no visible Join control. Rendering only; the vote
 // session's state machine lives in useVoteSession.
 import { Link, useParams } from 'react-router-dom'
+import { getWar } from '../api/client'
 import { MatchupView } from '../components/MatchupView'
 import { ProgressBar } from '../components/ProgressBar'
+import { useAsyncResource } from '../hooks/useAsyncResource'
 import { useVoteSession } from '../vote/useVoteSession'
 
 export function VoteMode() {
   const { id: warId } = useParams<{ id: string }>()
   const { state, selectContestant } = useVoteSession(warId)
+  useAsyncResource(warId ? () => getWar(warId) : undefined, [warId])
 
   if (state.phase === 'loading') return <p>Loading…</p>
   if (state.phase === 'error') return <p role="alert">{state.message}</p>

@@ -18,7 +18,7 @@ interface ContestantCardProps {
 
 export function ContestantCard({ contestant, disabled, onVote }: ContestantCardProps) {
   return (
-    <div data-testid="contestant-card" aria-disabled={disabled} aria-busy={disabled} style={{ flex: '1 1 0%', minWidth: 0 }}>
+    <div data-testid="contestant-card" aria-disabled={disabled} aria-busy={disabled} className="contestant-card">
       <ImageCarousel media={contestant.media} disabled={disabled} onTap={() => onVote(contestant.id)}>
         <p>{contestant.name}</p>
       </ImageCarousel>

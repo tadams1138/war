@@ -13,7 +13,7 @@ export function NavBar() {
   const { isAuthenticated } = useAuth()
 
   return (
-    <nav aria-label="Primary">
+    <nav className="nav-bar" aria-label="Primary">
       <NavLink to="/" end>
         Home
       </NavLink>

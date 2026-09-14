@@ -13,7 +13,7 @@ interface WarCardProps {
 
 export function WarCard({ war }: WarCardProps) {
   return (
-    <Link to={`/wars/${war.id}`} data-testid="war-card">
+    <Link to={`/wars/${war.id}`} data-testid="war-card" className="war-card">
       <h3>{war.title}</h3>
       {war.category && <p>{war.category}</p>}
       <p data-testid="war-status-badge">{war.status}</p>

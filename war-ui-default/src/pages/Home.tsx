@@ -29,7 +29,7 @@ function HomeWarList({ wars, isAuthenticated }: { wars: WarSummary[]; isAuthenti
     return <HomeEmptyState isAuthenticated={isAuthenticated} />
   }
   return (
-    <ul>
+    <ul className="war-grid">
       {wars.map((war) => (
         <li key={war.id}>
           <WarCard war={war} />
