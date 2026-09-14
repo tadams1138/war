@@ -239,3 +239,24 @@ test('Creating a War requires authentication', async ({ page }) => {
   // Assert
   await expect(page).toHaveURL(/\/login\?returnTo=%2Fwars%2Fnew$/)
 })
+
+test('A creator picks a theme in the Metadata step', async ({ page }) => {
+  // Arrange
+  const createdWar = buildWarSummary({ id: WAR_ID, title: 'Miss Universe 2026', theme: 'fight_card' })
+  await useScenario(page, [{ method: 'POST', path: `${API}/wars`, responses: [{ status: 201, body: createdWar }] }])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/wars/new')
+
+  // Act
+  await page.getByTestId('metadata-title-input').fill('Miss Universe 2026')
+  await page.getByTestId('metadata-theme-select').selectOption('fight_card')
+  await page.getByTestId('metadata-submit').click()
+  await expect(page.getByTestId('contestant-name-input')).toBeVisible()
+
+  // Assert
+  const calls = await getCallLog(page)
+  const createCall = calls.find((call) => call.method === 'POST' && call.url.endsWith('/wars'))
+  expect(createCall).toBeDefined()
+  expect(JSON.parse(createCall!.body ?? '{}').theme).toBe('fight_card')
+})

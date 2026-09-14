@@ -2,14 +2,22 @@
 // Rendering only -- state and API calls live in useCreateWarWizard.
 import { useState, type FormEvent } from 'react'
 import type { CreateWarPayload } from '../api/client'
+import { THEMES, type Theme } from '../theme/themeCookie'
 import type { WizardState } from './useCreateWarWizard'
 
 type MetadataState = Extract<WizardState, { step: 'metadata' }>
+
+const THEME_LABELS: Record<Theme, string> = {
+  arcade: 'Arcade Showdown',
+  fight_card: 'Fight Card',
+  scrapbook: 'Tape & Prints',
+}
 
 export function MetadataStepView({ state, onSubmit }: { state: MetadataState; onSubmit: (payload: CreateWarPayload) => void }) {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [visibility, setVisibility] = useState<'public' | 'invite_only'>('public')
+  const [theme, setTheme] = useState<Theme>('arcade')
   const [endsAt, setEndsAt] = useState('')
 
   function handleSubmit(event: FormEvent) {
@@ -18,6 +26,7 @@ export function MetadataStepView({ state, onSubmit }: { state: MetadataState; on
       title,
       category: category.length > 0 ? category : null,
       visibility,
+      theme,
       ends_at: endsAt.length > 0 ? new Date(endsAt).toISOString() : null,
     })
   }
@@ -47,6 +56,20 @@ export function MetadataStepView({ state, onSubmit }: { state: MetadataState; on
           >
             <option value="public">Public</option>
             <option value="invite_only">Invite only</option>
+          </select>
+        </label>
+        <label>
+          Theme
+          <select
+            data-testid="metadata-theme-select"
+            value={theme}
+            onChange={(event) => setTheme(event.target.value as Theme)}
+          >
+            {THEMES.map((option) => (
+              <option key={option} value={option}>
+                {THEME_LABELS[option]}
+              </option>
+            ))}
           </select>
         </label>
         <label>
