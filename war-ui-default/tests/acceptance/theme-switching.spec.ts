@@ -1,6 +1,6 @@
 // Binds features/theme-switching.feature.
 import { expect, test } from '@playwright/test'
-import { buildWarDetail } from '../../src/mocks/fixtures'
+import { buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
 import { API, useScenario } from './support/mocking'
 
 test("A War's detail page renders in its creator-chosen theme by default", async ({ page }) => {
@@ -45,4 +45,32 @@ test("A voter's theme choice for one War does not affect a different War", async
 
   // Assert
   await expect(page.locator('main')).toHaveAttribute('data-theme', 'arcade')
+})
+
+test('Home renders in "arcade" until the voter chooses otherwise', async ({ page }) => {
+  // Arrange
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
+
+  // Act
+  await page.goto('/')
+
+  // Assert
+  await expect(page.locator('main')).toHaveAttribute('data-theme', 'arcade')
+})
+
+test('Choosing a theme on Home does not change what a War\'s own page shows', async ({ page }) => {
+  // Arrange
+  const warDetail = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] },
+    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: warDetail }] },
+  ])
+
+  // Act
+  await page.goto('/')
+  await page.getByTestId('theme-option-scrapbook').click()
+  await page.goto('/wars/war-1')
+
+  // Assert
+  await expect(page.locator('main')).toHaveAttribute('data-theme', 'fight_card')
 })

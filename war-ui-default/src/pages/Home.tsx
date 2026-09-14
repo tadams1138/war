@@ -4,13 +4,17 @@ import { getWars, type WarSummary } from '../api/client'
 import { useAuth } from '../auth/context'
 import { WarCard } from '../components/WarCard'
 import { useAsyncResource } from '../hooks/useAsyncResource'
+import { ThemeSwitcher } from '../theme/ThemeSwitcher'
+import { useTheme } from '../theme/useTheme'
 
 export function Home() {
   const { isAuthenticated } = useAuth()
   const state = useAsyncResource(() => getWars(), [])
+  const [theme, setTheme] = useTheme('home', 'arcade')
 
   return (
-    <main>
+    <main data-theme={theme}>
+      <ThemeSwitcher theme={theme} onChange={setTheme} />
       <h1>War</h1>
       {!isAuthenticated && (
         <Link to="/login" data-testid="login-cta">
