@@ -91,6 +91,7 @@ A named voting campaign, owned by its creator.
 | Contestant schema | Ordered field definitions (below) |
 | End date | Optional; closes the War when reached |
 | Custom UI slug | Optional; selects a registered custom UI |
+| Theme | `arcade`, `fight_card`, or `scrapbook` (below); set by the creator, overridable per voter |
 
 A War is created as a draft. All configuration is editable in draft only. Activation
 generates its matchups and makes it votable. Closing ends voting; rankings remain readable.
@@ -152,6 +153,21 @@ match the War's mode.
 
 Mode affects presentation only. Matchup generation, pair selection, side randomisation, vote
 recording and ranking are identical in both modes.
+
+### Visual Theme
+
+A War declares, at creation, which of the default UI's visual treatments its own pages —
+detail, vote, and rankings — render in. Purely presentational: it changes none of voting,
+ranking, scoring, or what data a contestant or matchup carries.
+
+| Theme | Mood |
+|---|---|
+| `arcade` (default) | Arcade character-select screen — CRT scanlines, pixel type, a faceted VS badge |
+| `fight_card` | Boxing/MMA event poster — condensed display type, diagonal banners, a ticket-stub card |
+| `scrapbook` | Polaroid-and-washi-tape collage — handwritten accents, a marker-scrawled "vs." |
+
+A voter may override a War's theme for themselves without changing what its creator chose or
+what any other voter sees — see §10.4.
 
 ### Matchup
 
@@ -291,8 +307,8 @@ forgetting to apply it.
 **A voter may list their own Wars** across every status, drafts and invite-only included.
 This requires authentication and is the only thing that widens visibility.
 
-**Creation** requires a title. Category, visibility, media mode, contestant schema and end
-date are optional, with documented defaults. The War is created as a draft owned by the
+**Creation** requires a title. Category, visibility, media mode, contestant schema, theme, and
+end date are optional, with documented defaults. The War is created as a draft owned by the
 authenticated voter.
 
 **Activation** requires at least two contestants, and every contestant to have media matching
@@ -698,6 +714,14 @@ Unranked contestants appear at the bottom with a dash.
 where an end date is set. Time remaining renders "Ended" at or past the end date, whole days
 rounded up at a day or more, and whole hours rounded up below that with a one-hour floor — so
 a War ending in minutes reads "1 hour" rather than "0 hours" or a misleading "1 day".
+
+**Theme switching.** A War's detail, vote, and rankings pages render in its creator-chosen
+theme (§4) until the voter viewing them picks a different one from the switcher on those same
+pages. That pick is remembered only on the device it was made on, independently per War — it
+is not part of the voter's account, so it does not follow them to a different browser, and it
+never changes what any other voter sees. Home and My Wars list Wars of more than one theme at
+once and are not themed by any single War; they render in `arcade` until the voter picks a
+theme for those pages specifically, remembered the same way.
 
 **Home** browses active public Wars. Its empty state is **auth-aware**: an anonymous visitor
 is told to check back, since waiting or signing in really are their only options; an
