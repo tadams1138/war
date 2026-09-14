@@ -47,3 +47,8 @@ Feature: Rankings
     Given an invite_only War
     When an unauthenticated user GETs rankings
     Then the response status is 401
+
+  Scenario: Rankings report the War's own theme
+    Given a public War with theme "fight_card"
+    When rankings are fetched
+    Then the response reports theme "fight_card"

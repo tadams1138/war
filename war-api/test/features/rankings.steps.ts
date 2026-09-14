@@ -286,4 +286,28 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(response.status).toBe(401);
     });
   });
+
+  Scenario("Rankings report the War's own theme", ({ Given, When, Then }) => {
+    let warId: string;
+    let response: request.Response;
+
+    Given('a public War with theme "fight_card"', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
+        visibility: 'public',
+        theme: 'fight_card',
+      });
+      const activated = await activateWarForTest(harness.db, war);
+      warId = activated.id;
+    });
+
+    When('rankings are fetched', async () => {
+      await harness.app.ready();
+      response = await request(harness.app.server).get(`/api/v1/wars/${warId}/rankings`);
+    });
+
+    Then('the response reports theme "fight_card"', () => {
+      expect(response.body.theme).toBe('fight_card');
+    });
+  });
 });

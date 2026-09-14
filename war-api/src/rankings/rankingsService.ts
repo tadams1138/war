@@ -6,6 +6,7 @@ import { presentMedia } from '../contestants/mediaPresenter.js';
 import { contestantViewSchema, type ContestantView } from '../contestants/contestantPresenter.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
 import { findWarById, isMember } from '../wars/warsRepository.js';
+import { THEMES } from '../wars/theme.js';
 import { rankContestants } from './scoring.js';
 
 export interface RankingEntry {
@@ -18,6 +19,7 @@ export interface RankingEntry {
 export interface RankingsView {
   war_id: string;
   status: string;
+  theme: string;
   updated_at: string;
   rankings: RankingEntry[];
 }
@@ -31,10 +33,11 @@ export interface RankingsView {
  */
 export const rankingsResponseSchema = {
   type: 'object',
-  required: ['war_id', 'status', 'updated_at', 'rankings'],
+  required: ['war_id', 'status', 'theme', 'updated_at', 'rankings'],
   properties: {
     war_id: { type: 'string', format: 'uuid' },
     status: { type: 'string', enum: ['draft', 'active', 'closed'] },
+    theme: { type: 'string', enum: [...THEMES] },
     updated_at: { type: 'string', format: 'date-time' },
     rankings: {
       type: 'array',
@@ -113,6 +116,7 @@ export async function rankingsFor(
     view: {
       war_id: war.id,
       status: effectiveStatus(war, now),
+      theme: war.theme,
       updated_at: now.toISOString(),
       rankings,
     },
