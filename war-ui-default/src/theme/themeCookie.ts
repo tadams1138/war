@@ -6,6 +6,12 @@
 export const THEMES = ['arcade', 'fight_card', 'scrapbook'] as const
 export type Theme = (typeof THEMES)[number]
 
+export const THEME_LABELS: Record<Theme, string> = {
+  arcade: 'Arcade Showdown',
+  fight_card: 'Fight Card',
+  scrapbook: 'Tape & Prints',
+}
+
 const COOKIE_NAME = 'war_theme_prefs'
 
 type ThemePrefs = Record<string, Theme>
