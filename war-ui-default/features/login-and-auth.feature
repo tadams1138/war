@@ -41,3 +41,12 @@ Feature: Login and Authentication
     Then the in-memory JWT is cleared
     And the voter is redirected to "/login" with returnTo set to the page they were on
     And no further refresh is attempted for that session
+
+  Scenario: The login page is themed and its content is centered
+    Given the login page is loaded
+    Then the page renders inside a theme scope
+    And the sign-in options are shown in a centered panel
+
+  Scenario: Each provider button shows that provider's logo
+    Given the login page is loaded
+    Then each provider's sign-in button shows that provider's logo alongside its label

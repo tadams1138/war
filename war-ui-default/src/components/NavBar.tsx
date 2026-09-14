@@ -1,46 +1,32 @@
-// Persistent navigation header (the spec, "NavBar").
-// Rendered once by App's shell, wrapping every route including the
-// RequireAuth-protected ones — see App.tsx. NavBar itself reads only
-// useAuth().isAuthenticated to choose between two fixed content sets; it
-// never renders a partial or transitional state.
-import { Link, NavLink } from 'react-router-dom'
-import { getMe } from '../api/client'
+// Persistent navigation header (the spec, "NavBar"). Rendered once by
+// App's shell, wrapping every route including the RequireAuth-protected
+// ones — see App.tsx. Renders in the currently active theme: a War-scoped
+// page's own theme when one has published via ThemeContext, else the
+// 'home'-keyed theme every other route shares.
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/context'
-import { useAsyncResource } from '../hooks/useAsyncResource'
-import { resolveVoterIdentity } from './voterIdentity'
+import { useActiveTheme } from '../theme/ThemeContext'
+import { ThemeSwitcher } from '../theme/ThemeSwitcher'
+import { IdentityMenu } from './IdentityMenu'
+
+// Every route that renders a <main data-theme> also publishes it here via
+// usePublishTheme, including the 'home'-keyed ones (Home, MyWars, Login,
+// CreateWar) — NavBar never resolves a theme itself, so its select and the
+// page it's currently sitting on always share the exact same setTheme
+// closure and can never drift out of sync with each other. This fallback
+// only covers the brief instant before the first page's effect runs, and
+// routes with no theme scope at all (AuthCallback).
+const NO_ACTIVE_THEME_FALLBACK = { theme: 'arcade' as const, setTheme: () => {} }
 
 export function NavBar() {
   const { isAuthenticated } = useAuth()
+  const active = useActiveTheme()
+  const { theme, setTheme } = active ?? NO_ACTIVE_THEME_FALLBACK
 
   return (
-    <nav className="nav-bar" aria-label="Primary">
-      <NavLink to="/" end>
-        Home
-      </NavLink>
-      {isAuthenticated ? <AuthenticatedNavLinks /> : <Link to="/login">Log in</Link>}
+    <nav className="nav-bar" aria-label="Primary" data-theme={theme}>
+      <ThemeSwitcher theme={theme} onChange={setTheme} />
+      {isAuthenticated ? <IdentityMenu /> : <Link to="/login">Log in</Link>}
     </nav>
-  )
-}
-
-// Fetched once per authenticated session — `isAuthenticated` only changes
-// on login/logout, not on navigation, so this effect does not refire on
-// every route change ("Identity").
-function AuthenticatedNavLinks() {
-  const { logout } = useAuth()
-  const identityState = useAsyncResource(() => getMe(), [])
-  const identity = resolveVoterIdentity(identityState)
-
-  return (
-    <>
-      <NavLink to="/my-wars">My Wars</NavLink>
-      <NavLink to="/wars/new">Create War</NavLink>
-      <span data-testid="nav-identity">
-        {identity.avatarUrl && <img src={identity.avatarUrl} alt="" />}
-        {identity.displayName}
-      </span>
-      <button type="button" data-testid="nav-logout" onClick={logout}>
-        Log out
-      </button>
-    </>
   )
 }

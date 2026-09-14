@@ -7,7 +7,7 @@ import { getWar } from '../api/client'
 import { MatchupView } from '../components/MatchupView'
 import { ProgressBar } from '../components/ProgressBar'
 import { useAsyncResource } from '../hooks/useAsyncResource'
-import { ThemeSwitcher } from '../theme/ThemeSwitcher'
+import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { useVoteSession } from '../vote/useVoteSession'
 
@@ -16,6 +16,7 @@ export function VoteMode() {
   const { state, selectContestant } = useVoteSession(warId)
   const warState = useAsyncResource(warId ? () => getWar(warId) : undefined, [warId])
   const [theme, setTheme] = useTheme(warId ?? '', warState.status === 'loaded' ? warState.value.theme : 'arcade')
+  usePublishTheme(warId ?? '', theme, setTheme)
 
   if (state.phase === 'loading') return <p>Loading…</p>
   if (state.phase === 'error') return <p role="alert">{state.message}</p>
@@ -32,7 +33,6 @@ export function VoteMode() {
 
   return (
     <main data-theme={theme}>
-      <ThemeSwitcher theme={theme} onChange={setTheme} />
       <ProgressBar voted={state.progress.voted} total={state.progress.total} />
       {state.errorMessage && (
         <p role="status" data-testid="vote-error">

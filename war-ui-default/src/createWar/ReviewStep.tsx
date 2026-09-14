@@ -1,13 +1,22 @@
 // The CreateWar wizard's Review step view (the spec).
 // Rendering only -- state and API calls live in useCreateWarWizard.
+import type { Theme } from '../theme/themeCookie'
 import type { WizardState } from './useCreateWarWizard'
 
 type ReviewState = Extract<WizardState, { step: 'review' }>
 
-export function ReviewStepView({ state, onActivate }: { state: ReviewState; onActivate: () => void }) {
+export function ReviewStepView({
+  state,
+  onActivate,
+  theme,
+}: {
+  state: ReviewState
+  onActivate: () => void
+  theme: Theme
+}) {
   const { war } = state
   return (
-    <main>
+    <main data-theme={theme}>
       <h1>Review</h1>
       <dl>
         <dt>Title</dt>

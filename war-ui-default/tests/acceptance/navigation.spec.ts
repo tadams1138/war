@@ -7,22 +7,32 @@ function nav(page: import('@playwright/test').Page) {
   return page.getByRole('navigation', { name: 'Primary' })
 }
 
-test('An anonymous visitor sees only anonymous navigation', async ({ page }) => {
+function identityTrigger(page: import('@playwright/test').Page) {
+  return nav(page).getByTestId('nav-identity')
+}
+
+function identityMenu(page: import('@playwright/test').Page) {
+  return nav(page).getByRole('menu')
+}
+
+async function openIdentityMenu(page: import('@playwright/test').Page): Promise<void> {
+  await identityTrigger(page).click()
+  await expect(identityMenu(page)).toBeVisible()
+}
+
+test('An anonymous visitor sees only a link to log in', async ({ page }) => {
   // Arrange / Act
   await page.goto('/')
 
   // Assert — visibility alone does not prove reachability; the destination
   // is the assertion the Gherkin's "a link to /login" actually makes.
-  await expect(nav(page).getByRole('link', { name: 'Home' })).toBeVisible()
-  await expect(nav(page).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
   await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible()
   await expect(nav(page).getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login')
-  await expect(nav(page).getByRole('link', { name: 'My Wars' })).toHaveCount(0)
-  await expect(nav(page).getByRole('link', { name: 'Create War' })).toHaveCount(0)
-  await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
+  await expect(nav(page).getByRole('link', { name: 'Home' })).toHaveCount(0)
+  await expect(identityTrigger(page)).toHaveCount(0)
 })
 
-test("An authenticated voter's identity is shown in the navigation", async ({ page }) => {
+test("An authenticated voter's identity is shown in the navigation, menu closed", async ({ page }) => {
   // Arrange
   await useScenario(page, [
     {
@@ -39,6 +49,9 @@ test("An authenticated voter's identity is shown in the navigation", async ({ pa
 
   // Assert
   await expect(nav(page)).toContainText('Jordan')
+  await expect(nav(page).getByRole('link', { name: 'Log in' })).toHaveCount(0)
+  await expect(identityTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+  await expect(identityMenu(page)).toHaveCount(0)
 })
 
 test('A voter with no display name on file is shown a fallback', async ({ page }) => {
@@ -58,19 +71,35 @@ test('A voter with no display name on file is shown a fallback', async ({ page }
 
   // Assert — a fixed, non-blank fallback label, never the literal "null",
   // an empty identity slot, or an internal id leaking into the header.
-  const identity = nav(page).getByTestId('nav-identity')
-  await expect(identity).toBeVisible()
-  await expect(identity).toHaveText('Voter')
-  await expect(identity).not.toContainText('null')
+  await expect(identityTrigger(page)).toBeVisible()
+  await expect(identityTrigger(page)).toHaveText('Voter')
+  await expect(identityTrigger(page)).not.toContainText('null')
 })
 
-// Scenario Outline: Create War and My Wars remain reachable from every route.
-// The voter must actually have a War of their own before this test starts —
-// a voter with none would hit MyWars's own empty-state "Create a War" CTA on
-// the My Wars row, which carries the same accessible name as NavBar's own
-// link and would let that row pass even if NavBar itself carried no such
-// link at all. Scoping every assertion to the `nav` landmark, not the page,
-// is the second, independent safeguard against the same failure mode.
+test('Opening the identity menu reveals Home, My Wars, Create War and Log out', async ({ page }) => {
+  // Arrange
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/')
+
+  // Act
+  await openIdentityMenu(page)
+
+  // Assert
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'Home' })).toHaveAttribute('href', '/')
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'My Wars' })).toHaveAttribute('href', '/my-wars')
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'Create War' })).toHaveAttribute('href', '/wars/new')
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'Log out' })).toBeVisible()
+})
+
+// Scenario Outline: My Wars, Create War and Home remain reachable, via the
+// identity menu, from every route. The voter must actually have a War of
+// their own before this test starts — a voter with none would hit MyWars's
+// own empty-state "Create a War" CTA, which carries the same accessible name
+// as the identity menu's own item and would let that row pass even if the
+// menu itself carried no such item at all. Scoping every assertion to the
+// menu landmark, not the page, is the second, independent safeguard against
+// the same failure mode.
 const CREATED_WAR = buildWarSummary({ id: 'war-nav-created', title: 'Nav War' })
 
 const REACHABILITY_ROWS: { page: string; path: string }[] = [
@@ -83,7 +112,9 @@ const REACHABILITY_ROWS: { page: string; path: string }[] = [
 ]
 
 for (const { page: pageLabel, path } of REACHABILITY_ROWS) {
-  test(`Create War and My Wars remain reachable from ${pageLabel}`, async ({ page }) => {
+  test(`My Wars, Create War and Home remain reachable, via the identity menu, from ${pageLabel}`, async ({
+    page,
+  }) => {
     // Arrange — a voter who has already created a War (CREATED_WAR), so
     // My Wars renders a non-empty list rather than its own empty-state CTA.
     await useScenario(page, [
@@ -99,60 +130,100 @@ for (const { page: pageLabel, path } of REACHABILITY_ROWS) {
 
     // Act
     await navigateAuthenticated(page, path)
+    await openIdentityMenu(page)
 
-    // Assert — scoped to the nav landmark, not the page, so a same-named
-    // in-page CTA (e.g. MyWars's or Home's own "Create a War" link) cannot
-    // satisfy this assertion in NavBar's place. Visibility alone does not
-    // prove reachability — asserting each link's href is the destination
-    // the Gherkin's "a link to My Wars"/"a link to create a War" claims.
-    await expect(nav(page).getByRole('link', { name: 'Home' })).toBeVisible()
-    await expect(nav(page).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
-    await expect(nav(page).getByRole('link', { name: 'My Wars' })).toBeVisible()
-    await expect(nav(page).getByRole('link', { name: 'My Wars' })).toHaveAttribute('href', '/my-wars')
-    await expect(nav(page).getByRole('link', { name: 'Create War' })).toBeVisible()
-    await expect(nav(page).getByRole('link', { name: 'Create War' })).toHaveAttribute('href', '/wars/new')
-
-    // On this one row, also prove the link actually navigates — an href
-    // assertion alone would still pass a link nobody can click.
-    if (path === '/') {
-      await nav(page).getByRole('link', { name: 'Create War' }).click()
-      await page.waitForURL('**/wars/new')
-      await expect(page.getByRole('heading', { name: 'Create a War' })).toBeVisible()
-    }
+    // Assert
+    await expect(identityMenu(page).getByRole('menuitem', { name: 'Home' })).toHaveAttribute('href', '/')
+    await expect(identityMenu(page).getByRole('menuitem', { name: 'My Wars' })).toHaveAttribute('href', '/my-wars')
+    await expect(identityMenu(page).getByRole('menuitem', { name: 'Create War' })).toHaveAttribute(
+      'href',
+      '/wars/new',
+    )
   })
 }
 
-test('The current page is indicated in the navigation', async ({ page }) => {
-  // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
-  await page.goto('/')
-  await loginAsTestVoter(page)
-
-  // Act
-  await navigateAuthenticated(page, '/my-wars')
-
-  // Assert — the spec says the other two links are unmarked; Home is included
-  // alongside Create War so dropping NavLink's `end` (which would make
-  // Home match every route) does not slip through unnoticed.
-  await expect(nav(page).getByRole('link', { name: 'My Wars' })).toHaveAttribute('aria-current', 'page')
-  await expect(nav(page).getByRole('link', { name: 'Create War' })).not.toHaveAttribute('aria-current', 'page')
-  await expect(nav(page).getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current', 'page')
-})
-
-test("Logging out returns the navigation to its anonymous state", async ({ page }) => {
+test('Selecting an item in the identity menu navigates there and closes the menu', async ({ page }) => {
   // Arrange
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, '/')
-  await expect(nav(page).getByTestId('nav-logout')).toBeVisible()
+  await openIdentityMenu(page)
 
   // Act
-  await nav(page).getByTestId('nav-logout').click()
+  await identityMenu(page).getByRole('menuitem', { name: 'Create War' }).click()
+
+  // Assert
+  await page.waitForURL('**/wars/new')
+  await expect(page.getByRole('heading', { name: 'Create a War' })).toBeVisible()
+  await expect(identityMenu(page)).toHaveCount(0)
+  await expect(identityTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('The current page is indicated within the identity menu', async ({ page }) => {
+  // Arrange
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/my-wars')
+
+  // Act
+  await openIdentityMenu(page)
+
+  // Assert — the spec says the other two items are unmarked; Home is
+  // included alongside Create War so dropping NavLink's `end` (which would
+  // make Home match every route) does not slip through unnoticed.
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'My Wars' })).toHaveAttribute('aria-current', 'page')
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'Create War' })).not.toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'Home' })).not.toHaveAttribute('aria-current', 'page')
+})
+
+test('Clicking outside the identity menu closes it', async ({ page }) => {
+  // Arrange
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/')
+  await openIdentityMenu(page)
+
+  // Act
+  await page.mouse.click(10, 10)
+
+  // Assert
+  await expect(identityMenu(page)).toHaveCount(0)
+  await expect(identityTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('Pressing Escape closes the identity menu', async ({ page }) => {
+  // Arrange
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/')
+  await openIdentityMenu(page)
+
+  // Act
+  await page.keyboard.press('Escape')
+
+  // Assert
+  await expect(identityMenu(page)).toHaveCount(0)
+  await expect(identityTrigger(page)).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('Logging out returns the navigation to its anonymous state', async ({ page }) => {
+  // Arrange
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/')
+  await openIdentityMenu(page)
+
+  // Act
+  await identityMenu(page).getByRole('menuitem', { name: 'Log out' }).click()
 
   // Assert
   await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible()
-  await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
-  await expect(nav(page).getByTestId('nav-logout')).toHaveCount(0)
+  await expect(identityTrigger(page)).toHaveCount(0)
+  await expect(identityMenu(page)).toHaveCount(0)
 })
 
 test('A failed server-side logout still logs the voter out locally', async ({ page }) => {
@@ -167,15 +238,15 @@ test('A failed server-side logout still logs the voter out locally', async ({ pa
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, '/')
-  await expect(nav(page).getByTestId('nav-logout')).toBeVisible()
+  await openIdentityMenu(page)
 
   // Act
-  await nav(page).getByTestId('nav-logout').click()
+  await identityMenu(page).getByRole('menuitem', { name: 'Log out' }).click()
 
   // Assert — the client-side effect happens immediately, well before the
   // 3s server response, and never surfaces an error.
   await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible({ timeout: 500 })
-  await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
-  await expect(nav(page).getByTestId('nav-logout')).toHaveCount(0)
+  await expect(identityTrigger(page)).toHaveCount(0)
+  await expect(identityMenu(page)).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)
 })

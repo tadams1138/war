@@ -7,7 +7,15 @@ import type { WizardState } from './useCreateWarWizard'
 
 type MetadataState = Extract<WizardState, { step: 'metadata' }>
 
-export function MetadataStepView({ state, onSubmit }: { state: MetadataState; onSubmit: (payload: CreateWarPayload) => void }) {
+export function MetadataStepView({
+  state,
+  onSubmit,
+  theme: pageTheme,
+}: {
+  state: MetadataState
+  onSubmit: (payload: CreateWarPayload) => void
+  theme: Theme
+}) {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [visibility, setVisibility] = useState<'public' | 'invite_only'>('public')
@@ -26,7 +34,7 @@ export function MetadataStepView({ state, onSubmit }: { state: MetadataState; on
   }
 
   return (
-    <main>
+    <main data-theme={pageTheme}>
       <h1>Create a War</h1>
       <form onSubmit={handleSubmit}>
         <label>

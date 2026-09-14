@@ -7,7 +7,7 @@
 import { useParams } from 'react-router-dom'
 import { RankingsTable } from '../components/RankingsTable'
 import { useRankings } from '../rankings/useRankings'
-import { ThemeSwitcher } from '../theme/ThemeSwitcher'
+import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
 export function Rankings() {
@@ -17,13 +17,13 @@ export function Rankings() {
     warId ?? '',
     state.status === 'loaded' ? state.rankings.theme : 'arcade',
   )
+  usePublishTheme(warId ?? '', theme, setTheme)
 
   if (state.status === 'loading') return <p>Loading…</p>
   if (state.status === 'error') return <p role="alert">{state.message}</p>
 
   return (
     <main data-theme={theme}>
-      <ThemeSwitcher theme={theme} onChange={setTheme} />
       <h1>Rankings</h1>
       <RankingsTable rankings={state.rankings.rankings} />
     </main>

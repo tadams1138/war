@@ -71,11 +71,29 @@ with an auth-aware Home empty state. Live in staging and production.
 - **Visual themes** — the three themes render on WarDetail, VoteMode, Rankings, and Home/My
   Wars, with a per-device, per-War voter override (cookie-based, never synced to the server or
   other devices) and a theme picker in the CreateWar wizard.
+- **Nav redesign** — the persistent header collapsed Home/My Wars/Create War/Log out behind a
+  single identity control (avatar + name, top right); logged out shows only Log in. The theme
+  picker moved into the nav as a dropdown, always visible, and now themes the nav bar itself
+  and the Login and CreateWar pages (previously unthemed) via a `ThemeContext` that lets
+  WarDetail/VoteMode/Rankings publish their War's own resolved theme up to the nav. Login was
+  redesigned to a themed, centered panel with brand-guideline-accurate provider logos (see the
+  google-oauth/facebook-oauth/microsoft-oauth/twitter-x-oauth skills' "Sign-in button
+  branding" sections).
 
 ### Not built
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
+- **Editing a War after the CreateWar wizard.** `PATCH /wars/:id` and `PATCH
+  /contestants/:id` exist server-side (draft-only, creator-only) but no UI route calls them —
+  a creator who leaves the wizard has no way back into a draft's fields short of the API
+  directly. Once a War is active, there is no edit path at all, API or UI.
+- **Deleting a War.** No delete capability exists anywhere for a War itself, draft or active
+  — not in the UI, not in the API (`DELETE /wars/:id` isn't a route). Contestant- and
+  media-level delete exist server-side (draft-only) but aren't wired into any UI either.
+- **Contestant bio formatting.** `bio` is a plain nullable string with no markdown/rich-text
+  support anywhere in the stack, entered via a single-line `<input>`, and — separately — never
+  rendered anywhere in the UI today (write-only from a voter's perspective).
 
 ---
 
