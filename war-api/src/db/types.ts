@@ -30,6 +30,7 @@ export interface WarsTable {
   status: Generated<string>;
   visibility: Generated<string>;
   media_mode: Generated<string>;
+  theme: Generated<string>;
   contestant_schema: Generated<unknown>;
   ends_at: Timestamp | null;
   ui_slug: string | null;

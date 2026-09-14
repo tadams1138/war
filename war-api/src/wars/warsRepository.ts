@@ -12,6 +12,7 @@ export interface War {
   status: string;
   visibility: string;
   mediaMode: string;
+  theme: string;
   contestantSchema: ContestantSchemaField[];
   endsAt: Date | null;
   createdAt: Date;
@@ -26,6 +27,7 @@ function toWar(row: Selectable<WarsTable>): War {
     status: row.status,
     visibility: row.visibility,
     mediaMode: row.media_mode,
+    theme: row.theme,
     contestantSchema: (row.contestant_schema ?? []) as ContestantSchemaField[],
     endsAt: row.ends_at ? new Date(row.ends_at) : null,
     createdAt: new Date(row.created_at),
@@ -38,6 +40,7 @@ export interface CreateWarInput {
   category: string | null;
   visibility: string;
   mediaMode: string;
+  theme: string;
   contestantSchema: ContestantSchemaField[];
   endsAt: Date | null;
 }
@@ -53,6 +56,7 @@ export async function createWar(db: Kysely<Database>, input: CreateWarInput): Pr
       status: 'draft',
       visibility: input.visibility,
       media_mode: input.mediaMode,
+      theme: input.theme,
       contestant_schema: toJsonb(input.contestantSchema),
       ends_at: input.endsAt,
     })

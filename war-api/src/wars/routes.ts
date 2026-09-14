@@ -95,6 +95,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         category: (body.category as string | null | undefined) ?? null,
         visibility: body.visibility as string | undefined,
         mediaMode: body.media_mode as string | undefined,
+        theme: body.theme as string | undefined,
         contestantSchema: body.contestant_schema,
         endsAt: body.ends_at as string | null | undefined,
       });

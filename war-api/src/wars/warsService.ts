@@ -7,6 +7,7 @@ import { generateMatchups } from '../matchups/matchupsRepository.js';
 import type { Forbidden, MutationOutcome, NotActive, NotFound } from '../shared/outcomes.js';
 import { effectiveStatus } from './effectiveStatus.js';
 import { loadDraftWarOwnedBy, loadWarOwnedBy } from './warAccess.js';
+import { isWarTheme } from './theme.js';
 import {
   createMembership,
   createWar,
@@ -24,6 +25,7 @@ export interface CreateWarInput {
   category?: string | null;
   visibility?: string;
   mediaMode?: string;
+  theme?: string;
   contestantSchema?: unknown;
   endsAt?: string | null;
 }
@@ -45,6 +47,11 @@ export async function createWarForVoter(db: Kysely<Database>, input: CreateWarIn
   const visibility = input.visibility ?? 'public';
   if (visibility !== 'public' && visibility !== 'invite_only') {
     errors.push('visibility must be "public" or "invite_only"');
+  }
+
+  const theme = input.theme ?? 'arcade';
+  if (!isWarTheme(theme)) {
+    errors.push('theme must be "arcade", "fight_card", or "scrapbook"');
   }
 
   let contestantSchema: ContestantSchemaField[] = [];
@@ -77,6 +84,7 @@ export async function createWarForVoter(db: Kysely<Database>, input: CreateWarIn
     category: input.category ?? null,
     visibility,
     mediaMode,
+    theme,
     contestantSchema,
     endsAt,
   });
