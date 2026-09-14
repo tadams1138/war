@@ -45,3 +45,8 @@ Feature: Create War
     When they navigate directly to "/wars/new"
     Then they are redirected to "/login"
     And the returnTo query param is "/wars/new"
+
+  Scenario: A creator picks a theme in the Metadata step
+    Given an authenticated voter on the Create War page
+    When they submit the Metadata step with a title and choose the "Fight Card" theme
+    Then the War is created with theme "fight_card"
