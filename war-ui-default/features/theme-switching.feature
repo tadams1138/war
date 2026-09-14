@@ -17,6 +17,16 @@ Feature: Theme Switching
     And they view the second War's detail page
     Then the second War's page renders with theme "arcade"
 
+  Scenario: A War's vote page renders in its creator-chosen theme
+    Given a War whose theme is "fight_card"
+    When a voter casts votes on that War's vote page
+    Then the page renders with theme "fight_card"
+
+  Scenario: A War's rankings page renders in its creator-chosen theme
+    Given a War whose theme is "scrapbook"
+    When a voter views that War's rankings page
+    Then the page renders with theme "scrapbook"
+
   Scenario: Home renders in "arcade" until the voter chooses otherwise
     Given no theme has been chosen for Home yet
     When a voter views Home
