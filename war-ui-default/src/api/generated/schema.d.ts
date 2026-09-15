@@ -384,7 +384,7 @@ export interface paths {
                         "application/json": {
                             /** Format: uuid */
                             id: string;
-                            title: string;
+                            title: null | string;
                             category: null | string;
                             /** @enum {string} */
                             status: "draft" | "active" | "closed";
@@ -437,10 +437,12 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        title?: string;
+                        title?: null | string;
                         category?: null | string;
                         /** @enum {string} */
                         visibility?: "public" | "invite_only";
+                        /** @enum {string} */
+                        theme?: "arcade" | "fight_card" | "scrapbook";
                         contestant_schema?: {
                             key: string;
                             label: string;
@@ -1355,7 +1357,7 @@ export interface components {
         WarSummary: {
             /** Format: uuid */
             id: string;
-            title: string;
+            title: null | string;
             category: null | string;
             /** @enum {string} */
             status: "draft" | "active" | "closed";

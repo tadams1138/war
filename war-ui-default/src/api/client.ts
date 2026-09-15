@@ -30,7 +30,7 @@ type VoteForbiddenBody =
 // derive these from. Hand-written to match the documented body shapes
 // exactly, same fields the wizard collects.
 export interface CreateWarPayload {
-  title: string
+  title?: string
   category?: string | null
   visibility?: 'public' | 'invite_only'
   theme?: 'arcade' | 'fight_card' | 'scrapbook'
