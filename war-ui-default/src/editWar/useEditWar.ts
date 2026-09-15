@@ -4,6 +4,7 @@
 // useCreateWarWizard's split for the same reason.
 import { useEffect, useState } from 'react'
 import {
+  activateWar,
   addContestant as addContestantApi,
   deleteContestant as deleteContestantApi,
   deleteContestantMedia,
@@ -16,8 +17,9 @@ import {
   type PatchContestantPayload,
   type PatchWarPayload,
   type WarDetailResponse,
+  type WarSummary,
 } from '../api/client'
-import { toUserMessage } from '../api/errors'
+import { ApiError, toUserMessage } from '../api/errors'
 
 export interface EditWarLoadedState {
   status: 'loaded'
@@ -31,6 +33,11 @@ export interface EditWarLoadedState {
   // Set on a successful metadata or contestant save; Toast owns clearing
   // its own visibility, so this never needs to be reset back to null.
   toast: string | null
+  // Set while an Activate request is in flight, and to the API's own
+  // validation messages when one fails -- mirrors the deleted wizard's
+  // Review step, the spec's one deliberate exception to generic 422 copy.
+  activating: boolean
+  activateDetails: string[] | null
 }
 
 export type EditWarState =
@@ -47,6 +54,20 @@ export interface EditWarActions {
   addImages: (contestantId: string, files: File[]) => Promise<void>
   removeImage: (contestantId: string, mediaId: string) => Promise<void>
   moveImageUp: (contestantId: string, mediaId: string) => Promise<void>
+  activate: () => Promise<void>
+}
+
+/**
+ * The Activate action's own error copy (the spec's deliberate exception to
+ * its generic 422 copy): the API's `details` array verbatim when the
+ * failure actually carries one, falling back to the generic message
+ * otherwise.
+ */
+function detailsFromActivateError(error: unknown): string[] {
+  if (error instanceof ApiError && error.reason === 'validation' && error.details) {
+    return error.details
+  }
+  return [toUserMessage(error)]
 }
 
 function withContestant(
@@ -57,7 +78,10 @@ function withContestant(
   return { ...war, contestants: war.contestants.map((c) => (c.id === contestantId ? update : c)) }
 }
 
-export function useEditWar(warId: string | undefined): { state: EditWarState } & EditWarActions {
+export function useEditWar(
+  warId: string | undefined,
+  onActivated?: (war: WarSummary) => void,
+): { state: EditWarState } & EditWarActions {
   const [state, setState] = useState<EditWarState>({ status: 'loading' })
 
   async function load(): Promise<void> {
@@ -77,6 +101,8 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
         addContestantError: null,
         contestantErrors: {},
         toast: null,
+        activating: false,
+        activateDetails: null,
       })
     } catch (error) {
       setState({ status: 'error', message: toUserMessage(error) })
@@ -180,5 +206,26 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
     await load()
   }
 
-  return { state, saveMetadata, saveContestant, addContestant, removeContestant, addImages, removeImage, moveImageUp }
+  async function activate(): Promise<void> {
+    if (!warId || state.status !== 'loaded') return
+    setLoaded((prev) => ({ ...prev, activating: true, activateDetails: null }))
+    try {
+      const activated = await activateWar(warId)
+      onActivated?.(activated)
+    } catch (error) {
+      setLoaded((prev) => ({ ...prev, activating: false, activateDetails: detailsFromActivateError(error) }))
+    }
+  }
+
+  return {
+    state,
+    saveMetadata,
+    saveContestant,
+    addContestant,
+    removeContestant,
+    addImages,
+    removeImage,
+    moveImageUp,
+    activate,
+  }
 }

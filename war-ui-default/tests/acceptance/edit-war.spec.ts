@@ -295,6 +295,82 @@ test('Changing the theme persists it', async ({ page }) => {
   expect(JSON.parse(patchCall!.body ?? '{}').theme).toBe('fight_card')
 })
 
+test('Activate is disabled with fewer than 2 contestants', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await gotoEditPage(page)
+
+  // Assert
+  await expect(page.getByTestId('activate-submit')).toBeDisabled()
+  await expect(page.getByTestId('activate-requirements')).toContainText('at least 2 contestants')
+})
+
+test('Activate is disabled when a contestant has no image', async ({ page }) => {
+  // Arrange
+  const withImage = buildContestant({ id: 'c-1', name: 'Ada' })
+  const noImage = buildContestant({ id: 'c-2', name: 'Grace', media: [] })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [withImage, noImage] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await gotoEditPage(page)
+
+  // Assert
+  await expect(page.getByTestId('activate-submit')).toBeDisabled()
+  await expect(page.getByTestId('activate-requirements')).toContainText('an image for every contestant')
+})
+
+test("Activating with the requirements met navigates to the War's vote page", async ({ page }) => {
+  // Arrange
+  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
+  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  const activated = buildWarSummary({ id: WAR_ID, status: 'active' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/activate`, responses: [{ status: 200, body: activated }] },
+    // The post-activation redirect lands on VoteMode, which joins and
+    // requests the first matchup on mount -- stub both so that page
+    // renders cleanly rather than surfacing an unrelated error.
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
+    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 204 }] },
+  ])
+  await gotoEditPage(page)
+  await expect(page.getByTestId('activate-submit')).toBeEnabled()
+
+  // Act
+  await page.getByTestId('activate-submit').click()
+
+  // Assert
+  await expect(page).toHaveURL(`/wars/${WAR_ID}/vote`)
+})
+
+test("A failed activation shows the API's validation messages", async ({ page }) => {
+  // Arrange
+  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
+  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    {
+      method: 'POST',
+      path: `${API}/wars/${WAR_ID}/activate`,
+      responses: [{ status: 422, body: { error: 'validation error', details: ['every contestant needs media'] } }],
+    },
+  ])
+  await gotoEditPage(page)
+
+  // Act
+  await page.getByTestId('activate-submit').click()
+
+  // Assert
+  await expect(page.getByTestId('activate-error')).toHaveText('every contestant needs media')
+  await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
+})
+
 test("Changing a contestant's name and bio persists both", async ({ page }) => {
   // Arrange
   const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: 'Old bio' })

@@ -11,8 +11,8 @@
 // toolbar, live preview, image gallery) top to bottom stopped being
 // navigable once a War had more than one or two contestants.
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
-import type { ContestantDetail } from '../api/client'
+import { useNavigate, useParams } from 'react-router-dom'
+import type { ContestantDetail, WarSummary } from '../api/client'
 import { Toast } from '../components/Toast'
 import { AddContestantForm } from '../editWar/AddContestantForm'
 import { EditWarContestant } from '../editWar/EditWarContestant'
@@ -25,8 +25,19 @@ type Selection = 'metadata' | 'add' | string
 
 export function EditWar() {
   const { id: warId } = useParams<{ id: string }>()
-  const { state, saveMetadata, saveContestant, addContestant, removeContestant, addImages, removeImage, moveImageUp } =
-    useEditWar(warId)
+  const navigate = useNavigate()
+  const onActivated = (activated: WarSummary) => navigate(`/wars/${activated.id}/vote`)
+  const {
+    state,
+    saveMetadata,
+    saveContestant,
+    addContestant,
+    removeContestant,
+    addImages,
+    removeImage,
+    moveImageUp,
+    activate,
+  } = useEditWar(warId, onActivated)
   const [selected, setSelected] = useState<Selection>('metadata')
   const [theme, setTheme] = useTheme(warId ?? '', state.status === 'loaded' ? state.war.theme : 'arcade')
   usePublishTheme(warId ?? '', theme, setTheme)
@@ -41,8 +52,15 @@ export function EditWar() {
     )
   }
 
-  const { war, metadataError, savingMetadata, addContestantError, contestantErrors } = state
+  const { war, metadataError, savingMetadata, addContestantError, contestantErrors, activating, activateDetails } = state
   const selectedContestant = war.contestants.find((c) => c.id === selected)
+
+  const missingForActivation: string[] = []
+  if (war.contestants.length < 2) missingForActivation.push('at least 2 contestants')
+  if (war.contestants.some((contestant) => contestant.media.length === 0)) {
+    missingForActivation.push('an image for every contestant')
+  }
+  const canActivate = missingForActivation.length === 0
 
   function handleAdded(contestant: ContestantDetail): void {
     setSelected(contestant.id)
@@ -57,6 +75,26 @@ export function EditWar() {
     <main data-theme={theme}>
       <h1>Edit {war.title || 'War'}</h1>
       <Toast message={state.toast} />
+      <div className="edit-war-activate">
+        {!canActivate && (
+          <p data-testid="activate-requirements">To activate this War, add {missingForActivation.join(' and ')}.</p>
+        )}
+        {activateDetails && (
+          <ul role="alert" data-testid="activate-error">
+            {activateDetails.map((detail) => (
+              <li key={detail}>{detail}</li>
+            ))}
+          </ul>
+        )}
+        <button
+          type="button"
+          data-testid="activate-submit"
+          disabled={!canActivate || activating}
+          onClick={() => void activate()}
+        >
+          Activate War
+        </button>
+      </div>
       <div className="edit-war-layout">
         <nav className="edit-war-nav" aria-label="War sections">
           <button
