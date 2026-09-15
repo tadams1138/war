@@ -83,7 +83,7 @@ A named voting campaign, owned by its creator.
 
 | Attribute | Notes |
 |---|---|
-| Title | Required |
+| Title | Optional at the API level — a War is identified by its id, not its title, and creation and activation both work without one. The default UI enforces a non-empty title as a soft requirement whenever it saves War metadata, but never blocks activation on it. |
 | Category | Optional; used for filtering |
 | Status | `draft` → `active` → `closed` |
 | Visibility | `public` or `invite_only` |
@@ -313,9 +313,9 @@ forgetting to apply it.
 **A voter may list their own Wars** across every status, drafts and invite-only included.
 This requires authentication and is the only thing that widens visibility.
 
-**Creation** requires a title. Category, visibility, media mode, contestant schema, theme, and
-end date are optional, with documented defaults. The War is created as a draft owned by the
-authenticated voter.
+**Creation** requires nothing but an authenticated voter — title, category, visibility, media
+mode, contestant schema, theme, and end date are all optional, with documented defaults. The
+War is created as a draft owned by the authenticated voter and can be filled in afterward.
 
 **Activation** requires at least two contestants, and every contestant to have media matching
 the War's mode — a War cannot go live with a contestant no voter can see. It generates every
@@ -620,7 +620,8 @@ against, so those tests exercise real shapes rather than believed ones.
 | War detail | Overview and contestant gallery | No |
 | Vote | Binary matchup voting | Yes |
 | Rankings | Leaderboard | No |
-| Create War | Creation wizard | Yes |
+| Create War | Creates an empty draft War and forwards to its Edit page | Yes |
+| Edit War | Metadata, contestants and media, and Activate, for a draft the voter created | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
 | Sign in | Provider selection | No |
 | Auth callback | Exchanges the refresh cookie for a token, then returns the voter where they were going | No |
@@ -729,10 +730,10 @@ theme (§4) until the voter viewing them picks a different one from the theme co
 persistent navigation header — reachable from every page, not just the themed ones. That pick
 is remembered only on the device it was made on, independently per War — it is not part of
 the voter's account, so it does not follow them to a different browser, and it never changes
-what any other voter sees. Home, My Wars, the creation wizard, and sign-in are not themed by
-any single War; they render in `arcade` until the voter picks a theme for those pages as a
-group, remembered the same way. The navigation header itself always renders in whichever
-theme the current page is showing.
+what any other voter sees. Home, My Wars, Create War, and sign-in are not themed by any single
+War; they render in `arcade` until the voter picks a theme for those pages as a group,
+remembered the same way. The navigation header itself always renders in whichever theme the
+current page is showing.
 
 **Home** browses active public Wars. Its empty state is **auth-aware**: an anonymous visitor
 is told to check back, since waiting or signing in really are their only options; an
@@ -740,30 +741,35 @@ authenticated voter is invited to create one and given a link, because they are 
 visitor who can *make* an active War exist. Telling them only to check back is not merely
 unhelpful, it omits the one action they have.
 
-**The creation wizard** calls the API at each step rather than staging everything for one
-final submit — the wizard has no draft of its own, because the War it is building *is* the
-draft. Partway abandonment leaves an unreachable draft behind at no cost. Steps: metadata,
-then contestants with their images, then review, then activate. Review lists what the wizard
-already holds, showing whether each contestant has an image rather than the image itself.
-Activation failures show the API's own validation messages, which name exactly what to fix,
-rather than generic error copy — these are addressed to the creator mid-wizard, and only the
-creator ever reaches them.
+**Create War** creates an empty draft immediately — no fields collected up front — and forwards
+straight to that draft's Edit page. There is no separate creation wizard and no review step;
+everything about a draft, including publishing it, happens on the one page. Partway
+abandonment (navigating away before the draft has a title, contestants, or is activated) leaves
+an unreachable-but-findable draft behind at no cost — My Wars finds it again.
 
 **My Wars** lists every War the voter created, most recent first, each as a full war card
 including status — a creator needs status at a glance to tell a draft from an active or closed
 War. Selecting one opens its detail page. A draft's card additionally carries an edit
 affordance — an active or closed War does not, since editing is draft-only (10.2). This page
-adds no resume or delete affordance beyond that; its empty state links to the wizard.
+adds no resume or delete affordance beyond that; its empty state links to Create War.
 
-**Editing a draft** reopens the same fields the wizard collected — title, category,
-visibility, end date, and each contestant's name, bio, and images (add, remove, reorder, up to
-the per-contestant cap) — as one page rather than a step sequence, since there is no fixed
-order left to walk once a draft already exists. It is reachable only from a draft's own My
+**Editing a draft** is one page covering everything a draft needs: title, category,
+visibility, theme, end date, each contestant's name, bio, and images (add, remove, reorder, up
+to the per-contestant cap), and **Activate**. There is no fixed order to walk since a draft
+already exists the moment this page is reachable. It is reachable only from a draft's own My
 Wars card, not from the public War detail page; identity of "this is a War I can edit" comes
 from that entry point; opening it any other way for a War that has left draft shows a
 not-editable message instead of the form.
 
-Both empty-state links to the wizard remain even though the header also carries one. An empty
+**Activate**, on that same page, is disabled with an inline reason until the War meets the
+API's own activation requirements (§6.1: at least two contestants, each with media matching the
+War's mode) — a client-side mirror of a rule the API enforces regardless, so a creator sees why
+before attempting it rather than only after a rejected request. Activating navigates to the
+War's Vote page. A failure the client-side check didn't catch (a race, a network error) shows
+the API's own validation messages verbatim, never generic error copy — these are addressed to
+the creator, and only the creator ever reaches them.
+
+Both empty-state links to Create War remain even though the header also carries one. An empty
 state is a page's *entire* visible content at that moment, and the one visitor with something
 to do there should find that action in the content rather than having to look away to the
 header.
