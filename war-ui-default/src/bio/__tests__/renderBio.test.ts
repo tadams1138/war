@@ -34,6 +34,30 @@ describe('renderBio', () => {
     expect(result).toContain('<em>great</em>')
   })
 
+  it('renders # heading as <h1>', () => {
+    // Arrange / Act
+    const result = renderBio('# Reigning Champion')
+
+    // Assert
+    expect(result).toContain('<h1>Reigning Champion</h1>')
+  })
+
+  it('renders ## heading as <h2>', () => {
+    // Arrange / Act
+    const result = renderBio('## Early Life')
+
+    // Assert
+    expect(result).toContain('<h2>Early Life</h2>')
+  })
+
+  it('renders ### heading as <h3>', () => {
+    // Arrange / Act
+    const result = renderBio('### Trivia')
+
+    // Assert
+    expect(result).toContain('<h3>Trivia</h3>')
+  })
+
   it('renders a markdown bullet list as <ul><li>', () => {
     // Arrange / Act
     const result = renderBio('- Tall\n- Friendly')

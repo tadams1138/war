@@ -2,14 +2,23 @@
 // textarea's current value and selection, returns the new value and the
 // selection to apply afterward. Kept free of any DOM/React dependency so
 // it's unit-testable on its own (the spec's constrained bio
-// markdown subset — bold, italic, lists, links — not full markdown).
+// markdown subset — bold, italic, lists, links, headings — not full
+// markdown).
 
 export interface TextSelection {
   start: number
   end: number
 }
 
-export type BioFormatMarker = 'bold' | 'italic' | 'bulletList' | 'numberedList' | 'link'
+export type BioFormatMarker =
+  | 'bold'
+  | 'italic'
+  | 'bulletList'
+  | 'numberedList'
+  | 'link'
+  | 'heading1'
+  | 'heading2'
+  | 'heading3'
 
 export interface FormatResult {
   text: string
@@ -37,6 +46,9 @@ const FORMATTERS: Record<BioFormatMarker, (text: string, selection: TextSelectio
   link: insertLink,
   bulletList: (text, selection) => prefixLines(text, selection, () => '- '),
   numberedList: (text, selection) => prefixLines(text, selection, (lineIndex) => `${lineIndex + 1}. `),
+  heading1: (text, selection) => prefixLines(text, selection, () => '# '),
+  heading2: (text, selection) => prefixLines(text, selection, () => '## '),
+  heading3: (text, selection) => prefixLines(text, selection, () => '### '),
 }
 
 export function applyBioFormat(text: string, selection: TextSelection, marker: BioFormatMarker): FormatResult {

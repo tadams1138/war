@@ -108,10 +108,11 @@ freshness only.
 A participant in a War: a name, an optional bio, media appropriate to the War's media mode,
 and values for the fields the War's schema declares.
 
-A bio supports a constrained set of formatting — emphasis, lists, and links — entered as
-plain text and rendered accordingly wherever a bio is shown; nothing else survives rendering,
-so no other markup a bio contains can affect the page around it. It is never shown on a vote
-card (10.3) — a fast binary choice has no room for it — only on the War's detail page.
+A bio supports a constrained set of formatting — emphasis, lists, links, and headings —
+entered as plain text and rendered accordingly wherever a bio is shown; nothing else survives
+rendering, so no other markup a bio contains can affect the page around it. It is never shown
+on a vote card (10.3) — a fast binary choice has no room for it — only on the War's detail
+page.
 
 ### Contestant Schema
 
