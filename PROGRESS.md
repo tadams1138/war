@@ -132,6 +132,13 @@ with an auth-aware Home empty state. Live in staging and production.
   of closing it.
 - **Deleting a War.** No delete capability exists anywhere for a War itself, draft or active —
   not in the UI, not in the API (`DELETE /wars/:id` isn't a route).
+- **Activating a draft left behind mid-wizard.** Activate only exists as the Create War
+  wizard's Review step. My Wars finds an abandoned draft and links to Edit War, but Edit War
+  has no Activate affordance — only metadata/contestant field edits. A creator who leaves the
+  wizard before Activate currently has no way to finish activating that draft.
+- **War backup export/import.** Export a draft War (metadata + contestants + bios + images, no
+  votes) to a local file for backup/testing; import that file to recreate a War. Likely a zip
+  (JSON manifest + image files) rather than raw JSON, since images must round-trip too.
 
 ---
 
