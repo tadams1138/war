@@ -12,6 +12,12 @@ Feature: War Creation
     Then a new War is created in "draft" status
     And its title is null
 
+  Scenario: An empty-string title is rejected
+    Given an authenticated voter
+    When they POST to /api/v1/wars with an empty-string title
+    Then the response status is 422
+    And no War is created
+
   Scenario: An unauthenticated request cannot create a War
     Given a request with no Authorization header
     When they POST to /api/v1/wars

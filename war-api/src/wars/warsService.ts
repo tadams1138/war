@@ -36,8 +36,8 @@ export async function createWarForVoter(db: Kysely<Database>, input: CreateWarIn
   const errors: string[] = [];
 
   if (input.title !== undefined && input.title !== null) {
-    if (typeof input.title !== 'string' || input.title.length > 256) {
-      errors.push('title must be a string of at most 256 characters');
+    if (typeof input.title !== 'string' || input.title.length === 0 || input.title.length > 256) {
+      errors.push('title must be a non-empty string of at most 256 characters');
     }
   }
 

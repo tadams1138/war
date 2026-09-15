@@ -74,6 +74,29 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario('An empty-string title is rejected', ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('an authenticated voter', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+    });
+
+    When('they POST to /api/v1/wars with an empty-string title', async () => {
+      response = await authedPost(creatorId, '/api/v1/wars', { title: '' });
+    });
+
+    Then('the response status is 422', () => {
+      expect(response.status).toBe(422);
+    });
+
+    And('no War is created', async () => {
+      const rows = await harness.db.selectFrom('wars').selectAll().where('creator_id', '=', creatorId).execute();
+      expect(rows).toHaveLength(0);
+    });
+  });
+
   Scenario('An unauthenticated request cannot create a War', ({ Given, When, Then }) => {
     let response: request.Response;
 
