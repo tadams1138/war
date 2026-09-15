@@ -182,6 +182,54 @@ test('Changing the title persists it', async ({ page }) => {
   expect(JSON.parse(patchCall!.body ?? '{}')).toMatchObject({ title: 'New Title' })
 })
 
+test('Saving metadata shows a success toast that disappears on its own', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', title: 'Old Title' })
+  const patched = buildWarSummary({ id: WAR_ID, status: 'draft', title: 'New Title' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: patched }] },
+  ])
+  await gotoEditPage(page)
+
+  // Act
+  await page.getByTestId('edit-war-title-input').fill('New Title')
+  await page.getByTestId('edit-war-metadata-submit').click()
+
+  // Assert
+  const toast = page.getByTestId('toast')
+  await expect(toast).toBeVisible()
+  await expect(toast).toHaveText('War details saved')
+  await expect(toast).toBeHidden()
+})
+
+test("Saving a contestant shows a success toast", async ({ page }) => {
+  // Arrange
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: 'Old bio' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
+  const patchedContestant = buildContestant({ id: 'c-1', name: 'Ada Lovelace', bio: 'Old bio' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    {
+      method: 'PATCH',
+      path: `${API}/wars/${WAR_ID}/contestants/c-1`,
+      responses: [{ status: 200, body: patchedContestant }],
+    },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-contestant-name-input').fill('Ada Lovelace')
+  await item.getByTestId('edit-war-contestant-submit').click()
+
+  // Assert
+  const toast = page.getByTestId('toast')
+  await expect(toast).toBeVisible()
+  await expect(toast).toHaveText('Contestant saved')
+})
+
 test('A blank title shows a validation error', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', title: 'Old Title' })

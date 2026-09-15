@@ -50,6 +50,14 @@
    as an input, not the bare page background: it keeps the link colors
    below legible in every theme regardless of *where* a bio happens to
    render, and reads as a distinct "this is the bio" region either way. */
+[data-theme] .contestant-gallery-item {
+  background: var(--t-surface);
+  color: var(--t-text-on-surface, var(--t-text));
+  border: 1px solid var(--t-accent2);
+  border-radius: 4px;
+  padding: 0.6rem;
+}
+
 [data-theme] .bio-content {
   background: var(--t-surface);
   color: var(--t-text-on-surface, var(--t-text));
@@ -65,6 +73,9 @@
    invisible as a list or a link. Restored here, not undone globally: the
    rest of the app deliberately keeps its own chrome (nav, buttons) free of
    native list/link styling. */
+[data-theme] .bio-content p {
+  margin: 0 0 0.6em;
+}
 [data-theme] .bio-content ul {
   list-style: disc;
   padding-left: 1.5rem;

@@ -28,6 +28,9 @@ export interface EditWarLoadedState {
   // Keyed by contestant id -- each contestant's own save can fail
   // independently of every other's, and of the metadata form's.
   contestantErrors: Record<string, string | null>
+  // Set on a successful metadata or contestant save; Toast owns clearing
+  // its own visibility, so this never needs to be reset back to null.
+  toast: string | null
 }
 
 export type EditWarState =
@@ -73,6 +76,7 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
         savingMetadata: false,
         addContestantError: null,
         contestantErrors: {},
+        toast: null,
       })
     } catch (error) {
       setState({ status: 'error', message: toUserMessage(error) })
@@ -92,7 +96,7 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
     setLoaded((prev) => ({ ...prev, savingMetadata: true, metadataError: null }))
     try {
       const summary = await patchWar(warId, payload)
-      setLoaded((prev) => ({ ...prev, war: { ...prev.war, ...summary }, savingMetadata: false }))
+      setLoaded((prev) => ({ ...prev, war: { ...prev.war, ...summary }, savingMetadata: false, toast: 'War details saved' }))
     } catch (error) {
       setLoaded((prev) => ({ ...prev, savingMetadata: false, metadataError: toUserMessage(error) }))
     }
@@ -103,7 +107,7 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
     setLoaded((prev) => ({ ...prev, contestantErrors: { ...prev.contestantErrors, [contestantId]: null } }))
     try {
       const contestant = await patchContestant(warId, contestantId, payload)
-      setLoaded((prev) => ({ ...prev, war: withContestant(prev.war, contestantId, contestant) }))
+      setLoaded((prev) => ({ ...prev, war: withContestant(prev.war, contestantId, contestant), toast: 'Contestant saved' }))
     } catch (error) {
       setLoaded((prev) => ({
         ...prev,

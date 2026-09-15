@@ -23,7 +23,7 @@ export function WarDetail() {
     <main data-theme={theme}>
       <h1>{war.title}</h1>
       {war.category && <p>{war.category}</p>}
-      <ul>
+      <ul className="contestant-gallery">
         {war.contestants.map((contestant) => (
           <li key={contestant.id}>
             <ContestantGalleryItem contestant={contestant} />
@@ -36,7 +36,7 @@ export function WarDetail() {
 
 function ContestantGalleryItem({ contestant }: { contestant: ContestantDetail }) {
   return (
-    <div data-testid="contestant-gallery-item">
+    <div data-testid="contestant-gallery-item" className="contestant-gallery-item">
       <ContestantThumbnail media={contestant.media} name={contestant.name} />
       <h2>{contestant.name}</h2>
       <BioContent bio={contestant.bio} />
