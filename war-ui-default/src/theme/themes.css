@@ -77,6 +77,25 @@
   text-decoration: underline;
 }
 
+/* Tailwind's base reset sets every heading to font-size/font-weight:
+   inherit, so a rendered bio's <h1>/<h2>/<h3> looked identical to a plain
+   paragraph -- structurally correct markup, invisible as a heading. */
+[data-theme] .bio-content h1,
+[data-theme] .bio-content h2,
+[data-theme] .bio-content h3 {
+  font-weight: 700;
+  margin: 0.6em 0 0.3em;
+}
+[data-theme] .bio-content h1 {
+  font-size: 1.5em;
+}
+[data-theme] .bio-content h2 {
+  font-size: 1.25em;
+}
+[data-theme] .bio-content h3 {
+  font-size: 1.1em;
+}
+
 /* Icon-only toolbar buttons need square, compact sizing distinct from a
    text button's per-theme padding/shadow below — the [data-theme] prefix
    isn't for color here, it's to out-specificity those per-theme `button`

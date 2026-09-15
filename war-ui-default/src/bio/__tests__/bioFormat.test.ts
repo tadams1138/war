@@ -73,6 +73,44 @@ describe('applyBioFormat', () => {
     })
   })
 
+  describe('heading1/heading2/heading3', () => {
+    it('prefixes a selected line with "# " for heading1', () => {
+      // Arrange
+      const text = 'Miss Congeniality'
+      const selection = { start: 0, end: text.length }
+
+      // Act
+      const result = applyBioFormat(text, selection, 'heading1')
+
+      // Assert
+      expect(result.text).toBe('# Miss Congeniality')
+    })
+
+    it('prefixes a selected line with "## " for heading2', () => {
+      // Arrange
+      const text = 'Bio'
+      const selection = { start: 0, end: text.length }
+
+      // Act
+      const result = applyBioFormat(text, selection, 'heading2')
+
+      // Assert
+      expect(result.text).toBe('## Bio')
+    })
+
+    it('prefixes a selected line with "### " for heading3', () => {
+      // Arrange
+      const text = 'Bio'
+      const selection = { start: 0, end: text.length }
+
+      // Act
+      const result = applyBioFormat(text, selection, 'heading3')
+
+      // Assert
+      expect(result.text).toBe('### Bio')
+    })
+  })
+
   describe('bulletList', () => {
     it('prefixes a single selected line with "- "', () => {
       // Arrange

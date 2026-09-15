@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import {
   addContestant as addContestantApi,
+  deleteContestant as deleteContestantApi,
   deleteContestantMedia,
   getWar,
   patchContestant,
@@ -39,6 +40,7 @@ export interface EditWarActions {
   saveMetadata: (payload: PatchWarPayload) => Promise<void>
   saveContestant: (contestantId: string, payload: PatchContestantPayload) => Promise<void>
   addContestant: (name: string, bio: string | null) => Promise<ContestantDetail | null>
+  removeContestant: (contestantId: string) => Promise<void>
   addImages: (contestantId: string, files: File[]) => Promise<void>
   removeImage: (contestantId: string, mediaId: string) => Promise<void>
   moveImageUp: (contestantId: string, mediaId: string) => Promise<void>
@@ -123,6 +125,20 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
     }
   }
 
+  async function removeContestant(contestantId: string): Promise<void> {
+    if (!warId || state.status !== 'loaded') return
+    await deleteContestantApi(warId, contestantId)
+    setLoaded((prev) => {
+      const contestantErrors = { ...prev.contestantErrors }
+      delete contestantErrors[contestantId]
+      return {
+        ...prev,
+        war: { ...prev.war, contestants: prev.war.contestants.filter((c) => c.id !== contestantId) },
+        contestantErrors,
+      }
+    })
+  }
+
   // Image mutations all reload the whole War afterward rather than
   // patching local state by hand: the upload response carries no URL
   // (war-api, `POST .../images` returns only `{ id, display_order }`), so a
@@ -160,5 +176,5 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
     await load()
   }
 
-  return { state, saveMetadata, saveContestant, addContestant, addImages, removeImage, moveImageUp }
+  return { state, saveMetadata, saveContestant, addContestant, removeContestant, addImages, removeImage, moveImageUp }
 }

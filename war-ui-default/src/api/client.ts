@@ -309,6 +309,13 @@ export async function patchContestant(
   return response.json() as Promise<ContestantDetail>
 }
 
+export async function deleteContestant(warId: string, contestantId: string): Promise<void> {
+  await ensureOk(
+    await apiFetch(`/wars/${warId}/contestants/${contestantId}`, { method: 'DELETE' }),
+    classifyEditForbidden,
+  )
+}
+
 export async function reorderContestantMedia(
   warId: string,
   contestantId: string,

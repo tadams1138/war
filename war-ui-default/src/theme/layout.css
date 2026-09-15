@@ -98,6 +98,14 @@ label {
     flex: 1 1 0;
     max-width: none;
   }
+  /* The generic `form { max-width: 32rem }` above exists for short
+     text-input forms; it also caps EditWar's contestant form, which
+     otherwise blocks the two-column bio editor above from ever using the
+     width the ≥900px rule just gave it -- the row layout still rendered,
+     just squeezed into the same 32rem the Name field alone needs. */
+  form:has(.bio-editor) {
+    max-width: none;
+  }
 }
 
 .image-gallery {

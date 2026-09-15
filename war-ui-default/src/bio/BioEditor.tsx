@@ -18,6 +18,30 @@ interface BioEditorProps {
 // text labels ("Bold", "Italic", ...) read as an unstyled placeholder
 // toolbar; the accessible name moves to aria-label on the button itself.
 const ICONS: Record<BioFormatMarker, ReactElement> = {
+  heading1: (
+    <svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M2.5 3.5v11M8 3.5v11M2.5 9H8" strokeLinecap="round" />
+      <text x="10.5" y="12.5" fontSize="7" fill="currentColor" stroke="none">
+        1
+      </text>
+    </svg>
+  ),
+  heading2: (
+    <svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M2.5 3.5v11M8 3.5v11M2.5 9H8" strokeLinecap="round" />
+      <text x="10" y="12.5" fontSize="7" fill="currentColor" stroke="none">
+        2
+      </text>
+    </svg>
+  ),
+  heading3: (
+    <svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M2.5 3.5v11M8 3.5v11M2.5 9H8" strokeLinecap="round" />
+      <text x="10" y="12.5" fontSize="7" fill="currentColor" stroke="none">
+        3
+      </text>
+    </svg>
+  ),
   bold: (
     <svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
       <path d="M5 3h5a3 3 0 0 1 0 6H5V3Zm0 6h5.5a3.2 3.2 0 0 1 0 6H5V9Z" strokeLinejoin="round" />
@@ -58,6 +82,9 @@ const ICONS: Record<BioFormatMarker, ReactElement> = {
 }
 
 const TOOLBAR_BUTTONS: { marker: BioFormatMarker; label: string; testId: string }[] = [
+  { marker: 'heading1', label: 'Heading 1', testId: 'bio-format-heading1' },
+  { marker: 'heading2', label: 'Heading 2', testId: 'bio-format-heading2' },
+  { marker: 'heading3', label: 'Heading 3', testId: 'bio-format-heading3' },
   { marker: 'bold', label: 'Bold', testId: 'bio-format-bold' },
   { marker: 'italic', label: 'Italic', testId: 'bio-format-italic' },
   { marker: 'bulletList', label: 'Bullet list', testId: 'bio-format-bullet-list' },
@@ -108,6 +135,17 @@ export function BioEditor({ value, onChange }: BioEditorProps) {
           value={value}
           onChange={(event) => onChange(event.target.value)}
         />
+        {/* Names the actual renderer (renderBio.ts) rather than linking
+            generic Markdown docs -- marked parses full CommonMark, but only
+            bold/italic/lists/links/headings survive renderBio's DOMPurify
+            allow-list, so anything else typed here silently does nothing. */}
+        <p className="bio-editor-hint">
+          Formatted with{' '}
+          <a href="https://marked.js.org/demo/" target="_blank" rel="noreferrer" data-testid="bio-syntax-link">
+            marked
+          </a>{' '}
+          — only bold, italic, lists, links, and headings are supported.
+        </p>
       </div>
       {/* Live, on large screens only (CSS): reuses the same tested
           renderBio a saved bio goes through on WarDetail, so this can never

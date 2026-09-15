@@ -14,6 +14,7 @@ interface EditWarContestantProps {
   contestant: ContestantDetail
   error: string | null
   onSave: (payload: { name: string; bio: string | null }) => Promise<void>
+  onRemove: () => void
   onAddImages: (files: File[]) => void
   onRemoveImage: (mediaId: string) => void
   onMoveImageUp: (mediaId: string) => void
@@ -23,6 +24,7 @@ export function EditWarContestant({
   contestant,
   error,
   onSave,
+  onRemove,
   onAddImages,
   onRemoveImage,
   onMoveImageUp,
@@ -55,6 +57,9 @@ export function EditWarContestant({
           from the editable field below (mirrors createWar/ContestantsStep's
           <span>{contestant.name}</span> next to its own name input). */}
       <h3>{contestant.name}</h3>
+      <button type="button" data-testid="edit-war-contestant-remove" onClick={onRemove}>
+        Remove contestant
+      </button>
       <form onSubmit={handleSubmit}>
         <label>
           Name

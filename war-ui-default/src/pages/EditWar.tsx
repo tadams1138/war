@@ -24,7 +24,8 @@ type Selection = 'metadata' | 'add' | string
 
 export function EditWar() {
   const { id: warId } = useParams<{ id: string }>()
-  const { state, saveMetadata, saveContestant, addContestant, addImages, removeImage, moveImageUp } = useEditWar(warId)
+  const { state, saveMetadata, saveContestant, addContestant, removeContestant, addImages, removeImage, moveImageUp } =
+    useEditWar(warId)
   const [selected, setSelected] = useState<Selection>('metadata')
   const [theme, setTheme] = useTheme(warId ?? '', state.status === 'loaded' ? state.war.theme : 'arcade')
   usePublishTheme(warId ?? '', theme, setTheme)
@@ -44,6 +45,11 @@ export function EditWar() {
 
   function handleAdded(contestant: ContestantDetail): void {
     setSelected(contestant.id)
+  }
+
+  async function handleRemove(contestantId: string): Promise<void> {
+    await removeContestant(contestantId)
+    setSelected('metadata')
   }
 
   return (
@@ -92,9 +98,11 @@ export function EditWar() {
           {selectedContestant && (
             <ul>
               <EditWarContestant
+                key={selectedContestant.id}
                 contestant={selectedContestant}
                 error={contestantErrors[selectedContestant.id] ?? null}
                 onSave={(payload) => saveContestant(selectedContestant.id, payload)}
+                onRemove={() => void handleRemove(selectedContestant.id)}
                 onAddImages={(files) => void addImages(selectedContestant.id, files)}
                 onRemoveImage={(mediaId) => void removeImage(selectedContestant.id, mediaId)}
                 onMoveImageUp={(mediaId) => void moveImageUp(selectedContestant.id, mediaId)}

@@ -72,6 +72,57 @@ test('Selecting a contestant shows its editor and hides Metadata; only one secti
   await expect(page.getByTestId('edit-war-contestant').filter({ hasText: 'Grace' })).toBeVisible()
 })
 
+test('Switching to a different contestant shows fresh field values, not the previous selection', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [
+      buildContestant({ id: 'c-1', name: 'Ada', bio: 'Ada bio' }),
+      buildContestant({ id: 'c-2', name: 'Grace', bio: 'Grace bio' }),
+    ],
+  })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const adaItem = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act — edit Ada's fields without saving, then switch to Grace
+  await adaItem.getByTestId('edit-war-contestant-name-input').fill('Ada X')
+  await adaItem.getByTestId('bio-textarea').fill('Ada scratch bio')
+  await selectContestant(page, 'Grace')
+
+  // Assert — Grace's own values show, not leftover edits from Ada
+  const graceItem = page.getByTestId('edit-war-contestant').filter({ hasText: 'Grace' })
+  await expect(graceItem.getByTestId('edit-war-contestant-name-input')).toHaveValue('Grace')
+  await expect(graceItem.getByTestId('bio-textarea')).toHaveValue('Grace bio')
+})
+
+test('Removing a contestant deletes it and returns to Metadata', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1`, responses: [{ status: 204 }] },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-contestant-remove').click()
+
+  // Assert
+  await expect(page.getByTestId('edit-war-nav-contestant').filter({ hasText: 'Ada' })).toHaveCount(0)
+  await expect(page.getByTestId('edit-war-contestant')).toHaveCount(0)
+  const calls = await getCallLog(page)
+  expect(calls.some((c) => c.method === 'DELETE' && c.url.endsWith('/contestants/c-1'))).toBe(true)
+})
+
 test('Add contestant shows a form; submitting adds it to the nav and selects it', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [] })
@@ -224,6 +275,28 @@ test('The bio toolbar wraps the selected text in the right markdown syntax', asy
   await expect(textarea).toHaveValue('**brilliant**')
 })
 
+test('The heading toolbar buttons insert markdown headers rendered in the preview', async ({ page }) => {
+  // Arrange
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+  const textarea = item.getByTestId('bio-textarea')
+  const preview = item.getByTestId('bio-preview')
+
+  // Act
+  await textarea.fill('Champion')
+  await textarea.click()
+  await page.keyboard.press('ControlOrMeta+a')
+  await item.getByTestId('bio-format-heading1').click()
+
+  // Assert
+  await expect(textarea).toHaveValue('# Champion')
+  await expect(preview.locator('.bio-content h1')).toHaveText('Champion')
+})
+
 test('The bio editor shows a live preview that updates as the bio changes', async ({ page }) => {
   // Arrange
   const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
@@ -239,6 +312,21 @@ test('The bio editor shows a live preview that updates as the bio changes', asyn
 
   // Assert — no save required; the preview reflects the textarea live
   await expect(preview.locator('strong')).toHaveText('great')
+})
+
+test('The bio editor links to the markdown renderer and its syntax reference', async ({ page }) => {
+  // Arrange
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Assert
+  const syntaxLink = item.getByTestId('bio-syntax-link')
+  await expect(syntaxLink).toBeVisible()
+  await expect(syntaxLink).toHaveAttribute('href', 'https://marked.js.org/demo/')
 })
 
 test('The bio preview renders bullet and numbered lists, and links with a visible indicator', async ({ page }) => {

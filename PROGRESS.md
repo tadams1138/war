@@ -81,19 +81,30 @@ with an auth-aware Home empty state. Live in staging and production.
   branding" sections). Since fixed: the nav bar wasn't actually right-aligned despite the
   design calling for it, and the theme `<select>` inherited a theme's (light) text color onto
   the browser's own (white) control background, unreadable in every theme.
-- **Editing a draft War.** `PATCH /wars/:id` and `PATCH /wars/:id/contestants/:cId` (both
-  already draft-only, creator-only server-side) now have a UI route, `/wars/:id/edit`,
-  reachable from a draft's own My Wars card. Covers title/category/visibility/end date, and
-  each contestant's name, bio, and image gallery (add, remove, reorder, up to the ten-image
-  cap) — the media reorder/delete routes gained UI callers too. The three PATCH/DELETE routes
-  also gained OpenAPI request/response schemas (previously undocumented, `requestBody: never`
-  in the generated client) so the new client functions are properly typed. Editing an active
-  War remains out of scope — the API still 403s any PATCH once a War leaves draft, by design.
+- **Editing a draft War.** `PATCH /wars/:id`, `PATCH /wars/:id/contestants/:cId`, and
+  `DELETE /wars/:id/contestants/:cId` (all already draft-only, creator-only server-side) now
+  have a UI route, `/wars/:id/edit`, reachable from a draft's own My Wars card. Covers
+  title/category/visibility/end date, and each contestant's name, bio, image gallery (add,
+  remove, reorder, up to the ten-image cap), and outright removal — the media reorder/delete
+  and contestant-delete routes all gained UI callers. The PATCH/DELETE routes also gained
+  OpenAPI request/response schemas (previously undocumented, `requestBody: never` in the
+  generated client) so the new client functions are properly typed. Editing an active War
+  remains out of scope — the API still 403s any PATCH once a War leaves draft, by design.
+  Fixed along the way: `EditWarContestant` had no `key` prop, so React reused the same
+  component instance across selections and its `useState`-seeded fields never picked up the
+  newly selected contestant's data — switching the nav selection left stale name/bio values on
+  screen.
 - **Contestant bio formatting.** A constrained markdown subset — bold, italic, bullet/numbered
-  lists, links — entered via a small toolbar (`BioEditor`) and rendered sanitized
-  (`marked` + `DOMPurify`, allow-listing exactly those elements) via `BioContent`. Storage is
-  unchanged (`bio` stays a plain `TEXT` column holding markdown source — no schema change).
-  Now rendered on War Detail, closing the "write-only" gap this used to be.
+  lists, links, and headings (`#`/`##`/`###`) — entered via a small toolbar (`BioEditor`) and
+  rendered sanitized (`marked` + `DOMPurify`, allow-listing exactly those elements) via
+  `BioContent`. Storage is unchanged (`bio` stays a plain `TEXT` column holding markdown source
+  — no schema change). Now rendered on War Detail, closing the "write-only" gap this used to
+  be. The editor links to marked's own interactive demo (the actual renderer in use, and more
+  approachable than its docs for someone unfamiliar with markdown) alongside a note that only
+  that subset survives the sanitizer's allow-list. The two-column editor/preview layout
+  was also boxed in by the generic `form { max-width: 32rem }` rule meant for short text-input
+  forms; `form:has(.bio-editor)` now drops that cap at the ≥900px breakpoint so it uses the
+  space the row layout already gave it.
 - **Wizard multi-image fix.** CreateWar's Contestants step used to hide its file input forever
   after a contestant's first successful image upload (`hasImage: boolean`); it now tracks a
   count and keeps offering the input up to the ten-image cap, matching what the API always
@@ -107,8 +118,7 @@ with an auth-aware Home empty state. Live in staging and production.
   fairness during voting); no UI or API path exists to change anything about a live War short
   of closing it.
 - **Deleting a War.** No delete capability exists anywhere for a War itself, draft or active —
-  not in the UI, not in the API (`DELETE /wars/:id` isn't a route). Contestant-level delete
-  still has no UI caller either (only its own media's delete/reorder do, via EditWar).
+  not in the UI, not in the API (`DELETE /wars/:id` isn't a route).
 
 ---
 
