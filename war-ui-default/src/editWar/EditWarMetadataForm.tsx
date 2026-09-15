@@ -1,10 +1,11 @@
 // EditWar's War-metadata form. Rendering only -- state and the PATCH call
-// live in useEditWar. Mirrors CreateWar's MetadataStep field set except
-// theme, which PATCH /wars/:id does not accept (war-api,
-// warsService.ts's PatchWarInput) -- a War's theme is chosen once, at
-// creation, and stays wizard-only.
+// live in useEditWar. Theme now lives here too (moved off the deleted
+// creation wizard, the spec's "Create War"/"Editing a draft") — a draft's
+// theme is editable the same way every other field here is, since there is
+// no longer a one-time wizard step to set it at creation instead.
 import { useState, type FormEvent } from 'react'
 import type { PatchWarPayload, WarDetailResponse } from '../api/client'
+import { THEME_LABELS, THEMES, type Theme } from '../theme/themeCookie'
 
 interface EditWarMetadataFormProps {
   war: WarDetailResponse
@@ -14,9 +15,10 @@ interface EditWarMetadataFormProps {
 }
 
 export function EditWarMetadataForm({ war, error, saving, onSave }: EditWarMetadataFormProps) {
-  const [title, setTitle] = useState(war.title)
+  const [title, setTitle] = useState(war.title ?? '')
   const [category, setCategory] = useState(war.category ?? '')
   const [visibility, setVisibility] = useState<'public' | 'invite_only'>(war.visibility)
+  const [theme, setTheme] = useState<Theme>(war.theme as Theme)
   const [endsAt, setEndsAt] = useState(war.ends_at ? war.ends_at.slice(0, 10) : '')
   const [titleRequiredError, setTitleRequiredError] = useState<string | null>(null)
 
@@ -33,6 +35,7 @@ export function EditWarMetadataForm({ war, error, saving, onSave }: EditWarMetad
       title,
       category: category.length > 0 ? category : null,
       visibility,
+      theme,
       ends_at: endsAt.length > 0 ? new Date(endsAt).toISOString() : null,
     })
   }
@@ -60,6 +63,20 @@ export function EditWarMetadataForm({ war, error, saving, onSave }: EditWarMetad
         >
           <option value="public">Public</option>
           <option value="invite_only">Invite only</option>
+        </select>
+      </label>
+      <label>
+        Theme
+        <select
+          data-testid="edit-war-theme-select"
+          value={theme}
+          onChange={(event) => setTheme(event.target.value as Theme)}
+        >
+          {THEMES.map((option) => (
+            <option key={option} value={option}>
+              {THEME_LABELS[option]}
+            </option>
+          ))}
         </select>
       </label>
       <label>
