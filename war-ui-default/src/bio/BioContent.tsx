@@ -10,5 +10,5 @@ interface BioContentProps {
 export function BioContent({ bio }: BioContentProps) {
   const html = renderBio(bio)
   if (!html) return null
-  return <div data-testid="contestant-bio" dangerouslySetInnerHTML={{ __html: html }} />
+  return <div className="bio-content" data-testid="contestant-bio" dangerouslySetInnerHTML={{ __html: html }} />
 }

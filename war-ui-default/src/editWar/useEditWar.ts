@@ -4,6 +4,7 @@
 // useCreateWarWizard's split for the same reason.
 import { useEffect, useState } from 'react'
 import {
+  addContestant as addContestantApi,
   deleteContestantMedia,
   getWar,
   patchContestant,
@@ -22,6 +23,7 @@ export interface EditWarLoadedState {
   war: WarDetailResponse
   metadataError: string | null
   savingMetadata: boolean
+  addContestantError: string | null
   // Keyed by contestant id -- each contestant's own save can fail
   // independently of every other's, and of the metadata form's.
   contestantErrors: Record<string, string | null>
@@ -36,6 +38,7 @@ export type EditWarState =
 export interface EditWarActions {
   saveMetadata: (payload: PatchWarPayload) => Promise<void>
   saveContestant: (contestantId: string, payload: PatchContestantPayload) => Promise<void>
+  addContestant: (name: string, bio: string | null) => Promise<ContestantDetail | null>
   addImages: (contestantId: string, files: File[]) => Promise<void>
   removeImage: (contestantId: string, mediaId: string) => Promise<void>
   moveImageUp: (contestantId: string, mediaId: string) => Promise<void>
@@ -61,7 +64,14 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
         setState({ status: 'notEditable' })
         return
       }
-      setState({ status: 'loaded', war, metadataError: null, savingMetadata: false, contestantErrors: {} })
+      setState({
+        status: 'loaded',
+        war,
+        metadataError: null,
+        savingMetadata: false,
+        addContestantError: null,
+        contestantErrors: {},
+      })
     } catch (error) {
       setState({ status: 'error', message: toUserMessage(error) })
     }
@@ -97,6 +107,19 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
         ...prev,
         contestantErrors: { ...prev.contestantErrors, [contestantId]: toUserMessage(error) },
       }))
+    }
+  }
+
+  async function addContestant(name: string, bio: string | null): Promise<ContestantDetail | null> {
+    if (!warId || state.status !== 'loaded') return null
+    setLoaded((prev) => ({ ...prev, addContestantError: null }))
+    try {
+      const contestant = await addContestantApi(warId, { name, bio })
+      setLoaded((prev) => ({ ...prev, war: { ...prev.war, contestants: [...prev.war.contestants, contestant] } }))
+      return contestant
+    } catch (error) {
+      setLoaded((prev) => ({ ...prev, addContestantError: toUserMessage(error) }))
+      return null
     }
   }
 
@@ -137,5 +160,5 @@ export function useEditWar(warId: string | undefined): { state: EditWarState } &
     await load()
   }
 
-  return { state, saveMetadata, saveContestant, addImages, removeImage, moveImageUp }
+  return { state, saveMetadata, saveContestant, addContestant, addImages, removeImage, moveImageUp }
 }

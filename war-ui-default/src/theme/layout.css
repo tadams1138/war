@@ -9,6 +9,183 @@
   text-decoration: none;
 }
 
+/* #app is the real DOM root (index.html); making it a full-height flex
+   column and letting the active page's <main> absorb the remaining space
+   is what makes a theme's background reach the bottom of the viewport
+   instead of stopping at its own (short) content height, leaving the
+   browser's default white below it on every page that isn't tall enough
+   to fill the screen on its own. */
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main[data-theme] {
+  flex: 1 0 auto;
+}
+
+/* Every <form> in the app (CreateWar, EditWar) gets the same stacked,
+   spaced, readable-width treatment — none had any layout at all before
+   this, so labels and fields ran together on one line with no visible
+   field boundaries (border color/surface come from themes.css). */
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  max-width: 32rem;
+}
+
+/* Not scoped to `form label` — a contestant's image-upload label sits
+   outside the name/bio <form> in both CreateWar and EditWar (it triggers
+   its own immediate upload, not a field the form submits), so it needs the
+   same stacked treatment every other label gets. */
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  max-width: 32rem;
+  font-weight: 600;
+}
+
+/* Any row of adjacent buttons/links — the bio-formatting toolbar, an image
+   gallery item's Remove/Move-up — needs visible separation between them or
+   each theme's button styling (background + shadow, no gap of its own)
+   fuses neighbors into one unreadable block. */
+.bio-editor-toolbar,
+.image-gallery-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Bio editor: stacked (editor above, live preview below) until there's
+   room for both side by side — a preview only the width of a phone isn't
+   worth having, but a laptop-width screen can show both without either
+   feeling cramped. */
+.bio-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+.bio-editor-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 32rem;
+}
+.bio-editor-input textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.bio-editor-preview {
+  width: 100%;
+  max-width: 32rem;
+  min-height: 3rem;
+}
+@media (min-width: 900px) {
+  .bio-editor {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .bio-editor-input,
+  .bio-editor-preview {
+    flex: 1 1 0;
+    max-width: none;
+  }
+}
+
+.image-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+
+.image-gallery-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.image-gallery-item img {
+  width: 6rem;
+  height: 6rem;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.wizard-contestant-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* EditWar's two-pane layout: a nav list stacked above its detail pane on a
+   phone, side by side once there's room (matches the bio editor's own
+   900px breakpoint for showing its live preview alongside the textarea). */
+.edit-war-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+.edit-war-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  /* Capped at every width, not just the >=900px two-pane view: Fight
+     Card's slanted button clip-path is percentage-based, so its diagonal
+     cut grows in step with the button's own width — on an uncapped
+     full-bleed nav (a wide window below the two-pane breakpoint) it grew
+     past what any fixed padding could compensate for and clipped the text
+     again. A capped column is never wide enough for that to happen. */
+  max-width: 20rem;
+}
+.edit-war-nav ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.edit-war-nav button {
+  width: 100%;
+  text-align: left;
+  /* Tailwind's base reset zeroes button padding; every theme's own button
+     rule sets color/background/shape but never padding back, so a
+     full-width button's text sits flush against its edges — worse here
+     than on a short "Save"/"Continue" button, and worse still on Fight
+     Card's slanted clip-path shape, which crops in at the corners. */
+  padding: 0.6rem 1.25rem;
+}
+.edit-war-detail {
+  width: 100%;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .edit-war-layout {
+    flex-direction: row;
+  }
+  .edit-war-nav {
+    flex: 0 0 14rem;
+  }
+  .edit-war-detail {
+    flex: 1 1 0;
+  }
+}
+
 .nav-bar {
   display: flex;
   align-items: center;

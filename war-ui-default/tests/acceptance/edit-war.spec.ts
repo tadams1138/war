@@ -1,7 +1,9 @@
 // Binds features/edit-war.feature. Draft-only editing (the spec's approved
 // scope decision) of a War's metadata and its contestants' name, bio, and
 // images — using the war-api PATCH/media routes that already existed but had
-// no UI route calling them (PROGRESS.md).
+// no UI route calling them (PROGRESS.md). Two-pane layout: a left nav list
+// (Metadata, each contestant, Add contestant) selects what the right pane
+// shows — only one section renders at a time, Metadata by default.
 import { expect, test } from '@playwright/test'
 import { buildContestant, buildMediaItem, buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
@@ -12,6 +14,10 @@ async function gotoEditPage(page: import('@playwright/test').Page) {
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, `/wars/${WAR_ID}/edit`)
+}
+
+async function selectContestant(page: import('@playwright/test').Page, name: string) {
+  await page.getByTestId('edit-war-nav-contestant').filter({ hasText: name }).click()
 }
 
 test('An active War shows a "no longer editable" message, not a form', async ({ page }) => {
@@ -25,6 +31,81 @@ test('An active War shows a "no longer editable" message, not a form', async ({ 
   // Assert
   await expect(page.getByTestId('edit-war-not-editable')).toBeVisible()
   await expect(page.getByTestId('edit-war-title-input')).toHaveCount(0)
+})
+
+test('Metadata is shown by default', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await gotoEditPage(page)
+
+  // Assert
+  await expect(page.getByTestId('edit-war-title-input')).toBeVisible()
+  await expect(page.getByTestId('edit-war-contestant')).toHaveCount(0)
+})
+
+test('Selecting a contestant shows its editor and hides Metadata; only one section shows at a time', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
+  })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+
+  // Act
+  await selectContestant(page, 'Ada')
+
+  // Assert
+  await expect(page.getByTestId('edit-war-title-input')).toHaveCount(0)
+  await expect(page.getByTestId('edit-war-contestant')).toHaveCount(1)
+  await expect(page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })).toBeVisible()
+
+  // Act — swap to a different contestant
+  await selectContestant(page, 'Grace')
+
+  // Assert — still only one, and it's the new selection
+  await expect(page.getByTestId('edit-war-contestant')).toHaveCount(1)
+  await expect(page.getByTestId('edit-war-contestant').filter({ hasText: 'Grace' })).toBeVisible()
+})
+
+test('Add contestant shows a form; submitting adds it to the nav and selects it', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [] })
+  const created = buildContestant({ id: 'c-new', name: 'Mae' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/contestants`, responses: [{ status: 201, body: created }] },
+  ])
+  await gotoEditPage(page)
+
+  // Act
+  await page.getByTestId('edit-war-nav-add-contestant').click()
+  await page.getByTestId('add-contestant-name-input').fill('Mae')
+  await page.getByTestId('add-contestant-submit').click()
+
+  // Assert
+  await expect(page.getByTestId('edit-war-nav-contestant').filter({ hasText: 'Mae' })).toBeVisible()
+  await expect(page.getByTestId('edit-war-contestant').filter({ hasText: 'Mae' })).toBeVisible()
+})
+
+test('Adding a contestant with a blank name shows a client-side error, no API call', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await page.getByTestId('edit-war-nav-add-contestant').click()
+
+  // Act
+  await page.getByTestId('add-contestant-submit').click()
+
+  // Assert
+  await expect(page.getByTestId('add-contestant-error')).toBeVisible()
+  const calls = await getCallLog(page)
+  expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/contestants')).length).toBe(0)
 })
 
 test('Changing the title persists it', async ({ page }) => {
@@ -108,6 +189,7 @@ test("Changing a contestant's name and bio persists both", async ({ page }) => {
     },
   ])
   await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
   // Act
@@ -128,6 +210,7 @@ test('The bio toolbar wraps the selected text in the right markdown syntax', asy
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
   await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
   const textarea = item.getByTestId('bio-textarea')
 
@@ -141,14 +224,62 @@ test('The bio toolbar wraps the selected text in the right markdown syntax', asy
   await expect(textarea).toHaveValue('**brilliant**')
 })
 
+test('The bio editor shows a live preview that updates as the bio changes', async ({ page }) => {
+  // Arrange
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+  const preview = item.getByTestId('bio-preview')
+
+  // Act
+  await item.getByTestId('bio-textarea').fill('A **great** contestant')
+
+  // Assert — no save required; the preview reflects the textarea live
+  await expect(preview.locator('strong')).toHaveText('great')
+})
+
+test('The bio preview renders bullet and numbered lists, and links with a visible indicator', async ({ page }) => {
+  // Arrange
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+  const preview = item.getByTestId('bio-preview')
+
+  // Act
+  await item.getByTestId('bio-textarea').fill('- One\n- Two\n\n1. First\n2. Second\n\n[site](https://example.test)')
+
+  // Assert — real list markup, visibly styled as a list (not reset to
+  // flush, unmarked paragraphs by the app's own base CSS reset), and a
+  // link with a real visible color and underline, not just inherited body
+  // text color
+  const content = preview.locator('.bio-content')
+  await expect(content.locator('ul li')).toHaveCount(2)
+  await expect(content.locator('ol li')).toHaveCount(2)
+  const ulListStyle = await content.locator('ul').evaluate((el) => getComputedStyle(el).listStyleType)
+  expect(ulListStyle).not.toBe('none')
+  const link = content.locator('a')
+  const linkColor = await link.evaluate((el) => getComputedStyle(el).color)
+  const bodyColor = await content.evaluate((el) => getComputedStyle(el).color)
+  expect(linkColor).not.toBe(bodyColor)
+  const textDecoration = await link.evaluate((el) => getComputedStyle(el).textDecorationLine)
+  expect(textDecoration).toContain('underline')
+})
+
 test('A contestant with one image still shows a control to add more', async ({ page }) => {
   // Arrange — buildContestant's default already includes one media item
   const contestant = buildContestant({ id: 'c-1', name: 'Ada' })
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
 
   // Act
-  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
 
   // Assert
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
@@ -176,6 +307,7 @@ test('Adding a second image shows both, in order', async ({ page }) => {
     },
   ])
   await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
   // Act
@@ -208,6 +340,7 @@ test('Removing an image drops it from the gallery', async ({ page }) => {
     { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/image-2`, responses: [{ status: 204 }] },
   ])
   await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
   await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(2)
 
@@ -249,6 +382,7 @@ test('Reordering images persists the new order', async ({ page }) => {
     { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/image-1`, responses: [{ status: 204 }] },
   ])
   await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
   // Act — move the second image up, ahead of the first
@@ -274,9 +408,10 @@ test('At 10 images, the add-more control is hidden with an explanatory message',
     contestants: [buildContestant({ id: 'c-1', name: 'Ada', media })],
   })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
 
   // Act
-  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
 
   // Assert
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })

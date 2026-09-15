@@ -13,16 +13,106 @@
   padding: 1rem 1rem 2rem;
 }
 
-/* Native <select> ignores an inherited `background` and renders its own
-   (white, on Windows/Chrome) — so the inherited --t-text alone left the nav
-   theme picker light text on white, unreadable. Give it the same
-   surface/on-surface pairing cards already use so it's never text-color-only. */
-[data-theme] .nav-bar select {
+/* Every native form control, everywhere a theme is active — not just the
+   nav's own select (a prior version of this rule was scoped to
+   `.nav-bar select`, but `.nav-bar` *is* the [data-theme] element, not
+   nested inside a separate one, so it never matched anything; confirmed by
+   screenshot, the dropdown's popup rendered white-on-pale-text). Native
+   controls ignore an inherited `background` and render their own (white,
+   on Windows/Chrome) — text color alone is never enough. `option` needs
+   its own rule too: Chromium's native popup list honors color/background
+   set directly on <option>, not just on the <select> that owns it. */
+[data-theme] input,
+[data-theme] select,
+[data-theme] textarea,
+[data-theme] option {
   background: var(--t-surface);
   color: var(--t-text-on-surface, var(--t-text));
   border: 1px solid var(--t-accent2);
   border-radius: 4px;
-  padding: 0.25rem 0.5rem;
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+}
+
+/* Every button, everywhere a theme is active — the app's base reset
+   (Tailwind preflight) zeroes button padding, and none of the three
+   per-theme `button` rules below ever set it back, so text sat flush
+   against every button's edges (Save, the identity menu trigger, the
+   EditWar nav) app-wide, not just the one spot first reported. Elements
+   that genuinely need different sizing (the icon toolbar, the EditWar nav)
+   already have their own more specific rule and are unaffected. */
+[data-theme] button {
+  padding: 0.5rem 1rem;
+}
+
+/* A rendered bio (BioEditor's live preview and the real WarDetail display —
+   both go through BioContent, so both get this) gets the same surface box
+   as an input, not the bare page background: it keeps the link colors
+   below legible in every theme regardless of *where* a bio happens to
+   render, and reads as a distinct "this is the bio" region either way. */
+[data-theme] .bio-content {
+  background: var(--t-surface);
+  color: var(--t-text-on-surface, var(--t-text));
+  border: 1px solid var(--t-accent2);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+}
+
+/* The app's own base reset (Tailwind preflight) zeroes list-style and
+   anchor color globally, which left a rendered bio's <ul>/<ol> looking
+   like flush, unmarked paragraphs and its <a> looking like plain text —
+   structurally correct markup (renderBio's own unit tests cover that),
+   invisible as a list or a link. Restored here, not undone globally: the
+   rest of the app deliberately keeps its own chrome (nav, buttons) free of
+   native list/link styling. */
+[data-theme] .bio-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+[data-theme] .bio-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+[data-theme] .bio-content a {
+  text-decoration: underline;
+}
+
+/* Icon-only toolbar buttons need square, compact sizing distinct from a
+   text button's per-theme padding/shadow below — the [data-theme] prefix
+   isn't for color here, it's to out-specificity those per-theme `button`
+   rules regardless of source order (equal specificity otherwise, and this
+   rule would lose the padding/size tug-of-war since the theme rules are
+   declared later). */
+[data-theme] .bio-editor-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+}
+
+/* The selected item in EditWar's left nav — one generic rule, not
+   per-theme, since an outline reads fine against any of the three
+   surfaces/accents rather than needing its own color choice per theme. */
+[data-theme] .edit-war-nav button[aria-current='true'] {
+  outline: 2px solid var(--t-accent2);
+  outline-offset: 2px;
+}
+
+/* A file input's own chrome (the "Choose Files" button) is not covered by
+   the generic `button` rules below — it's a pseudo-element the browser
+   renders inside the input, not a real <button> in the DOM — so it stayed
+   fully unstyled (invisible against a dark theme) without its own rule. */
+[data-theme] input[type='file']::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  background: var(--t-accent1);
+  color: var(--t-bg);
+  font: inherit;
+  cursor: pointer;
 }
 
 /* ---------- Arcade Showdown ---------- */
@@ -73,6 +163,12 @@
   color: var(--t-accent2);
   font-size: 0.7rem;
 }
+[data-theme='arcade'] .bio-content a {
+  color: var(--t-accent2);
+}
+[data-theme='arcade'] .bio-content a:visited {
+  color: var(--t-accent1);
+}
 
 /* ---------- Fight Card ---------- */
 [data-theme='fight_card'] {
@@ -119,6 +215,12 @@
 [data-theme='fight_card'] .rankings-table th {
   font-family: var(--t-display-font);
   color: var(--t-accent2);
+}
+[data-theme='fight_card'] .bio-content a {
+  color: var(--t-accent2);
+}
+[data-theme='fight_card'] .bio-content a:visited {
+  color: var(--t-accent1);
 }
 
 /* ---------- Tape & Prints ---------- */
@@ -173,5 +275,16 @@
 }
 [data-theme='scrapbook'] .rankings-table th {
   font-family: var(--t-display-font);
+  color: var(--t-accent1);
+}
+/* accent2 (a light yellow) is the link color elsewhere in this theme, but
+   .bio-content sits on the light --t-surface tan here, not the dark
+   --t-bg teal every other theme's link sits on -- accent2 there would be
+   nearly invisible. accent3, a muted teal-green, is dark enough to read on
+   the tan surface instead. */
+[data-theme='scrapbook'] .bio-content a {
+  color: var(--t-accent3);
+}
+[data-theme='scrapbook'] .bio-content a:visited {
   color: var(--t-accent1);
 }

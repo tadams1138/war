@@ -21,9 +21,17 @@ export function MetadataStepView({
   const [visibility, setVisibility] = useState<'public' | 'invite_only'>('public')
   const [theme, setTheme] = useState<Theme>('arcade')
   const [endsAt, setEndsAt] = useState('')
+  const [titleRequiredError, setTitleRequiredError] = useState<string | null>(null)
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    // Checked before any request goes out (the spec, "client-side
+    // validate mandatory fields") -- an empty title is never valid.
+    if (title.trim().length === 0) {
+      setTitleRequiredError('Title is required')
+      return
+    }
+    setTitleRequiredError(null)
     onSubmit({
       title,
       category: category.length > 0 ? category : null,
@@ -83,9 +91,9 @@ export function MetadataStepView({
             onChange={(event) => setEndsAt(event.target.value)}
           />
         </label>
-        {state.error && (
+        {(titleRequiredError || state.error) && (
           <p role="alert" data-testid="metadata-error">
-            {state.error}
+            {titleRequiredError ?? state.error}
           </p>
         )}
         <button type="submit" data-testid="metadata-submit" disabled={state.submitting}>

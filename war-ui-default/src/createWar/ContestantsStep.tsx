@@ -27,9 +27,17 @@ export function ContestantsStepView({
 }) {
   const [name, setName] = useState('')
   const [bio, setBio] = useState('')
+  const [nameRequiredError, setNameRequiredError] = useState<string | null>(null)
 
   function handleAdd(event: FormEvent) {
     event.preventDefault()
+    // Checked before any request goes out (the spec, "client-side
+    // validate mandatory fields") -- an empty name is never valid.
+    if (name.trim().length === 0) {
+      setNameRequiredError('Name is required')
+      return
+    }
+    setNameRequiredError(null)
     onAddContestant(name, bio)
     setName('')
     setBio('')
@@ -47,9 +55,9 @@ export function ContestantsStepView({
           Bio
           <input data-testid="contestant-bio-input" value={bio} onChange={(event) => setBio(event.target.value)} />
         </label>
-        {state.nameError && (
+        {(nameRequiredError || state.nameError) && (
           <p role="alert" data-testid="contestant-error">
-            {state.nameError}
+            {nameRequiredError ?? state.nameError}
           </p>
         )}
         <button type="submit" data-testid="add-contestant-submit" disabled={state.submittingContestant}>
@@ -81,7 +89,7 @@ function ContestantListItem({
   onAttachImages: (contestantId: string, files: File[]) => void
 }) {
   return (
-    <li data-testid="wizard-contestant">
+    <li className="wizard-contestant-row" data-testid="wizard-contestant">
       <span>{contestant.name}</span>
       {contestant.imageCount > 0 && (
         <span data-testid="contestant-has-image">
