@@ -150,6 +150,36 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario("A creator changes a War's theme while it's still a draft", ({ Given, When, Then, And }) => {
+    let warId: string;
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('a War in "draft" status', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      const war = await makeDraftWar(harness.db, creatorId);
+      warId = war.id;
+    });
+
+    When('the creator PATCHes the theme to "fight_card"', async () => {
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server)
+        .patch(`/api/v1/wars/${warId}`)
+        .set('Authorization', `Bearer ${jwt}`)
+        .send({ theme: 'fight_card' });
+    });
+
+    Then('the response status is 200', () => {
+      expect(response.status).toBe(200);
+    });
+
+    And('the War\'s theme is "fight_card"', () => {
+      expect(response.body.theme).toBe('fight_card');
+    });
+  });
+
   Scenario('Non-creator cannot activate', ({ Given, When, Then }) => {
     let warId: string;
     let voterBId: string;

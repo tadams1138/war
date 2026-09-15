@@ -126,6 +126,7 @@ export interface WarPatch {
   category?: string | null;
   visibility?: string;
   mediaMode?: string;
+  theme?: string;
   contestantSchema?: ContestantSchemaField[];
   endsAt?: Date | null;
 }
@@ -136,6 +137,7 @@ export async function updateWar(db: Kysely<Database>, id: string, patch: WarPatc
   if (patch.category !== undefined) values.category = patch.category;
   if (patch.visibility !== undefined) values.visibility = patch.visibility;
   if (patch.mediaMode !== undefined) values.media_mode = patch.mediaMode;
+  if (patch.theme !== undefined) values.theme = patch.theme;
   if (patch.contestantSchema !== undefined) values.contestant_schema = toJsonb(patch.contestantSchema);
   if (patch.endsAt !== undefined) values.ends_at = patch.endsAt;
 
