@@ -6,6 +6,7 @@
 // asserted.
 import { Link } from 'react-router-dom'
 import type { WarSummary } from '../api/client'
+import { warTitle } from '../utils/warTitle'
 
 interface WarCardProps {
   war: WarSummary
@@ -24,7 +25,7 @@ export function WarCard({ war, showEditLink = false }: WarCardProps) {
   return (
     <div data-testid="war-card" className="war-card">
       <Link to={`/wars/${war.id}`} className="war-card-link">
-        <h3>{war.title}</h3>
+        <h3>{warTitle(war.title)}</h3>
         {war.category && <p>{war.category}</p>}
         <p data-testid="war-status-badge">{war.status}</p>
         <p>{contestantCountLabel(war.contestant_count)}</p>

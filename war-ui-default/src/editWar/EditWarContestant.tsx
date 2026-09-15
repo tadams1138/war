@@ -5,9 +5,8 @@ import type { ContestantDetail } from '../api/client'
 import { BioEditor } from '../bio/BioEditor'
 
 // Mirrors war-api's own per-contestant cap
-// (war-api/src/contestants/imageUploadService.ts) -- see
-// createWar/ContestantsStep.tsx's identical constant for why this is a UX
-// convenience only, not the enforcement point.
+// (war-api/src/contestants/imageUploadService.ts) -- a UX convenience only,
+// not the enforcement point.
 const MAX_IMAGES_PER_CONTESTANT = 10
 
 interface EditWarContestantProps {
@@ -54,8 +53,7 @@ export function EditWarContestant({
     <li data-testid="edit-war-contestant" data-contestant-id={contestant.id}>
       {/* The contestant's original name, not the live-edited `name` state
           -- an at-a-glance label identifying which panel this is, distinct
-          from the editable field below (mirrors createWar/ContestantsStep's
-          <span>{contestant.name}</span> next to its own name input). */}
+          from the editable field below. */}
       <h3>{contestant.name}</h3>
       <button type="button" data-testid="edit-war-contestant-remove" onClick={onRemove}>
         Remove contestant

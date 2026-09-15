@@ -65,12 +65,12 @@ guard. Nothing uses them now, but both were correct and non-obvious.
 
 ### Built
 
-Core voting loop, Rankings, the CreateWar wizard, MyWars, and a persistent navigation header
-with an auth-aware Home empty state. Live in staging and production.
+Core voting loop, Rankings, MyWars, and a persistent navigation header with an auth-aware Home
+empty state. Live in staging and production.
 
 - **Visual themes** — the three themes render on WarDetail, VoteMode, Rankings, and Home/My
   Wars, with a per-device, per-War voter override (cookie-based, never synced to the server or
-  other devices) and a theme picker in the CreateWar wizard.
+  other devices) and a theme picker on Edit War.
 - **Nav redesign** — the persistent header collapsed Home/My Wars/Create War/Log out behind a
   single identity control (avatar + name, top right); logged out shows only Log in. The theme
   picker moved into the nav as a dropdown, always visible, and now themes the nav bar itself
@@ -144,6 +144,15 @@ with an auth-aware Home empty state. Live in staging and production.
 - **War backup export/import.** Export a draft War (metadata + contestants + bios + images, no
   votes) to a local file for backup/testing; import that file to recreate a War. Likely a zip
   (JSON manifest + image files) rather than raw JSON, since images must round-trip too.
+- **Activate can discard unsaved metadata.** Edit War's metadata form (title, category,
+  visibility, theme, end date) holds changes locally until its own Save button is clicked — the
+  Activate button is separate and fires immediately. A creator who edits metadata and clicks
+  Activate without clicking Save first activates the War with none of those edits applied, and
+  there is no way to recover: PATCH is rejected once a War leaves draft, and no delete
+  capability exists for a War in any status. The previous multi-step wizard's step ordering made
+  this sequencing error impossible; this page's freer ordering (deliberately, per spec — no
+  fixed order to walk a draft) reintroduces it. Not spec-mandated to fix (the spec is silent on
+  save/activate ordering), but worth fixing with a dirty-check/confirm step in a follow-up.
 
 ---
 

@@ -1,8 +1,7 @@
 // Every War the authenticated voter created, across every status
-// (the spec "MyWars Page"). This is what closes the
-// gap the CreateWar wizard's own spec text names: a creator who abandons
-// the wizard before Activate has, until this page exists, no way to find
-// that draft War again.
+// (the spec "MyWars Page"). This is what closes the gap the spec names: a
+// creator who leaves a draft before it's activated has, until this page
+// exists, no way to find that draft War again.
 import { Link } from 'react-router-dom'
 import { getWars, type WarSummary } from '../api/client'
 import { WarCard } from '../components/WarCard'

@@ -1,7 +1,7 @@
 // State machine behind EditWar (the spec's approved scope: draft-only
 // editing of a War's metadata and its contestants' name, bio, and images) —
-// extracted out of the page component, mirroring useVoteSession's and
-// useCreateWarWizard's split for the same reason.
+// extracted out of the page component, mirroring useVoteSession's split for
+// the same reason.
 import { useEffect, useState } from 'react'
 import {
   activateWar,

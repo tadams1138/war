@@ -22,9 +22,9 @@ export class ApiError extends Error {
   // The `{ error, details }` shape's `details` array (the spec), when the
   // failing response carried one. Populated only for a
   // 'validation' reason whose body actually has it — most callers ignore
-  // this and use `message` instead (the spec's generic 422 copy); the CreateWar
-  // wizard's Activate step is the one deliberate exception that surfaces it
-  // verbatim (the spec).
+  // this and use `message` instead (the spec's generic 422 copy); Edit War's
+  // Activate action (src/editWar/useEditWar.ts) is the one deliberate
+  // exception that surfaces it verbatim (the spec).
   readonly details?: string[]
 
   constructor(reason: ApiErrorReason, status: number, message: string, retryAfterSeconds?: number, details?: string[]) {

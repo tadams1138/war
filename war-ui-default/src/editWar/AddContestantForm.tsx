@@ -1,6 +1,5 @@
 // EditWar's "+ Add contestant" panel. Rendering only -- state and the API
-// call live in useEditWar. Mirrors createWar/ContestantsStep's own name+bio
-// form and its client-side required-name check.
+// call live in useEditWar.
 import { useState, type FormEvent } from 'react'
 import type { ContestantDetail } from '../api/client'
 import { BioEditor } from '../bio/BioEditor'

@@ -28,7 +28,8 @@ type VoteForbiddenBody =
 // not through a `schema.body` option (the spec) — so, unlike
 // the response types above, there is nothing in the generated document to
 // derive these from. Hand-written to match the documented body shapes
-// exactly, same fields the wizard collects.
+// exactly, same fields Edit War's metadata form (EditWarMetadataForm.tsx)
+// collects.
 export interface CreateWarPayload {
   title?: string
   category?: string | null

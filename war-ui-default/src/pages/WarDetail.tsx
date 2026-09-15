@@ -8,6 +8,7 @@ import { ContestantThumbnail } from '../components/ContestantThumbnail'
 import { useAsyncResource } from '../hooks/useAsyncResource'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
+import { warTitle } from '../utils/warTitle'
 
 export function WarDetail() {
   const { id } = useParams<{ id: string }>()
@@ -21,7 +22,7 @@ export function WarDetail() {
   const war = state.value
   return (
     <main data-theme={theme}>
-      <h1>{war.title}</h1>
+      <h1>{warTitle(war.title)}</h1>
       {war.category && <p>{war.category}</p>}
       <ul className="contestant-gallery">
         {war.contestants.map((contestant) => (

@@ -20,6 +20,7 @@ import { EditWarMetadataForm } from '../editWar/EditWarMetadataForm'
 import { useEditWar } from '../editWar/useEditWar'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
+import { warTitle } from '../utils/warTitle'
 
 type Selection = 'metadata' | 'add' | string
 
@@ -73,7 +74,7 @@ export function EditWar() {
 
   return (
     <main data-theme={theme}>
-      <h1>Edit {war.title || 'War'}</h1>
+      <h1>Edit {warTitle(war.title)}</h1>
       <Toast message={state.toast} />
       <div className="edit-war-activate">
         {!canActivate && (
