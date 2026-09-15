@@ -23,6 +23,12 @@ Feature: War Lifecycle
     When the creator PATCHes the title
     Then the response status is 403
 
+  Scenario: A creator changes a War's theme while it's still a draft
+    Given a War in "draft" status
+    When the creator PATCHes the theme to "fight_card"
+    Then the response status is 200
+    And the War's theme is "fight_card"
+
   Scenario: Non-creator cannot activate
     Given a War created by Voter A
     When Voter B POSTs to activate

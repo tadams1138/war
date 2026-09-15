@@ -105,6 +105,7 @@ export interface PatchWarInput {
   title?: string;
   category?: string | null;
   visibility?: string;
+  theme?: string;
   contestantSchema?: unknown;
   endsAt?: string | null;
 }
@@ -137,6 +138,13 @@ export async function patchWar(
       errors.push('visibility must be "public" or "invite_only"');
     } else {
       patch.visibility = input.visibility;
+    }
+  }
+  if (input.theme !== undefined) {
+    if (!isWarTheme(input.theme)) {
+      errors.push('theme must be "arcade", "fight_card", or "scrapbook"');
+    } else {
+      patch.theme = input.theme;
     }
   }
   if (input.contestantSchema !== undefined) {
