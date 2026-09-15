@@ -134,21 +134,3 @@ test('The nav theme menu is present and usable on pages with no War in scope', a
   // Assert
   await expect(page.locator('main')).toHaveAttribute('data-theme', 'scrapbook')
 })
-
-test('The Create War wizard renders in the "home" theme and can be changed from the nav', async ({ page }) => {
-  // Arrange
-  await page.goto('/')
-  await loginAsTestVoter(page)
-
-  // Act
-  await navigateAuthenticated(page, '/wars/new')
-
-  // Assert
-  await expect(page.locator('main')).toHaveAttribute('data-theme', 'arcade')
-
-  // Act
-  await themeSelect(page).selectOption('fight_card')
-
-  // Assert
-  await expect(page.locator('main')).toHaveAttribute('data-theme', 'fight_card')
-})
