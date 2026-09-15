@@ -274,6 +274,27 @@ test('Changing visibility to invite-only persists', async ({ page }) => {
   expect(JSON.parse(patchCall!.body ?? '{}').visibility).toBe('invite_only')
 })
 
+test('Changing the theme persists it', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', theme: 'arcade' })
+  const patched = buildWarSummary({ id: WAR_ID, status: 'draft', theme: 'fight_card' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: patched }] },
+  ])
+  await gotoEditPage(page)
+
+  // Act
+  await page.getByTestId('edit-war-theme-select').selectOption('fight_card')
+  await page.getByTestId('edit-war-metadata-submit').click()
+  await expect(page.getByTestId('edit-war-metadata-submit')).toBeEnabled()
+
+  // Assert
+  const calls = await getCallLog(page)
+  const patchCall = calls.find((c) => c.method === 'PATCH' && c.url.endsWith(`/wars/${WAR_ID}`))
+  expect(JSON.parse(patchCall!.body ?? '{}').theme).toBe('fight_card')
+})
+
 test("Changing a contestant's name and bio persists both", async ({ page }) => {
   // Arrange
   const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: 'Old bio' })
