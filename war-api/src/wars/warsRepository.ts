@@ -7,7 +7,7 @@ import type { ContestantSchemaField } from '../contestants/schemaValidation.js';
 export interface War {
   id: string;
   creatorId: string | null;
-  title: string;
+  title: string | null;
   category: string | null;
   status: string;
   visibility: string;
@@ -36,7 +36,7 @@ function toWar(row: Selectable<WarsTable>): War {
 
 export interface CreateWarInput {
   creatorId: string;
-  title: string;
+  title: string | null;
   category: string | null;
   visibility: string;
   mediaMode: string;

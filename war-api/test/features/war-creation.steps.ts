@@ -51,7 +51,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A title is required', ({ Given, When, Then, And }) => {
+  Scenario('A title is optional', ({ Given, When, Then, And }) => {
     let creatorId: string;
     let response: request.Response;
 
@@ -64,13 +64,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       response = await authedPost(creatorId, '/api/v1/wars');
     });
 
-    Then('the response status is 422', () => {
-      expect(response.status).toBe(422);
+    Then('a new War is created in "draft" status', () => {
+      expect(response.status).toBe(201);
+      expect(response.body.status).toBe('draft');
     });
 
-    And('no War is created', async () => {
-      const rows = await harness.db.selectFrom('wars').selectAll().where('creator_id', '=', creatorId).execute();
-      expect(rows).toHaveLength(0);
+    And('its title is null', () => {
+      expect(response.body.title).toBeNull();
     });
   });
 
