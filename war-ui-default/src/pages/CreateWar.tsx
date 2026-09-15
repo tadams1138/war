@@ -1,34 +1,49 @@
-// The War creation wizard (the spec). Each step
-// calls the API immediately -- the state machine driving that lives in
-// useCreateWarWizard; this component is rendering only, mirroring
-// VoteMode/useVoteSession's split.
+// Immediately creates an empty draft War and forwards to its Edit page —
+// there is no creation wizard (the spec, "Create War"): every field a
+// draft needs, including Activate, lives on the one Edit page.
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { WarSummary } from '../api/client'
-import { ContestantsStepView } from '../createWar/ContestantsStep'
-import { MetadataStepView } from '../createWar/MetadataStep'
-import { ReviewStepView } from '../createWar/ReviewStep'
-import { useCreateWarWizard } from '../createWar/useCreateWarWizard'
+import { createWar } from '../api/client'
+import { toUserMessage } from '../api/errors'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
 export function CreateWar() {
   const navigate = useNavigate()
-  const onActivated = (war: WarSummary) => navigate(`/wars/${war.id}/vote`)
-  const { state, submitMetadata, submitContestant, attachImages, proceedToReview, activate } = useCreateWarWizard(onActivated)
+  const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const [theme, setTheme] = useTheme('home', 'arcade')
   usePublishTheme('home', theme, setTheme)
 
-  if (state.step === 'metadata') return <MetadataStepView state={state} onSubmit={submitMetadata} theme={theme} />
-  if (state.step === 'contestants') {
-    return (
-      <ContestantsStepView
-        state={state}
-        onAddContestant={submitContestant}
-        onAttachImages={attachImages}
-        onContinue={proceedToReview}
-        theme={theme}
-      />
-    )
-  }
-  return <ReviewStepView state={state} onActivate={activate} theme={theme} />
+  useEffect(() => {
+    let cancelled = false
+    setError(null)
+    createWar({})
+      .then((war) => {
+        if (!cancelled) navigate(`/wars/${war.id}/edit`, { replace: true })
+      })
+      .catch((requestError) => {
+        if (!cancelled) setError(toUserMessage(requestError))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [attempt, navigate])
+
+  return (
+    <main data-theme={theme}>
+      {error ? (
+        <>
+          <p role="alert" data-testid="create-war-error">
+            {error}
+          </p>
+          <button type="button" data-testid="create-war-retry" onClick={() => setAttempt((count) => count + 1)}>
+            Try again
+          </button>
+        </>
+      ) : (
+        <p>Creating your War…</p>
+      )}
+    </main>
+  )
 }

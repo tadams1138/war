@@ -55,7 +55,7 @@ export function EditWar() {
 
   return (
     <main data-theme={theme}>
-      <h1>Edit {war.title}</h1>
+      <h1>Edit {war.title || 'War'}</h1>
       <Toast message={state.toast} />
       <div className="edit-war-layout">
         <nav className="edit-war-nav" aria-label="War sections">

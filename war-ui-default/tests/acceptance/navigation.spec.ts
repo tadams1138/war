@@ -1,6 +1,6 @@
 // Binds features/navigation.feature.
 import { expect, test } from '@playwright/test'
-import { buildRankingsResponse, buildWarSummary } from '../../src/mocks/fixtures'
+import { buildRankingsResponse, buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
 
 function nav(page: import('@playwright/test').Page) {
@@ -101,11 +101,12 @@ test('Opening the identity menu reveals Home, My Wars, Create War and Log out', 
 // menu landmark, not the page, is the second, independent safeguard against
 // the same failure mode.
 const CREATED_WAR = buildWarSummary({ id: 'war-nav-created', title: 'Nav War' })
+const DRAFT_WAR = buildWarDetail({ id: 'war-nav-draft', title: 'Draft Nav War', status: 'draft', contestants: [] })
 
 const REACHABILITY_ROWS: { page: string; path: string }[] = [
   { page: 'the home page', path: '/' },
   { page: 'their My Wars page', path: '/my-wars' },
-  { page: 'the Create War page', path: '/wars/new' },
+  { page: "a draft War's Edit page", path: `/wars/${DRAFT_WAR.id}/edit` },
   { page: "that War's detail page", path: `/wars/${CREATED_WAR.id}` },
   { page: "that War's vote page", path: `/wars/${CREATED_WAR.id}/vote` },
   { page: "that War's rankings page", path: `/wars/${CREATED_WAR.id}/rankings` },
@@ -124,6 +125,7 @@ for (const { page: pageLabel, path } of REACHABILITY_ROWS) {
         path: `${API}/wars/${CREATED_WAR.id}/rankings`,
         responses: [{ status: 200, body: buildRankingsResponse({ war_id: CREATED_WAR.id }) }],
       },
+      { method: 'GET', path: `${API}/wars/${DRAFT_WAR.id}`, responses: [{ status: 200, body: DRAFT_WAR }] },
     ])
     await page.goto('/')
     await loginAsTestVoter(page)
@@ -144,6 +146,12 @@ for (const { page: pageLabel, path } of REACHABILITY_ROWS) {
 
 test('Selecting an item in the identity menu navigates there and closes the menu', async ({ page }) => {
   // Arrange
+  const createdWar = buildWarSummary({ id: 'war-nav-menu-created', title: null, status: 'draft' })
+  const detail = buildWarDetail({ id: 'war-nav-menu-created', title: null, status: 'draft', contestants: [] })
+  await useScenario(page, [
+    { method: 'POST', path: `${API}/wars`, responses: [{ status: 201, body: createdWar }] },
+    { method: 'GET', path: `${API}/wars/war-nav-menu-created`, responses: [{ status: 200, body: detail }] },
+  ])
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, '/')
@@ -153,8 +161,8 @@ test('Selecting an item in the identity menu navigates there and closes the menu
   await identityMenu(page).getByRole('menuitem', { name: 'Create War' }).click()
 
   // Assert
-  await page.waitForURL('**/wars/new')
-  await expect(page.getByRole('heading', { name: 'Create a War' })).toBeVisible()
+  await page.waitForURL('**/wars/war-nav-menu-created/edit')
+  await expect(page.getByTestId('edit-war-title-input')).toBeVisible()
   await expect(identityMenu(page)).toHaveCount(0)
   await expect(identityTrigger(page)).toHaveAttribute('aria-expanded', 'false')
 })
