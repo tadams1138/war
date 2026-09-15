@@ -76,14 +76,9 @@ test('A voter completes the wizard and activates the War', async ({ page }) => {
 })
 
 test('A title is required to proceed past Metadata', async ({ page }) => {
-  // Arrange
-  await useScenario(page, [
-    {
-      method: 'POST',
-      path: `${API}/wars`,
-      responses: [{ status: 422, body: { error: 'validation error', details: ['title must be a non-empty string of at most 256 characters'] } }],
-    },
-  ])
+  // Arrange — no POST /wars mock: a blank title is now caught client-side
+  // (the spec, "client-side validate mandatory fields") and never reaches
+  // the API at all.
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, '/wars/new')
@@ -96,7 +91,7 @@ test('A title is required to proceed past Metadata', async ({ page }) => {
   await expect(page.getByTestId('metadata-error')).toBeVisible()
   await expect(page.getByTestId('metadata-title-input')).toBeVisible()
   const calls = await getCallLog(page)
-  expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith(`${API}/wars`)).length).toBe(1)
+  expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith(`${API}/wars`)).length).toBe(0)
 })
 
 test('A contestant requires a name', async ({ page }) => {

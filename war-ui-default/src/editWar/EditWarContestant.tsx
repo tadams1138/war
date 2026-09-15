@@ -30,10 +30,19 @@ export function EditWarContestant({
   const [name, setName] = useState(contestant.name)
   const [bio, setBio] = useState(contestant.bio ?? '')
   const [saving, setSaving] = useState(false)
+  const [nameRequiredError, setNameRequiredError] = useState<string | null>(null)
   const sortedMedia = [...contestant.media].sort((a, b) => a.display_order - b.display_order)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    // Checked before any request goes out — an empty name is never valid,
+    // so there is nothing the server needs to tell us that we don't
+    // already know (the spec, "client-side validate mandatory fields").
+    if (name.trim().length === 0) {
+      setNameRequiredError('Name is required')
+      return
+    }
+    setNameRequiredError(null)
     setSaving(true)
     await onSave({ name, bio: bio.length > 0 ? bio : null })
     setSaving(false)
@@ -56,27 +65,33 @@ export function EditWarContestant({
           />
         </label>
         <BioEditor value={bio} onChange={setBio} />
-        {error && (
+        {(nameRequiredError || error) && (
           <p role="alert" data-testid="edit-war-contestant-error">
-            {error}
+            {nameRequiredError ?? error}
           </p>
         )}
         <button type="submit" data-testid="edit-war-contestant-submit" disabled={saving}>
           Save
         </button>
       </form>
-      <ul>
+      <ul className="image-gallery">
         {sortedMedia.map((media, index) => (
-          <li key={media.id} data-testid="edit-war-contestant-image" data-media-id={media.id}>
-            <img src={media.variants[0]?.url} alt="" style={{ aspectRatio: media.aspect_ratio ?? undefined }} />
-            {index > 0 && (
-              <button type="button" data-testid="edit-war-image-move-up" onClick={() => onMoveImageUp(media.id)}>
-                Move up
+          <li key={media.id} className="image-gallery-item" data-testid="edit-war-contestant-image" data-media-id={media.id}>
+            <img
+              src={media.variants[0]?.url}
+              alt={`${contestant.name}, image ${index + 1} of ${sortedMedia.length}`}
+              style={{ aspectRatio: media.aspect_ratio ?? undefined }}
+            />
+            <div className="image-gallery-item-actions">
+              {index > 0 && (
+                <button type="button" data-testid="edit-war-image-move-up" onClick={() => onMoveImageUp(media.id)}>
+                  Move up
+                </button>
+              )}
+              <button type="button" data-testid="edit-war-image-remove" onClick={() => onRemoveImage(media.id)}>
+                Remove
               </button>
-            )}
-            <button type="button" data-testid="edit-war-image-remove" onClick={() => onRemoveImage(media.id)}>
-              Remove
-            </button>
+            </div>
           </li>
         ))}
       </ul>

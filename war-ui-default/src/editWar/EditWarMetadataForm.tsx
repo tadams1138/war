@@ -18,9 +18,17 @@ export function EditWarMetadataForm({ war, error, saving, onSave }: EditWarMetad
   const [category, setCategory] = useState(war.category ?? '')
   const [visibility, setVisibility] = useState<'public' | 'invite_only'>(war.visibility)
   const [endsAt, setEndsAt] = useState(war.ends_at ? war.ends_at.slice(0, 10) : '')
+  const [titleRequiredError, setTitleRequiredError] = useState<string | null>(null)
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    // Checked before any request goes out (the spec, "client-side
+    // validate mandatory fields") -- an empty title is never valid.
+    if (title.trim().length === 0) {
+      setTitleRequiredError('Title is required')
+      return
+    }
+    setTitleRequiredError(null)
     onSave({
       title,
       category: category.length > 0 ? category : null,
@@ -63,9 +71,9 @@ export function EditWarMetadataForm({ war, error, saving, onSave }: EditWarMetad
           onChange={(event) => setEndsAt(event.target.value)}
         />
       </label>
-      {error && (
+      {(titleRequiredError || error) && (
         <p role="alert" data-testid="edit-war-metadata-error">
-          {error}
+          {titleRequiredError ?? error}
         </p>
       )}
       <button type="submit" data-testid="edit-war-metadata-submit" disabled={saving}>
