@@ -25,7 +25,7 @@ export interface VotersTable {
 export interface WarsTable {
   id: string;
   creator_id: string | null;
-  title: string;
+  title: string | null;
   category: string | null;
   status: Generated<string>;
   visibility: Generated<string>;

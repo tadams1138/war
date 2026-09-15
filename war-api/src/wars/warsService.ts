@@ -21,7 +21,7 @@ import {
 
 export interface CreateWarInput {
   creatorId: string;
-  title: string;
+  title?: string | null;
   category?: string | null;
   visibility?: string;
   mediaMode?: string;
@@ -35,8 +35,10 @@ export type CreateWarOutcome = { kind: 'created'; war: War } | { kind: 'validati
 export async function createWarForVoter(db: Kysely<Database>, input: CreateWarInput): Promise<CreateWarOutcome> {
   const errors: string[] = [];
 
-  if (typeof input.title !== 'string' || input.title.length === 0 || input.title.length > 256) {
-    errors.push('title must be a non-empty string of at most 256 characters');
+  if (input.title !== undefined && input.title !== null) {
+    if (typeof input.title !== 'string' || input.title.length > 256) {
+      errors.push('title must be a string of at most 256 characters');
+    }
   }
 
   const mediaMode = input.mediaMode ?? 'image';
@@ -80,7 +82,7 @@ export async function createWarForVoter(db: Kysely<Database>, input: CreateWarIn
 
   const war = await createWar(db, {
     creatorId: input.creatorId,
-    title: input.title,
+    title: input.title ?? null,
     category: input.category ?? null,
     visibility,
     mediaMode,

@@ -9,7 +9,7 @@ import { THEMES } from './theme.js';
 
 export interface WarSummaryView {
   id: string;
-  title: string;
+  title: string | null;
   category: string | null;
   status: string;
   visibility: string;
@@ -30,7 +30,7 @@ export interface WarSummaryView {
  */
 export const warSummaryProperties = {
   id: { type: 'string', format: 'uuid' },
-  title: { type: 'string' },
+  title: { type: ['string', 'null'] },
   category: { type: ['string', 'null'] },
   status: { type: 'string', enum: ['draft', 'active', 'closed'] },
   visibility: { type: 'string', enum: ['public', 'invite_only'] },

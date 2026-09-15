@@ -91,7 +91,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       const body = request.body as Record<string, unknown>;
       const outcome = await createWarForVoter(db, {
         creatorId: request.voterId!,
-        title: body.title as string,
+        title: body.title as string | null | undefined,
         category: (body.category as string | null | undefined) ?? null,
         visibility: body.visibility as string | undefined,
         mediaMode: body.media_mode as string | undefined,
