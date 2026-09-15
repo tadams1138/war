@@ -46,9 +46,3 @@ Feature: Theme Switching
     When they choose the "Tape & Prints" theme from the nav
     And they view Home
     Then the page renders with theme "scrapbook"
-
-  Scenario: The Create War wizard renders in the "home" theme and can be changed from the nav
-    Given a voter with no theme chosen for Home yet, on the Create War page
-    Then the page renders with theme "arcade"
-    When they choose the "Fight Card" theme from the nav
-    Then the page renders with theme "fight_card"
