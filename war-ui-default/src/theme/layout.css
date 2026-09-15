@@ -108,6 +108,27 @@ label {
   }
 }
 
+/* War detail's contestant gallery: full-size images with no card or grid
+   made every War unreadable on desktop -- one contestant per screen no
+   matter how wide the viewport. auto-fill/minmax adapts to any contestant
+   count and viewport width (roughly 3 columns at laptop width) rather than
+   hardcoding a column count that only fits one War's roster. */
+.contestant-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.contestant-gallery > li img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
 .image-gallery {
   display: flex;
   flex-wrap: wrap;

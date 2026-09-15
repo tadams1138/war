@@ -30,6 +30,31 @@ test('War overview loads with its contestant gallery', async ({ page }) => {
   await expect(items.filter({ hasText: 'Mae' }).locator('img')).toBeVisible()
 })
 
+test('The contestant gallery lays out in multiple columns on a laptop-width viewport', async ({ page }) => {
+  // Arrange
+  await page.setViewportSize({ width: 1280, height: 800 })
+  const detail = buildWarDetail({
+    id: 'war-grid',
+    contestants: [
+      buildContestant({ id: 'c-1', name: 'Ada' }),
+      buildContestant({ id: 'c-2', name: 'Grace' }),
+      buildContestant({ id: 'c-3', name: 'Mae' }),
+    ],
+  })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-grid`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await page.goto('/wars/war-grid')
+
+  // Assert — first and second cards sit in the same row, not stacked
+  const items = page.getByTestId('contestant-gallery-item')
+  const firstBox = await items.nth(0).boundingBox()
+  const secondBox = await items.nth(1).boundingBox()
+  expect(firstBox).not.toBeNull()
+  expect(secondBox).not.toBeNull()
+  expect(Math.abs(firstBox!.y - secondBox!.y)).toBeLessThan(5)
+})
+
 test('The primary image is the display_order 0 item, regardless of array order', async ({ page }) => {
   // Arrange — the API returns this contestant's media out of order; the
   // *second* array entry is the one declared display_order: 0.
@@ -87,6 +112,29 @@ test("A contestant's formatted bio renders on the War detail page", async ({ pag
   await expect(bio.locator('em')).toHaveText('logic')
   await expect(bio.locator('li')).toHaveCount(2)
   await expect(bio.locator('a')).toHaveAttribute('href', 'https://example.test/ada')
+})
+
+test('Paragraphs in a bio separated by a blank line render with visible vertical space', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: 'war-bio-paragraphs',
+    contestants: [
+      buildContestant({ id: 'c-1', name: 'Ada', bio: 'First paragraph.\n\nSecond paragraph.' }),
+    ],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-bio-paragraphs`, responses: [{ status: 200, body: detail }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-bio-paragraphs')
+
+  // Assert
+  const bio = page.getByTestId('contestant-bio')
+  const paragraphs = bio.locator('p')
+  await expect(paragraphs).toHaveCount(2)
+  const marginBottom = await paragraphs.first().evaluate((el) => parseFloat(getComputedStyle(el).marginBottom))
+  expect(marginBottom).toBeGreaterThan(0)
 })
 
 test('An adversarial bio never executes and never renders as raw HTML', async ({ page }) => {

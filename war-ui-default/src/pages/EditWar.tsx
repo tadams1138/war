@@ -13,6 +13,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { ContestantDetail } from '../api/client'
+import { Toast } from '../components/Toast'
 import { AddContestantForm } from '../editWar/AddContestantForm'
 import { EditWarContestant } from '../editWar/EditWarContestant'
 import { EditWarMetadataForm } from '../editWar/EditWarMetadataForm'
@@ -55,6 +56,7 @@ export function EditWar() {
   return (
     <main data-theme={theme}>
       <h1>Edit {war.title}</h1>
+      <Toast message={state.toast} />
       <div className="edit-war-layout">
         <nav className="edit-war-nav" aria-label="War sections">
           <button

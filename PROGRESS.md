@@ -109,6 +109,19 @@ with an auth-aware Home empty state. Live in staging and production.
   after a contestant's first successful image upload (`hasImage: boolean`); it now tracks a
   count and keeps offering the input up to the ten-image cap, matching what the API always
   allowed.
+- **Bio paragraph spacing.** `renderBio` already emitted a separate `<p>` per blank line in the
+  markdown source, but `.bio-content p` had no margin, so consecutive paragraphs rendered flush
+  with no visible gap. Added `margin: 0 0 0.6em` — no parser change.
+- **Save success toast.** `EditWar`'s metadata and contestant Save buttons gave no feedback
+  beyond clearing their `saving` flag. `useEditWar.saveMetadata`/`saveContestant` now set a
+  `toast` message in state on success; a new `Toast` component (`src/components/Toast.tsx`)
+  shows it and hides itself after 2s, no caller-side dismiss needed.
+- **War detail contestant gallery grid.** `WarDetail` rendered full-size, uncropped images in a
+  single column regardless of viewport width. The contestant list now gets a
+  `repeat(auto-fill, minmax(240px, 1fr))` CSS grid (`.contestant-gallery` in `layout.css`) —
+  roughly 3 columns at laptop width, adapting to any contestant count rather than a hardcoded
+  column count — plus a themed card surface (`.contestant-gallery-item`, matching
+  `.bio-content`'s border/background) and a 1:1 `object-fit: cover` image cap.
 
 ### Not built
 
