@@ -8,7 +8,6 @@ import { Login } from './pages/Login'
 import { AuthCallback } from './pages/AuthCallback'
 import { WarDetail } from './pages/WarDetail'
 import { VoteMode } from './pages/VoteMode'
-import { Rankings } from './pages/Rankings'
 import { CreateWar } from './pages/CreateWar'
 import { EditWar } from './pages/EditWar'
 import { MyWars } from './pages/MyWars'
@@ -32,7 +31,6 @@ export default function App() {
                 </RequireAuth>
               }
             />
-            <Route path="/wars/:id/rankings" element={<Rankings />} />
             <Route
               path="/wars/:id/edit"
               element={

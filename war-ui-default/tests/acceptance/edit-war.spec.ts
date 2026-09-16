@@ -371,6 +371,91 @@ test("A failed activation shows the API's validation messages", async ({ page })
   await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
 })
 
+test('Clicking Activate with unsaved metadata edits shows a confirm step, not an immediate activation', async ({ page }) => {
+  // Arrange
+  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
+  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await page.getByTestId('edit-war-title-input').fill('A brand new title')
+
+  // Act
+  await page.getByTestId('activate-submit').click()
+
+  // Assert — no activation request fired; the confirm step is shown instead
+  await expect(page.getByTestId('activate-dirty-confirm')).toBeVisible()
+  const activateCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/activate'))
+  expect(activateCalls).toHaveLength(0)
+})
+
+test('Cancelling the confirm step leaves the draft untouched, edits intact', async ({ page }) => {
+  // Arrange
+  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
+  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await page.getByTestId('edit-war-title-input').fill('A brand new title')
+  await page.getByTestId('activate-submit').click()
+
+  // Act
+  await page.getByTestId('activate-dirty-cancel').click()
+
+  // Assert
+  await expect(page.getByTestId('activate-dirty-confirm')).toHaveCount(0)
+  await expect(page.getByTestId('edit-war-title-input')).toHaveValue('A brand new title')
+  await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
+})
+
+test('Discarding from the confirm step activates anyway', async ({ page }) => {
+  // Arrange
+  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
+  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  const activated = buildWarSummary({ id: WAR_ID, status: 'active' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/activate`, responses: [{ status: 200, body: activated }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
+    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 204 }] },
+  ])
+  await gotoEditPage(page)
+  await page.getByTestId('edit-war-title-input').fill('A brand new title')
+  await page.getByTestId('activate-submit').click()
+
+  // Act
+  await page.getByTestId('activate-dirty-discard').click()
+
+  // Assert
+  await expect(page).toHaveURL(`/wars/${WAR_ID}/vote`)
+})
+
+test('Saving from the confirm step saves the edits without activating', async ({ page }) => {
+  // Arrange
+  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
+  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: { ...detail, title: 'A brand new title' } }] },
+  ])
+  await gotoEditPage(page)
+  await page.getByTestId('edit-war-title-input').fill('A brand new title')
+  await page.getByTestId('activate-submit').click()
+
+  // Act
+  await page.getByTestId('activate-dirty-save').click()
+
+  // Assert — the save fired and the confirm step is gone; the voter is
+  // still on Edit War, free to click Activate again once it's saved
+  await waitForCallLog(page, (log) => log.some((entry) => entry.method === 'PATCH' && entry.url.includes(`/wars/${WAR_ID}`)))
+  await expect(page.getByTestId('activate-dirty-confirm')).toHaveCount(0)
+  await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
+  const activateCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/activate'))
+  expect(activateCalls).toHaveLength(0)
+})
+
 test("Changing a contestant's name and bio persists both", async ({ page }) => {
   // Arrange
   const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: 'Old bio' })

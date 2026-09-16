@@ -34,6 +34,23 @@ test('Both contestant cards stay visible and the page does not scroll sideways o
   await expect(page.getByTestId('vs-divider')).toBeVisible()
 })
 
+test('Contestant media is capped so voting never requires scrolling first', async ({ page }) => {
+  // Arrange
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockVotePage(page)
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/wars/war-1/vote')
+  await expect(page.getByTestId('contestant-card').last()).toBeVisible()
+
+  // Assert — the whole page fits in the viewport height; a voter never has
+  // to scroll to reach either card's tap target (war-spec.md 10.3).
+  const [scrollHeight, innerHeight] = await page.evaluate(() => [document.documentElement.scrollHeight, window.innerHeight])
+  expect(scrollHeight).toBeLessThanOrEqual(innerHeight)
+})
+
 test('The matchup lays out side-by-side above the phone breakpoint', async ({ page }) => {
   // Arrange
   await page.setViewportSize({ width: 1200, height: 800 })

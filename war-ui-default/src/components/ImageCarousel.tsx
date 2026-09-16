@@ -16,9 +16,19 @@ interface ImageCarouselProps {
   // gesture-handling element — the whole card is one tap/swipe target and
   // a single tab stop (the spec), not just the image.
   children?: ReactNode
+  // War detail's gallery reuses this carousel purely for browsing (no vote
+  // to describe) — war-spec.md 10.4's "same page-through affordance the
+  // vote card's own multi-image browsing already uses".
+  ariaLabel?: string
 }
 
-export function ImageCarousel({ media, disabled = false, onTap, children }: ImageCarouselProps) {
+export function ImageCarousel({
+  media,
+  disabled = false,
+  onTap,
+  children,
+  ariaLabel = 'Contestant photo — swipe to browse, tap to vote',
+}: ImageCarouselProps) {
   const sorted = byDisplayOrder(media)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [visited, setVisited] = useState<Set<number>>(() => new Set([0]))
@@ -76,7 +86,7 @@ export function ImageCarousel({ media, disabled = false, onTap, children }: Imag
     <div
       data-testid="carousel-root"
       role="group"
-      aria-label="Contestant photo — swipe to browse, tap to vote"
+      aria-label={ariaLabel}
       tabIndex={0}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

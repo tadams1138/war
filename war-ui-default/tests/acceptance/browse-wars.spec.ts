@@ -75,7 +75,24 @@ test('No active Wars for an authenticated voter', async ({ page }) => {
   await expect(page.getByTestId('home-create-war-cta')).toBeVisible()
 })
 
-test("A War card links to its detail page", async ({ page }) => {
+test('A War card offers direct Vote and Results entry points, not a status label', async ({ page }) => {
+  // Arrange
+  const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', status: 'active' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await page.goto('/')
+
+  // Act
+  await loginAsTestVoter(page)
+
+  // Assert
+  const card = page.getByTestId('war-card').filter({ hasText: 'Miss Universe 2026' })
+  await expect(card.getByTestId('war-vote-link')).toBeVisible()
+  await expect(card.getByTestId('war-results-link')).toBeVisible()
+  await expect(card.getByTestId('war-status-badge')).toHaveCount(0)
+  await expect(card).not.toContainText('active')
+})
+
+test("A War card's Results link opens its detail page", async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', category: 'Pageant' })
   await useScenario(page, [
@@ -94,9 +111,22 @@ test("A War card links to its detail page", async ({ page }) => {
   await page.goto('/')
 
   // Act
-  await page.getByTestId('war-card').filter({ hasText: 'Miss Universe 2026' }).click()
+  await page.getByTestId('war-card').filter({ hasText: 'Miss Universe 2026' }).getByTestId('war-results-link').click()
 
   // Assert
   await expect(page).toHaveURL(/\/wars\/war-miss-universe$/)
   await expect(page.getByRole('heading', { name: 'Miss Universe 2026' })).toBeVisible()
+})
+
+test('An anonymous visitor tapping Vote is redirected to sign in', async ({ page }) => {
+  // Arrange
+  const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await page.goto('/')
+
+  // Act
+  await page.getByTestId('war-card').filter({ hasText: 'Miss Universe 2026' }).getByTestId('war-vote-link').click()
+
+  // Assert
+  await expect(page).toHaveURL(/\/login/)
 })

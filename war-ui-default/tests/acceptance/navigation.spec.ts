@@ -92,6 +92,27 @@ test('Opening the identity menu reveals Home, My Wars, Create War and Log out', 
   await expect(identityMenu(page).getByRole('menuitem', { name: 'Log out' })).toBeVisible()
 })
 
+test("The identity menu has its own background, not the page behind it", async ({ page }) => {
+  // Arrange — a themed War detail page is exactly the case that can put a
+  // contestant's own media directly behind the header (war-spec.md 10.2).
+  const detail = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] }])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/wars/war-1')
+
+  // Act
+  await openIdentityMenu(page)
+
+  // Assert — not fully transparent (alpha 0), whatever color/opacity a
+  // theme picks for it.
+  const alpha = await identityMenu(page).evaluate((el) => {
+    const match = getComputedStyle(el).backgroundColor.match(/[\d.]+/g)
+    return match && match.length === 4 ? Number(match[3]) : 1
+  })
+  expect(alpha).toBeGreaterThan(0)
+})
+
 // Scenario Outline: My Wars, Create War and Home remain reachable, via the
 // identity menu, from every route. The voter must actually have a War of
 // their own before this test starts — a voter with none would hit MyWars's
@@ -109,7 +130,6 @@ const REACHABILITY_ROWS: { page: string; path: string }[] = [
   { page: "a draft War's Edit page", path: `/wars/${DRAFT_WAR.id}/edit` },
   { page: "that War's detail page", path: `/wars/${CREATED_WAR.id}` },
   { page: "that War's vote page", path: `/wars/${CREATED_WAR.id}/vote` },
-  { page: "that War's rankings page", path: `/wars/${CREATED_WAR.id}/rankings` },
 ]
 
 for (const { page: pageLabel, path } of REACHABILITY_ROWS) {

@@ -1,6 +1,6 @@
 // Binds features/theme-switching.feature.
 import { expect, test } from '@playwright/test'
-import { buildMatchupResponse, buildRankingsResponse, buildWarDetail } from '../../src/mocks/fixtures'
+import { buildMatchupResponse, buildWarDetail } from '../../src/mocks/fixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
 
 function nav(page: import('@playwright/test').Page) {
@@ -75,20 +75,6 @@ test("A War's vote page renders in its creator-chosen theme", async ({ page }) =
 
   // Assert
   await expect(page.locator('main')).toHaveAttribute('data-theme', 'fight_card')
-})
-
-test("A War's rankings page renders in its creator-chosen theme", async ({ page }) => {
-  // Arrange
-  const rankings = buildRankingsResponse({ war_id: 'war-1', theme: 'scrapbook' })
-  await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-1/rankings`, responses: [{ status: 200, body: rankings }] },
-  ])
-
-  // Act
-  await page.goto('/wars/war-1/rankings')
-
-  // Assert
-  await expect(page.locator('main')).toHaveAttribute('data-theme', 'scrapbook')
 })
 
 test('Home renders in "arcade" until the voter chooses otherwise', async ({ page }) => {

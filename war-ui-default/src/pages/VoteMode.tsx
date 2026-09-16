@@ -24,8 +24,8 @@ export function VoteMode() {
     return (
       <div data-testid="vote-complete">
         <h2>You&rsquo;ve voted on every matchup — thank you!</h2>
-        <Link to={`/wars/${warId}/rankings`} data-testid="rankings-link">
-          See the rankings
+        <Link to={`/wars/${warId}`} data-testid="view-results-link">
+          See the results
         </Link>
       </div>
     )

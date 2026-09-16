@@ -26,6 +26,11 @@ Feature: Navigation
     And the identity menu shows a link to create a War
     And the identity menu shows a log out control
 
+  Scenario: The identity menu has its own background, not the page behind it
+    Given an authenticated voter on a themed War's detail page
+    When they open the identity menu
+    Then the menu renders on an opaque or translucent surface of its own
+
   Scenario Outline: My Wars, Create War and Home remain reachable, via the identity menu, from every route
     Given an authenticated voter who has already created a War
     When they navigate to "<page>"
@@ -41,7 +46,6 @@ Feature: Navigation
       | the Create War page        |
       | that War's detail page     |
       | that War's vote page       |
-      | that War's rankings page   |
 
   Scenario: Selecting an item in the identity menu navigates there and closes the menu
     Given an authenticated voter viewing the navigation

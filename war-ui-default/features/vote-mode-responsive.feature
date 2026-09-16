@@ -12,3 +12,8 @@ Feature: Vote Mode Responsive Layout
     Given an authenticated voter on a War's vote page, viewed at a wide desktop width
     When the first matchup has loaded
     Then the two contestants are laid out side by side
+
+  Scenario: Contestant media is capped so voting never requires scrolling first
+    Given an authenticated voter on a War's vote page, viewed at phone width
+    When the first matchup has loaded
+    Then both contestant cards fit within the viewport without scrolling

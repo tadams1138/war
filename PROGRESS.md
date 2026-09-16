@@ -131,6 +131,57 @@ empty state. Live in staging and production.
   the War meets the API's own rule (≥2 contestants, each with media); a failure the client-side
   check didn't catch shows the API's validation messages verbatim, same as the old wizard's
   Review step did.
+- **Home Vote/Results entry points.** Home's War cards no longer repeat "active" as a status
+  word (every card there is active by construction). Each card now carries two direct links,
+  `WarCard`'s new `variant="home"` (default remains `my-wars`, unchanged): **Vote** to
+  `/wars/:id/vote` and **Results** to `/wars/:id`. Vote needed no new redirect logic — the
+  route was already wrapped in `RequireAuth`, so an anonymous tap lands on sign-in and returns
+  to Vote afterward the same way `/wars/new` and `/my-wars` already do.
+- **War detail + results merge.** `/wars/:id/rankings` and its `Rankings.tsx` page are gone.
+  `WarDetail.tsx` now renders the contestant gallery and a `ResultsSection` (the same
+  `useRankings`/`RankingsTable` polling and stale-on-failed-poll behavior, previously
+  `Rankings.tsx`'s) side by side on one route, each with its own independent loading/error
+  state so a results-fetch failure never blanks an already-loaded gallery or vice versa.
+  Invite-only 401 handling is unchanged — the existing global 401 pipeline (clear token,
+  redirect to `/login`) fires the same way regardless of which of the page's two fetches
+  triggers it. `VoteMode`'s post-completion link now points at `/wars/:id` (`view-results-link`,
+  was `rankings-link`/`/wars/:id/rankings`).
+- **Contestant media sizing — Vote.** Verified already compliant: at phone width, card media
+  (default fixture aspect ratio) leaves both cards, names, and progress bar within one
+  viewport with no scroll needed. No code change; added a regression test
+  (`vote-mode-responsive.spec.ts`) asserting `scrollHeight <= innerHeight` at phone width so a
+  future change can't silently reintroduce scrolling.
+- **Contestant media sizing — War detail.** `.contestant-gallery`'s `auto-fill`/`minmax(240px,
+  1fr)` grid already keeps per-item width bounded even with a short roster on a wide
+  viewport — `auto-fill` (unlike `auto-fit`) preserves empty tracks rather than handing their
+  share to the populated ones, so this needed no CSS change either; verified with a new test
+  at 1600px width with 2 contestants. What did need building: in-place multi-image
+  browsing — `WarDetail`'s gallery item now renders `ImageCarousel` (previously the static,
+  primary-image-only `ContestantThumbnail`) so a contestant with several images pages through
+  them with the same swipe/arrow/dot affordance the vote card uses, never leaving the page.
+  `ImageCarousel` gained an optional `ariaLabel` prop (default unchanged) so this read-only
+  reuse doesn't announce "tap to vote" outside a voting context. `ContestantThumbnail` is
+  unchanged and still used by `RankingsTable`, where a single row-scale image is all the spec
+  calls for.
+- **Profile menu legibility.** `.identity-menu [role='menu']` had no background rule anywhere,
+  so it rendered on whatever page content sat behind it. Each theme's own surface color
+  (`--t-surface`, already used by `.war-card`/`.contestant-card`) now applies to the open menu
+  too, added to that same per-theme selector group rather than as a new rule, so it can never
+  drift from the other surfaces a theme defines.
+- **Activate dirty-check/confirm.** Clicking Activate while the metadata form (title, category,
+  visibility, theme, end date) has unsaved edits now shows a confirm step (`activate-dirty-
+  confirm`) instead of activating immediately, offering **Save changes** (submits the form via
+  a new imperative `EditWarMetadataFormHandle.submit()` exposed through a `forwardRef`, then
+  returns to the Metadata section so the creator sees the result — Activate itself is not
+  auto-retried), **Discard and activate** (proceeds as before), or **Cancel**. The form reports
+  its own dirty state up via a new `onDirtyChange` prop rather than lifting its field state out
+  of the form, so `EditWar` can gate its sibling Activate button without the form giving up
+  ownership of its own fields. Known gap not addressed here: switching the left nav away from
+  Metadata unmounts the form and always discarded in-progress edits before this change too —
+  that's a separate, pre-existing data-loss path this task didn't touch.
+  `EditWar`'s cyclomatic complexity is now ~15 (was ~14, hand-counted — no `complexity` lint
+  rule is configured), from the added confirm-panel branch; still the same pre-existing
+  high-complexity function flagged in earlier work, not newly over threshold.
 
 ### Not built
 
@@ -144,15 +195,7 @@ empty state. Live in staging and production.
 - **War backup export/import.** Export a draft War (metadata + contestants + bios + images, no
   votes) to a local file for backup/testing; import that file to recreate a War. Likely a zip
   (JSON manifest + image files) rather than raw JSON, since images must round-trip too.
-- **Activate can discard unsaved metadata.** Edit War's metadata form (title, category,
-  visibility, theme, end date) holds changes locally until its own Save button is clicked — the
-  Activate button is separate and fires immediately. A creator who edits metadata and clicks
-  Activate without clicking Save first activates the War with none of those edits applied, and
-  there is no way to recover: PATCH is rejected once a War leaves draft, and no delete
-  capability exists for a War in any status. The previous multi-step wizard's step ordering made
-  this sequencing error impossible; this page's freer ordering (deliberately, per spec — no
-  fixed order to walk a draft) reintroduces it. Not spec-mandated to fix (the spec is silent on
-  save/activate ordering), but worth fixing with a dirty-check/confirm step in a follow-up.
+
 
 ---
 

@@ -53,7 +53,7 @@ Feature: Contestant Attributes
     When they cast the final vote
     And the API returns 204 for /matchups/next
     Then a completion screen is shown
-    And a link to the rankings page is displayed
+    And a link to the War's results is displayed
 
   Scenario: Unauthenticated user visits vote page
     Given a user is not logged in
@@ -65,25 +65,25 @@ Feature: Rankings
 
   Scenario: Rankings page loads for anonymous user
     Given a public active War with votes
-    When an anonymous user navigates to /wars/:id/rankings
+    When an anonymous user navigates to that War's detail page
     Then the leaderboard is displayed with rank, name, wins, and appearances
     And no win percentage is displayed anywhere
 
   Scenario: Rankings poll while War is active
-    Given a user viewing the rankings of an active War
+    Given a user viewing the detail page of an active War
     When 30 seconds elapse
-    Then the UI re-fetches rankings from the API
-    And the leaderboard updates if rankings changed
+    Then the UI re-fetches results from the API
+    And the leaderboard updates if results changed
 
   Scenario: The UI does not compute rankings
     Given the API returns contestants in a given order with given ranks
-    When the rankings page renders
+    When the War detail page renders
     Then rows appear in the order returned
     And the displayed ranks match the API response exactly
 
   Scenario: Unranked contestants shown at bottom
     Given a War where Contestant C has received no votes
-    When the rankings page loads
+    When the War detail page loads
     Then Contestant C appears at the bottom with rank "—"
 
 Feature: Create War

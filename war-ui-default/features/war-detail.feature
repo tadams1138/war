@@ -1,5 +1,8 @@
 Feature: War Detail
 
+  War detail is one page: overview, contestant gallery, and results together
+  (war-spec.md 10.1, 10.4) — not a separate rankings page reached elsewhere.
+
   Scenario: War overview loads with its contestant gallery
     Given an active public War with 3 contestants
     When a visitor navigates to that War's detail page
@@ -15,3 +18,68 @@ Feature: War Detail
     Given no War exists with a given id
     When a visitor navigates to that id's detail page
     Then the message "This War doesn't exist or has been removed" is shown
+
+  Scenario: Contestant media is capped so the bio stays readable without scrolling
+    Given a wide viewport and a War with 2 contestants, each with a bio
+    When a visitor navigates to that War's detail page
+    Then each contestant's media is no wider than a thumbnail
+    And each contestant's bio is visible without scrolling
+
+  Scenario: A contestant with multiple images is browsable in place
+    Given a contestant with 3 images
+    When a visitor navigates to that War's detail page
+    Then paging controls are shown for that contestant's gallery item
+    And selecting the next control shows that contestant's second image
+    And the visitor is still on the War's detail page
+
+  Scenario: The detail page shows results alongside the gallery
+    Given a public active War with votes recorded
+    When an unauthenticated visitor navigates to that War's detail page
+    Then the leaderboard is shown with rank, image, name, wins, and appearances for each contestant
+    And no win percentage is displayed anywhere
+
+  Scenario: The UI renders results in the order and ranks the API returns
+    Given the API returns contestants in a given order with given ranks
+    When the War detail page renders
+    Then result rows appear in that exact order
+    And the displayed ranks match the API response exactly
+
+  Scenario: Unranked contestants are shown at the bottom of results
+    Given a War where a contestant has received no votes
+    When the War detail page loads
+    Then that contestant appears at the bottom of the results with rank "—"
+
+  Scenario: Results poll while the War is active
+    Given a visitor viewing the detail page of an active War
+    When 30 seconds elapse
+    Then the detail page re-fetches results from the API
+    And the leaderboard updates if the results changed
+
+  Scenario: A failed results poll keeps the last loaded leaderboard on screen
+    Given a visitor viewing the detail page of an active War with results already loaded
+    When a poll to re-fetch results fails
+    Then the previously loaded leaderboard remains displayed
+    And no error state replaces it
+    And the detail page continues polling every 30 seconds
+
+  Scenario: The leaderboard recovers once a later results poll succeeds
+    Given a visitor viewing the detail page of an active War whose last results poll failed
+    When the next poll succeeds
+    Then the leaderboard updates to reflect that response
+
+  Scenario: Results do not poll once the War is closed
+    Given a visitor viewing the detail page of a closed War
+    When 30 seconds elapse
+    Then the detail page does not re-fetch results from the API
+
+  Scenario: An invite-only War's results require sign-in
+    Given an invite-only War
+    When an unauthenticated visitor navigates to that War's detail page
+    Then the message "Please log in to continue" is shown
+    And they are redirected to /login
+
+  Scenario: A completed vote flow links back to the War's results
+    Given a voter who has just cast their final vote in a War
+    When the completion screen is shown
+    And they select the results link
+    Then that War's detail page is shown with results
