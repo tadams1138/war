@@ -1,11 +1,16 @@
-// War overview and contestant gallery, image mode only
-// (the spec). No authentication required.
+// War overview, contestant gallery, and results, image mode only (the
+// spec: "War detail is one page, not two" — 10.1, 10.4). No authentication
+// required for a public War; an invite-only War's results 401, and that
+// 401 is handled entirely by api/client.ts's existing unauthorized
+// pipeline, which clears the token and redirects to /login.
 import { useParams } from 'react-router-dom'
 import { getWar, type ContestantDetail } from '../api/client'
 import { BioContent } from '../bio/BioContent'
 import { ContestantAttributes } from '../components/ContestantAttributes'
-import { ContestantThumbnail } from '../components/ContestantThumbnail'
+import { ImageCarousel } from '../components/ImageCarousel'
+import { RankingsTable } from '../components/RankingsTable'
 import { useAsyncResource } from '../hooks/useAsyncResource'
+import { useRankings, type RankingsState } from '../rankings/useRankings'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { warTitle } from '../utils/warTitle'
@@ -13,6 +18,7 @@ import { warTitle } from '../utils/warTitle'
 export function WarDetail() {
   const { id } = useParams<{ id: string }>()
   const state = useAsyncResource(id ? () => getWar(id) : undefined, [id])
+  const rankingsState = useRankings(id)
   const [theme, setTheme] = useTheme(id ?? '', state.status === 'loaded' ? state.value.theme : 'arcade')
   usePublishTheme(id ?? '', theme, setTheme)
 
@@ -31,14 +37,33 @@ export function WarDetail() {
           </li>
         ))}
       </ul>
+      <ResultsSection state={rankingsState} />
     </main>
+  )
+}
+
+// Its own load/error state, independent of the gallery above: a results
+// fetch failing (or still loading) must never blank out an overview and
+// gallery that loaded fine, and vice versa (war-spec.md 10.4's "failed
+// poll does not clear already-loaded results" carried down to this
+// section's own scope rather than the whole page).
+function ResultsSection({ state }: { state: RankingsState }) {
+  if (state.status === 'loading') return <p>Loading results…</p>
+  if (state.status === 'error') return <p role="alert">{state.message}</p>
+  return (
+    <section aria-label="Results">
+      <h2>Results</h2>
+      <RankingsTable rankings={state.rankings.rankings} />
+    </section>
   )
 }
 
 function ContestantGalleryItem({ contestant }: { contestant: ContestantDetail }) {
   return (
     <div data-testid="contestant-gallery-item" className="contestant-gallery-item">
-      <ContestantThumbnail media={contestant.media} name={contestant.name} />
+      <div className="contestant-gallery-media">
+        <ImageCarousel media={contestant.media} onTap={() => {}} ariaLabel={`${contestant.name}'s photos — swipe or use the arrows to browse`} />
+      </div>
       <h2>{contestant.name}</h2>
       <BioContent bio={contestant.bio} />
       <ContestantAttributes attributes={contestant.attributes} />

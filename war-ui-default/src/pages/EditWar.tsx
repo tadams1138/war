@@ -10,13 +10,13 @@
 // at a time -- a long page stacking every contestant's full editor (bio
 // toolbar, live preview, image gallery) top to bottom stopped being
 // navigable once a War had more than one or two contestants.
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { ContestantDetail, WarSummary } from '../api/client'
 import { Toast } from '../components/Toast'
 import { AddContestantForm } from '../editWar/AddContestantForm'
 import { EditWarContestant } from '../editWar/EditWarContestant'
-import { EditWarMetadataForm } from '../editWar/EditWarMetadataForm'
+import { EditWarMetadataForm, type EditWarMetadataFormHandle } from '../editWar/EditWarMetadataForm'
 import { useEditWar } from '../editWar/useEditWar'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
@@ -42,6 +42,9 @@ export function EditWar() {
   const [selected, setSelected] = useState<Selection>('metadata')
   const [theme, setTheme] = useTheme(warId ?? '', state.status === 'loaded' ? state.war.theme : 'arcade')
   usePublishTheme(warId ?? '', theme, setTheme)
+  const metadataFormRef = useRef<EditWarMetadataFormHandle>(null)
+  const [metadataDirty, setMetadataDirty] = useState(false)
+  const [showDirtyConfirm, setShowDirtyConfirm] = useState(false)
 
   if (state.status === 'loading') return <p>Loading…</p>
   if (state.status === 'error') return <p role="alert">{state.message}</p>
@@ -65,6 +68,28 @@ export function EditWar() {
 
   function handleAdded(contestant: ContestantDetail): void {
     setSelected(contestant.id)
+  }
+
+  // war-spec.md 10.4: Activate must not silently apply on top of metadata
+  // edits the creator never saved -- PATCH is rejected the instant a War
+  // leaves draft, so those edits would otherwise be unrecoverable.
+  function handleActivateClick(): void {
+    if (metadataDirty) {
+      setShowDirtyConfirm(true)
+      return
+    }
+    void activate()
+  }
+
+  function handleSaveThenReview(): void {
+    metadataFormRef.current?.submit()
+    setShowDirtyConfirm(false)
+    setSelected('metadata')
+  }
+
+  function handleDiscardAndActivate(): void {
+    setShowDirtyConfirm(false)
+    void activate()
   }
 
   async function handleRemove(contestantId: string): Promise<void> {
@@ -91,10 +116,26 @@ export function EditWar() {
           type="button"
           data-testid="activate-submit"
           disabled={!canActivate || activating}
-          onClick={() => void activate()}
+          onClick={handleActivateClick}
         >
           Activate War
         </button>
+        {showDirtyConfirm && (
+          <div role="alertdialog" data-testid="activate-dirty-confirm">
+            <p>
+              You have unsaved War details. Save them, discard them, or cancel before activating.
+            </p>
+            <button type="button" data-testid="activate-dirty-save" onClick={handleSaveThenReview}>
+              Save changes
+            </button>
+            <button type="button" data-testid="activate-dirty-discard" onClick={handleDiscardAndActivate}>
+              Discard and activate
+            </button>
+            <button type="button" data-testid="activate-dirty-cancel" onClick={() => setShowDirtyConfirm(false)}>
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
       <div className="edit-war-layout">
         <nav className="edit-war-nav" aria-label="War sections">
@@ -131,7 +172,14 @@ export function EditWar() {
         </nav>
         <div className="edit-war-detail">
           {selected === 'metadata' && (
-            <EditWarMetadataForm war={war} error={metadataError} saving={savingMetadata} onSave={saveMetadata} />
+            <EditWarMetadataForm
+              ref={metadataFormRef}
+              war={war}
+              error={metadataError}
+              saving={savingMetadata}
+              onSave={saveMetadata}
+              onDirtyChange={setMetadataDirty}
+            />
           )}
           {selected === 'add' && (
             <AddContestantForm error={addContestantError} onAdd={addContestant} onAdded={handleAdded} />

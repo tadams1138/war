@@ -1,8 +1,9 @@
-// The Rankings page's state machine (the spec):
-// fetches the leaderboard, then polls every 30 seconds while the War's
-// `status` (the spec's effective_status) is "active", stopping the moment
-// it isn't. Extracted out of the page component so that one renders only,
-// matching useVoteSession's split for VoteMode.
+// War detail's results-section state machine (the spec, 10.4 "results
+// poll while the War is active"): fetches the leaderboard, then polls
+// every 30 seconds while the War's `status` (the spec's effective_status)
+// is "active", stopping the moment it isn't. Extracted out of the page
+// component so that one renders only, matching useVoteSession's split for
+// VoteMode.
 import { useEffect, useState } from 'react'
 import { getRankings, type RankingsResponse } from '../api/client'
 import { toUserMessage } from '../api/errors'

@@ -163,7 +163,8 @@
   font-family: var(--t-display-font);
 }
 [data-theme='arcade'] .war-card,
-[data-theme='arcade'] .contestant-card {
+[data-theme='arcade'] .contestant-card,
+[data-theme='arcade'] .identity-menu [role='menu'] {
   background: var(--t-surface);
   border: 2px solid var(--t-accent2);
 }
@@ -219,7 +220,8 @@
   letter-spacing: 0.02em;
 }
 [data-theme='fight_card'] .war-card,
-[data-theme='fight_card'] .contestant-card {
+[data-theme='fight_card'] .contestant-card,
+[data-theme='fight_card'] .identity-menu [role='menu'] {
   background: var(--t-surface);
   border-left: 4px solid var(--t-accent2);
 }
@@ -272,7 +274,8 @@
   font-family: var(--t-display-font);
 }
 [data-theme='scrapbook'] .war-card,
-[data-theme='scrapbook'] .contestant-card {
+[data-theme='scrapbook'] .contestant-card,
+[data-theme='scrapbook'] .identity-menu [role='menu'] {
   background: var(--t-surface);
   color: var(--t-text-on-surface);
   border-radius: 3px;

@@ -617,9 +617,8 @@ against, so those tests exercise real shapes rather than believed ones.
 | Route | Purpose | Authenticated |
 |---|---|---|
 | Home | Browse active public Wars | No |
-| War detail | Overview and contestant gallery | No |
+| War detail | Overview, contestant gallery, and results (leaderboard) — one page, not two | No |
 | Vote | Binary matchup voting | Yes |
-| Rankings | Leaderboard | No |
 | Create War | Creates an empty draft War and forwards to its Edit page | Yes |
 | Edit War | Metadata, contestants and media, and Activate, for a draft the voter created | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
@@ -644,7 +643,10 @@ transitional state.
 - **Authenticated:** a single identity control (the voter's avatar and name) that opens a menu
   holding Home, My Wars, Create War, and a sign-out control, always together. The control is
   closed by default, so the persistent header stays small regardless of how many destinations
-  it holds.
+  it holds. The open menu renders on an opaque or sufficiently translucent surface of its own,
+  never the bare page behind it — a themed page can render a contestant's own media directly
+  beneath the header, and menu text must stay legible against it regardless of what that
+  background is.
 
 **Create War is a top-level action** within that menu, not something reached through My
 Wars — the tradeoff being a second item rather than a leaner menu. My Wars remains a separate
@@ -670,6 +672,9 @@ Two contestant cards side by side.
   binary choice and extra text slows it down
 - Images use the width set the API supplies, sized for two cards sharing the viewport, so a
   phone downloads a small variant rather than a large one
+- Card media is capped to a size that keeps both cards, their names, and the tap targets
+  within one viewport on a typical screen — a card is never so tall that voting requires
+  scrolling first
 - Space is reserved from the supplied aspect ratio so cards do not shift as images load —
   layout shift under the tap target causes mis-votes
 - The next pair's media is prefetched while the voter decides
@@ -713,20 +718,31 @@ for the current matchup and destroyed when it is replaced.
 and finishing is not expected; copy should frame progress as contribution rather than an
 unfinished task, and must never imply a partial contribution is wasted.
 
-**Rankings** render rank, image, name, wins and appearances exactly as returned, with no
-percentages computed or displayed. The board polls while the War is active. **A failed poll
-does not clear an already-loaded board** — it leaves the last good data on screen, shows no
-error, and keeps polling; the board recovers on its own. This does not apply to the *initial*
-load, where there is no last-good board to fall back on and the standard error state applies.
-Unranked contestants appear at the bottom with a dash.
+**War detail is one page, not two.** It presents each contestant's bio (§4) and media gallery
+*together with* that War's results (rank, win count, appearance count), rather than splitting
+overview and leaderboard across separate routes — an active War's page is only useful when its
+standing is right there. Results render exactly as returned, with no percentages computed or
+displayed, in rank order with unranked contestants at the bottom marked by a dash. Needs no
+authentication for a public War (§6.4).
+
+Media renders at a size that leaves the bio and the results readable without scrolling past
+them on a typical viewport — a thumbnail-scale image, not the source upload — and a contestant
+with more than one image is browsable through that gallery in place, the same page-through
+affordance the vote card's own multi-image browsing already uses (10.3), rather than growing
+the page vertically per image.
+
+Results poll while the War is active. **A failed poll does not clear already-loaded results**
+— it leaves the last good data on screen, shows no error, and keeps polling; the page recovers
+on its own. This does not apply to the *initial* load, where there is no last-good data to
+fall back on and the standard error state applies.
 
 **War cards** summarise a War: title, category, status, contestant count, and time remaining
 where an end date is set. Time remaining renders "Ended" at or past the end date, whole days
 rounded up at a day or more, and whole hours rounded up below that with a one-hour floor — so
 a War ending in minutes reads "1 hour" rather than "0 hours" or a misleading "1 day".
 
-**Theme switching.** A War's detail, vote, and rankings pages render in its creator-chosen
-theme (§4) until the voter viewing them picks a different one from the theme control in the
+**Theme switching.** A War's detail (which carries its results) and vote pages render in its
+creator-chosen theme (§4) until the voter viewing them picks a different one from the theme control in the
 persistent navigation header — reachable from every page, not just the themed ones. That pick
 is remembered only on the device it was made on, independently per War — it is not part of
 the voter's account, so it does not follow them to a different browser, and it never changes
@@ -740,6 +756,16 @@ is told to check back, since waiting or signing in really are their only options
 authenticated voter is invited to create one and given a link, because they are the one
 visitor who can *make* an active War exist. Telling them only to check back is not merely
 unhelpful, it omits the one action they have.
+
+Every War card on Home is already known to be active — that is the page's whole premise — so
+the card does not repeat "active" as a status word; **My Wars** still shows status, since it
+lists every status a War can hold (below). Instead each card carries two direct entry
+points: **Vote**, going straight to the Vote page, and **Results**, going to the War detail
+page (10.1) for its overview, gallery, and current standing — one merged page, not a
+leaderboard reached separately. Results is public and needs no authentication. Vote requires
+an authenticated voter — an anonymous visitor who taps it is redirected to sign-in carrying
+that destination and returned to it afterward, the same rule §10.1 states for any protected
+route.
 
 **Create War** creates an empty draft immediately — no fields collected up front — and forwards
 straight to that draft's Edit page. There is no separate creation wizard and no review step;

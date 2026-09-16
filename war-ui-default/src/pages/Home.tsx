@@ -36,7 +36,7 @@ function HomeWarList({ wars, isAuthenticated }: { wars: WarSummary[]; isAuthenti
     <ul className="war-grid">
       {wars.map((war) => (
         <li key={war.id}>
-          <WarCard war={war} />
+          <WarCard war={war} variant="home" />
         </li>
       ))}
     </ul>

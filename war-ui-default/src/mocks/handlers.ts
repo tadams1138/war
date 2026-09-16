@@ -3,7 +3,7 @@
 // they care about via scenarios.ts's data-driven recipes; anything they
 // don't override falls through to these.
 import { HttpResponse, http } from 'msw'
-import { buildContestant, buildMatchupResponse, buildWarDetail, buildWarSummary } from './fixtures'
+import { buildContestant, buildMatchupResponse, buildRankingsResponse, buildWarDetail, buildWarSummary } from './fixtures'
 
 const wars = [
   buildWarSummary({ id: 'war-1', title: 'Miss Universe 2026', category: 'Pageant' }),
@@ -35,6 +35,11 @@ export const handlers = [
       }),
     ),
   ),
+
+  // War detail now renders its results section on the same page (the
+  // spec), so any test that mocks GET /wars/:id also implicitly exercises
+  // this fetch, whether or not that test cares about the leaderboard.
+  http.get('/api/v1/wars/:id/rankings', () => HttpResponse.json(buildRankingsResponse())),
 
   http.post('/api/v1/wars/:id/join', () => new HttpResponse(null, { status: 204 })),
 
