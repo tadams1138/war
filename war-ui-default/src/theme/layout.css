@@ -395,6 +395,27 @@ label {
   }
 }
 
+/* Breathing room between columns -- unset otherwise, cell content sat
+   flush against its neighbors. */
+.rankings-table th,
+.rankings-table td {
+  padding: 0.6rem 0.75rem;
+}
+
+/* Rank, Wins, Appear., and Win share are all short, single-value columns
+   -- centered reads as one glanceable strip instead of a ragged left edge
+   next to Contestant's much wider block of text. */
+.rankings-table th.col-rank,
+.rankings-table td.col-rank,
+.rankings-table th.col-wins,
+.rankings-table td.col-wins,
+.rankings-table th.col-appearances,
+.rankings-table td.col-appearances,
+.rankings-table th.col-win-share,
+.rankings-table td.col-win-share {
+  text-align: center;
+}
+
 .win-bar-track {
   width: 100%;
   height: 0.4rem;

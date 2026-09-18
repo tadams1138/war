@@ -51,12 +51,12 @@ export function ResultsTable({ rankings, contestants }: ResultsTableProps) {
       </colgroup>
       <thead>
         <tr>
-          <th>Rank</th>
+          <th className="col-rank">Rank</th>
           <th>Image</th>
           <th>Contestant</th>
-          <th>Wins</th>
-          <th>Appearances</th>
-          <th>Win share</th>
+          <th className="col-wins">Wins</th>
+          <th className="col-appearances">Appear.</th>
+          <th className="col-win-share">Win share</th>
         </tr>
       </thead>
       <tbody>
@@ -79,7 +79,7 @@ function ResultsRow({
 }) {
   return (
     <tr data-testid="ranking-row">
-      <td>{entry.rank ?? '—'}</td>
+      <td className="col-rank">{entry.rank ?? '—'}</td>
       <td>
         <div className="results-media">
           <ImageCarousel
@@ -94,9 +94,9 @@ function ResultsRow({
         {detail && <BioContent bio={detail.bio} />}
         {detail && <ContestantAttributes attributes={detail.attributes} />}
       </td>
-      <td>{entry.wins}</td>
-      <td>{entry.appearances}</td>
-      <td>
+      <td className="col-wins">{entry.wins}</td>
+      <td className="col-appearances">{entry.appearances}</td>
+      <td className="col-win-share">
         <div className="win-bar-track">
           <div className="win-bar-fill" style={{ width: `${winShare(entry.wins, maxWins)}%` }} />
         </div>

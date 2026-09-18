@@ -193,6 +193,9 @@
   color: var(--t-accent2);
   font-size: 0.7rem;
 }
+[data-theme='arcade'] .rankings-table td.col-rank {
+  font-family: var(--t-display-font);
+}
 [data-theme='arcade'] .bio-content a {
   color: var(--t-accent2);
 }
@@ -252,6 +255,9 @@
 [data-theme='fight_card'] .rankings-table th {
   font-family: var(--t-display-font);
   color: var(--t-accent2);
+}
+[data-theme='fight_card'] .rankings-table td.col-rank {
+  font-family: var(--t-display-font);
 }
 [data-theme='fight_card'] .bio-content a {
   color: var(--t-accent2);
@@ -322,6 +328,9 @@
 [data-theme='scrapbook'] .rankings-table th {
   font-family: var(--t-display-font);
   color: var(--t-accent1);
+}
+[data-theme='scrapbook'] .rankings-table td.col-rank {
+  font-family: var(--t-display-font);
 }
 /* accent2 (a light yellow) is the link color elsewhere in this theme, but
    .bio-content sits on the light --t-surface tan here, not the dark
