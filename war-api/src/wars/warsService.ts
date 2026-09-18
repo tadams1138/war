@@ -2,7 +2,6 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { validateSchemaDefinition, type ContestantSchemaField } from '../contestants/schemaValidation.js';
 import { listContestantsByWar } from '../contestants/contestantsRepository.js';
-import { countMediaByContestant } from '../contestants/contestantMediaRepository.js';
 import { generateMatchups } from '../matchups/matchupsRepository.js';
 import type { Forbidden, MutationOutcome, NotActive, NotFound } from '../shared/outcomes.js';
 import { effectiveStatus } from './effectiveStatus.js';
@@ -216,7 +215,7 @@ export async function patchWar(
 
 export type ActivateOutcome = MutationOutcome<War>;
 
-/** draft → active: requires ≥2 contestants, each with ≥1 image (spec). */
+/** draft → active: requires ≥2 contestants (spec). A contestant need not have media. */
 export async function activateWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<ActivateOutcome> {
   const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
@@ -224,11 +223,6 @@ export async function activateWar(db: Kysely<Database>, warId: string, voterId: 
   const contestants = await listContestantsByWar(db, warId);
   if (contestants.length < 2) {
     return { kind: 'validationError', errors: ['a War needs at least 2 contestants to activate'] };
-  }
-
-  const mediaCounts = await Promise.all(contestants.map((c) => countMediaByContestant(db, c.id)));
-  if (mediaCounts.some((count) => count === 0)) {
-    return { kind: 'validationError', errors: ['every contestant must have at least one image to activate'] };
   }
 
   await generateMatchups(db, warId, contestants.map((c) => c.id));

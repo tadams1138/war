@@ -30,6 +30,12 @@ Staging and production both run as a single application per environment containi
 - **Published API contract**, generated from route definitions. A CI guard fails the build
   if the committed client types drift.
 - **Health check.**
+- **Activation no longer requires media.** `activateWar` (`warsService.ts`) dropped its
+  per-contestant image-count check; only "at least 2 contestants" remains. A contestant with
+  no media at all can activate and vote/rankings render whatever media it has (spec 6.1
+  updated to match). `war-lifecycle.feature`'s "Cannot activate when a contestant has no
+  image" scenario is now "A contestant with no image can still activate", asserting a 200
+  instead of a 422.
 
 ### Not built
 
@@ -122,15 +128,17 @@ empty state. Live in staging and production.
   roughly 3 columns at laptop width, adapting to any contestant count rather than a hardcoded
   column count — plus a themed card surface (`.contestant-gallery-item`, matching
   `.bio-content`'s border/background) and a 1:1 `object-fit: cover` image cap.
+  **Superseded** by the results-list merge below — the gallery, its grid, and
+  `.contestant-gallery-item` no longer exist.
 - **Single-page War creation.** The multi-step Create War wizard (Metadata → Contestants →
   Review/Activate) is gone. `POST /wars` no longer requires a title (a War is identified by its
   id; `wars.title` is now a nullable column) — clicking Create War creates an empty draft and
   forwards straight to `/wars/:id/edit`, which now also carries theme editing (previously
   creation-only, since there was no PATCH path for it — `PATCH /wars/:id` accepts `theme` now
   too) and an **Activate** button. Activate is client-side disabled with an inline reason until
-  the War meets the API's own rule (≥2 contestants, each with media); a failure the client-side
-  check didn't catch shows the API's validation messages verbatim, same as the old wizard's
-  Review step did.
+  the War meets the API's own rule (≥2 contestants — the media requirement this once mirrored
+  too was dropped, see *Built* below); a failure the client-side check didn't catch shows the
+  API's validation messages verbatim, same as the old wizard's Review step did.
 - **Home Vote/Results entry points.** Home's War cards no longer repeat "active" as a status
   word (every card there is active by construction). Each card now carries two direct links,
   `WarCard`'s new `variant="home"` (default remains `my-wars`, unchanged): **Vote** to
@@ -146,6 +154,9 @@ empty state. Live in staging and production.
   redirect to `/login`) fires the same way regardless of which of the page's two fetches
   triggers it. `VoteMode`'s post-completion link now points at `/wars/:id` (`view-results-link`,
   was `rankings-link`/`/wars/:id/rankings`).
+  **Superseded** by the results-list merge below — the gallery and the results table were
+  merged into one list, not just one route; the independent load/error states this bullet
+  describes still apply (now scoped to the single results list rather than to two sections).
 - **Contestant media sizing — Vote.** Verified already compliant: at phone width, card media
   (default fixture aspect ratio) leaves both cards, names, and progress bar within one
   viewport with no scroll needed. No code change; added a regression test
@@ -160,9 +171,11 @@ empty state. Live in staging and production.
   primary-image-only `ContestantThumbnail`) so a contestant with several images pages through
   them with the same swipe/arrow/dot affordance the vote card uses, never leaving the page.
   `ImageCarousel` gained an optional `ariaLabel` prop (default unchanged) so this read-only
-  reuse doesn't announce "tap to vote" outside a voting context. `ContestantThumbnail` is
-  unchanged and still used by `RankingsTable`, where a single row-scale image is all the spec
-  calls for.
+  reuse doesn't announce "tap to vote" outside a voting context.
+  **Superseded** by the results-list merge below — the grid is gone (replaced by a fixed-width
+  `.results-media`, not viewport-dependent sizing), and `ContestantThumbnail` was deleted;
+  `ImageCarousel` (with its `ariaLabel` prop, unchanged) is now the only image renderer for a
+  result row, gallery item or leaderboard row alike.
 - **Profile menu legibility.** `.identity-menu [role='menu']` had no background rule anywhere,
   so it rendered on whatever page content sat behind it. Each theme's own surface color
   (`--t-surface`, already used by `.war-card`/`.contestant-card`) now applies to the open menu
@@ -182,6 +195,44 @@ empty state. Live in staging and production.
   `EditWar`'s cyclomatic complexity is now ~15 (was ~14, hand-counted — no `complexity` lint
   rule is configured), from the added confirm-panel branch; still the same pre-existing
   high-complexity function flagged in earlier work, not newly over threshold.
+- **Fixed: clicking an image carousel's arrow control cast a vote underneath the navigation.**
+  `ImageCarousel`'s tap-to-vote/swipe-to-browse gestures live on `onPointerDown`/`onPointerMove`/
+  `onPointerUp` handlers on the carousel's own root element; the arrow buttons only called
+  `event.stopPropagation()` in their `onClick` handler, which fires *after* pointerdown/pointerup
+  already bubbled to the root and fired `onTap()` (a real mouse click always fires
+  pointerdown → pointerup → click, in that order). The only acceptance test for the arrow
+  controls drove them via keyboard (`ArrowRight`/`ArrowLeft`), never an actual mouse click, so
+  this shipped unnoticed. Fixed by stopping propagation on the buttons' own
+  `onPointerDown`/`onPointerUp` too. New regression test drives a real `.click()`.
+- **Activate no longer requires media.** `missingForActivation` (`EditWar.tsx`) dropped its
+  "every contestant needs an image" check, matching the API (see war-api's *Built* above); only
+  "at least 2 contestants" is still mirrored client-side.
+- **Results list merge — no more separate gallery or "Results" section.** `WarDetail` used to
+  render a contestant gallery (bio, attributes, media) and an independent `RankingsTable`
+  (`<h2>Results</h2>`, rank/image/name/wins/appearances) as two sections on the same page. They
+  are now one list: `ResultsTable` (`components/ResultsTable.tsx`, replacing `RankingsTable.tsx`)
+  renders a single rank-ordered row per contestant carrying image, name, bio, and attributes
+  together with wins/appearances — row order and identity come from `GET /wars/:id/rankings`
+  (never re-sorted, per spec), with bio/attributes joined in from `GET /wars/:id`'s
+  `contestants` by id (absent when the two responses' ids don't line up, e.g. an
+  as-yet-unranked contestant on the same page a rankings entry hasn't been generated for). Each
+  row's media is a fixed-width (`4.5rem`, `.results-media` in `layout.css`) `ImageCarousel` —
+  not a static thumbnail — so multi-image contestants page through their photos in place;
+  `ContestantThumbnail.tsx` (retired) used to draw only the primary image. A contestant with no
+  media renders no image and no placeholder in its row (`ImageCarousel` already rendered
+  nothing for an empty `media` array; nothing new needed there). The image itself is decorative
+  (`alt=""`, per `ImageCarousel`'s existing convention) — the carousel's `role="group"`
+  `aria-label` carries the contestant's name instead. `.contestant-gallery`/
+  `.contestant-gallery-item` (CSS) and their themed surface-box rule are removed.
+- **Activate permanence confirmation.** Clicking Activate (`EditWar.tsx`) now always shows a
+  confirm dialog (`activate-confirm`, distinct from the pre-existing unsaved-edits
+  `activate-dirty-confirm`) warning that activation is permanent and the War can no longer be
+  edited once live, requiring an explicit **Activate War**/**Cancel** choice before the real
+  `activate()` call fires. Discarding unsaved edits from the dirty-confirm dialog routes through
+  this same permanence confirm rather than activating immediately — every path to activation
+  now passes through one gate. Extracted `ActivateDirtyConfirmDialog`/
+  `ActivatePermanenceConfirmDialog` subcomponents to keep `ActivateSection`'s cyclomatic
+  complexity at 4 (would have been 6 with both dialogs inlined).
 
 ### Not built
 

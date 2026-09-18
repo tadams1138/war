@@ -10,7 +10,7 @@ import {
 } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
 
-test('War overview loads with its contestant gallery', async ({ page }) => {
+test('War overview loads with its results', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
     id: 'war-1',
@@ -22,7 +22,18 @@ test('War overview loads with its contestant gallery', async ({ page }) => {
       buildContestant({ id: 'c-3', name: 'Mae' }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] }])
+  const rankings = buildRankingsResponse({
+    war_id: 'war-1',
+    rankings: [
+      buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 2, appearances: 2 }),
+      buildRankingEntry({ rank: 2, contestant: { id: 'c-2', name: 'Grace' }, wins: 1, appearances: 2 }),
+      buildRankingEntry({ rank: 3, contestant: { id: 'c-3', name: 'Mae' }, wins: 0, appearances: 2 }),
+    ],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-1/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
 
   // Act
   await page.goto('/wars/war-1')
@@ -30,36 +41,11 @@ test('War overview loads with its contestant gallery', async ({ page }) => {
   // Assert
   await expect(page.getByRole('heading', { name: 'Miss Universe 2026' })).toBeVisible()
   await expect(page.getByText('Pageant')).toBeVisible()
-  const items = page.getByTestId('contestant-gallery-item')
-  await expect(items).toHaveCount(3)
-  await expect(items.filter({ hasText: 'Ada' }).locator('img')).toBeVisible()
-  await expect(items.filter({ hasText: 'Grace' }).locator('img')).toBeVisible()
-  await expect(items.filter({ hasText: 'Mae' }).locator('img')).toBeVisible()
-})
-
-test('The contestant gallery lays out in multiple columns on a laptop-width viewport', async ({ page }) => {
-  // Arrange
-  await page.setViewportSize({ width: 1280, height: 800 })
-  const detail = buildWarDetail({
-    id: 'war-grid',
-    contestants: [
-      buildContestant({ id: 'c-1', name: 'Ada' }),
-      buildContestant({ id: 'c-2', name: 'Grace' }),
-      buildContestant({ id: 'c-3', name: 'Mae' }),
-    ],
-  })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-grid`, responses: [{ status: 200, body: detail }] }])
-
-  // Act
-  await page.goto('/wars/war-grid')
-
-  // Assert — first and second cards sit in the same row, not stacked
-  const items = page.getByTestId('contestant-gallery-item')
-  const firstBox = await items.nth(0).boundingBox()
-  const secondBox = await items.nth(1).boundingBox()
-  expect(firstBox).not.toBeNull()
-  expect(secondBox).not.toBeNull()
-  expect(Math.abs(firstBox!.y - secondBox!.y)).toBeLessThan(5)
+  const rows = page.getByTestId('ranking-row')
+  await expect(rows).toHaveCount(3)
+  await expect(rows.filter({ hasText: 'Ada' }).locator('img')).toBeVisible()
+  await expect(rows.filter({ hasText: 'Grace' }).locator('img')).toBeVisible()
+  await expect(rows.filter({ hasText: 'Mae' }).locator('img')).toBeVisible()
 })
 
 test('The primary image is the display_order 0 item, regardless of array order', async ({ page }) => {
@@ -71,29 +57,43 @@ test('The primary image is the display_order 0 item, regardless of array order',
   ]
   const detail = buildWarDetail({
     id: 'war-order',
-    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: outOfOrderMedia })],
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' })],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-order`, responses: [{ status: 200, body: detail }] }])
+  const rankings = buildRankingsResponse({
+    war_id: 'war-order',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada', media: outOfOrderMedia }, wins: 1, appearances: 1 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-order`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-order/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
 
   // Act
   await page.goto('/wars/war-order')
 
   // Assert
-  const img = page.getByTestId('contestant-gallery-item').filter({ hasText: 'Ada' }).locator('img')
+  const img = page.getByTestId('ranking-row').filter({ hasText: 'Ada' }).locator('img')
   await expect(img).toHaveAttribute('src', /actually-primary/)
 })
 
 test('The War detail page requires no authentication', async ({ page }) => {
   // Arrange
-  const detail = buildWarDetail({ id: 'war-1', title: 'Miss Universe 2026', contestants: [buildContestant()] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] }])
+  const detail = buildWarDetail({ id: 'war-1', title: 'Miss Universe 2026', contestants: [buildContestant({ id: 'c-1' })] })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-1',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Contestant One' }, wins: 0, appearances: 0 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-1/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
 
   // Act — no login step at all
   await page.goto('/wars/war-1')
 
   // Assert
   await expect(page.getByRole('heading', { name: 'Miss Universe 2026' })).toBeVisible()
-  await expect(page.getByTestId('contestant-gallery-item')).toHaveCount(1)
+  await expect(page.getByTestId('ranking-row')).toHaveCount(1)
 })
 
 test("A contestant's formatted bio renders on the War detail page", async ({ page }) => {
@@ -108,7 +108,14 @@ test("A contestant's formatted bio renders on the War detail page", async ({ pag
       }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-bio`, responses: [{ status: 200, body: detail }] }])
+  const rankings = buildRankingsResponse({
+    war_id: 'war-bio',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-bio`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-bio/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
 
   // Act
   await page.goto('/wars/war-bio')
@@ -125,12 +132,15 @@ test('Paragraphs in a bio separated by a blank line render with visible vertical
   // Arrange
   const detail = buildWarDetail({
     id: 'war-bio-paragraphs',
-    contestants: [
-      buildContestant({ id: 'c-1', name: 'Ada', bio: 'First paragraph.\n\nSecond paragraph.' }),
-    ],
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'First paragraph.\n\nSecond paragraph.' })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-bio-paragraphs',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
   })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/war-bio-paragraphs`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-bio-paragraphs/rankings`, responses: [{ status: 200, body: rankings }] },
   ])
 
   // Act
@@ -156,8 +166,13 @@ test('An adversarial bio never executes and never renders as raw HTML', async ({
       }),
     ],
   })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-bio-xss',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
+  })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/war-bio-xss`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-bio-xss/rankings`, responses: [{ status: 200, body: rankings }] },
   ])
 
   // Act
@@ -185,11 +200,11 @@ test("A War that doesn't exist shows a not-found message", async ({ page }) => {
   await expect(page.getByText("This War doesn't exist or has been removed")).toBeVisible()
 })
 
-test('Contestant media is capped so the bio stays readable without scrolling', async ({ page }) => {
-  // Arrange — a wide viewport with only 2 contestants is the case that
-  // previously blew media up to near-half-screen width: an
-  // auto-fill/1fr grid stretches each column to fill all the room a wide
-  // screen and a short roster leave available.
+test("A contestant's bio renders inline with their result, not full-size media", async ({ page }) => {
+  // Arrange — a wide viewport proves the media stays a small, fixed-size
+  // thumbnail regardless of how much room a short roster leaves available
+  // (previously, a card-grid layout blew media up to near-half-screen
+  // width here; a single-column results list has no such column to fill).
   await page.setViewportSize({ width: 1600, height: 900 })
   const detail = buildWarDetail({
     id: 'war-wide',
@@ -198,17 +213,27 @@ test('Contestant media is capped so the bio stays readable without scrolling', a
       buildContestant({ id: 'c-2', name: 'Grace', bio: 'A pioneering programmer.' }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-wide`, responses: [{ status: 200, body: detail }] }])
+  const rankings = buildRankingsResponse({
+    war_id: 'war-wide',
+    rankings: [
+      buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 }),
+      buildRankingEntry({ rank: 2, contestant: { id: 'c-2', name: 'Grace' }, wins: 0, appearances: 1 }),
+    ],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-wide`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-wide/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
 
   // Act
   await page.goto('/wars/war-wide')
 
   // Assert
-  const firstItem = page.getByTestId('contestant-gallery-item').filter({ hasText: 'Ada' })
-  const imageBox = await firstItem.locator('img').boundingBox()
+  const firstRow = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  const imageBox = await firstRow.locator('img').boundingBox()
   expect(imageBox).not.toBeNull()
-  expect(imageBox!.width).toBeLessThanOrEqual(340)
-  const bioBox = await firstItem.getByTestId('contestant-bio').boundingBox()
+  expect(imageBox!.width).toBeLessThanOrEqual(100)
+  const bioBox = await firstRow.getByTestId('contestant-bio').boundingBox()
   expect(bioBox).not.toBeNull()
   expect(bioBox!.y + bioBox!.height).toBeLessThanOrEqual(900)
 })
@@ -222,31 +247,60 @@ test('A contestant with multiple images is browsable in place', async ({ page })
   ]
   const detail = buildWarDetail({
     id: 'war-multi-image',
-    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media })],
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-multi-image',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada', media }, wins: 0, appearances: 0 })],
   })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/war-multi-image`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-multi-image/rankings`, responses: [{ status: 200, body: rankings }] },
   ])
 
   // Act
   await page.goto('/wars/war-multi-image')
-  const item = page.getByTestId('contestant-gallery-item').filter({ hasText: 'Ada' })
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
 
   // Assert — paging controls present, and stepping forward swaps the image
   // without leaving the page
-  await expect(item.getByTestId('carousel-arrow-next')).toBeVisible()
-  await expect(item.locator('img:visible')).toHaveAttribute('src', /ada-media-0/)
-  await item.getByTestId('carousel-arrow-next').click()
-  await expect(item.locator('img:visible')).toHaveAttribute('src', /ada-media-1/)
+  await expect(row.getByTestId('carousel-arrow-next')).toBeVisible()
+  await expect(row.locator('img:visible')).toHaveAttribute('src', /ada-media-0/)
+  await row.getByTestId('carousel-arrow-next').click()
+  await expect(row.locator('img:visible')).toHaveAttribute('src', /ada-media-1/)
   await expect(page).toHaveURL(/\/wars\/war-multi-image$/)
 })
 
-// --- Results (formerly a separate Rankings page, now part of War detail —
-// war-spec.md 10.1/10.4: "one page, not two") ---
+test('A contestant with no media shows no image at all', async ({ page }) => {
+  // Arrange — media is optional (a contestant can activate without any),
+  // so a bare result row must never invent a placeholder image.
+  const detail = buildWarDetail({
+    id: 'war-no-media',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [] })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-no-media',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada', media: [] }, wins: 0, appearances: 0 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-no-media`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-no-media/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-no-media')
+
+  // Assert
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  await expect(row).toBeVisible()
+  await expect(row.locator('img')).toHaveCount(0)
+})
+
+// --- Results ---
 
 const RESULTS_WAR_ID = 'war-results-1'
 
-test('The detail page shows results alongside the gallery', async ({ page }) => {
+test('The detail page shows results with rank, image, wins, and appearances', async ({ page }) => {
   // Arrange
   const rankings = buildRankingsResponse({
     war_id: RESULTS_WAR_ID,
@@ -274,11 +328,13 @@ test('The detail page shows results alongside the gallery', async ({ page }) => 
   await expect(firstRowCells.nth(3)).toHaveText('10')
   await expect(firstRowCells.nth(4)).toHaveText('12')
   // The Image column (spec): c1's media is `c1-media-0` with 400/1600
-  // variants (src/mocks/fixtures.ts's buildMediaItem default).
+  // variants (src/mocks/fixtures.ts's buildMediaItem default). The image
+  // itself is decorative (alt=""); the carousel group it sits in carries
+  // the accessible name instead.
   const image = rows.nth(0).locator('img')
-  await expect(image).toHaveAttribute('alt', 'Contestant One')
   await expect(image).toHaveAttribute('src', /c1-media-0\/400\.jpg/)
   await expect(image).toHaveAttribute('srcset', /1600w/)
+  await expect(rows.nth(0).getByRole('group')).toHaveAttribute('aria-label', /Contestant One/)
   await expect(page.getByText(/%/)).toHaveCount(0)
 })
 

@@ -32,7 +32,6 @@ function initialTheme(state: EditWarState): Theme {
 function missingForActivation(contestants: ContestantDetail[]): string[] {
   const missing: string[] = []
   if (contestants.length < 2) missing.push('at least 2 contestants')
-  if (contestants.some((contestant) => contestant.media.length === 0)) missing.push('an image for every contestant')
   return missing
 }
 
@@ -48,6 +47,7 @@ export function EditWar() {
   const metadataFormRef = useRef<EditWarMetadataFormHandle>(null)
   const [metadataDirty, setMetadataDirty] = useState(false)
   const [showDirtyConfirm, setShowDirtyConfirm] = useState(false)
+  const [showActivateConfirm, setShowActivateConfirm] = useState(false)
 
   if (editWar.state.status === 'loading') return <p>Loading…</p>
   if (editWar.state.status === 'error') return <p role="alert">{editWar.state.message}</p>
@@ -69,7 +69,7 @@ export function EditWar() {
       setShowDirtyConfirm(true)
       return
     }
-    void editWar.activate()
+    setShowActivateConfirm(true)
   }
 
   function handleSaveThenReview(): void {
@@ -78,8 +78,16 @@ export function EditWar() {
     setSelected('metadata')
   }
 
+  // Discarding still routes through the same permanence warning every other
+  // path to activation goes through -- it resolves the dirty-edits question,
+  // not the "this can't be undone" one.
   function handleDiscardAndActivate(): void {
     setShowDirtyConfirm(false)
+    setShowActivateConfirm(true)
+  }
+
+  function handleConfirmActivate(): void {
+    setShowActivateConfirm(false)
     void editWar.activate()
   }
 
@@ -90,10 +98,13 @@ export function EditWar() {
       <ActivateSection
         state={state}
         showDirtyConfirm={showDirtyConfirm}
+        showActivateConfirm={showActivateConfirm}
         onActivateClick={handleActivateClick}
         onSaveThenReview={handleSaveThenReview}
         onDiscardAndActivate={handleDiscardAndActivate}
         onCancelConfirm={() => setShowDirtyConfirm(false)}
+        onConfirmActivate={handleConfirmActivate}
+        onCancelActivateConfirm={() => setShowActivateConfirm(false)}
       />
       <div className="edit-war-layout">
         <EditWarNav selected={selected} contestants={state.war.contestants} onSelect={setSelected} />
@@ -113,17 +124,23 @@ export function EditWar() {
 function ActivateSection({
   state,
   showDirtyConfirm,
+  showActivateConfirm,
   onActivateClick,
   onSaveThenReview,
   onDiscardAndActivate,
   onCancelConfirm,
+  onConfirmActivate,
+  onCancelActivateConfirm,
 }: {
   state: EditWarLoadedState
   showDirtyConfirm: boolean
+  showActivateConfirm: boolean
   onActivateClick: () => void
   onSaveThenReview: () => void
   onDiscardAndActivate: () => void
   onCancelConfirm: () => void
+  onConfirmActivate: () => void
+  onCancelActivateConfirm: () => void
 }) {
   const missing = missingForActivation(state.war.contestants)
   const canActivate = missing.length === 0
@@ -145,20 +162,74 @@ function ActivateSection({
       >
         Activate War
       </button>
-      {showDirtyConfirm && (
-        <div role="alertdialog" data-testid="activate-dirty-confirm">
-          <p>You have unsaved War details. Save them, discard them, or cancel before activating.</p>
-          <button type="button" data-testid="activate-dirty-save" onClick={onSaveThenReview}>
-            Save changes
-          </button>
-          <button type="button" data-testid="activate-dirty-discard" onClick={onDiscardAndActivate}>
-            Discard and activate
-          </button>
-          <button type="button" data-testid="activate-dirty-cancel" onClick={onCancelConfirm}>
-            Cancel
-          </button>
-        </div>
-      )}
+      <ActivateDirtyConfirmDialog
+        show={showDirtyConfirm}
+        onSaveThenReview={onSaveThenReview}
+        onDiscardAndActivate={onDiscardAndActivate}
+        onCancelConfirm={onCancelConfirm}
+      />
+      <ActivatePermanenceConfirmDialog
+        show={showActivateConfirm}
+        onConfirmActivate={onConfirmActivate}
+        onCancelActivateConfirm={onCancelActivateConfirm}
+      />
+    </div>
+  )
+}
+
+function ActivateDirtyConfirmDialog({
+  show,
+  onSaveThenReview,
+  onDiscardAndActivate,
+  onCancelConfirm,
+}: {
+  show: boolean
+  onSaveThenReview: () => void
+  onDiscardAndActivate: () => void
+  onCancelConfirm: () => void
+}) {
+  if (!show) return null
+  return (
+    <div role="alertdialog" data-testid="activate-dirty-confirm">
+      <p>You have unsaved War details. Save them, discard them, or cancel before activating.</p>
+      <button type="button" data-testid="activate-dirty-save" onClick={onSaveThenReview}>
+        Save changes
+      </button>
+      <button type="button" data-testid="activate-dirty-discard" onClick={onDiscardAndActivate}>
+        Discard and activate
+      </button>
+      <button type="button" data-testid="activate-dirty-cancel" onClick={onCancelConfirm}>
+        Cancel
+      </button>
+    </div>
+  )
+}
+
+// The final gate before every activation, regardless of which path led
+// here (a clean click, or discarding unsaved edits from the dialog above):
+// activation cannot be undone, so the warning is never skipped.
+function ActivatePermanenceConfirmDialog({
+  show,
+  onConfirmActivate,
+  onCancelActivateConfirm,
+}: {
+  show: boolean
+  onConfirmActivate: () => void
+  onCancelActivateConfirm: () => void
+}) {
+  if (!show) return null
+  return (
+    <div role="alertdialog" data-testid="activate-confirm">
+      <p>
+        Activating is permanent. Once this War goes live, its contestants and details can no longer be edited. Do
+        you want to continue?
+      </p>
+      <button type="button" data-testid="activate-confirm-submit" onClick={onConfirmActivate}>
+        Activate War
+      </button>
+      <button type="button" data-testid="activate-confirm-cancel" onClick={onCancelActivateConfirm}>
+        Cancel
+      </button>
     </div>
   )
 }

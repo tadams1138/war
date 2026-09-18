@@ -317,9 +317,10 @@ This requires authentication and is the only thing that widens visibility.
 mode, contestant schema, theme, and end date are all optional, with documented defaults. The
 War is created as a draft owned by the authenticated voter and can be filled in afterward.
 
-**Activation** requires at least two contestants, and every contestant to have media matching
-the War's mode — a War cannot go live with a contestant no voter can see. It generates every
-matchup atomically. Only the creator may activate, and only from draft.
+**Activation** requires at least two contestants. It generates every matchup atomically. Only
+the creator may activate, and only from draft. A contestant may activate with no media at all
+— voting and rankings render whatever media (if any) a contestant has, same as every other
+optional field.
 
 **Joining** records the voter's membership. Voting requires it.
 
@@ -617,7 +618,7 @@ against, so those tests exercise real shapes rather than believed ones.
 | Route | Purpose | Authenticated |
 |---|---|---|
 | Home | Browse active public Wars | No |
-| War detail | Overview, contestant gallery, and results (leaderboard) — one page, not two | No |
+| War detail | Overview and results — one merged, rank-ordered list, not a gallery plus a separate leaderboard | No |
 | Vote | Binary matchup voting | Yes |
 | Create War | Creates an empty draft War and forwards to its Edit page | Yes |
 | Edit War | Metadata, contestants and media, and Activate, for a draft the voter created | Yes |
@@ -718,18 +719,19 @@ for the current matchup and destroyed when it is replaced.
 and finishing is not expected; copy should frame progress as contribution rather than an
 unfinished task, and must never imply a partial contribution is wasted.
 
-**War detail is one page, not two.** It presents each contestant's bio (§4) and media gallery
-*together with* that War's results (rank, win count, appearance count), rather than splitting
-overview and leaderboard across separate routes — an active War's page is only useful when its
-standing is right there. Results render exactly as returned, with no percentages computed or
-displayed, in rank order with unranked contestants at the bottom marked by a dash. Needs no
-authentication for a public War (§6.4).
+**War detail is one page, not two — and one list, not two.** Results (rank, win count, appearance
+count) are not a separate section below a contestant gallery; each result row carries that same
+contestant's media and bio (§4) directly, in rank order, with unranked contestants at the bottom
+marked by a dash. There is no separate "Results" heading and no separate gallery — the rank-ordered
+list *is* the page. Results render exactly as returned, with no percentages computed or displayed.
+Needs no authentication for a public War (§6.4).
 
-Media renders at a size that leaves the bio and the results readable without scrolling past
+Media renders at a size that leaves the bio and the row itself readable without scrolling past
 them on a typical viewport — a thumbnail-scale image, not the source upload — and a contestant
-with more than one image is browsable through that gallery in place, the same page-through
-affordance the vote card's own multi-image browsing already uses (10.3), rather than growing
-the page vertically per image.
+with more than one image is browsable in place, the same page-through affordance the vote card's
+own multi-image browsing already uses (10.3), rather than growing the page vertically per image.
+A contestant with no media (§6.1: media is optional) shows no image at all in its row — never a
+placeholder standing in for the missing photo.
 
 Results poll while the War is active. **A failed poll does not clear already-loaded results**
 — it leaves the last good data on screen, shows no error, and keeps polling; the page recovers
@@ -761,7 +763,7 @@ Every War card on Home is already known to be active — that is the page's whol
 the card does not repeat "active" as a status word; **My Wars** still shows status, since it
 lists every status a War can hold (below). Instead each card carries two direct entry
 points: **Vote**, going straight to the Vote page, and **Results**, going to the War detail
-page (10.1) for its overview, gallery, and current standing — one merged page, not a
+page (10.1) for its overview and current standing — one merged page and one merged list, not a
 leaderboard reached separately. Results is public and needs no authentication. Vote requires
 an authenticated voter — an anonymous visitor who taps it is redirected to sign-in carrying
 that destination and returned to it afterward, the same rule §10.1 states for any protected
@@ -788,12 +790,16 @@ from that entry point; opening it any other way for a War that has left draft sh
 not-editable message instead of the form.
 
 **Activate**, on that same page, is disabled with an inline reason until the War meets the
-API's own activation requirements (§6.1: at least two contestants, each with media matching the
-War's mode) — a client-side mirror of a rule the API enforces regardless, so a creator sees why
-before attempting it rather than only after a rejected request. Activating navigates to the
-War's Vote page. A failure the client-side check didn't catch (a race, a network error) shows
-the API's own validation messages verbatim, never generic error copy — these are addressed to
-the creator, and only the creator ever reaches them.
+API's own activation requirements (§6.1: at least two contestants) — a client-side mirror of a
+rule the API enforces regardless, so a creator sees why before attempting it rather than only
+after a rejected request. Clicking it always asks for confirmation first — activation is
+permanent and, once live, the War can no longer be edited (§6.2) — and only proceeds if the
+creator continues past that warning. If the creator also has unsaved metadata edits, that is
+asked about first (save, discard, or cancel); discarding still leads to the same permanence
+warning before anything is actually activated. Confirming navigates to the War's Vote page. A
+failure the client-side check didn't catch (a race, a network error) shows the API's own
+validation messages verbatim, never generic error copy — these are addressed to the creator,
+and only the creator ever reaches them.
 
 Both empty-state links to Create War remain even though the header also carries one. An empty
 state is a page's *entire* visible content at that moment, and the one visitor with something

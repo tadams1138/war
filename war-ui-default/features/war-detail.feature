@@ -1,9 +1,11 @@
 Feature: War Detail
 
-  War detail is one page: overview, contestant gallery, and results together
-  (war-spec.md 10.1, 10.4) — not a separate rankings page reached elsewhere.
+  War detail is one page (war-spec.md 10.1, 10.4): a single results list, ordered
+  by rank, where each row carries that contestant's image, name, bio, wins, and
+  appearances together. There is no separate contestant gallery and no separate
+  "Results" section — one merged list is the whole page.
 
-  Scenario: War overview loads with its contestant gallery
+  Scenario: War overview loads with its results
     Given an active public War with 3 contestants
     When a visitor navigates to that War's detail page
     Then the War's title and category are shown
@@ -12,27 +14,32 @@ Feature: War Detail
   Scenario: The War detail page requires no authentication
     Given an active public War
     When an unauthenticated visitor navigates to its detail page
-    Then the War overview and contestant gallery are shown
+    Then the War overview and its results list are shown
 
   Scenario: A War that doesn't exist shows a not-found message
     Given no War exists with a given id
     When a visitor navigates to that id's detail page
     Then the message "This War doesn't exist or has been removed" is shown
 
-  Scenario: Contestant media is capped so the bio stays readable without scrolling
-    Given a wide viewport and a War with 2 contestants, each with a bio
+  Scenario: A contestant's bio renders inline with their result, not full-size media
+    Given a War with 2 contestants, each with a bio
     When a visitor navigates to that War's detail page
     Then each contestant's media is no wider than a thumbnail
-    And each contestant's bio is visible without scrolling
+    And each contestant's bio is visible right alongside it
 
   Scenario: A contestant with multiple images is browsable in place
     Given a contestant with 3 images
     When a visitor navigates to that War's detail page
-    Then paging controls are shown for that contestant's gallery item
+    Then paging controls are shown for that contestant's result row
     And selecting the next control shows that contestant's second image
     And the visitor is still on the War's detail page
 
-  Scenario: The detail page shows results alongside the gallery
+  Scenario: A contestant with no media shows no image at all
+    Given a contestant with no images
+    When a visitor navigates to that War's detail page
+    Then that contestant's result row shows no image and no placeholder
+
+  Scenario: The detail page shows results with rank, image, wins, and appearances
     Given a public active War with votes recorded
     When an unauthenticated visitor navigates to that War's detail page
     Then the leaderboard is shown with rank, image, name, wins, and appearances for each contestant

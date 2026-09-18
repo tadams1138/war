@@ -12,11 +12,10 @@ Feature: War Lifecycle
     Then the response status is 422
     And the War remains "draft"
 
-  Scenario: Cannot activate when a contestant has no image
+  Scenario: A contestant with no image can still activate
     Given a War in "draft" with 2 contestants, only one of which has an image
     When the creator POSTs to activate
-    Then the response status is 422
-    And the War remains "draft"
+    Then the War status becomes "active"
 
   Scenario: Cannot edit after activation
     Given a War in "active" status
