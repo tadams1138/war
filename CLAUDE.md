@@ -93,6 +93,17 @@ every time.
 
 These commands mirror the pipelines in `.github/workflows/`, so local runs match CI.
 
+## Working efficiently
+
+- **Scope test runs while iterating.** During a fix-verify loop, run only the affected spec
+  file or `-t`/`-g` name (see the scoped commands above), not the full suite. Run the full
+  suite once, right before a commit.
+- **Fork for large multi-file refactors.** A change touching many files at once (a
+  cyclomatic-complexity sweep, a cross-cutting rename) belongs in a forked subagent, not
+  inline — it keeps the raw diffs and test output out of the main conversation.
+- **Close `claude-in-chrome` tabs as soon as a browser task finishes.** Don't leave automation
+  tabs open across turns.
+
 ## Specs
 
 `specs/war-spec.md` is the single specification and the contract. It describes **what** the
