@@ -159,11 +159,11 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
     expect(response.status).toBeLessThan(400);
     const callbackUrl = harness.google.lastExchangeCallbackUrl;
     expect(callbackUrl).toBeDefined();
-    expect(callbackUrl?.searchParams.get('code')).toBe(code);
-    expect(callbackUrl?.searchParams.get('iss')).toBe('https://accounts.google.com');
-    expect(callbackUrl?.searchParams.get('scope')).toBe('openid email profile');
-    expect(callbackUrl?.searchParams.get('authuser')).toBe('0');
-    expect(callbackUrl?.searchParams.get('prompt')).toBe('consent');
+    expect(callbackUrl!.searchParams.get('code')).toBe(code);
+    expect(callbackUrl!.searchParams.get('iss')).toBe('https://accounts.google.com');
+    expect(callbackUrl!.searchParams.get('scope')).toBe('openid email profile');
+    expect(callbackUrl!.searchParams.get('authuser')).toBe('0');
+    expect(callbackUrl!.searchParams.get('prompt')).toBe('consent');
   });
 });
 

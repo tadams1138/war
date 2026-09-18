@@ -68,54 +68,85 @@ export function EditWarContestant({
           />
         </label>
         <BioEditor value={bio} onChange={setBio} />
-        {(nameRequiredError || error) && (
-          <p role="alert" data-testid="edit-war-contestant-error">
-            {nameRequiredError ?? error}
-          </p>
-        )}
+        <ContestantSaveError nameRequiredError={nameRequiredError} error={error} />
         <button type="submit" data-testid="edit-war-contestant-submit" disabled={saving}>
           Save
         </button>
       </form>
-      <ul className="image-gallery">
-        {sortedMedia.map((media, index) => (
-          <li key={media.id} className="image-gallery-item" data-testid="edit-war-contestant-image" data-media-id={media.id}>
-            <img
-              src={media.variants[0]?.url}
-              alt={`${contestant.name}, image ${index + 1} of ${sortedMedia.length}`}
-              style={{ aspectRatio: media.aspect_ratio ?? undefined }}
-            />
-            <div className="image-gallery-item-actions">
-              {index > 0 && (
-                <button type="button" data-testid="edit-war-image-move-up" onClick={() => onMoveImageUp(media.id)}>
-                  Move up
-                </button>
-              )}
-              <button type="button" data-testid="edit-war-image-remove" onClick={() => onRemoveImage(media.id)}>
-                Remove
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-      {sortedMedia.length < MAX_IMAGES_PER_CONTESTANT ? (
-        <label>
-          Add image
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            data-testid="edit-war-image-input"
-            onChange={(event) => {
-              const files = event.target.files ? Array.from(event.target.files) : []
-              if (files.length > 0) onAddImages(files)
-              event.target.value = ''
-            }}
-          />
-        </label>
-      ) : (
-        <span data-testid="edit-war-image-cap-reached">Maximum of {MAX_IMAGES_PER_CONTESTANT} images reached</span>
-      )}
+      <ContestantImageGallery
+        contestantName={contestant.name}
+        sortedMedia={sortedMedia}
+        onRemoveImage={onRemoveImage}
+        onMoveImageUp={onMoveImageUp}
+      />
+      <AddImageControl imageCount={sortedMedia.length} onAddImages={onAddImages} />
     </li>
+  )
+}
+
+function ContestantSaveError({ nameRequiredError, error }: { nameRequiredError: string | null; error: string | null }) {
+  if (!nameRequiredError && !error) return null
+  return (
+    <p role="alert" data-testid="edit-war-contestant-error">
+      {nameRequiredError ?? error}
+    </p>
+  )
+}
+
+function ContestantImageGallery({
+  contestantName,
+  sortedMedia,
+  onRemoveImage,
+  onMoveImageUp,
+}: {
+  contestantName: string
+  sortedMedia: ContestantDetail['media']
+  onRemoveImage: (mediaId: string) => void
+  onMoveImageUp: (mediaId: string) => void
+}) {
+  return (
+    <ul className="image-gallery">
+      {sortedMedia.map((media, index) => (
+        <li key={media.id} className="image-gallery-item" data-testid="edit-war-contestant-image" data-media-id={media.id}>
+          <img
+            src={media.variants[0]?.url}
+            alt={`${contestantName}, image ${index + 1} of ${sortedMedia.length}`}
+            style={{ aspectRatio: media.aspect_ratio ?? undefined }}
+          />
+          <div className="image-gallery-item-actions">
+            {index > 0 && (
+              <button type="button" data-testid="edit-war-image-move-up" onClick={() => onMoveImageUp(media.id)}>
+                Move up
+              </button>
+            )}
+            <button type="button" data-testid="edit-war-image-remove" onClick={() => onRemoveImage(media.id)}>
+              Remove
+            </button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function AddImageControl({ imageCount, onAddImages }: { imageCount: number; onAddImages: (files: File[]) => void }) {
+  if (imageCount >= MAX_IMAGES_PER_CONTESTANT) {
+    return <span data-testid="edit-war-image-cap-reached">Maximum of {MAX_IMAGES_PER_CONTESTANT} images reached</span>
+  }
+  return (
+    <label>
+      Add image
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        data-testid="edit-war-image-input"
+        onChange={(event) => {
+          const files = event.target.files ? Array.from(event.target.files) : []
+          if (files.length > 0) onAddImages(files)
+          event.target.value = ''
+        }}
+      />
+    </label>
   )
 }

@@ -30,6 +30,18 @@ export interface VoteSession {
   selectContestant: (contestantId: string) => void
 }
 
+function isConflict(error: unknown): boolean {
+  return error instanceof ApiError && error.reason === 'conflict'
+}
+
+function isRateLimited(error: unknown): error is ApiError & { reason: 'rate-limited' } {
+  return error instanceof ApiError && error.reason === 'rate-limited'
+}
+
+function isActionable(state: VoteSessionState): state is ActiveState {
+  return state.phase === 'active' && !state.votingInFlight
+}
+
 export function useVoteSession(warId: string | undefined): VoteSession {
   const [state, setState] = useState<VoteSessionState>({ phase: 'loading' })
   // Guards every setState below against firing after unmount — the join
@@ -82,11 +94,11 @@ export function useVoteSession(warId: string | undefined): VoteSession {
   }
 
   function handleVoteError(error: unknown) {
-    if (error instanceof ApiError && error.reason === 'conflict') {
+    if (isConflict(error)) {
       if (warId) void loadNext(warId)
       return
     }
-    if (error instanceof ApiError && error.reason === 'rate-limited') {
+    if (isRateLimited(error)) {
       applyRateLimit(error)
       return
     }
@@ -101,16 +113,20 @@ export function useVoteSession(warId: string | undefined): VoteSession {
     }, (error.retryAfterSeconds ?? 0) * 1000)
   }
 
-  async function selectContestant(contestantId: string) {
-    if (!warId || state.phase !== 'active' || state.votingInFlight) return
-    const matchupId = state.matchup.id
-    setActiveState((prev) => ({ ...prev, votingInFlight: true, errorMessage: null }))
+  async function submitVote(id: string, matchupId: string, contestantId: string): Promise<void> {
     try {
-      await castVote(warId, matchupId, contestantId)
-      if (!cancelledRef.current) await loadNext(warId)
+      await castVote(id, matchupId, contestantId)
+      if (!cancelledRef.current) await loadNext(id)
     } catch (error) {
       if (!cancelledRef.current) handleVoteError(error)
     }
+  }
+
+  async function selectContestant(contestantId: string) {
+    if (!warId || !isActionable(state)) return
+    const matchupId = state.matchup.id
+    setActiveState((prev) => ({ ...prev, votingInFlight: true, errorMessage: null }))
+    await submitVote(warId, matchupId, contestantId)
   }
 
   return { state, selectContestant }

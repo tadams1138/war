@@ -20,6 +20,10 @@ export interface BegunLogin {
   advertisedRedirectUri: string;
 }
 
+function extractAdvertisedRedirectUri(location: string | undefined): string | null {
+  return location ? new URL(location).searchParams.get('redirect_uri') : null;
+}
+
 /**
  * Drives the login leg only (the spec's step 1) and stops before the
  * callback -- the shared setup every "begin a login, then do something
@@ -37,8 +41,7 @@ export async function beginLogin(harness: TestHarness, provider = 'google'): Pro
     throw new Error('login did not set both the oauth_state and oauth_pkce cookies');
   }
 
-  const location: string | undefined = loginResponse.headers.location;
-  const advertisedRedirectUri = location ? new URL(location).searchParams.get('redirect_uri') : null;
+  const advertisedRedirectUri = extractAdvertisedRedirectUri(loginResponse.headers.location);
   if (!advertisedRedirectUri) {
     throw new Error('login did not advertise a redirect_uri');
   }

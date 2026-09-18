@@ -28,16 +28,20 @@ export interface DraftWarOptions {
   endsAt?: Date | null;
 }
 
+function withDefault<T>(value: T | undefined, fallback: T): T {
+  return value ?? fallback;
+}
+
 export async function makeDraftWar(db: Kysely<Database>, creatorId: string, options: DraftWarOptions = {}): Promise<War> {
   return createWar(db, {
     creatorId,
-    title: options.title ?? 'Test War',
+    title: withDefault(options.title, 'Test War'),
     category: null,
-    visibility: options.visibility ?? 'public',
+    visibility: withDefault(options.visibility, 'public'),
     mediaMode: 'image',
-    theme: options.theme ?? 'arcade',
-    contestantSchema: options.contestantSchema ?? [],
-    endsAt: options.endsAt ?? null,
+    theme: withDefault(options.theme, 'arcade'),
+    contestantSchema: withDefault(options.contestantSchema, []),
+    endsAt: withDefault(options.endsAt, null),
   });
 }
 

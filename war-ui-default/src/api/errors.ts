@@ -39,31 +39,26 @@ export class ApiError extends Error {
 
 // Pure mapping from a typed reason to the exact user-facing copy in the spec's
 // table. `conflict` has no message — MatchupView advances silently instead.
+// A lookup table, not a switch: every branch here is a fixed string, so a
+// `Record` keeps this at zero cyclomatic complexity instead of one branch per
+// reason, and a missing key is a compile error rather than a silent
+// `undefined` return.
+const REASON_MESSAGES: Record<ApiErrorReason, (retryAfterSeconds?: number) => string> = {
+  unauthorized: () => 'Please log in to continue',
+  'war-closed': () => 'This War is locked — voting is closed',
+  'not-joined': () => 'Join this War to vote',
+  forbidden: () => "This isn't your War",
+  'not-draft': () => 'This War is no longer editable',
+  'not-found': () => "This War doesn't exist or has been removed",
+  conflict: () => '',
+  'rate-limited': (retryAfterSeconds) => `Slow down a moment — try again in ${retryAfterSeconds ?? 0}s`,
+  validation: () => 'Something went wrong — please try again',
+  'server-error': () => 'Server error — please try again shortly',
+  network: () => 'Unable to reach the server — check your connection',
+}
+
 export function messageForReason(reason: ApiErrorReason, retryAfterSeconds?: number): string {
-  switch (reason) {
-    case 'unauthorized':
-      return 'Please log in to continue'
-    case 'war-closed':
-      return 'This War is locked — voting is closed'
-    case 'not-joined':
-      return 'Join this War to vote'
-    case 'forbidden':
-      return "This isn't your War"
-    case 'not-draft':
-      return 'This War is no longer editable'
-    case 'not-found':
-      return "This War doesn't exist or has been removed"
-    case 'conflict':
-      return ''
-    case 'rate-limited':
-      return `Slow down a moment — try again in ${retryAfterSeconds ?? 0}s`
-    case 'validation':
-      return 'Something went wrong — please try again'
-    case 'server-error':
-      return 'Server error — please try again shortly'
-    case 'network':
-      return 'Unable to reach the server — check your connection'
-  }
+  return REASON_MESSAGES[reason](retryAfterSeconds)
 }
 
 // Pages call this instead of repeating `error instanceof ApiError ?
