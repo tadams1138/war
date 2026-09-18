@@ -726,12 +726,18 @@ marked by a dash. There is no separate "Results" heading and no separate gallery
 list *is* the page. Results render exactly as returned, with no percentages computed or displayed.
 Needs no authentication for a public War (§6.4).
 
-Media renders at a size that leaves the bio and the row itself readable without scrolling past
-them on a typical viewport — a thumbnail-scale image, not the source upload — and a contestant
-with more than one image is browsable in place, the same page-through affordance the vote card's
-own multi-image browsing already uses (10.3), rather than growing the page vertically per image.
-A contestant with no media (§6.1: media is optional) shows no image at all in its row — never a
-placeholder standing in for the missing photo.
+Each row's columns hold a fixed share of its width, not a content- or viewport-dependent one:
+bio gets about half, media about a quarter, and rank/wins/appearances/win-share share the rest
+— so a short bio never lets media balloon to fill the row, and a long one never squeezes media
+past legibility either. A contestant with more than one image is browsable in place — paging
+arrows sit on the image's own left and right edges and a row of dots along its bottom show
+which image and how many, so every image occupies the same space regardless of whether it has
+company, rather than the controls claiming a row of their own underneath (the same page-through
+affordance the vote card's own multi-image browsing already uses, 10.3). A contestant with no
+media (§6.1: media is optional) shows no image at all in its row — never a placeholder standing
+in for the missing photo. Win share is a bar sized to a contestant's raw wins relative to the
+leader's, never wins over appearances — an appearance-normalized percentage is exactly what §7
+rejects as a display value.
 
 Results poll while the War is active. **A failed poll does not clear already-loaded results**
 — it leaves the last good data on screen, shows no error, and keeps polling; the page recovers

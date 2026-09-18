@@ -108,12 +108,11 @@ label {
   }
 }
 
-/* War detail's results list: each row's media is a small, fixed-width
-   thumbnail regardless of viewport -- a card-grid layout used to blow
-   media up to near-half-screen width on a wide viewport with a short
-   roster; a fixed width can't do that no matter how much room a row has. */
+/* War detail's results list: media fills whatever the Image column's
+   fixed percentage width (below) gives it -- never the whole row, the
+   fate of a card-grid layout on a wide viewport with a short roster. */
 .results-media {
-  width: 4.5rem;
+  width: 100%;
 }
 
 .image-gallery {
@@ -364,13 +363,45 @@ label {
   height: 100%;
 }
 
+/* Fixed column widths (via <colgroup>, not content-based sizing) so a
+   short bio never lets media balloon to fill the row and a long one never
+   squeezes media past legibility either: bio gets about half the row,
+   image about a quarter, and the four narrow columns share the rest. */
 .rankings-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
+}
+.rankings-table .col-rank {
+  width: 6%;
+}
+.rankings-table .col-image {
+  width: 25%;
+}
+.rankings-table .col-contestant {
+  width: 50%;
+}
+.rankings-table .col-wins,
+.rankings-table .col-appearances {
+  width: 6%;
+}
+.rankings-table .col-win-share {
+  width: 7%;
 }
 @media (max-width: 640px) {
   .rankings-table {
     display: block;
     overflow-x: auto;
   }
+}
+
+.win-bar-track {
+  width: 100%;
+  height: 0.4rem;
+  border-radius: 0.2rem;
+  overflow: hidden;
+}
+
+.win-bar-fill {
+  height: 100%;
 }

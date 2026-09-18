@@ -4,6 +4,11 @@
 // and declared attributes alongside its rank/wins/appearances. Replaces
 // what used to be two separate sections — a contestant gallery driven by
 // GET /wars/:id and a leaderboard driven by GET /wars/:id/rankings.
+//
+// Column widths are fixed via <colgroup> (bio ~50%, image ~25%, the four
+// narrow numeric/visual columns ~25% combined) so a short bio never lets
+// media balloon to fill the row, and a long one never squeezes media past
+// legibility either.
 import type { ContestantDetail, RankingsResponse } from '../api/client'
 import { BioContent } from '../bio/BioContent'
 import { ContestantAttributes } from './ContestantAttributes'
@@ -22,10 +27,28 @@ function contestantDetailsById(contestants: ContestantDetail[]): Map<string, Con
   return new Map(contestants.map((contestant) => [contestant.id, contestant]))
 }
 
+// A bar sized by this contestant's raw wins relative to the leader's —
+// never wins over appearances. §7 rejects any appearance-normalized
+// percentage as a display value (it would let a 3-for-3 contestant outrank
+// a 320-of-400 one); this bar visualizes the same raw win count already
+// shown as a number in the Wins column, nothing derived from appearances.
+function winShare(wins: number, maxWins: number): number {
+  return maxWins === 0 ? 0 : Math.round((wins / maxWins) * 100)
+}
+
 export function ResultsTable({ rankings, contestants }: ResultsTableProps) {
   const detailsById = contestantDetailsById(contestants)
+  const maxWins = Math.max(0, ...rankings.map((entry) => entry.wins))
   return (
     <table data-testid="rankings-table" className="rankings-table">
+      <colgroup>
+        <col className="col-rank" />
+        <col className="col-image" />
+        <col className="col-contestant" />
+        <col className="col-wins" />
+        <col className="col-appearances" />
+        <col className="col-win-share" />
+      </colgroup>
       <thead>
         <tr>
           <th>Rank</th>
@@ -33,18 +56,27 @@ export function ResultsTable({ rankings, contestants }: ResultsTableProps) {
           <th>Contestant</th>
           <th>Wins</th>
           <th>Appearances</th>
+          <th>Win share</th>
         </tr>
       </thead>
       <tbody>
         {rankings.map((entry) => (
-          <ResultsRow key={entry.contestant.id} entry={entry} detail={detailsById.get(entry.contestant.id)} />
+          <ResultsRow key={entry.contestant.id} entry={entry} detail={detailsById.get(entry.contestant.id)} maxWins={maxWins} />
         ))}
       </tbody>
     </table>
   )
 }
 
-function ResultsRow({ entry, detail }: { entry: RankingEntry; detail: ContestantDetail | undefined }) {
+function ResultsRow({
+  entry,
+  detail,
+  maxWins,
+}: {
+  entry: RankingEntry
+  detail: ContestantDetail | undefined
+  maxWins: number
+}) {
   return (
     <tr data-testid="ranking-row">
       <td>{entry.rank ?? '—'}</td>
@@ -64,6 +96,11 @@ function ResultsRow({ entry, detail }: { entry: RankingEntry; detail: Contestant
       </td>
       <td>{entry.wins}</td>
       <td>{entry.appearances}</td>
+      <td>
+        <div className="win-bar-track">
+          <div className="win-bar-fill" style={{ width: `${winShare(entry.wins, maxWins)}%` }} />
+        </div>
+      </td>
     </tr>
   )
 }

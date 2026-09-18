@@ -200,11 +200,10 @@ test("A War that doesn't exist shows a not-found message", async ({ page }) => {
   await expect(page.getByText("This War doesn't exist or has been removed")).toBeVisible()
 })
 
-test("A contestant's bio renders inline with their result, not full-size media", async ({ page }) => {
-  // Arrange — a wide viewport proves the media stays a small, fixed-size
-  // thumbnail regardless of how much room a short roster leaves available
-  // (previously, a card-grid layout blew media up to near-half-screen
-  // width here; a single-column results list has no such column to fill).
+test('Bio, image, and stat columns hold their allotted share of the row width', async ({ page }) => {
+  // Arrange — a wide viewport proves the column widths are fixed
+  // proportions of the row, not content- or viewport-dependent (previously
+  // a card-grid layout blew media up to near-half-screen width here).
   await page.setViewportSize({ width: 1600, height: 900 })
   const detail = buildWarDetail({
     id: 'war-wide',
@@ -228,13 +227,20 @@ test("A contestant's bio renders inline with their result, not full-size media",
   // Act
   await page.goto('/wars/war-wide')
 
-  // Assert
+  // Assert — bio gets about half the row, image about a quarter, the four
+  // narrow columns (rank/wins/appearances/win share) share the rest,
+  // regardless of how wide the viewport is.
+  const tableBox = await page.getByTestId('rankings-table').boundingBox()
+  expect(tableBox).not.toBeNull()
   const firstRow = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
   const imageBox = await firstRow.locator('img').boundingBox()
   expect(imageBox).not.toBeNull()
-  expect(imageBox!.width).toBeLessThanOrEqual(100)
+  expect(imageBox!.width / tableBox!.width).toBeGreaterThan(0.2)
+  expect(imageBox!.width / tableBox!.width).toBeLessThan(0.3)
   const bioBox = await firstRow.getByTestId('contestant-bio').boundingBox()
   expect(bioBox).not.toBeNull()
+  expect(bioBox!.width / tableBox!.width).toBeGreaterThan(0.4)
+  expect(bioBox!.width / tableBox!.width).toBeLessThan(0.6)
   expect(bioBox!.y + bioBox!.height).toBeLessThanOrEqual(900)
 })
 
@@ -300,7 +306,7 @@ test('A contestant with no media shows no image at all', async ({ page }) => {
 
 const RESULTS_WAR_ID = 'war-results-1'
 
-test('The detail page shows results with rank, image, wins, and appearances', async ({ page }) => {
+test('The detail page shows results with rank, image, wins, appearances, and a win-share bar', async ({ page }) => {
   // Arrange
   const rankings = buildRankingsResponse({
     war_id: RESULTS_WAR_ID,
@@ -335,6 +341,11 @@ test('The detail page shows results with rank, image, wins, and appearances', as
   await expect(image).toHaveAttribute('src', /c1-media-0\/400\.jpg/)
   await expect(image).toHaveAttribute('srcset', /1600w/)
   await expect(rows.nth(0).getByRole('group')).toHaveAttribute('aria-label', /Contestant One/)
+  // Win share is a bar sized to raw wins relative to the leader's — never
+  // wins over appearances (§7 rejects that as a display value) — and is
+  // never rendered as text.
+  await expect(rows.nth(0).locator('.win-bar-fill')).toHaveAttribute('style', /width:\s*100%/)
+  await expect(rows.nth(1).locator('.win-bar-fill')).toHaveAttribute('style', /width:\s*80%/)
   await expect(page.getByText(/%/)).toHaveCount(0)
 })
 

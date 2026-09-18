@@ -17,6 +17,55 @@ function frameStyle(item: MediaItem, index: number, currentIndex: number): CSSPr
   }
 }
 
+// Overlaid on the image itself, not stacked below it -- every image in the
+// carousel occupies the same box regardless of whether paging controls are
+// present, instead of the controls claiming their own row underneath.
+function arrowStyle(side: 'left' | 'right', disabled: boolean): CSSProperties {
+  return {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    left: side === 'left' ? '0.35rem' : undefined,
+    right: side === 'right' ? '0.35rem' : undefined,
+    zIndex: 1,
+    width: '1.75rem',
+    height: '1.75rem',
+    borderRadius: '50%',
+    border: 'none',
+    background: 'rgba(0, 0, 0, 0.45)',
+    color: '#fff',
+    fontSize: '1rem',
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+    cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.35 : 1,
+  }
+}
+
+const dotsContainerStyle: CSSProperties = {
+  position: 'absolute',
+  bottom: '0.4rem',
+  left: 0,
+  right: 0,
+  zIndex: 1,
+  display: 'flex',
+  justifyContent: 'center',
+  gap: '0.3rem',
+}
+
+function dotStyle(active: boolean): CSSProperties {
+  return {
+    width: '0.35rem',
+    height: '0.35rem',
+    borderRadius: '50%',
+    background: active ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+    boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.35)',
+  }
+}
+
 function CarouselFrameImage({ item }: { item: MediaItem }) {
   return (
     <img
@@ -122,58 +171,68 @@ export function ImageCarousel({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onKeyDown={handleKeyDown}
-      style={{ position: 'relative', touchAction: 'pan-y', width: '100%', cursor: disabled ? 'default' : 'pointer' }}
+      style={{ touchAction: 'pan-y', width: '100%', cursor: disabled ? 'default' : 'pointer' }}
     >
-      {sorted.map((item, index) => (
-        <div key={item.id} style={frameStyle(item, index, currentIndex)}>
-          {visited.has(index) && <CarouselFrameImage item={item} />}
-        </div>
-      ))}
-      {children}
-
-      {showAffordance && (
-        <>
-          <button
-            type="button"
-            data-testid="carousel-arrow-previous"
-            aria-label="Previous image"
-            tabIndex={-1}
-            disabled={currentIndex === 0}
-            // Stopped on pointerdown/pointerup too, not just click: those
-            // bubble to the carousel's own tap-to-vote gesture handlers
-            // *before* click ever fires, so stopping click alone still let
-            // a mouse click here cast a vote underneath the navigation.
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation()
-              navigate('previous')
-            }}
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            data-testid="carousel-arrow-next"
-            aria-label="Next image"
-            tabIndex={-1}
-            disabled={currentIndex === sorted.length - 1}
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation()
-              navigate('next')
-            }}
-          >
-            ›
-          </button>
-          <div data-testid="carousel-dots">
-            {sorted.map((item, index) => (
-              <span key={item.id} data-testid="carousel-dot" aria-hidden="true" data-active={index === currentIndex} />
-            ))}
+      <div style={{ position: 'relative' }}>
+        {sorted.map((item, index) => (
+          <div key={item.id} style={frameStyle(item, index, currentIndex)}>
+            {visited.has(index) && <CarouselFrameImage item={item} />}
           </div>
-        </>
-      )}
+        ))}
+
+        {showAffordance && (
+          <>
+            <button
+              type="button"
+              data-testid="carousel-arrow-previous"
+              aria-label="Previous image"
+              tabIndex={-1}
+              disabled={currentIndex === 0}
+              style={arrowStyle('left', currentIndex === 0)}
+              // Stopped on pointerdown/pointerup too, not just click: those
+              // bubble to the carousel's own tap-to-vote gesture handlers
+              // *before* click ever fires, so stopping click alone still let
+              // a mouse click here cast a vote underneath the navigation.
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                navigate('previous')
+              }}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              data-testid="carousel-arrow-next"
+              aria-label="Next image"
+              tabIndex={-1}
+              disabled={currentIndex === sorted.length - 1}
+              style={arrowStyle('right', currentIndex === sorted.length - 1)}
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                navigate('next')
+              }}
+            >
+              ›
+            </button>
+            <div data-testid="carousel-dots" style={dotsContainerStyle}>
+              {sorted.map((item, index) => (
+                <span
+                  key={item.id}
+                  data-testid="carousel-dot"
+                  aria-hidden="true"
+                  data-active={index === currentIndex}
+                  style={dotStyle(index === currentIndex)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      {children}
     </div>
   )
 }

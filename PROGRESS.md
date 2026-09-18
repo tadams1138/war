@@ -233,6 +233,21 @@ empty state. Live in staging and production.
   now passes through one gate. Extracted `ActivateDirtyConfirmDialog`/
   `ActivatePermanenceConfirmDialog` subcomponents to keep `ActivateSection`'s cyclomatic
   complexity at 4 (would have been 6 with both dialogs inlined).
+- **Results row width ratios and edge carousel controls.** `ResultsTable`'s columns were
+  content-sized, which let bio (or, on a short bio, media) claim most of the row on a wide
+  viewport. A `<colgroup>` now fixes each column's share instead: bio ~50%, image ~25%,
+  rank/wins/appearances/win-share ~25% combined (`table-layout: fixed` plus per-column
+  `.col-*` widths in `layout.css`). `ImageCarousel`'s paging arrows and dot indicators had no
+  CSS at all before this — unstyled, they rendered as a plain row of controls *below* the
+  image, which is what let a multi-image contestant's row grow taller than a single-image
+  one's. They're now absolutely positioned over the image itself (arrows on its left/right
+  edges, dots along its bottom, inside a new inner wrapper `<div>` scoped to just the image so
+  a vote card's contestant-name `children` below it isn't drawn into that positioning
+  context) — every image occupies the same box whether or not it has paging controls. Added a
+  **win-share bar** (`.win-bar-track`/`.win-bar-fill`, themed per theme like `.progress-fill`):
+  width is raw wins over the row's highest win count, *not* wins over appearances — the
+  appearance-normalized percentage §7 explicitly rejects as a display value — and, like the
+  rest of the leaderboard, is never rendered as text.
 
 ### Not built
 
