@@ -181,6 +181,13 @@
 [data-theme='arcade'] .progress-fill {
   background: var(--t-accent1);
 }
+[data-theme='arcade'] .win-bar-track {
+  background: var(--t-surface);
+  border: 2px solid var(--t-accent2);
+}
+[data-theme='arcade'] .win-bar-fill {
+  background: var(--t-accent1);
+}
 [data-theme='arcade'] .rankings-table th {
   font-family: var(--t-display-font);
   color: var(--t-accent2);
@@ -234,6 +241,12 @@
   clip-path: polygon(6% 0, 100% 0, 94% 100%, 0 100%);
 }
 [data-theme='fight_card'] .progress-fill {
+  background: linear-gradient(90deg, var(--t-accent2), #efd28c);
+}
+[data-theme='fight_card'] .win-bar-track {
+  background: var(--t-surface);
+}
+[data-theme='fight_card'] .win-bar-fill {
   background: linear-gradient(90deg, var(--t-accent2), #efd28c);
 }
 [data-theme='fight_card'] .rankings-table th {
@@ -295,6 +308,14 @@
   border-radius: 7px;
 }
 [data-theme='scrapbook'] .progress-fill {
+  background: var(--t-accent1);
+  border-radius: 7px;
+}
+[data-theme='scrapbook'] .win-bar-track {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 7px;
+}
+[data-theme='scrapbook'] .win-bar-fill {
   background: var(--t-accent1);
   border-radius: 7px;
 }
