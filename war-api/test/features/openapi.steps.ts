@@ -91,6 +91,10 @@ async function fetchDocument(harness: NoDbHarness): Promise<{ response: request.
   return { response, document: response.body as OpenApiDocument };
 }
 
+function schemaByKey(document: OpenApiDocument, key: string): OpenApiSchema | undefined {
+  return document.components?.schemas?.[key];
+}
+
 /** Follows a `$ref` (as `@fastify/swagger` emits them, `#/components/schemas/<key>`) into `components.schemas`. */
 function resolveSchema(document: OpenApiDocument, schema: OpenApiSchema | undefined): OpenApiSchema {
   if (!schema) {
@@ -100,7 +104,7 @@ function resolveSchema(document: OpenApiDocument, schema: OpenApiSchema | undefi
     return schema;
   }
   const key = schema.$ref.replace('#/components/schemas/', '');
-  const resolved = document.components?.schemas?.[key];
+  const resolved = schemaByKey(document, key);
   if (!resolved) {
     throw new Error(`unresolved $ref: ${schema.$ref}`);
   }

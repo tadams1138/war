@@ -60,6 +60,17 @@ export type RankingsOutcome =
   | { kind: 'notFound' }
   | { kind: 'unauthorized' };
 
+/** Extracted from `rankingsFor` purely to keep that function's own branch count down. */
+async function isUnauthorizedForRankings(
+  db: Kysely<Database>,
+  war: { id: string; creatorId: string | null; visibility: string },
+  viewerId: string | null,
+): Promise<boolean> {
+  if (war.visibility !== 'invite_only') return false;
+  if (viewerId === null) return true;
+  return war.creatorId !== viewerId && !(await isMember(db, war.id, viewerId));
+}
+
 /**
  * Assembles a War's rankings response (spec): the invite-only membership
  * check, scoring, and view assembly all live here rather than in the route
@@ -80,13 +91,8 @@ export async function rankingsFor(
     return { kind: 'notFound' };
   }
 
-  if (war.visibility === 'invite_only') {
-    if (viewerId === null) {
-      return { kind: 'unauthorized' };
-    }
-    if (war.creatorId !== viewerId && !(await isMember(db, war.id, viewerId))) {
-      return { kind: 'unauthorized' };
-    }
+  if (await isUnauthorizedForRankings(db, war, viewerId)) {
+    return { kind: 'unauthorized' };
   }
 
   const contestants = await listContestantsByWar(db, war.id);

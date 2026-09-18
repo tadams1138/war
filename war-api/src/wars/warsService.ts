@@ -32,65 +32,102 @@ export interface CreateWarInput {
 
 export type CreateWarOutcome = { kind: 'created'; war: War } | { kind: 'validationError'; errors: string[] };
 
-export async function createWarForVoter(db: Kysely<Database>, input: CreateWarInput): Promise<CreateWarOutcome> {
+/** Flattens a mix of single errors and error-arrays (a group's own validator may report more than one) into one list, dropping absent ones. */
+function collectErrors(...groups: (string | null | string[])[]): string[] {
   const errors: string[] = [];
-
-  if (input.title !== undefined && input.title !== null) {
-    if (typeof input.title !== 'string' || input.title.length === 0 || input.title.length > 256) {
-      errors.push('title must be a non-empty string of at most 256 characters');
-    }
+  for (const group of groups) {
+    if (group === null) continue;
+    if (Array.isArray(group)) errors.push(...group);
+    else errors.push(group);
   }
+  return errors;
+}
 
-  const mediaMode = input.mediaMode ?? 'image';
-  if (mediaMode !== 'image') {
-    errors.push('media_mode must be "image" in this slice');
+function titleError(title: unknown): string | null {
+  if (typeof title !== 'string' || title.length === 0 || title.length > 256) {
+    return 'title must be a non-empty string of at most 256 characters';
   }
+  return null;
+}
 
-  const visibility = input.visibility ?? 'public';
+function visibilityError(visibility: unknown): string | null {
   if (visibility !== 'public' && visibility !== 'invite_only') {
-    errors.push('visibility must be "public" or "invite_only"');
+    return 'visibility must be "public" or "invite_only"';
   }
+  return null;
+}
 
-  const theme = input.theme ?? 'arcade';
-  if (!isWarTheme(theme)) {
-    errors.push('theme must be "arcade", "fight_card", or "scrapbook"');
-  }
+function themeError(theme: unknown): string | null {
+  if (!isWarTheme(theme)) return 'theme must be "arcade", "fight_card", or "scrapbook"';
+  return null;
+}
 
-  let contestantSchema: ContestantSchemaField[] = [];
-  if (input.contestantSchema !== undefined) {
-    const validated = validateSchemaDefinition(input.contestantSchema);
-    if (!validated.ok) {
-      errors.push(...validated.errors);
-    } else {
-      contestantSchema = validated.value;
-    }
-  }
+function mediaModeError(mediaMode: string): string | null {
+  return mediaMode === 'image' ? null : 'media_mode must be "image" in this slice';
+}
 
-  let endsAt: Date | null = null;
-  if (input.endsAt) {
-    const parsed = new Date(input.endsAt);
-    if (Number.isNaN(parsed.getTime())) {
-      errors.push('ends_at must be a valid date-time');
-    } else {
-      endsAt = parsed;
-    }
-  }
+function optionalTitleError(title: string | null | undefined): string | null {
+  if (title === undefined || title === null) return null;
+  return titleError(title);
+}
 
+function resolveCreateDefaults(input: CreateWarInput): { mediaMode: string; visibility: string; theme: string } {
+  return {
+    mediaMode: input.mediaMode ?? 'image',
+    visibility: input.visibility ?? 'public',
+    theme: input.theme ?? 'arcade',
+  };
+}
+
+function resolveContestantSchema(raw: unknown): { value: ContestantSchemaField[]; errors: string[] } {
+  if (raw === undefined) return { value: [], errors: [] };
+  const validated = validateSchemaDefinition(raw);
+  return validated.ok ? { value: validated.value, errors: [] } : { value: [], errors: validated.errors };
+}
+
+function resolveEndsAt(raw: string | null | undefined): { value: Date | null; error: string | null } {
+  if (!raw) return { value: null, error: null };
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return { value: null, error: 'ends_at must be a valid date-time' };
+  return { value: parsed, error: null };
+}
+
+function buildCreateWarRecord(
+  input: CreateWarInput,
+  defaults: { mediaMode: string; visibility: string; theme: string },
+  contestantSchema: ContestantSchemaField[],
+  endsAt: Date | null,
+) {
+  return {
+    creatorId: input.creatorId,
+    title: input.title ?? null,
+    category: input.category ?? null,
+    visibility: defaults.visibility,
+    mediaMode: defaults.mediaMode,
+    theme: defaults.theme,
+    contestantSchema,
+    endsAt,
+  };
+}
+
+export async function createWarForVoter(db: Kysely<Database>, input: CreateWarInput): Promise<CreateWarOutcome> {
+  const defaults = resolveCreateDefaults(input);
+  const schema = resolveContestantSchema(input.contestantSchema);
+  const endsAt = resolveEndsAt(input.endsAt);
+
+  const errors = collectErrors(
+    optionalTitleError(input.title),
+    mediaModeError(defaults.mediaMode),
+    visibilityError(defaults.visibility),
+    themeError(defaults.theme),
+    schema.errors,
+    endsAt.error,
+  );
   if (errors.length > 0) {
     return { kind: 'validationError', errors };
   }
 
-  const war = await createWar(db, {
-    creatorId: input.creatorId,
-    title: input.title ?? null,
-    category: input.category ?? null,
-    visibility,
-    mediaMode,
-    theme,
-    contestantSchema,
-    endsAt,
-  });
-
+  const war = await createWar(db, buildCreateWarRecord(input, defaults, schema.value, endsAt.value));
   return { kind: 'created', war };
 }
 
@@ -110,6 +147,39 @@ export interface PatchWarInput {
   endsAt?: string | null;
 }
 
+function resolvePatchTitle(title: string | undefined): { value?: string; error: string | null } {
+  if (title === undefined) return { error: null };
+  const error = titleError(title);
+  return error ? { error } : { value: title, error: null };
+}
+
+function resolvePatchVisibility(visibility: string | undefined): { value?: string; error: string | null } {
+  if (visibility === undefined) return { error: null };
+  const error = visibilityError(visibility);
+  return error ? { error } : { value: visibility, error: null };
+}
+
+function resolvePatchTheme(theme: string | undefined): { value?: string; error: string | null } {
+  if (theme === undefined) return { error: null };
+  const error = themeError(theme);
+  return error ? { error } : { value: theme, error: null };
+}
+
+function resolvePatchContestantSchema(raw: unknown): { value?: ContestantSchemaField[]; errors: string[] } {
+  if (raw === undefined) return { errors: [] };
+  const validated = validateSchemaDefinition(raw);
+  return validated.ok ? { value: validated.value, errors: [] } : { errors: validated.errors };
+}
+
+function resolvePatchEndsAt(raw: string | null | undefined): { value?: Date | null; error: string | null } {
+  if (raw === undefined) return { error: null };
+  if (raw === null) return { value: null, error: null };
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime())
+    ? { error: 'ends_at must be a valid date-time' }
+    : { value: parsed, error: null };
+}
+
 export async function patchWar(
   db: Kysely<Database>,
   warId: string,
@@ -120,57 +190,25 @@ export async function patchWar(
   const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
 
-  const patch: WarPatch = {};
-  const errors: string[] = [];
+  const title = resolvePatchTitle(input.title);
+  const visibility = resolvePatchVisibility(input.visibility);
+  const theme = resolvePatchTheme(input.theme);
+  const schema = resolvePatchContestantSchema(input.contestantSchema);
+  const endsAt = resolvePatchEndsAt(input.endsAt);
 
-  if (input.title !== undefined) {
-    if (typeof input.title !== 'string' || input.title.length === 0 || input.title.length > 256) {
-      errors.push('title must be a non-empty string of at most 256 characters');
-    } else {
-      patch.title = input.title;
-    }
-  }
-  if (input.category !== undefined) {
-    patch.category = input.category;
-  }
-  if (input.visibility !== undefined) {
-    if (input.visibility !== 'public' && input.visibility !== 'invite_only') {
-      errors.push('visibility must be "public" or "invite_only"');
-    } else {
-      patch.visibility = input.visibility;
-    }
-  }
-  if (input.theme !== undefined) {
-    if (!isWarTheme(input.theme)) {
-      errors.push('theme must be "arcade", "fight_card", or "scrapbook"');
-    } else {
-      patch.theme = input.theme;
-    }
-  }
-  if (input.contestantSchema !== undefined) {
-    const validated = validateSchemaDefinition(input.contestantSchema);
-    if (!validated.ok) {
-      errors.push(...validated.errors);
-    } else {
-      patch.contestantSchema = validated.value;
-    }
-  }
-  if (input.endsAt !== undefined) {
-    if (input.endsAt === null) {
-      patch.endsAt = null;
-    } else {
-      const parsed = new Date(input.endsAt);
-      if (Number.isNaN(parsed.getTime())) {
-        errors.push('ends_at must be a valid date-time');
-      } else {
-        patch.endsAt = parsed;
-      }
-    }
-  }
-
+  const errors = collectErrors(title.error, visibility.error, theme.error, schema.errors, endsAt.error);
   if (errors.length > 0) {
     return { kind: 'validationError', errors };
   }
+
+  const patch: WarPatch = {
+    title: title.value,
+    category: input.category,
+    visibility: visibility.value,
+    theme: theme.value,
+    contestantSchema: schema.value,
+    endsAt: endsAt.value,
+  };
 
   const updated = await updateWar(db, warId, patch);
   return { kind: 'ok', value: updated };

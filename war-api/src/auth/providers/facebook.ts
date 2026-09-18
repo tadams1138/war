@@ -8,6 +8,11 @@ interface FacebookMeResponse {
   picture?: { data?: { url?: string } };
 }
 
+function facebookAvatarUrl(picture: FacebookMeResponse['picture']): string | null {
+  const url = picture?.data?.url;
+  return typeof url === 'string' ? url : null;
+}
+
 /** Pure mapping from a Graph API `/me` response to an OAuthProfile. */
 export function mapFacebookProfile(me: FacebookMeResponse): OAuthProfile {
   if (!me.id) {
@@ -16,7 +21,7 @@ export function mapFacebookProfile(me: FacebookMeResponse): OAuthProfile {
   return {
     providerUserId: me.id,
     displayName: typeof me.name === 'string' ? me.name : null,
-    avatarUrl: typeof me.picture?.data?.url === 'string' ? me.picture.data.url : null,
+    avatarUrl: facebookAvatarUrl(me.picture),
   };
 }
 

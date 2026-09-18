@@ -25,21 +25,50 @@ export interface EditWarMetadataFormHandle {
   submit: () => void
 }
 
+// The `<input type="date">` value shape (YYYY-MM-DD) an ISO timestamp
+// collapses to -- needed both as the field's initial value and again in the
+// dirty check, so it's a named function rather than the same slice repeated
+// twice inline.
+function endsAtInputValue(endsAt: string | null): string {
+  return endsAt ? endsAt.slice(0, 10) : ''
+}
+
+function valueOrEmpty(value: string | null): string {
+  return value ?? ''
+}
+
+function computeIsDirty(
+  war: WarDetailResponse,
+  fields: { title: string; category: string; visibility: string; theme: string; endsAt: string },
+): boolean {
+  return (
+    fields.title !== valueOrEmpty(war.title) ||
+    fields.category !== valueOrEmpty(war.category) ||
+    fields.visibility !== war.visibility ||
+    fields.theme !== war.theme ||
+    fields.endsAt !== endsAtInputValue(war.ends_at)
+  )
+}
+
+function MetadataSaveError({ titleRequiredError, error }: { titleRequiredError: string | null; error: string | null }) {
+  if (!titleRequiredError && !error) return null
+  return (
+    <p role="alert" data-testid="edit-war-metadata-error">
+      {titleRequiredError ?? error}
+    </p>
+  )
+}
+
 export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWarMetadataFormProps>(
   function EditWarMetadataForm({ war, error, saving, onSave, onDirtyChange }, ref) {
   const [title, setTitle] = useState(war.title ?? '')
   const [category, setCategory] = useState(war.category ?? '')
   const [visibility, setVisibility] = useState<'public' | 'invite_only'>(war.visibility)
   const [theme, setTheme] = useState<Theme>(war.theme as Theme)
-  const [endsAt, setEndsAt] = useState(war.ends_at ? war.ends_at.slice(0, 10) : '')
+  const [endsAt, setEndsAt] = useState(endsAtInputValue(war.ends_at))
   const [titleRequiredError, setTitleRequiredError] = useState<string | null>(null)
 
-  const isDirty =
-    title !== (war.title ?? '') ||
-    category !== (war.category ?? '') ||
-    visibility !== war.visibility ||
-    theme !== war.theme ||
-    endsAt !== (war.ends_at ? war.ends_at.slice(0, 10) : '')
+  const isDirty = computeIsDirty(war, { title, category, visibility, theme, endsAt })
 
   useEffect(() => {
     onDirtyChange?.(isDirty)
@@ -117,11 +146,7 @@ export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWar
           onChange={(event) => setEndsAt(event.target.value)}
         />
       </label>
-      {(titleRequiredError || error) && (
-        <p role="alert" data-testid="edit-war-metadata-error">
-          {titleRequiredError ?? error}
-        </p>
-      )}
+      <MetadataSaveError titleRequiredError={titleRequiredError} error={error} />
       <button type="submit" data-testid="edit-war-metadata-submit" disabled={saving}>
         Save
       </button>

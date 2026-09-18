@@ -72,6 +72,36 @@ function contestantView(
   };
 }
 
+type MatchupCandidate = { id: string; contestantAId: string; contestantBId: string };
+
+/** Which contestant renders on which side -- decided by the API, per the spec. */
+function matchupSides(matchup: MatchupCandidate, voterId: string): { left: string; right: string } {
+  const left = isLeftSide(matchup.id, voterId) ? matchup.contestantAId : matchup.contestantBId;
+  const right = left === matchup.contestantAId ? matchup.contestantBId : matchup.contestantAId;
+  return { left, right };
+}
+
+/**
+ * The advisory prefetch block naming the following matchup's media, or
+ * `undefined` when there is no following unvoted pair -- an `undefined`
+ * `prefetch` serializes identically to an omitted one (spec: "deliberately
+ * absent from `required`"), so the caller can assign this unconditionally.
+ */
+function buildPrefetch(
+  upcoming: MatchupCandidate | undefined,
+  mediaByContestant: Map<string, ContestantMedia[]>,
+  publicBaseUrl: string,
+): NextMatchupView['prefetch'] {
+  if (!upcoming) return undefined;
+  return {
+    matchup_id: upcoming.id,
+    media: [
+      ...presentMedia(mediaByContestant.get(upcoming.contestantAId) ?? [], publicBaseUrl),
+      ...presentMedia(mediaByContestant.get(upcoming.contestantBId) ?? [], publicBaseUrl),
+    ],
+  };
+}
+
 /**
  * Builds the `/matchups/next` response: the voter's next matchup (side
  * decided by the API), progress, and an advisory prefetch block
@@ -109,27 +139,15 @@ export async function nextMatchupForVoter(
     listMediaByContestants(db, contestantIds),
   ]);
 
-  const left = isLeftSide(matchup.id, voterId) ? matchup.contestantAId : matchup.contestantBId;
-  const right = left === matchup.contestantAId ? matchup.contestantBId : matchup.contestantAId;
+  const { left, right } = matchupSides(matchup, voterId);
 
-  const result: NextMatchupView = {
+  return {
     matchup: {
       id: matchup.id,
       left: contestantView(left, contestantsById, mediaByContestant, publicBaseUrl),
       right: contestantView(right, contestantsById, mediaByContestant, publicBaseUrl),
     },
     progress: { voted, total },
+    prefetch: buildPrefetch(upcoming, mediaByContestant, publicBaseUrl),
   };
-
-  if (upcoming) {
-    result.prefetch = {
-      matchup_id: upcoming.id,
-      media: [
-        ...presentMedia(mediaByContestant.get(upcoming.contestantAId) ?? [], publicBaseUrl),
-        ...presentMedia(mediaByContestant.get(upcoming.contestantBId) ?? [], publicBaseUrl),
-      ],
-    };
-  }
-
-  return result;
 }

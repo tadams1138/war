@@ -25,7 +25,11 @@ interface WarCardProps {
 }
 
 export function WarCard({ war, showEditLink = false, variant = 'my-wars' }: WarCardProps) {
-  const details = (
+  return variant === 'home' ? <HomeWarCard war={war} /> : <MyWarsWarCard war={war} showEditLink={showEditLink} />
+}
+
+function WarCardDetails({ war }: { war: WarSummary }) {
+  return (
     <>
       <h3>{warTitle(war.title)}</h3>
       {war.category && <p>{war.category}</p>}
@@ -33,23 +37,25 @@ export function WarCard({ war, showEditLink = false, variant = 'my-wars' }: WarC
       {war.ends_at && <p data-testid="war-time-remaining">{timeRemainingLabel(war.ends_at)}</p>}
     </>
   )
+}
 
-  if (variant === 'home') {
-    return (
-      <div data-testid="war-card" className="war-card">
-        {details}
-        <div className="war-card-actions">
-          <Link to={`/wars/${war.id}/vote`} data-testid="war-vote-link" className="war-card-link">
-            Vote
-          </Link>
-          <Link to={`/wars/${war.id}`} data-testid="war-results-link" className="war-card-link">
-            Results
-          </Link>
-        </div>
+function HomeWarCard({ war }: { war: WarSummary }) {
+  return (
+    <div data-testid="war-card" className="war-card">
+      <WarCardDetails war={war} />
+      <div className="war-card-actions">
+        <Link to={`/wars/${war.id}/vote`} data-testid="war-vote-link" className="war-card-link">
+          Vote
+        </Link>
+        <Link to={`/wars/${war.id}`} data-testid="war-results-link" className="war-card-link">
+          Results
+        </Link>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
+function MyWarsWarCard({ war, showEditLink }: { war: WarSummary; showEditLink: boolean }) {
   // A div, not the outer <Link> this used to be: an <a> cannot validly
   // contain another interactive element (HTML's content model), and the
   // Edit link below needs to be clickable independently of the
@@ -57,7 +63,7 @@ export function WarCard({ war, showEditLink = false, variant = 'my-wars' }: WarC
   return (
     <div data-testid="war-card" className="war-card">
       <Link to={`/wars/${war.id}`} className="war-card-link">
-        {details}
+        <WarCardDetails war={war} />
         <p data-testid="war-status-badge">{war.status}</p>
       </Link>
       {showEditLink && war.status === 'draft' && (

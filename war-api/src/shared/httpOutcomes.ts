@@ -36,29 +36,36 @@ export const validationErrorResponseSchema = {
 };
 
 /**
+ * Status and message per outcome kind, keyed by `HttpFailure['kind']` --
+ * `Record` requires every key present, so an outcome kind added to the
+ * union without an entry here is a compile error, the same exhaustiveness
+ * guarantee a `never`-typed switch default gave (design review finding 7),
+ * without one `case` per kind driving this function's own branch count up.
+ */
+const STATUS_BY_KIND: Record<HttpFailure['kind'], number> = {
+  notFound: 404,
+  forbidden: 403,
+  notDraft: 403,
+  notActive: 403,
+  validationError: 422,
+};
+
+const MESSAGE_BY_KIND: Record<HttpFailure['kind'], string> = {
+  notFound: 'not found',
+  forbidden: 'forbidden',
+  notDraft: 'War is no longer editable',
+  notActive: 'War is not active',
+  validationError: 'validation error',
+};
+
+/**
  * Maps a failed `MutationOutcome` (or any of the bespoke unions built from
  * the same failure variants) to its HTTP response. Takes the whole outcome
  * so it reads `errors` itself — callers no longer repeat
- * `'errors' in outcome ? outcome.errors : undefined` — and switches on the
- * discriminated union with a `never`-typed default, so an outcome kind this
- * function does not yet handle is a compile error rather than a silent 500
- * (design review finding 7).
+ * `'errors' in outcome ? outcome.errors : undefined`.
  */
 export function replyForOutcome(reply: FastifyReply, outcome: HttpFailure): FastifyReply {
-  switch (outcome.kind) {
-    case 'notFound':
-      return reply.code(404).send({ error: 'not found' });
-    case 'forbidden':
-      return reply.code(403).send({ error: 'forbidden' });
-    case 'notDraft':
-      return reply.code(403).send({ error: 'War is no longer editable' });
-    case 'notActive':
-      return reply.code(403).send({ error: 'War is not active' });
-    case 'validationError':
-      return reply.code(422).send({ error: 'validation error', details: outcome.errors });
-    default: {
-      const exhaustive: never = outcome;
-      throw new Error(`unhandled outcome kind: ${JSON.stringify(exhaustive)}`);
-    }
-  }
+  const body: { error: string; details?: string[] } = { error: MESSAGE_BY_KIND[outcome.kind] };
+  if (outcome.kind === 'validationError') body.details = outcome.errors;
+  return reply.code(STATUS_BY_KIND[outcome.kind]).send(body);
 }

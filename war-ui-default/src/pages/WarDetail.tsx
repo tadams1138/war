@@ -4,23 +4,37 @@
 // 401 is handled entirely by api/client.ts's existing unauthorized
 // pipeline, which clears the token and redirects to /login.
 import { useParams } from 'react-router-dom'
-import { getWar, type ContestantDetail } from '../api/client'
+import { getWar, type ContestantDetail, type WarDetailResponse } from '../api/client'
 import { BioContent } from '../bio/BioContent'
 import { ContestantAttributes } from '../components/ContestantAttributes'
 import { ImageCarousel } from '../components/ImageCarousel'
 import { RankingsTable } from '../components/RankingsTable'
-import { useAsyncResource } from '../hooks/useAsyncResource'
+import { useAsyncResource, type AsyncResourceState } from '../hooks/useAsyncResource'
 import { useRankings, type RankingsState } from '../rankings/useRankings'
+import type { Theme } from '../theme/themeCookie'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { warTitle } from '../utils/warTitle'
 
+function orEmpty(value: string | undefined): string {
+  return value ?? ''
+}
+
+function loadWar(id: string | undefined): (() => Promise<WarDetailResponse>) | undefined {
+  return id ? () => getWar(id) : undefined
+}
+
+function initialTheme(state: AsyncResourceState<WarDetailResponse>): Theme {
+  return state.status === 'loaded' ? state.value.theme : 'arcade'
+}
+
 export function WarDetail() {
   const { id } = useParams<{ id: string }>()
-  const state = useAsyncResource(id ? () => getWar(id) : undefined, [id])
+  const safeId = orEmpty(id)
+  const state = useAsyncResource(loadWar(id), [id])
   const rankingsState = useRankings(id)
-  const [theme, setTheme] = useTheme(id ?? '', state.status === 'loaded' ? state.value.theme : 'arcade')
-  usePublishTheme(id ?? '', theme, setTheme)
+  const [theme, setTheme] = useTheme(safeId, initialTheme(state))
+  usePublishTheme(safeId, theme, setTheme)
 
   if (state.status === 'loading') return <p>Loading…</p>
   if (state.status === 'error') return <p role="alert">{state.message}</p>

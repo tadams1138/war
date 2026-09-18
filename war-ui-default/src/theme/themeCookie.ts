@@ -20,17 +20,21 @@ function isTheme(value: unknown): value is Theme {
   return typeof value === 'string' && (THEMES as readonly string[]).includes(value)
 }
 
+function parsePrefsJson(raw: string): ThemePrefs {
+  const parsed: unknown = JSON.parse(raw)
+  if (typeof parsed !== 'object' || parsed === null) return {}
+  const prefs: ThemePrefs = {}
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    if (isTheme(value)) prefs[key] = value
+  }
+  return prefs
+}
+
 function readPrefs(): ThemePrefs {
   const match = document.cookie.split('; ').find((row) => row.startsWith(`${COOKIE_NAME}=`))
   if (!match) return {}
   try {
-    const parsed = JSON.parse(decodeURIComponent(match.slice(COOKIE_NAME.length + 1)))
-    if (typeof parsed !== 'object' || parsed === null) return {}
-    const prefs: ThemePrefs = {}
-    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-      if (isTheme(value)) prefs[key] = value
-    }
-    return prefs
+    return parsePrefsJson(decodeURIComponent(match.slice(COOKIE_NAME.length + 1)))
   } catch {
     return {}
   }

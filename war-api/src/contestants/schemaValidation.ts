@@ -31,6 +31,58 @@ function err(errors: string[]): ValidationErr {
   return { ok: false, errors };
 }
 
+function keyError(key: unknown): string | null {
+  if (typeof key !== 'string' || !KEY_FORMAT.test(key)) return `invalid field key: ${String(key)}`;
+  return null;
+}
+
+function labelError(key: string, label: unknown): string | null {
+  if (typeof label !== 'string' || label.length === 0 || label.length > MAX_LABEL_LENGTH) {
+    return `invalid field label for key: ${key}`;
+  }
+  return null;
+}
+
+function typeNameError(key: string, type: unknown): string | null {
+  if (typeof type !== 'string' || !VALID_TYPES.includes(type as ContestantFieldType)) {
+    return `invalid field type for key: ${key}`;
+  }
+  return null;
+}
+
+type FieldValidation = { ok: true; field: ContestantSchemaField } | { ok: false; error: string };
+
+/** One field's worth of `validateSchemaDefinition`'s rules, split out to keep that function's own branch count down. */
+function validateSchemaField(raw: unknown, seenKeys: Set<string>): FieldValidation {
+  const field = raw as Partial<ContestantSchemaField>;
+  const invalidKey = keyError(field.key);
+  if (invalidKey) return { ok: false, error: invalidKey };
+  if (seenKeys.has(field.key as string)) {
+    return { ok: false, error: `duplicate field key: ${field.key}` };
+  }
+  const invalidLabel = labelError(field.key as string, field.label);
+  if (invalidLabel) return { ok: false, error: invalidLabel };
+  const invalidType = typeNameError(field.key as string, field.type);
+  if (invalidType) return { ok: false, error: invalidType };
+  return { ok: true, field: { key: field.key as string, label: field.label as string, type: field.type as ContestantFieldType } };
+}
+
+function collectSchemaFields(schema: unknown[]): { errors: string[]; fields: ContestantSchemaField[] } {
+  const errors: string[] = [];
+  const seenKeys = new Set<string>();
+  const fields: ContestantSchemaField[] = [];
+  for (const raw of schema) {
+    const result = validateSchemaField(raw, seenKeys);
+    if (!result.ok) {
+      errors.push(result.error);
+      continue;
+    }
+    seenKeys.add(result.field.key);
+    fields.push(result.field);
+  }
+  return { errors, fields };
+}
+
 /**
  * Validates a War's `contestant_schema` declaration (spec).
  */
@@ -42,32 +94,7 @@ export function validateSchemaDefinition(schema: unknown): ValidationResult<Cont
     return err([`contestant_schema may declare at most ${MAX_FIELDS} fields`]);
   }
 
-  const errors: string[] = [];
-  const seenKeys = new Set<string>();
-  const fields: ContestantSchemaField[] = [];
-
-  for (const raw of schema) {
-    const field = raw as Partial<ContestantSchemaField>;
-    if (typeof field.key !== 'string' || !KEY_FORMAT.test(field.key)) {
-      errors.push(`invalid field key: ${String(field.key)}`);
-      continue;
-    }
-    if (seenKeys.has(field.key)) {
-      errors.push(`duplicate field key: ${field.key}`);
-      continue;
-    }
-    if (typeof field.label !== 'string' || field.label.length === 0 || field.label.length > MAX_LABEL_LENGTH) {
-      errors.push(`invalid field label for key: ${field.key}`);
-      continue;
-    }
-    if (typeof field.type !== 'string' || !VALID_TYPES.includes(field.type as ContestantFieldType)) {
-      errors.push(`invalid field type for key: ${field.key}`);
-      continue;
-    }
-    seenKeys.add(field.key);
-    fields.push({ key: field.key, label: field.label, type: field.type as ContestantFieldType });
-  }
-
+  const { errors, fields } = collectSchemaFields(schema);
   if (errors.length > 0) {
     return err(errors);
   }
@@ -83,28 +110,51 @@ function isHttpOrHttpsUrl(value: string): boolean {
   }
 }
 
+type FieldValidator = (field: ContestantSchemaField, value: unknown) => string | null;
+
+function validateStringLength(maxLength: number): FieldValidator {
+  return (field, value) => {
+    if (typeof value !== 'string') return `${field.key} must be a string`;
+    if (value.length > maxLength) return `${field.key} exceeds ${maxLength} characters`;
+    return null;
+  };
+}
+
+function validateNumberValue(field: ContestantSchemaField, value: unknown): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return `${field.key} must be a number`;
+  return null;
+}
+
+function validateUrlValue(field: ContestantSchemaField, value: unknown): string | null {
+  if (typeof value !== 'string') return `${field.key} must be a string`;
+  if (value.length > MAX_URL_LENGTH) return `${field.key} exceeds ${MAX_URL_LENGTH} characters`;
+  if (!isHttpOrHttpsUrl(value)) return `${field.key} must be an http or https URL`;
+  return null;
+}
+
+function validateDateValue(field: ContestantSchemaField, value: unknown): string | null {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) return `${field.key} must be a valid date`;
+  return null;
+}
+
+/**
+ * One validator per field type, keyed by `ContestantFieldType` -- a
+ * `Record` requires every key present, so a type added to the union
+ * without an entry here is a compile error, without one `case` per type
+ * driving `validateValueForType`'s own branch count up. `string` and
+ * `text` share the same rule at different length caps, previously
+ * duplicated per `switch` case.
+ */
+const VALUE_VALIDATORS: Record<ContestantFieldType, FieldValidator> = {
+  string: validateStringLength(MAX_STRING_LENGTH),
+  text: validateStringLength(MAX_TEXT_LENGTH),
+  number: validateNumberValue,
+  url: validateUrlValue,
+  date: validateDateValue,
+};
+
 function validateValueForType(field: ContestantSchemaField, value: unknown): string | null {
-  switch (field.type) {
-    case 'string':
-      if (typeof value !== 'string') return `${field.key} must be a string`;
-      if (value.length > MAX_STRING_LENGTH) return `${field.key} exceeds ${MAX_STRING_LENGTH} characters`;
-      return null;
-    case 'text':
-      if (typeof value !== 'string') return `${field.key} must be a string`;
-      if (value.length > MAX_TEXT_LENGTH) return `${field.key} exceeds ${MAX_TEXT_LENGTH} characters`;
-      return null;
-    case 'number':
-      if (typeof value !== 'number' || !Number.isFinite(value)) return `${field.key} must be a number`;
-      return null;
-    case 'url':
-      if (typeof value !== 'string') return `${field.key} must be a string`;
-      if (value.length > MAX_URL_LENGTH) return `${field.key} exceeds ${MAX_URL_LENGTH} characters`;
-      if (!isHttpOrHttpsUrl(value)) return `${field.key} must be an http or https URL`;
-      return null;
-    case 'date':
-      if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) return `${field.key} must be a valid date`;
-      return null;
-  }
+  return VALUE_VALIDATORS[field.type](field, value);
 }
 
 /**

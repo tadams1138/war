@@ -51,35 +51,55 @@ export interface AppConfig {
   };
 }
 
+function envOr(value: string | undefined, fallback: string): string {
+  return value ?? fallback;
+}
+
+function envInt(value: string | undefined, fallback: number): number {
+  return Number(value ?? fallback);
+}
+
+function parseUiOrigins(raw: string | undefined): string[] {
+  return envOr(raw, DEFAULT_UI_ORIGIN)
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
+
+function oauthClientConfig(clientId: string | undefined, clientSecret: string | undefined): OAuthClientConfig {
+  return { clientId: envOr(clientId, ''), clientSecret: envOr(clientSecret, '') };
+}
+
+function s3ConfigFrom(env: NodeJS.ProcessEnv): AppConfig['s3'] {
+  return {
+    endpoint: env.S3_ENDPOINT,
+    region: envOr(env.S3_REGION, 'us-east-1'),
+    bucket: envOr(env.S3_BUCKET, 'war-media-dev'),
+    accessKeyId: envOr(env.S3_ACCESS_KEY_ID, ''),
+    secretAccessKey: envOr(env.S3_SECRET_ACCESS_KEY, ''),
+    publicBaseUrl: envOr(env.S3_PUBLIC_BASE_URL, 'http://localhost:9000/war-media-dev'),
+  };
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const port = Number(env.PORT ?? 3000);
-  const apiBaseUrl = env.PUBLIC_BASE_URL ?? defaultPublicBaseUrl(port);
+  const port = envInt(env.PORT, 3000);
+  const apiBaseUrl = envOr(env.PUBLIC_BASE_URL, defaultPublicBaseUrl(port));
 
   return {
     port,
-    databaseUrl: env.DATABASE_URL ?? '',
-    uiOrigins: (env.UI_ORIGINS ?? DEFAULT_UI_ORIGIN)
-      .split(',')
-      .map((origin) => origin.trim())
-      .filter((origin) => origin.length > 0),
-    jwtSecret: env.JWT_SECRET ?? DEFAULT_JWT_SECRET,
-    jwtIssuer: env.JWT_ISSUER ?? 'war-api',
+    databaseUrl: envOr(env.DATABASE_URL, ''),
+    uiOrigins: parseUiOrigins(env.UI_ORIGINS),
+    jwtSecret: envOr(env.JWT_SECRET, DEFAULT_JWT_SECRET),
+    jwtIssuer: envOr(env.JWT_ISSUER, 'war-api'),
     apiBaseUrl,
     oauthProviders: {
-      google: { clientId: env.GOOGLE_CLIENT_ID ?? '', clientSecret: env.GOOGLE_CLIENT_SECRET ?? '' },
-      microsoft: { clientId: env.MICROSOFT_CLIENT_ID ?? '', clientSecret: env.MICROSOFT_CLIENT_SECRET ?? '' },
-      facebook: { clientId: env.FACEBOOK_CLIENT_ID ?? '', clientSecret: env.FACEBOOK_CLIENT_SECRET ?? '' },
-      twitter: { clientId: env.TWITTER_CLIENT_ID ?? '', clientSecret: env.TWITTER_CLIENT_SECRET ?? '' },
+      google: oauthClientConfig(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET),
+      microsoft: oauthClientConfig(env.MICROSOFT_CLIENT_ID, env.MICROSOFT_CLIENT_SECRET),
+      facebook: oauthClientConfig(env.FACEBOOK_CLIENT_ID, env.FACEBOOK_CLIENT_SECRET),
+      twitter: oauthClientConfig(env.TWITTER_CLIENT_ID, env.TWITTER_CLIENT_SECRET),
     },
-    internalTaskToken: env.INTERNAL_TASK_TOKEN ?? DEFAULT_INTERNAL_TASK_TOKEN,
-    s3: {
-      endpoint: env.S3_ENDPOINT,
-      region: env.S3_REGION ?? 'us-east-1',
-      bucket: env.S3_BUCKET ?? 'war-media-dev',
-      accessKeyId: env.S3_ACCESS_KEY_ID ?? '',
-      secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? '',
-      publicBaseUrl: env.S3_PUBLIC_BASE_URL ?? 'http://localhost:9000/war-media-dev',
-    },
+    internalTaskToken: envOr(env.INTERNAL_TASK_TOKEN, DEFAULT_INTERNAL_TASK_TOKEN),
+    s3: s3ConfigFrom(env),
   };
 }
 

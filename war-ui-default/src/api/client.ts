@@ -127,10 +127,14 @@ type Classify403 = (body: unknown) => ApiErrorReason
 async function ensureOk(response: Response, classify403: Classify403 = classifyDefault403): Promise<Response> {
   if (response.ok) return response
   const reason = await classifyError(response, classify403)
-  const retryAfterSeconds = reason === 'rate-limited' ? parseRetryAfter(response.headers.get('Retry-After')) : undefined
+  const retryAfterSeconds = retryAfterFor(reason, response)
   const details = reason === 'validation' ? await readDetails(response) : undefined
   if (reason === 'unauthorized') notifyUnauthorized()
   throw new ApiError(reason, response.status, messageForReason(reason, retryAfterSeconds), retryAfterSeconds, details)
+}
+
+function retryAfterFor(reason: ApiErrorReason, response: Response): number | undefined {
+  return reason === 'rate-limited' ? parseRetryAfter(response.headers.get('Retry-After')) : undefined
 }
 
 // The `{ error, details }` shape's `details` array (the spec), when the

@@ -3,7 +3,7 @@ import type { Database } from '../db/types.js';
 import { loadDraftWarOwnedBy } from '../wars/warAccess.js';
 import type { War } from '../wars/warsRepository.js';
 import type { MutationOutcome } from '../shared/outcomes.js';
-import { validateAttributes } from './schemaValidation.js';
+import { validateAttributes, type ContestantSchemaField } from './schemaValidation.js';
 import {
   createContestant,
   deleteContestant,
@@ -27,6 +27,48 @@ export interface ContestantWithWar {
   war: War;
 }
 
+const NAME_LENGTH_ERROR = ['name must be a non-empty string of at most 256 characters'];
+
+function isValidNameLength(name: string): boolean {
+  return name.length > 0 && name.length <= 256;
+}
+
+function isValidName(name: unknown): name is string {
+  return typeof name === 'string' && isValidNameLength(name);
+}
+
+/** `undefined` when `name` is absent (patch: no change requested) or valid; the outcome to return otherwise. */
+function invalidNameOutcome(name: string | undefined): MutationOutcome<never> | undefined {
+  if (name === undefined || isValidNameLength(name)) return undefined;
+  return { kind: 'validationError', errors: NAME_LENGTH_ERROR };
+}
+
+type AttributesResult = { ok: true; attributes: Record<string, unknown> } | { ok: false; errors: string[] };
+
+/** Defaults `attributes` to `{}` and validates it against the War's schema -- addContestant's own step. */
+function resolveAttributes(schema: ContestantSchemaField[], attributes: Record<string, unknown> | undefined): AttributesResult {
+  const resolved = attributes ?? {};
+  const validated = validateAttributes(schema, resolved);
+  return validated.ok ? { ok: true, attributes: resolved } : { ok: false, errors: validated.errors };
+}
+
+/** Validates `attributes` against the War's schema only when the patch actually supplies one. */
+function validateOptionalAttributes(
+  schema: ContestantSchemaField[],
+  attributes: Record<string, unknown> | undefined,
+): { ok: true } | { ok: false; errors: string[] } {
+  if (attributes === undefined) return { ok: true };
+  const validated = validateAttributes(schema, attributes);
+  return validated.ok ? { ok: true } : { ok: false, errors: validated.errors };
+}
+
+/** The contestant, only if it belongs to this War -- `null` covers both "doesn't exist" and "wrong War". */
+async function findContestantInWar(db: Kysely<Database>, warId: string, contestantId: string): Promise<Contestant | null> {
+  const contestant = await findContestantById(db, contestantId);
+  if (!contestant || contestant.warId !== warId) return null;
+  return contestant;
+}
+
 export async function addContestant(
   db: Kysely<Database>,
   input: CreateContestantInput,
@@ -36,21 +78,20 @@ export async function addContestant(
   if (guard.kind !== 'ok') return guard;
   const { war } = guard;
 
-  const attributes = input.attributes ?? {};
-  const validated = validateAttributes(war.contestantSchema, attributes);
-  if (!validated.ok) {
-    return { kind: 'validationError', errors: validated.errors };
+  const attributesResult = resolveAttributes(war.contestantSchema, input.attributes);
+  if (!attributesResult.ok) {
+    return { kind: 'validationError', errors: attributesResult.errors };
   }
 
-  if (typeof input.name !== 'string' || input.name.length === 0 || input.name.length > 256) {
-    return { kind: 'validationError', errors: ['name must be a non-empty string of at most 256 characters'] };
+  if (!isValidName(input.name)) {
+    return { kind: 'validationError', errors: NAME_LENGTH_ERROR };
   }
 
   const contestant = await createContestant(db, {
     warId: input.warId,
     name: input.name,
     bio: input.bio ?? null,
-    attributes,
+    attributes: attributesResult.attributes,
   });
   return { kind: 'ok', value: { contestant, war } };
 }
@@ -73,18 +114,16 @@ export async function patchContestant(
   if (guard.kind !== 'ok') return guard;
   const { war } = guard;
 
-  const contestant = await findContestantById(db, contestantId);
-  if (!contestant || contestant.warId !== warId) return { kind: 'notFound' };
+  const contestant = await findContestantInWar(db, warId, contestantId);
+  if (!contestant) return { kind: 'notFound' };
 
-  if (input.attributes !== undefined) {
-    const validated = validateAttributes(war.contestantSchema, input.attributes);
-    if (!validated.ok) {
-      return { kind: 'validationError', errors: validated.errors };
-    }
+  const attributesResult = validateOptionalAttributes(war.contestantSchema, input.attributes);
+  if (!attributesResult.ok) {
+    return { kind: 'validationError', errors: attributesResult.errors };
   }
-  if (input.name !== undefined && (input.name.length === 0 || input.name.length > 256)) {
-    return { kind: 'validationError', errors: ['name must be a non-empty string of at most 256 characters'] };
-  }
+
+  const nameError = invalidNameOutcome(input.name);
+  if (nameError) return nameError;
 
   const updated = await updateContestant(db, contestantId, {
     name: input.name,
@@ -104,8 +143,8 @@ export async function removeContestant(
   const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
 
-  const contestant = await findContestantById(db, contestantId);
-  if (!contestant || contestant.warId !== warId) return { kind: 'notFound' };
+  const contestant = await findContestantInWar(db, warId, contestantId);
+  if (!contestant) return { kind: 'notFound' };
 
   await deleteContestant(db, contestantId);
   return { kind: 'ok', value: undefined };

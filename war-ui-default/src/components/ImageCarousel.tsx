@@ -3,10 +3,32 @@
 // These must never be confused — ambiguity always resolves toward "swipe",
 // since a mis-fired vote is unrecoverable (votes are final).
 import { useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { MediaItem } from '../api/client'
 import { byDisplayOrder, srcSetFor } from '../utils/media'
 import { exceedsSwipeThreshold, swipeDirection } from '../utils/swipe'
+
+function frameStyle(item: MediaItem, index: number, currentIndex: number): CSSProperties {
+  return {
+    aspectRatio: item.aspect_ratio ?? undefined,
+    width: '100%',
+    minHeight: item.aspect_ratio ? undefined : '12rem',
+    display: index === currentIndex ? 'block' : 'none',
+  }
+}
+
+function CarouselFrameImage({ item }: { item: MediaItem }) {
+  return (
+    <img
+      data-testid="carousel-image"
+      alt=""
+      src={item.variants[0]?.url}
+      srcSet={srcSetFor(item)}
+      sizes="50vw"
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+    />
+  )
+}
 
 interface ImageCarouselProps {
   media: MediaItem[]
@@ -20,6 +42,10 @@ interface ImageCarouselProps {
   // to describe) — war-spec.md 10.4's "same page-through affordance the
   // vote card's own multi-image browsing already uses".
   ariaLabel?: string
+}
+
+function isActivationKey(key: string): boolean {
+  return key === 'Enter' || key === ' '
 }
 
 export function ImageCarousel({
@@ -73,10 +99,14 @@ export function ImageCarousel({
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
       navigate('previous')
-    } else if (event.key === 'ArrowRight') {
+      return
+    }
+    if (event.key === 'ArrowRight') {
       event.preventDefault()
       navigate('next')
-    } else if ((event.key === 'Enter' || event.key === ' ') && !disabled) {
+      return
+    }
+    if (isActivationKey(event.key) && !disabled) {
       event.preventDefault()
       onTap()
     }
@@ -95,25 +125,8 @@ export function ImageCarousel({
       style={{ position: 'relative', touchAction: 'pan-y', width: '100%', cursor: disabled ? 'default' : 'pointer' }}
     >
       {sorted.map((item, index) => (
-        <div
-          key={item.id}
-          style={{
-            aspectRatio: item.aspect_ratio ?? undefined,
-            width: '100%',
-            minHeight: item.aspect_ratio ? undefined : '12rem',
-            display: index === currentIndex ? 'block' : 'none',
-          }}
-        >
-          {visited.has(index) && (
-            <img
-              data-testid="carousel-image"
-              alt=""
-              src={item.variants[0]?.url}
-              srcSet={srcSetFor(item)}
-              sizes="50vw"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            />
-          )}
+        <div key={item.id} style={frameStyle(item, index, currentIndex)}>
+          {visited.has(index) && <CarouselFrameImage item={item} />}
         </div>
       ))}
       {children}

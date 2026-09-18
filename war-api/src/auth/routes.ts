@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { beginLogin, completeCallback, currentVoter, exchangeAuthorizationCode, logout, refresh, type AuthDependencies } from './authService.js';
 import { bearerAuthRoute } from './plugin.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
@@ -48,6 +48,72 @@ function refreshCookieOptions() {
   };
 }
 
+function clearOAuthCookies(reply: FastifyReply): void {
+  void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
+  void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
+}
+
+// The state and PKCE cookies are always set and cleared together, so a
+// mismatch or an absence of either is one failure mode, not two: there is
+// nothing safe to exchange without both.
+function resolveCallbackCodeVerifier(
+  expectedState: string | undefined,
+  state: string | undefined,
+  codeVerifier: string | undefined,
+): string | null {
+  if (!expectedState || !state || expectedState !== state || !codeVerifier) return null;
+  return codeVerifier;
+}
+
+type CallbackRoute = {
+  Params: { provider: string };
+  Querystring: { code?: string; state?: string; error?: string };
+};
+
+type CallbackValidation =
+  | { kind: 'declined'; reason: string }
+  | { kind: 'missingCode' }
+  | { kind: 'stateMismatch' }
+  | { kind: 'ok'; code: string; codeVerifier: string };
+
+/**
+ * The spec's "Callback failure responses" table, checked in that exact
+ * order -- extracted purely to keep the callback route handler's own
+ * branch count down; the security-relevant sequencing (declined check
+ * before state validation, independent of it) is unchanged.
+ */
+function validateCallbackRequest(request: FastifyRequest<CallbackRoute>): CallbackValidation {
+  const { code, state, error } = request.query;
+
+  // #1 -- the provider declined to grant what was asked (spec). Checked
+  // first and independent of the state cookie: no code is ever exchanged
+  // on this branch, so there is nothing for state validation to protect.
+  // An empty `error` (`?error=`) is treated as absent.
+  if (error) return { kind: 'declined', reason: error };
+  if (!code) return { kind: 'missingCode' };
+
+  const expectedState = request.cookies[STATE_COOKIE];
+  const codeVerifier = resolveCallbackCodeVerifier(expectedState, state, request.cookies[PKCE_COOKIE]);
+  if (!codeVerifier) {
+    return { kind: 'stateMismatch' };
+  }
+  return { kind: 'ok', code, codeVerifier };
+}
+
+function sendCallbackValidationFailure(
+  reply: FastifyReply,
+  validation: Exclude<CallbackValidation, { kind: 'ok' }>,
+) {
+  if (validation.kind === 'declined') {
+    const body: OAuthDeclinedView = { error: 'authorization declined', reason: validation.reason };
+    return reply.code(403).send(body);
+  }
+  if (validation.kind === 'missingCode') {
+    return reply.code(400).send({ error: 'missing code' });
+  }
+  return reply.code(400).send({ error: 'state mismatch' });
+}
+
 export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies, config: AuthRouteConfig): void {
   app.get<{ Params: { provider: string } }>(
     '/auth/:provider/login',
@@ -80,34 +146,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
       if (!provider) {
         return reply.code(404).send();
       }
-      const { code, state, error } = request.query;
 
-      // #1 -- the provider declined to grant what was asked (spec).
-      // Checked first and independent of the state cookie: no code is ever
-      // exchanged on this branch, so there is nothing for state validation
-      // to protect. An empty `error` (`?error=`) is treated as absent.
-      if (error) {
-        const body: OAuthDeclinedView = { error: 'authorization declined', reason: error };
-        void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
-        void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
-        return reply.code(403).send(body);
+      const validation = validateCallbackRequest(request);
+      if (validation.kind !== 'ok') {
+        clearOAuthCookies(reply);
+        return sendCallbackValidationFailure(reply, validation);
       }
-
-      if (!code) {
-        void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
-        void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
-        return reply.code(400).send({ error: 'missing code' });
-      }
-      const expectedState = request.cookies[STATE_COOKIE];
-      const codeVerifier = request.cookies[PKCE_COOKIE];
-      // The state and PKCE cookies are always set and cleared together, so
-      // a mismatch or an absence of either is one failure mode, not two:
-      // there is nothing safe to exchange without both.
-      if (!expectedState || !state || expectedState !== state || !codeVerifier) {
-        void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
-        void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
-        return reply.code(400).send({ error: 'state mismatch' });
-      }
+      const { codeVerifier } = validation;
 
       // The provider's real callback query, verbatim -- RFC 9207's `iss` and the rest,
       // which the token-exchange library validates straight off this URL. The
@@ -130,15 +175,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
         // server-side record, which `request.log` now actually is (see
         // app.ts's logger config).
         request.log.error({ err: exchange.cause }, `${provider.slug} code exchange failed`);
-        void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
-        void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
+        clearOAuthCookies(reply);
         return reply.code(502).send({ error: `authentication with ${provider.slug} failed` });
       }
       const result = await completeCallback(deps, provider.slug, exchange.profile);
 
       void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, refreshCookieOptions());
-      void reply.clearCookie(STATE_COOKIE, { path: AUTH_COOKIE_PATH });
-      void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
+      clearOAuthCookies(reply);
 
       // No token of any kind in the redirect (spec).
       return reply.redirect(`${config.uiOrigins[0]}/auth/callback`);

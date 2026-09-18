@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
-import { castVoteForVoter } from '../votes/votesService.js';
+import { castVoteForVoter, type CastVoteOutcome } from '../votes/votesService.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
 import { countMatchupsForWar, countVotesByVoterInWar } from './matchupsRepository.js';
 import { nextMatchupForVoter, nextMatchupResponseSchema } from './matchupsService.js';
@@ -64,6 +64,23 @@ export interface MatchupsRouteDeps {
   publicBaseUrl: string;
 }
 
+/**
+ * Status and body per `castVoteForVoter` outcome kind, keyed by
+ * `CastVoteOutcome['kind']` -- a `Record` requires every key present, so an
+ * outcome kind added to the union without an entry here is a compile
+ * error, without one `case` per kind driving this route's own branch count
+ * up.
+ */
+const VOTE_OUTCOME_RESPONSES: Record<CastVoteOutcome['kind'], (outcome: CastVoteOutcome) => { status: number; body: unknown }> = {
+  created: (outcome) => ({ status: 201, body: { vote_id: (outcome as { kind: 'created'; vote: { id: string } }).vote.id } }),
+  retried: () => ({ status: 200, body: { status: 'already recorded' } }),
+  conflict: () => ({ status: 409, body: { error: 'vote already cast for a different winner' } }),
+  invalidWinner: () => ({ status: 422, body: { error: 'winner_id must be a contestant in this matchup' } }),
+  warNotActive: () => ({ status: 403, body: { error: 'War is not active', reason: 'war_not_active' } satisfies VoteForbiddenView }),
+  notJoined: () => ({ status: 403, body: { error: 'voter has not joined this War', reason: 'not_joined' } satisfies VoteForbiddenView }),
+  notFound: () => ({ status: 404, body: { error: 'not found' } }),
+};
+
 export function registerMatchupsRoutes(app: FastifyInstance, deps: MatchupsRouteDeps): void {
   const { db, auth } = deps;
 
@@ -121,28 +138,8 @@ export function registerMatchupsRoutes(app: FastifyInstance, deps: MatchupsRoute
         winnerId: request.body.winner_id,
       });
 
-      switch (outcome.kind) {
-        case 'created':
-          return reply.code(201).send({ vote_id: outcome.vote.id });
-        case 'retried':
-          return reply.code(200).send({ status: 'already recorded' });
-        case 'conflict':
-          return reply.code(409).send({ error: 'vote already cast for a different winner' });
-        case 'invalidWinner':
-          return reply.code(422).send({ error: 'winner_id must be a contestant in this matchup' });
-        case 'warNotActive': {
-          const body: VoteForbiddenView = { error: 'War is not active', reason: 'war_not_active' };
-          return reply.code(403).send(body);
-        }
-        case 'notJoined': {
-          const body: VoteForbiddenView = { error: 'voter has not joined this War', reason: 'not_joined' };
-          return reply.code(403).send(body);
-        }
-        case 'notFound':
-          return reply.code(404).send({ error: 'not found' });
-        default:
-          return reply.code(500).send({ error: 'internal error' });
-      }
+      const { status, body } = VOTE_OUTCOME_RESPONSES[outcome.kind](outcome);
+      return reply.code(status).send(body);
     },
   );
 }

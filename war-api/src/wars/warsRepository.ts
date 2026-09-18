@@ -86,29 +86,38 @@ export interface ListWarsFilter {
   creatorId?: string;
 }
 
-export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Promise<War[]> {
-  let query = db.selectFrom('wars').selectAll().orderBy('created_at', 'desc').orderBy('id', 'desc');
+/**
+ * The ownership-scoping decision (own Wars, every status, vs. the default
+ * public/active scoping), extracted purely to keep `listWars`'s own branch
+ * count down -- it's one cohesive rule, not several independent filters,
+ * and reads better as its own named step. Builds the base query itself so
+ * its return type is inferred from actual `.where()` usage rather than
+ * needing to be spelled out generically.
+ */
+function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
+  const query = db.selectFrom('wars').selectAll().orderBy('created_at', 'desc').orderBy('id', 'desc');
 
   if (filter.creatorId) {
-    query = query.where('creator_id', '=', filter.creatorId);
-    if (filter.status) {
-      query = query.where('status', '=', filter.status);
-    }
-  } else {
-    // Default visibility/status scoping, applied whenever `creatorId` is
-    // absent (spec, "Default scoping (no `creator=me`)"): never a
-    // `draft` War, never an `invite_only` one, regardless of any `status`
-    // filter supplied -- `status=draft` returns empty rather than another
-    // voter's drafts, since `status != 'draft'` and `status = 'draft'` can
-    // never both hold. Omitting `status` entirely defaults to `active`.
-    // This is the one place that rule is enforced; every caller of
-    // `listWars` inherits it, so a future caller cannot bypass it by
-    // forgetting to ask.
-    query = query
-      .where('status', '=', filter.status ?? 'active')
-      .where('status', '!=', 'draft')
-      .where('visibility', '!=', 'invite_only');
+    const ownScoped = query.where('creator_id', '=', filter.creatorId);
+    return filter.status ? ownScoped.where('status', '=', filter.status) : ownScoped;
   }
+  // Default visibility/status scoping, applied whenever `creatorId` is
+  // absent (spec, "Default scoping (no `creator=me`)"): never a
+  // `draft` War, never an `invite_only` one, regardless of any `status`
+  // filter supplied -- `status=draft` returns empty rather than another
+  // voter's drafts, since `status != 'draft'` and `status = 'draft'` can
+  // never both hold. Omitting `status` entirely defaults to `active`.
+  // This is the one place that rule is enforced; every caller of
+  // `listWars` inherits it, so a future caller cannot bypass it by
+  // forgetting to ask.
+  return query
+    .where('status', '=', filter.status ?? 'active')
+    .where('status', '!=', 'draft')
+    .where('visibility', '!=', 'invite_only');
+}
+
+export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Promise<War[]> {
+  let query = baseWarsQuery(db, filter);
 
   if (filter.category) {
     query = query.where('category', '=', filter.category);
@@ -131,15 +140,37 @@ export interface WarPatch {
   endsAt?: Date | null;
 }
 
-export async function updateWar(db: Kysely<Database>, id: string, patch: WarPatch): Promise<War> {
+/**
+ * One `[patch key, column, transform]` entry per updatable column, applied
+ * uniformly in a loop -- keeps `updateWar` itself at zero branches instead
+ * of one `if` per field, and adding a column is a new row here rather than
+ * another `if`.
+ */
+const WAR_PATCH_COLUMNS: {
+  [K in keyof WarPatch]-?: { column: string; transform: (value: NonNullable<WarPatch[K]>) => unknown };
+} = {
+  title: { column: 'title', transform: (value) => value },
+  category: { column: 'category', transform: (value) => value },
+  visibility: { column: 'visibility', transform: (value) => value },
+  mediaMode: { column: 'media_mode', transform: (value) => value },
+  theme: { column: 'theme', transform: (value) => value },
+  contestantSchema: { column: 'contestant_schema', transform: (value) => toJsonb(value) },
+  endsAt: { column: 'ends_at', transform: (value) => value },
+};
+
+function warPatchValues(patch: WarPatch): Record<string, unknown> {
   const values: Record<string, unknown> = {};
-  if (patch.title !== undefined) values.title = patch.title;
-  if (patch.category !== undefined) values.category = patch.category;
-  if (patch.visibility !== undefined) values.visibility = patch.visibility;
-  if (patch.mediaMode !== undefined) values.media_mode = patch.mediaMode;
-  if (patch.theme !== undefined) values.theme = patch.theme;
-  if (patch.contestantSchema !== undefined) values.contestant_schema = toJsonb(patch.contestantSchema);
-  if (patch.endsAt !== undefined) values.ends_at = patch.endsAt;
+  for (const key of Object.keys(WAR_PATCH_COLUMNS) as (keyof WarPatch)[]) {
+    const value = patch[key];
+    if (value === undefined) continue;
+    const { column, transform } = WAR_PATCH_COLUMNS[key];
+    values[column] = (transform as (value: unknown) => unknown)(value);
+  }
+  return values;
+}
+
+export async function updateWar(db: Kysely<Database>, id: string, patch: WarPatch): Promise<War> {
+  const values = warPatchValues(patch);
 
   const row = await db
     .updateTable('wars')
