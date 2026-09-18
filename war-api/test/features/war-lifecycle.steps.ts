@@ -88,7 +88,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Cannot activate when a contestant has no image', ({ Given, When, Then, And }) => {
+  Scenario('A contestant with no image can still activate', ({ Given, When, Then }) => {
     let warId: string;
     let creatorId: string;
     let response: request.Response;
@@ -112,13 +112,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
         .send();
     });
 
-    Then('the response status is 422', () => {
-      expect(response.status).toBe(422);
-    });
-
-    And('the War remains "draft"', async () => {
-      const war = await findWarById(harness.db, warId);
-      expect(war?.status).toBe('draft');
+    Then('the War status becomes "active"', () => {
+      expect(response.status).toBe(200);
+      expect((response.body as { status: string }).status).toBe('active');
     });
   });
 

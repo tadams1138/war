@@ -308,7 +308,7 @@ test('Activate is disabled with fewer than 2 contestants', async ({ page }) => {
   await expect(page.getByTestId('activate-requirements')).toContainText('at least 2 contestants')
 })
 
-test('Activate is disabled when a contestant has no image', async ({ page }) => {
+test('Activate is enabled even when a contestant has no image', async ({ page }) => {
   // Arrange
   const withImage = buildContestant({ id: 'c-1', name: 'Ada' })
   const noImage = buildContestant({ id: 'c-2', name: 'Grace', media: [] })
@@ -319,11 +319,47 @@ test('Activate is disabled when a contestant has no image', async ({ page }) => 
   await gotoEditPage(page)
 
   // Assert
-  await expect(page.getByTestId('activate-submit')).toBeDisabled()
-  await expect(page.getByTestId('activate-requirements')).toContainText('an image for every contestant')
+  await expect(page.getByTestId('activate-submit')).toBeEnabled()
+  await expect(page.getByTestId('activate-requirements')).toHaveCount(0)
 })
 
-test("Activating with the requirements met navigates to the War's vote page", async ({ page }) => {
+test('Clicking Activate shows a permanence warning before activating', async ({ page }) => {
+  // Arrange
+  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
+  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+
+  // Act — no unsaved edits, so this is not the dirty-confirm step
+  await page.getByTestId('activate-submit').click()
+
+  // Assert — no activation request fired; the permanence warning is shown instead
+  await expect(page.getByTestId('activate-confirm')).toBeVisible()
+  const activateCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/activate'))
+  expect(activateCalls).toHaveLength(0)
+})
+
+test('Cancelling the permanence warning leaves the draft untouched', async ({ page }) => {
+  // Arrange
+  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
+  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await page.getByTestId('activate-submit').click()
+
+  // Act
+  await page.getByTestId('activate-confirm-cancel').click()
+
+  // Assert
+  await expect(page.getByTestId('activate-confirm')).toHaveCount(0)
+  await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
+  const activateCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/activate'))
+  expect(activateCalls).toHaveLength(0)
+})
+
+test("Confirming the permanence warning activates and navigates to the War's vote page", async ({ page }) => {
   // Arrange
   const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
   const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
@@ -339,10 +375,10 @@ test("Activating with the requirements met navigates to the War's vote page", as
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 204 }] },
   ])
   await gotoEditPage(page)
-  await expect(page.getByTestId('activate-submit')).toBeEnabled()
+  await page.getByTestId('activate-submit').click()
 
   // Act
-  await page.getByTestId('activate-submit').click()
+  await page.getByTestId('activate-confirm-submit').click()
 
   // Assert
   await expect(page).toHaveURL(`/wars/${WAR_ID}/vote`)
@@ -362,9 +398,10 @@ test("A failed activation shows the API's validation messages", async ({ page })
     },
   ])
   await gotoEditPage(page)
+  await page.getByTestId('activate-submit').click()
 
   // Act
-  await page.getByTestId('activate-submit').click()
+  await page.getByTestId('activate-confirm-submit').click()
 
   // Assert
   await expect(page.getByTestId('activate-error')).toHaveText('every contestant needs media')
@@ -423,9 +460,12 @@ test('Discarding from the confirm step activates anyway', async ({ page }) => {
   await gotoEditPage(page)
   await page.getByTestId('edit-war-title-input').fill('A brand new title')
   await page.getByTestId('activate-submit').click()
-
-  // Act
   await page.getByTestId('activate-dirty-discard').click()
+
+  // Act — discarding still routes through the same permanence warning
+  // every other path to activation goes through.
+  await expect(page.getByTestId('activate-confirm')).toBeVisible()
+  await page.getByTestId('activate-confirm-submit').click()
 
   // Assert
   await expect(page).toHaveURL(`/wars/${WAR_ID}/vote`)

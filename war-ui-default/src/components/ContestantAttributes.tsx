@@ -1,8 +1,8 @@
 // Renders the resolved `attributes` array from the API as a simple
-// label/value list, in the order the array supplies (the spec). Used on
-// the War detail page's contestant gallery only. It has no
-// knowledge of what the fields mean — a pageant's Country/Age/Height and a
-// primary's Party/State/Office render through the identical component.
+// label/value list, in the order the array supplies (the spec). Used on the
+// War detail page's results list only. It has no knowledge of what the
+// fields mean — a pageant's Country/Age/Height and a primary's
+// Party/State/Office render through the identical component.
 // Fields the contestant omitted are simply absent from `attributes` — the
 // API only resolves fields it has a value for, so there is nothing here to
 // skip explicitly.

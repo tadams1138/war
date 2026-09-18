@@ -136,6 +136,23 @@ test('Arrow controls and the keyboard browse images without voting', async ({ pa
   await expect(carousel.getByTestId('carousel-arrow-previous')).toHaveAttribute('tabindex', '-1')
 })
 
+test('Clicking an arrow control browses images without voting', async ({ page }) => {
+  // Arrange
+  await setupMatchup(page, mediaSet(3, 'left'))
+  const carousel = leftCarousel(page)
+
+  // Act — a real mouse click, not a keyboard press: pointerdown/pointerup
+  // on the arrow button bubble to the carousel's own tap-to-vote gesture
+  // handlers before the button's click handler ever runs, so this is a
+  // materially different path than the keyboard scenario above.
+  await carousel.getByTestId('carousel-arrow-next').click()
+
+  // Assert
+  await expect(carousel.getByTestId('carousel-dot').nth(1)).toHaveAttribute('data-active', 'true')
+  const voteCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/vote'))
+  expect(voteCalls).toHaveLength(0)
+})
+
 test('Non-primary images are not loaded up front', async ({ page }) => {
   // Arrange
   const requestedImageUrls: string[] = []

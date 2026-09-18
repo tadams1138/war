@@ -1,14 +1,12 @@
-// War overview, contestant gallery, and results, image mode only (the
-// spec: "War detail is one page, not two" — 10.1, 10.4). No authentication
-// required for a public War; an invite-only War's results 401, and that
-// 401 is handled entirely by api/client.ts's existing unauthorized
-// pipeline, which clears the token and redirects to /login.
+// War overview and results, image mode only (the spec: "War detail is one
+// page, not two" — 10.1, 10.4). One merged results list, ordered by rank —
+// no separate contestant gallery and no separate "Results" section. No
+// authentication required for a public War; an invite-only War's results
+// 401, and that 401 is handled entirely by api/client.ts's existing
+// unauthorized pipeline, which clears the token and redirects to /login.
 import { useParams } from 'react-router-dom'
 import { getWar, type ContestantDetail, type WarDetailResponse } from '../api/client'
-import { BioContent } from '../bio/BioContent'
-import { ContestantAttributes } from '../components/ContestantAttributes'
-import { ImageCarousel } from '../components/ImageCarousel'
-import { RankingsTable } from '../components/RankingsTable'
+import { ResultsTable } from '../components/ResultsTable'
 import { useAsyncResource, type AsyncResourceState } from '../hooks/useAsyncResource'
 import { useRankings, type RankingsState } from '../rankings/useRankings'
 import type { Theme } from '../theme/themeCookie'
@@ -44,43 +42,18 @@ export function WarDetail() {
     <main data-theme={theme}>
       <h1>{warTitle(war.title)}</h1>
       {war.category && <p>{war.category}</p>}
-      <ul className="contestant-gallery">
-        {war.contestants.map((contestant) => (
-          <li key={contestant.id}>
-            <ContestantGalleryItem contestant={contestant} />
-          </li>
-        ))}
-      </ul>
-      <ResultsSection state={rankingsState} />
+      <ResultsSection state={rankingsState} contestants={war.contestants} />
     </main>
   )
 }
 
-// Its own load/error state, independent of the gallery above: a results
-// fetch failing (or still loading) must never blank out an overview and
-// gallery that loaded fine, and vice versa (war-spec.md 10.4's "failed
+// Its own load/error state, independent of the War overview above: a
+// results fetch failing (or still loading) must never blank out a title and
+// category that loaded fine, and vice versa (war-spec.md 10.4's "failed
 // poll does not clear already-loaded results" carried down to this
 // section's own scope rather than the whole page).
-function ResultsSection({ state }: { state: RankingsState }) {
+function ResultsSection({ state, contestants }: { state: RankingsState; contestants: ContestantDetail[] }) {
   if (state.status === 'loading') return <p>Loading results…</p>
   if (state.status === 'error') return <p role="alert">{state.message}</p>
-  return (
-    <section aria-label="Results">
-      <h2>Results</h2>
-      <RankingsTable rankings={state.rankings.rankings} />
-    </section>
-  )
-}
-
-function ContestantGalleryItem({ contestant }: { contestant: ContestantDetail }) {
-  return (
-    <div data-testid="contestant-gallery-item" className="contestant-gallery-item">
-      <div className="contestant-gallery-media">
-        <ImageCarousel media={contestant.media} onTap={() => {}} ariaLabel={`${contestant.name}'s photos — swipe or use the arrows to browse`} />
-      </div>
-      <h2>{contestant.name}</h2>
-      <BioContent bio={contestant.bio} />
-      <ContestantAttributes attributes={contestant.attributes} />
-    </div>
-  )
+  return <ResultsTable rankings={state.rankings.rankings} contestants={contestants} />
 }

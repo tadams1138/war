@@ -50,14 +50,6 @@
    as an input, not the bare page background: it keeps the link colors
    below legible in every theme regardless of *where* a bio happens to
    render, and reads as a distinct "this is the bio" region either way. */
-[data-theme] .contestant-gallery-item {
-  background: var(--t-surface);
-  color: var(--t-text-on-surface, var(--t-text));
-  border: 1px solid var(--t-accent2);
-  border-radius: 4px;
-  padding: 0.6rem;
-}
-
 [data-theme] .bio-content {
   background: var(--t-surface);
   color: var(--t-text-on-surface, var(--t-text));

@@ -139,6 +139,12 @@ export function ImageCarousel({
             aria-label="Previous image"
             tabIndex={-1}
             disabled={currentIndex === 0}
+            // Stopped on pointerdown/pointerup too, not just click: those
+            // bubble to the carousel's own tap-to-vote gesture handlers
+            // *before* click ever fires, so stopping click alone still let
+            // a mouse click here cast a vote underneath the navigation.
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerUp={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation()
               navigate('previous')
@@ -152,6 +158,8 @@ export function ImageCarousel({
             aria-label="Next image"
             tabIndex={-1}
             disabled={currentIndex === sorted.length - 1}
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerUp={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation()
               navigate('next')

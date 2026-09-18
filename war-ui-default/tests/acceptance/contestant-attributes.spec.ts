@@ -1,6 +1,6 @@
 // Binds features/contestant-attributes.feature.
 import { expect, test } from '@playwright/test'
-import { buildContestant, buildMatchupResponse, buildWarDetail } from '../../src/mocks/fixtures'
+import { buildContestant, buildMatchupResponse, buildRankingEntry, buildRankingsResponse, buildWarDetail } from '../../src/mocks/fixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
 
 test('Declared fields render on the War detail page', async ({ page }) => {
@@ -19,19 +19,26 @@ test('Declared fields render on the War detail page', async ({ page }) => {
       }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-pageant`, responses: [{ status: 200, body: detail }] }])
+  const rankings = buildRankingsResponse({
+    war_id: 'war-pageant',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-pageant`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-pageant/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
 
   // Act
   await page.goto('/wars/war-pageant')
 
   // Assert
-  const item = page.getByTestId('contestant-gallery-item').filter({ hasText: 'Ada' })
-  await expect(item.getByText('Country')).toBeVisible()
-  await expect(item.getByText('Nigeria')).toBeVisible()
-  await expect(item.getByText('Age')).toBeVisible()
-  await expect(item.getByText('24')).toBeVisible()
-  await expect(item.getByText('Height')).toBeVisible()
-  await expect(item.getByText('178cm')).toBeVisible()
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  await expect(row.getByText('Country')).toBeVisible()
+  await expect(row.getByText('Nigeria')).toBeVisible()
+  await expect(row.getByText('Age')).toBeVisible()
+  await expect(row.getByText('24')).toBeVisible()
+  await expect(row.getByText('Height')).toBeVisible()
+  await expect(row.getByText('178cm')).toBeVisible()
 })
 
 test('The same component renders an entirely different campaign', async ({ page }) => {
@@ -50,19 +57,26 @@ test('The same component renders an entirely different campaign', async ({ page 
       }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-election`, responses: [{ status: 200, body: detail }] }])
+  const rankings = buildRankingsResponse({
+    war_id: 'war-election',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Grace' }, wins: 0, appearances: 0 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-election`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-election/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
 
   // Act
   await page.goto('/wars/war-election')
 
   // Assert
-  const item = page.getByTestId('contestant-gallery-item').filter({ hasText: 'Grace' })
-  await expect(item.getByText('Party')).toBeVisible()
-  await expect(item.getByText('Independent')).toBeVisible()
-  await expect(item.getByText('State')).toBeVisible()
-  await expect(item.getByText('Ohio')).toBeVisible()
-  await expect(item.getByText('Office')).toBeVisible()
-  await expect(item.getByText('Senate')).toBeVisible()
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Grace' })
+  await expect(row.getByText('Party')).toBeVisible()
+  await expect(row.getByText('Independent')).toBeVisible()
+  await expect(row.getByText('State')).toBeVisible()
+  await expect(row.getByText('Ohio')).toBeVisible()
+  await expect(row.getByText('Office')).toBeVisible()
+  await expect(row.getByText('Senate')).toBeVisible()
 })
 
 test('Omitted fields are not rendered', async ({ page }) => {
@@ -78,15 +92,22 @@ test('Omitted fields are not rendered', async ({ page }) => {
       }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-pageant-2`, responses: [{ status: 200, body: detail }] }])
+  const rankings = buildRankingsResponse({
+    war_id: 'war-pageant-2',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Mae' }, wins: 0, appearances: 0 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-pageant-2`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-pageant-2/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
 
   // Act
   await page.goto('/wars/war-pageant-2')
 
   // Assert
-  const item = page.getByTestId('contestant-gallery-item').filter({ hasText: 'Mae' })
-  await expect(item.getByText('Country')).toBeVisible()
-  await expect(item.getByText('Height')).toHaveCount(0)
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Mae' })
+  await expect(row.getByText('Country')).toBeVisible()
+  await expect(row.getByText('Height')).toHaveCount(0)
 })
 
 test('A url-typed attribute renders as a safe link', async ({ page }) => {
@@ -101,7 +122,14 @@ test('A url-typed attribute renders as a safe link', async ({ page }) => {
       }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-links`, responses: [{ status: 200, body: detail }] }])
+  const rankings = buildRankingsResponse({
+    war_id: 'war-links',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-links`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-links/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
 
   // Act
   await page.goto('/wars/war-links')

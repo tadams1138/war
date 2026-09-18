@@ -33,6 +33,12 @@ Feature: Contestant Images
     And no vote is submitted
     And the card remains a single tab stop
 
+  Scenario: Clicking an arrow control browses images without voting
+    Given a contestant card with three images
+    When the voter clicks the next-image arrow control
+    Then the next image is shown
+    And no vote is submitted
+
   Scenario: Non-primary images are not loaded up front
     Given a contestant with ten images
     When the matchup first renders
