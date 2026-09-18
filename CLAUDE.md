@@ -15,10 +15,6 @@ Always include `// Arrange`, `// Act`, and `// Assert` comments in test methods 
 
 When prompted to generate tests, present the tests for approval before writing any production code or test infrastructure.
 
-## Design principles
-
-Always apply the SOLID principles (Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion).
-
 ## Code quality
 
 When changing a function, check its cyclomatic complexity. If it exceeds 5, report the function name and complexity value to the user.
@@ -119,55 +115,3 @@ Executable Gherkin lives with the code that implements it — `war-api/specs/fea
 Each has a `pending/` subdirectory for scenarios with no binding yet. These are test
 fixture, not a second copy of the spec.
 
-## Project layout
-
-Implementation detail, not specification — a rewrite in another language would look
-different.
-
-```
-war-api/          Backend service
-  src/
-    auth/           Provider sign-in, token issuance
-    wars/ contestants/ matchups/ votes/ rankings/
-  db/migrations/    Ordered SQL migrations
-  specs/features/   Executable Gherkin
-  test/
-
-war-ui-default/   React SPA
-  src/
-    pages/ components/ api/ auth/ router/
-  features/         Executable Gherkin
-  tests/acceptance/ Playwright bindings
-
-war-infra/        Terraform, platform specs, edge functions, deploy scripts
-  terraform/{modules,shared,envs}/
-  platform/         Per-environment application specs
-  edge/             Edge functions
-  tools/            Self-contained CI checkers
-
-.github/workflows/  Pipelines (GitHub reads workflows only from the repo root)
-```
-
-## Current stack
-
-Also implementation detail. The spec states requirements by role; these are what currently
-fills them.
-
-| Concern | Choice |
-|---|---|
-| API runtime | Node.js 24.x, TypeScript |
-| API framework | Fastify — JSON Schema per route, and the OpenAPI document generates from those same schemas |
-| Database | PostgreSQL, via Kysely; migrations by `node-pg-migrate` |
-| Sign-in | `openid-client`; tokens via `jose` |
-| Images | `sharp` |
-| Object storage | S3-compatible SDK |
-| API testing | Vitest, Supertest, Testcontainers (a real database, never a mock) |
-| UI | React, Vite, React Router, Tailwind |
-| UI types | `openapi-typescript`, generated from the API's document |
-| UI testing | Vitest + Testing Library; Playwright + MSW for acceptance |
-| Edge | Cloudflare — DNS, TLS, CDN, WAF, rate limiting, Workers, cron |
-| Application platform | DigitalOcean App Platform |
-| Database / storage / registry | DigitalOcean Managed PostgreSQL, Spaces, DOCR |
-| IaC | Terraform, state in Spaces |
-| CI/CD | GitHub Actions |
-| Error tracking | Sentry |
