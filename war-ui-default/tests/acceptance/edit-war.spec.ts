@@ -295,6 +295,100 @@ test('Changing the theme persists it', async ({ page }) => {
   expect(JSON.parse(patchCall!.body ?? '{}').theme).toBe('fight_card')
 })
 
+test('Export button is shown on the edit page', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await gotoEditPage(page)
+
+  // Assert
+  await expect(page.getByTestId('edit-war-export-button')).toBeVisible()
+})
+
+test('Clicking Export downloads a zip of the draft War definition', async ({ page }) => {
+  // Arrange
+  const media = buildMediaItem({ id: 'm-1', variants: [{ width: 400, url: 'https://cdn.example.test/m-1/400.jpg' }] })
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', media: [media] })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await page.route('https://cdn.example.test/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'image/jpeg', body: Buffer.from('fake-image-bytes') }),
+  )
+
+  // Act
+  await gotoEditPage(page)
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('edit-war-export-button').click()])
+
+  // Assert
+  expect(download.suggestedFilename()).toBe(`war-${WAR_ID}.zip`)
+})
+
+test('Delete button is shown on the edit page', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await gotoEditPage(page)
+
+  // Assert
+  await expect(page.getByTestId('edit-war-delete-button')).toBeVisible()
+})
+
+test('Clicking Delete asks for confirmation before removing the draft', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+
+  // Act
+  await page.getByTestId('edit-war-delete-button').click()
+
+  // Assert
+  await expect(page.getByTestId('edit-war-delete-confirm')).toBeVisible()
+  const deleteCalls = (await getCallLog(page)).filter((entry) => entry.method === 'DELETE' && entry.url.endsWith(`/wars/${WAR_ID}`))
+  expect(deleteCalls).toHaveLength(0)
+})
+
+test('Confirming delete removes the draft and navigates to My Wars', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'DELETE', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 204 }] },
+    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [] } }] },
+  ])
+  await gotoEditPage(page)
+  await page.getByTestId('edit-war-delete-button').click()
+
+  // Act
+  await page.getByTestId('edit-war-delete-confirm-submit').click()
+
+  // Assert
+  await expect(page).toHaveURL('/my-wars')
+  const deleteCalls = (await getCallLog(page)).filter((entry) => entry.method === 'DELETE' && entry.url.endsWith(`/wars/${WAR_ID}`))
+  expect(deleteCalls).toHaveLength(1)
+})
+
+test('Cancelling delete leaves the draft untouched', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await page.getByTestId('edit-war-delete-button').click()
+
+  // Act
+  await page.getByTestId('edit-war-delete-confirm-cancel').click()
+
+  // Assert
+  await expect(page.getByTestId('edit-war-delete-confirm')).toHaveCount(0)
+  await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
+  const deleteCalls = (await getCallLog(page)).filter((entry) => entry.method === 'DELETE' && entry.url.endsWith(`/wars/${WAR_ID}`))
+  expect(deleteCalls).toHaveLength(0)
+})
+
 test('Activate is disabled with fewer than 2 contestants', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })

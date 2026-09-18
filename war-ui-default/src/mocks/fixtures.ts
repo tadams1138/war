@@ -74,6 +74,7 @@ export function buildWarDetail(overrides: Partial<WarDetailResponse> = {}): WarD
     // if it did (a test verifying a mismatch, say).
     ...buildWarSummary({ contestant_count: contestants.length, ...overrides }),
     contestants,
+    is_owner: overrides.is_owner ?? false,
   }
 }
 

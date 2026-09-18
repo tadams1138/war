@@ -1,12 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
-import { bearerAuthRoute, requireAuthIf } from '../auth/plugin.js';
+import { bearerAuthRoute, optionalAuth, requireAuthIf } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
 import { countContestantsByWarIds, countContestantsForWar } from '../contestants/contestantsRepository.js';
 import { presentWarDetail, presentWarSummary, warDetailResponseSchema, warSummaryProperties } from './warPresenter.js';
-import { activateWar, closeWar, createWarForVoter, getWar, joinWar, patchWar } from './warsService.js';
+import { activateWar, closeWar, createWarForVoter, deleteWar, getWar, joinWar, patchWar } from './warsService.js';
 import { closeExpiredWars, listWars } from './warsRepository.js';
 
 export interface WarsRouteDeps {
@@ -110,14 +110,32 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
 
   app.get<{ Params: { id: string } }>(
     '/wars/:id',
-    { schema: { response: { 200: warDetailResponseSchema, 404: errorResponseSchema } } },
+    { schema: { response: { 200: warDetailResponseSchema, 404: errorResponseSchema } }, preHandler: optionalAuth(auth) },
     async (request, reply) => {
       const lookup = await getWar(db, request.params.id);
       if (lookup.kind === 'notFound') {
         return reply.code(404).send({ error: 'not found' });
       }
-      const detail = await presentWarDetail(db, lookup.war, new Date(), deps.publicBaseUrl);
+      const detail = await presentWarDetail(db, lookup.war, new Date(), deps.publicBaseUrl, request.voterId);
       return reply.send(detail);
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    '/wars/:id',
+    bearerAuthRoute(auth, {
+      response: {
+        204: {},
+        403: errorResponseSchema,
+        404: errorResponseSchema,
+      },
+    }),
+    async (request, reply) => {
+      const outcome = await deleteWar(db, request.params.id, request.voterId!, new Date());
+      if (outcome.kind !== 'ok') {
+        return replyForOutcome(reply, outcome);
+      }
+      return reply.code(204).send();
     },
   );
 

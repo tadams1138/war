@@ -90,3 +90,46 @@ Feature: War Detail
     When the completion screen is shown
     And they select the results link
     Then that War's detail page is shown with results
+
+  Scenario: A War's creator sees Edit and Delete on its results page while it's a draft
+    Given a draft War created by the viewing voter
+    When they navigate to that War's detail page
+    Then an Edit link and a Delete button are shown
+
+  Scenario: A non-creator sees no Edit or Delete on a draft War's results page
+    Given a draft War created by someone else
+    When the viewer navigates to that War's detail page
+    Then no Edit link and no Delete button are shown
+
+  Scenario: Delete from the results page asks for confirmation before removing the War
+    Given a draft War created by the viewing voter
+    When they click Delete on its results page
+    Then a confirmation dialog is shown
+    And no delete request has been sent yet
+
+  Scenario: Confirming delete removes the War and returns to My Wars
+    Given a draft War created by the viewing voter, with its Delete confirmation open
+    When they confirm the deletion
+    Then the War is deleted
+    And they are returned to My Wars
+
+  Scenario: Cancelling delete leaves the War untouched
+    Given a draft War created by the viewing voter, with its Delete confirmation open
+    When they cancel
+    Then no delete request has been sent
+    And they remain on the results page
+
+  Scenario: An authenticated voter who hasn't finished voting sees a Vote entry point
+    Given an active War the voter has joined and partially voted in
+    When they navigate to that War's detail page
+    Then a Vote link is shown
+
+  Scenario: A voter who has finished voting sees no Vote entry point
+    Given an active War the voter has fully voted in
+    When they navigate to that War's detail page
+    Then no Vote link is shown
+
+  Scenario: An anonymous visitor sees no Vote entry point
+    Given an active War
+    When an unauthenticated visitor navigates to its detail page
+    Then no Vote link is shown

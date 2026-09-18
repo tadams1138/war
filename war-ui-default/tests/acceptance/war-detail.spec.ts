@@ -8,7 +8,7 @@ import {
   buildRankingsResponse,
   buildWarDetail,
 } from '../../src/mocks/fixtures'
-import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
 
 test('War overview loads with its results', async ({ page }) => {
   // Arrange
@@ -571,4 +571,187 @@ test("A completed vote flow links back to the War's results", async ({ page }) =
   // Assert
   await expect(page).toHaveURL(`/wars/${RESULTS_WAR_ID}`)
   await expect(page.getByTestId('ranking-row')).toHaveCount(rankings.rankings.length)
+})
+
+test("A War's creator sees Edit and Delete on its results page while it's a draft", async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-own-draft', status: 'draft', is_owner: true })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-own-draft`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await page.goto('/wars/war-own-draft')
+
+  // Assert
+  await expect(page.getByTestId('war-detail-edit-link')).toBeVisible()
+  await expect(page.getByTestId('war-detail-delete-button')).toBeVisible()
+})
+
+test('A non-creator sees no Edit or Delete on a draft War\'s results page', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-other-draft', status: 'draft', is_owner: false })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-other-draft`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await page.goto('/wars/war-other-draft')
+
+  // Assert
+  await expect(page.getByTestId('war-detail-edit-link')).toHaveCount(0)
+  await expect(page.getByTestId('war-detail-delete-button')).toHaveCount(0)
+})
+
+test('Delete from the results page asks for confirmation before removing the War', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-own-draft', status: 'draft', is_owner: true })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-own-draft`, responses: [{ status: 200, body: detail }] }])
+  await page.goto('/wars/war-own-draft')
+
+  // Act
+  await page.getByTestId('war-detail-delete-button').click()
+
+  // Assert
+  await expect(page.getByTestId('war-detail-delete-confirm')).toBeVisible()
+  const deleteCalls = (await getCallLog(page)).filter((entry) => entry.method === 'DELETE')
+  expect(deleteCalls).toHaveLength(0)
+})
+
+test('Confirming delete removes the War and returns to My Wars', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-own-draft', status: 'draft', is_owner: true })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-own-draft`, responses: [{ status: 200, body: detail }] },
+    { method: 'DELETE', path: `${API}/wars/war-own-draft`, responses: [{ status: 204 }] },
+    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [] } }] },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/wars/war-own-draft')
+  await page.getByTestId('war-detail-delete-button').click()
+
+  // Act
+  await page.getByTestId('war-detail-delete-confirm-submit').click()
+
+  // Assert
+  await expect(page).toHaveURL('/my-wars')
+  const deleteCalls = (await getCallLog(page)).filter((entry) => entry.method === 'DELETE')
+  expect(deleteCalls).toHaveLength(1)
+})
+
+test('Cancelling delete leaves the War untouched', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-own-draft', status: 'draft', is_owner: true })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-own-draft`, responses: [{ status: 200, body: detail }] }])
+  await page.goto('/wars/war-own-draft')
+  await page.getByTestId('war-detail-delete-button').click()
+
+  // Act
+  await page.getByTestId('war-detail-delete-confirm-cancel').click()
+
+  // Assert
+  await expect(page.getByTestId('war-detail-delete-confirm')).toHaveCount(0)
+  await expect(page).toHaveURL('/wars/war-own-draft')
+  const deleteCalls = (await getCallLog(page)).filter((entry) => entry.method === 'DELETE')
+  expect(deleteCalls).toHaveLength(0)
+})
+
+test("An authenticated voter who hasn't finished voting sees a Vote entry point", async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-partial', status: 'active', is_owner: false })
+  const rankings = buildRankingsResponse({ war_id: 'war-partial' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-partial`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-partial/rankings`, responses: [{ status: 200, body: rankings }] },
+    { method: 'GET', path: `${API}/wars/war-partial/my-progress`, responses: [{ status: 200, body: { voted: 1, total: 3 } }] },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/wars/war-partial')
+
+  // Assert
+  await expect(page.getByTestId('war-detail-vote-link')).toBeVisible()
+})
+
+test('A voter who has finished voting sees no Vote entry point', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-complete', status: 'active', is_owner: false })
+  const rankings = buildRankingsResponse({ war_id: 'war-complete' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-complete`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-complete/rankings`, responses: [{ status: 200, body: rankings }] },
+    { method: 'GET', path: `${API}/wars/war-complete/my-progress`, responses: [{ status: 200, body: { voted: 3, total: 3 } }] },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/wars/war-complete')
+  await waitForCallLog(page, (log) => log.some((entry) => entry.url.includes('/my-progress')))
+
+  // Assert
+  await expect(page.getByTestId('war-detail-vote-link')).toHaveCount(0)
+})
+
+test("A creator sees Export on their own War's results page regardless of status", async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-own-closed', status: 'closed', is_owner: true })
+  const rankings = buildRankingsResponse({ war_id: 'war-own-closed' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-own-closed`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-own-closed/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-own-closed')
+
+  // Assert
+  await expect(page.getByTestId('war-detail-export-button')).toBeVisible()
+})
+
+test('Clicking Export downloads a zip of the War definition', async ({ page }) => {
+  // Arrange
+  const media = buildMediaItem({ id: 'm-1', variants: [{ width: 400, url: 'https://cdn.example.test/m-1/400.jpg' }] })
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', media: [media] })
+  const detail = buildWarDetail({ id: 'war-export', status: 'draft', is_owner: true, contestants: [contestant] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-export`, responses: [{ status: 200, body: detail }] }])
+  await page.route('https://cdn.example.test/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'image/jpeg', body: Buffer.from('fake-image-bytes') }),
+  )
+  await page.goto('/wars/war-export')
+
+  // Act
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('war-detail-export-button').click()])
+
+  // Assert
+  expect(download.suggestedFilename()).toBe('war-war-export.zip')
+})
+
+test('A non-creator sees no Export button', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-other', status: 'active', is_owner: false })
+  const rankings = buildRankingsResponse({ war_id: 'war-other' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-other`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-other/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-other')
+
+  // Assert
+  await expect(page.getByTestId('war-detail-export-button')).toHaveCount(0)
+})
+
+test('An anonymous visitor sees no Vote entry point', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-anon', status: 'active', is_owner: false })
+  const rankings = buildRankingsResponse({ war_id: 'war-anon' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-anon`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-anon/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-anon')
+
+  // Assert
+  await expect(page.getByTestId('war-detail-vote-link')).toHaveCount(0)
 })

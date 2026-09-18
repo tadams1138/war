@@ -204,6 +204,30 @@ export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise
   return rows.length;
 }
 
+/**
+ * Removes a draft War and its contestants (`deleteWar` in `warsService.ts`
+ * only ever calls this once `loadDraftWarOwnedBy` has confirmed draft
+ * status, so there are never matchups, votes, or memberships to clean up --
+ * those only exist from activation onward). Contestant media rows go first,
+ * matching `deleteContestant`'s own precedent of leaving the underlying
+ * storage objects in place rather than reaching into the object store.
+ */
+export async function deleteWarRow(db: Kysely<Database>, warId: string): Promise<void> {
+  const contestantIds = await db.selectFrom('contestants').select('id').where('war_id', '=', warId).execute();
+  if (contestantIds.length > 0) {
+    await db
+      .deleteFrom('contestant_media')
+      .where(
+        'contestant_id',
+        'in',
+        contestantIds.map((row) => row.id),
+      )
+      .execute();
+  }
+  await db.deleteFrom('contestants').where('war_id', '=', warId).execute();
+  await db.deleteFrom('wars').where('id', '=', warId).execute();
+}
+
 export async function createMembership(db: Kysely<Database>, warId: string, voterId: string): Promise<void> {
   await db
     .insertInto('war_memberships')

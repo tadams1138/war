@@ -41,6 +41,13 @@ export interface AddContestantPayload {
   name: string
   bio?: string | null
 }
+// GET /wars/:id/my-progress carries no documented response schema either
+// (war-api registers the route with no `schema.response`) -- hand-written
+// to match its handler body exactly, same reasoning as CreateWarPayload above.
+export interface VoteProgress {
+  voted: number
+  total: number
+}
 export type UploadedImage =
   paths['/wars/{id}/contestants/{cId}/images']['post']['responses'][201]['content']['application/json']
 // PATCH /wars/:id and its contestant/media counterparts do carry a
@@ -347,6 +354,15 @@ export async function deleteContestantMedia(warId: string, contestantId: string,
 export async function activateWar(warId: string): Promise<WarSummary> {
   const response = await ensureOk(await apiFetch(`/wars/${warId}/activate`, { method: 'POST' }))
   return response.json() as Promise<WarSummary>
+}
+
+export async function deleteWar(warId: string): Promise<void> {
+  await ensureOk(await apiFetch(`/wars/${warId}`, { method: 'DELETE' }), classifyEditForbidden)
+}
+
+export async function getMyProgress(warId: string): Promise<VoteProgress> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/my-progress`))
+  return response.json() as Promise<VoteProgress>
 }
 
 export async function getMe(): Promise<VoterMe> {

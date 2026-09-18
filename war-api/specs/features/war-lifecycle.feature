@@ -43,3 +43,34 @@ Feature: War Lifecycle
     Given a War with 3 contestants
     When anyone GETs /api/v1/wars
     Then that War's entry in the list has contestant_count 3
+
+  Scenario: War detail reports ownership to its creator
+    Given a War created by Voter A
+    When Voter A GETs the War's detail, authenticated
+    Then is_owner is true
+
+  Scenario: War detail reports non-ownership to another voter
+    Given a War created by Voter A
+    When Voter B GETs the War's detail, authenticated
+    Then is_owner is false
+
+  Scenario: War detail reports non-ownership to an anonymous caller
+    Given a War created by Voter A
+    When anyone GETs the War's detail, unauthenticated
+    Then is_owner is false
+
+  Scenario: Creator deletes a draft War
+    Given a War in "draft" status created by Voter A
+    When Voter A DELETEs the War
+    Then the response status is 204
+    And the War no longer exists
+
+  Scenario: Non-creator cannot delete a draft War
+    Given a War created by Voter A
+    When Voter B DELETEs the War
+    Then the response status is 403
+
+  Scenario: Cannot delete a War that has left draft
+    Given a War in "active" status
+    When the creator DELETEs the War
+    Then the response status is 403

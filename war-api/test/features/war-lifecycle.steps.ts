@@ -266,4 +266,148 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(entry?.contestant_count).toBe(3);
     });
   });
+
+  Scenario('War detail reports ownership to its creator', ({ Given, When, Then }) => {
+    let warId: string;
+    let voterAId: string;
+    let response: request.Response;
+
+    Given('a War created by Voter A', async () => {
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      voterAId = voterA.id;
+      const war = await makeDraftWar(harness.db, voterAId);
+      warId = war.id;
+    });
+
+    When("Voter A GETs the War's detail, authenticated", async () => {
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(voterAId);
+      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+    });
+
+    Then('is_owner is true', () => {
+      expect(response.body.is_owner).toBe(true);
+    });
+  });
+
+  Scenario('War detail reports non-ownership to another voter', ({ Given, When, Then }) => {
+    let warId: string;
+    let voterBId: string;
+    let response: request.Response;
+
+    Given('a War created by Voter A', async () => {
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const voterB = await makeVoter(harness.db, 'voter-b');
+      voterBId = voterB.id;
+      const war = await makeDraftWar(harness.db, voterA.id);
+      warId = war.id;
+    });
+
+    When("Voter B GETs the War's detail, authenticated", async () => {
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(voterBId);
+      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+    });
+
+    Then('is_owner is false', () => {
+      expect(response.body.is_owner).toBe(false);
+    });
+  });
+
+  Scenario('War detail reports non-ownership to an anonymous caller', ({ Given, When, Then }) => {
+    let warId: string;
+    let response: request.Response;
+
+    Given('a War created by Voter A', async () => {
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const war = await makeDraftWar(harness.db, voterA.id);
+      warId = war.id;
+    });
+
+    When("anyone GETs the War's detail, unauthenticated", async () => {
+      await harness.app.ready();
+      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`);
+    });
+
+    Then('is_owner is false', () => {
+      expect(response.body.is_owner).toBe(false);
+    });
+  });
+
+  Scenario('Creator deletes a draft War', ({ Given, When, Then, And }) => {
+    let warId: string;
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('a War in "draft" status created by Voter A', async () => {
+      const creator = await makeVoter(harness.db, 'voter-a');
+      creatorId = creator.id;
+      const war = await makeDraftWar(harness.db, creatorId);
+      warId = war.id;
+    });
+
+    When('Voter A DELETEs the War', async () => {
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+    });
+
+    Then('the response status is 204', () => {
+      expect(response.status).toBe(204);
+    });
+
+    And('the War no longer exists', async () => {
+      const war = await findWarById(harness.db, warId);
+      expect(war).toBeUndefined();
+    });
+  });
+
+  Scenario('Non-creator cannot delete a draft War', ({ Given, When, Then }) => {
+    let warId: string;
+    let voterBId: string;
+    let response: request.Response;
+
+    Given('a War created by Voter A', async () => {
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const voterB = await makeVoter(harness.db, 'voter-b');
+      voterBId = voterB.id;
+      const war = await makeDraftWar(harness.db, voterA.id);
+      warId = war.id;
+    });
+
+    When('Voter B DELETEs the War', async () => {
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(voterBId);
+      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+    });
+
+    Then('the response status is 403', () => {
+      expect(response.status).toBe(403);
+    });
+  });
+
+  Scenario('Cannot delete a War that has left draft', ({ Given, When, Then }) => {
+    let warId: string;
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('a War in "active" status', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(creatorId);
+      await request(harness.app.server).post(`/api/v1/wars/${war.id}/activate`).set('Authorization', `Bearer ${jwt}`).send();
+      warId = war.id;
+    });
+
+    When('the creator DELETEs the War', async () => {
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+    });
+
+    Then('the response status is 403', () => {
+      expect(response.status).toBe(403);
+    });
+  });
 });
