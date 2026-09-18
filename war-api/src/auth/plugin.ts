@@ -44,6 +44,24 @@ export function requireAuthIf(deps: AuthDependencies, shouldRequireAuth: (reques
 }
 
 /**
+ * Populates `request.voterId` from a Bearer JWT when one is present and
+ * valid, but never rejects the request -- an absent, malformed, or expired
+ * token just leaves `voterId` `undefined`. For a route that is public in
+ * general but whose response shape depends on caller identity when known
+ * (`GET /wars/:id`'s `is_owner`, spec §6.1's "Deletion" reads alongside),
+ * rather than gating the whole route behind {@link requireAuth}.
+ */
+export function optionalAuth(deps: AuthDependencies) {
+  return async function preHandler(request: FastifyRequest): Promise<void> {
+    try {
+      request.voterId = await authenticatedVoterId(deps, request.headers.authorization);
+    } catch {
+      // No identity available; the route proceeds as an anonymous caller.
+    }
+  };
+}
+
+/**
  * Route options for an endpoint gated by the bearer JWT: the preHandler that
  * enforces it and the OpenAPI marker that documents it, produced together so
  * neither can be added without the other (spec). Accepts the

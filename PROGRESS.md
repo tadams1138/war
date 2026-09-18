@@ -37,12 +37,25 @@ Staging and production both run as a single application per environment containi
   image" scenario is now "A contestant with no image can still activate", asserting a 200
   instead of a 422.
 
+- **Deleting a draft War.** `DELETE /wars/:id` (`warsService.deleteWar`), draft-only and
+  creator-only via the existing `loadDraftWarOwnedBy` guard — same 404/403/notDraft outcomes
+  `patchWar` already returns. Removes the War's `contestant_media` rows, then its `contestants`,
+  then the `wars` row itself (a draft never has matchups/votes/memberships, so no other table
+  needs cleanup). No object-storage cleanup, matching `deleteContestant`'s existing precedent of
+  leaving orphaned media objects behind.
+- **`is_owner` on War detail.** `GET /wars/:id` gained a new `optionalAuth` preHandler
+  (`auth/plugin.ts`) — populates `request.voterId` from a bearer token when one is present and
+  valid, but never 401s otherwise. `WarDetailResponse` (not `WarSummary`) now carries
+  `is_owner: boolean`, true iff the caller's voter id matches the War's `creatorId`.
+
 ### Not built
 
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Per-voter rate limiting. The edge's volumetric limits are live; the API's own are not.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
+- **War backup import.** Export (below) has no counterpart yet — nothing reads a War-export
+  zip back into a new draft.
 
 ---
 
@@ -248,6 +261,26 @@ empty state. Live in staging and production.
   width is raw wins over the row's highest win count, *not* wins over appearances — the
   appearance-normalized percentage §7 explicitly rejects as a display value — and, like the
   rest of the leaderboard, is never rendered as text.
+- **Results-page Edit/Delete/Vote/Export entry points.** `WarDetail.tsx`'s new
+  `ResultsActions` shows **Edit** and **Delete** (`war-detail-edit-link`/
+  `war-detail-delete-button`) when `war.is_owner && status === 'draft'`; **Vote**
+  (`war-detail-vote-link`) when the War is active, the voter is authenticated
+  (`getToken()`), and `GET /wars/:id/my-progress` reports `voted < total` — the request is
+  skipped entirely for an anonymous visitor or a non-active War rather than firing one the API
+  would 401 anyway; and **Export** (`war-detail-export-button`) whenever `war.is_owner`,
+  regardless of status. Delete and Export both extracted into shared hooks/components
+  (`useDeleteWarFlow`, `DeleteWarConfirmDialog`, `ExportButton`, `ErrorMessage`) so `EditWar.tsx`
+  reuses the same Delete confirmation and Export button rather than duplicating them.
+- **Edit-page Delete.** `EditWar.tsx` gained a Delete button (`edit-war-delete-button`) next to
+  Activate, same permanence-confirm pattern, navigating to `/my-wars` on success.
+- **War export.** `src/export/exportWar.ts`'s `buildWarExportZip` builds a zip (via `fflate`,
+  new dependency) containing `war.json` (title, category, visibility, theme,
+  `contestant_schema`, `ends_at`, and each contestant's name/bio/attributes — no votes, no
+  `win_count`/`appearance_count`) plus each contestant's largest-width media variant under
+  `media/<contestantId>/<mediaId>.<ext>`, referenced by that path in the JSON. Built entirely
+  client-side from the War detail already on the page (no new backend endpoint); triggers a
+  browser download named `war-<id>.zip` via a temporary `<a download>` (`downloadFile.ts`).
+  Exists to let a creator recreate a War later — import is not built (see *Not built*).
 
 ### Not built
 
@@ -256,12 +289,7 @@ empty state. Live in staging and production.
 - **Editing an active War.** The API rejects any PATCH once a War leaves draft (by design,
   fairness during voting); no UI or API path exists to change anything about a live War short
   of closing it.
-- **Deleting a War.** No delete capability exists anywhere for a War itself, draft or active —
-  not in the UI, not in the API (`DELETE /wars/:id` isn't a route).
-- **War backup export/import.** Export a draft War (metadata + contestants + bios + images, no
-  votes) to a local file for backup/testing; import that file to recreate a War. Likely a zip
-  (JSON manifest + image files) rather than raw JSON, since images must round-trip too.
-
+- **War backup import.** Nothing reads a War-export zip back into a new draft yet.
 
 ---
 

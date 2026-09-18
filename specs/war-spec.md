@@ -324,6 +324,9 @@ optional field.
 
 **Joining** records the voter's membership. Voting requires it.
 
+**Deletion** removes a draft War and its contestants entirely. Only the creator may delete, and
+only from draft — a War that has left draft cannot be deleted.
+
 ### 6.2 Contestants and media
 
 Contestants may be added, updated and removed while the War is in draft, by its creator only.
@@ -744,6 +747,20 @@ Results poll while the War is active. **A failed poll does not clear already-loa
 on its own. This does not apply to the *initial* load, where there is no last-good data to
 fall back on and the standard error state applies.
 
+**The results page carries its own entry points, each conditional.** Its creator sees **Edit**
+and **Delete** there too, but only while the War is still a draft — the same delete affordance
+the Edit page itself carries (below), offered a second time from the page a creator is more
+likely to already be on. Any authenticated voter who has joined an active War and not yet cast
+every vote sees a **Vote** entry point, returning them to where they left off. Neither
+affordance appears for a War that isn't the viewer's own to edit, isn't active, or is already
+fully voted.
+
+**Export**, available to a War's creator on both its results page and its edit page regardless
+of status, downloads a personal backup of the War's definition — title, category, visibility,
+theme, contestant schema, and each contestant's name, bio, attributes, and images — as a single
+file the creator can keep. It carries no votes, rankings, or win counts; it exists to let a
+creator recreate a War, not to report on one.
+
 **War cards** summarise a War: title, category, status, contestant count, and time remaining
 where an end date is set. Time remaining renders "Ended" at or past the end date, whole days
 rounded up at a day or more, and whole hours rounded up below that with a one-hour floor — so
@@ -794,6 +811,9 @@ already exists the moment this page is reachable. It is reachable only from a dr
 Wars card, not from the public War detail page; identity of "this is a War I can edit" comes
 from that entry point; opening it any other way for a War that has left draft shows a
 not-editable message instead of the form.
+
+A **Delete** affordance sits alongside Activate, removing the draft entirely (§6.1); like every
+action on this page, it asks for confirmation first, since deletion cannot be undone.
 
 **Activate**, on that same page, is disabled with an inline reason until the War meets the
 API's own activation requirements (§6.1: at least two contestants) — a client-side mirror of a

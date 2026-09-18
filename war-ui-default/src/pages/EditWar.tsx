@@ -12,12 +12,16 @@
 // navigable once a War had more than one or two contestants.
 import { useRef, useState, type RefObject } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { ContestantDetail, PatchContestantPayload, WarSummary } from '../api/client'
+import type { ContestantDetail, PatchContestantPayload, WarDetailResponse, WarSummary } from '../api/client'
+import { DeleteWarConfirmDialog } from '../components/DeleteWarConfirmDialog'
+import { ExportButton } from '../components/ExportButton'
 import { Toast } from '../components/Toast'
 import { AddContestantForm } from '../editWar/AddContestantForm'
 import { EditWarContestant } from '../editWar/EditWarContestant'
 import { EditWarMetadataForm, type EditWarMetadataFormHandle } from '../editWar/EditWarMetadataForm'
 import { useEditWar, type EditWarLoadedState, type EditWarState } from '../editWar/useEditWar'
+import { useWarExportDownload, type WarExportDownload } from '../export/useWarExportDownload'
+import { useDeleteWarFlow, type DeleteWarFlow } from '../hooks/useDeleteWarFlow'
 import { usePublishTheme } from '../theme/ThemeContext'
 import type { Theme } from '../theme/themeCookie'
 import { useTheme } from '../theme/useTheme'
@@ -27,6 +31,10 @@ type Selection = 'metadata' | 'add' | string
 
 function initialTheme(state: EditWarState): Theme {
   return state.status === 'loaded' ? state.war.theme : 'arcade'
+}
+
+function loadedWarOrNull(state: EditWarState): WarDetailResponse | null {
+  return state.status === 'loaded' ? state.war : null
 }
 
 function missingForActivation(contestants: ContestantDetail[]): string[] {
@@ -41,6 +49,8 @@ export function EditWar() {
   const navigate = useNavigate()
   const onActivated = (activated: WarSummary) => navigate(`/wars/${activated.id}/vote`)
   const editWar = useEditWar(warId, onActivated)
+  const deleteFlow = useDeleteWarFlow(safeWarId, () => navigate('/my-wars'))
+  const exportFlow = useWarExportDownload(loadedWarOrNull(editWar.state))
   const [selected, setSelected] = useState<Selection>('metadata')
   const [theme, setTheme] = useTheme(safeWarId, initialTheme(editWar.state))
   usePublishTheme(safeWarId, theme, setTheme)
@@ -95,6 +105,8 @@ export function EditWar() {
     <main data-theme={theme}>
       <h1>Edit {warTitle(state.war.title)}</h1>
       <Toast message={state.toast} />
+      <ExportSection exportFlow={exportFlow} />
+      <DeleteWarSection deleteFlow={deleteFlow} />
       <ActivateSection
         state={state}
         showDirtyConfirm={showDirtyConfirm}
@@ -118,6 +130,27 @@ export function EditWar() {
         />
       </div>
     </main>
+  )
+}
+
+function ExportSection({ exportFlow }: { exportFlow: WarExportDownload }) {
+  return (
+    <div className="edit-war-export">
+      <ExportButton testId="edit-war-export-button" onClick={exportFlow.trigger} />
+      {exportFlow.error && <p role="alert">{exportFlow.error}</p>}
+    </div>
+  )
+}
+
+function DeleteWarSection({ deleteFlow }: { deleteFlow: DeleteWarFlow }) {
+  return (
+    <div className="edit-war-delete">
+      <button type="button" data-testid="edit-war-delete-button" onClick={deleteFlow.open}>
+        Delete
+      </button>
+      {deleteFlow.error && <p role="alert">{deleteFlow.error}</p>}
+      <DeleteWarConfirmDialog show={deleteFlow.showConfirm} onConfirm={deleteFlow.confirm} onCancel={deleteFlow.cancel} testIdPrefix="edit-war" />
+    </div>
   )
 }
 

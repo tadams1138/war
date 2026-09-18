@@ -10,6 +10,7 @@ import { isWarTheme } from './theme.js';
 import {
   createMembership,
   createWar,
+  deleteWarRow,
   findWarById,
   isMember,
   setWarStatus,
@@ -211,6 +212,17 @@ export async function patchWar(
 
   const updated = await updateWar(db, warId, patch);
   return { kind: 'ok', value: updated };
+}
+
+export type DeleteWarOutcome = MutationOutcome<void>;
+
+/** Draft-only, creator-only (spec §6.1 "Deletion") -- `loadDraftWarOwnedBy` enforces both before anything is removed. */
+export async function deleteWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<DeleteWarOutcome> {
+  const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
+  if (guard.kind !== 'ok') return guard;
+
+  await deleteWarRow(db, warId);
+  return { kind: 'ok', value: undefined };
 }
 
 export type ActivateOutcome = MutationOutcome<War>;

@@ -80,10 +80,11 @@ export const warSummarySchema = {
  */
 export const warDetailResponseSchema = {
   type: 'object',
-  required: [...warSummaryRequired, 'contestants'],
+  required: [...warSummaryRequired, 'contestants', 'is_owner'],
   properties: {
     ...warSummaryProperties,
     contestants: { type: 'array', items: { $ref: 'ContestantDetail#' } },
+    is_owner: { type: 'boolean' },
   },
 };
 
@@ -104,6 +105,7 @@ export function presentWarSummary(war: War, now: Date, contestantCount: number):
 
 export interface WarDetailView extends WarSummaryView {
   contestants: ContestantDetailView[];
+  is_owner: boolean;
 }
 
 export async function presentWarDetail(
@@ -111,6 +113,7 @@ export async function presentWarDetail(
   war: War,
   now: Date,
   publicBaseUrl: string,
+  voterId: string | undefined,
 ): Promise<WarDetailView> {
   const contestants = await listContestantsByWar(db, war.id);
   const mediaByContestant = await listMediaByContestants(
@@ -118,5 +121,5 @@ export async function presentWarDetail(
     contestants.map((c) => c.id),
   );
   const views = contestants.map((c) => presentContestant(c, war, mediaByContestant.get(c.id) ?? [], publicBaseUrl));
-  return { ...presentWarSummary(war, now, contestants.length), contestants: views };
+  return { ...presentWarSummary(war, now, contestants.length), contestants: views, is_owner: war.creatorId === voterId };
 }
