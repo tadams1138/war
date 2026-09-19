@@ -54,8 +54,6 @@ Staging and production both run as a single application per environment containi
 - `video` media mode. The media table's video columns exist and are unused.
 - Per-voter rate limiting. The edge's volumetric limits are live; the API's own are not.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
-- **War backup import.** Export (below) has no counterpart yet — nothing reads a War-export
-  zip back into a new draft.
 
 ---
 
@@ -280,7 +278,26 @@ empty state. Live in staging and production.
   `media/<contestantId>/<mediaId>.<ext>`, referenced by that path in the JSON. Built entirely
   client-side from the War detail already on the page (no new backend endpoint); triggers a
   browser download named `war-<id>.zip` via a temporary `<a download>` (`downloadFile.ts`).
-  Exists to let a creator recreate a War later — import is not built (see *Not built*).
+  Exists to let a creator recreate a War later.
+- **War import**, reversing export. New `/wars/import` page (`ImportWar.tsx`), reachable from
+  the identity menu and My Wars' empty state alongside Create War. `validateWarImport.ts`
+  unzips the file and validates its whole shape up front — required metadata fields present,
+  every contestant's referenced media path actually in the zip — before anything is sent to the
+  server; a malformed file is rejected with one message and creates nothing.
+  `importWar.ts` then recreates the War through the same endpoints EditWar's own UI already
+  calls: `POST /wars` (now also accepting `contestant_schema` — previously PATCH-only —
+  and `POST /wars/:id/contestants` now also accepting `attributes` at creation, both already
+  supported server-side, just not previously exposed in the hand-typed client payloads), then
+  each contestant, then each contestant's images, sequentially. On full success the creator
+  lands on the new draft's Edit page; if the War was created but a contestant or image failed,
+  the partial draft is left in place with its error shown, findable via My Wars like any other
+  draft, rather than auto-navigating into a half-built page. No new backend endpoint — the same
+  client-side-orchestration approach export used.
+- **`war-ui-default/tsconfig.json` gained `strictNullChecks`.** Discovered while writing
+  import's `ok`/`error` discriminated-union result type: without it, TypeScript silently fails
+  to narrow a boolean-literal-discriminated union at all (`if (!result.ok) { result.error }`
+  left `result` typed as the full union) — verified with a minimal repro against this exact
+  tsconfig. Enabling it surfaced zero new errors across the existing codebase.
 
 ### Not built
 
@@ -289,7 +306,6 @@ empty state. Live in staging and production.
 - **Editing an active War.** The API rejects any PATCH once a War leaves draft (by design,
   fairness during voting); no UI or API path exists to change anything about a live War short
   of closing it.
-- **War backup import.** Nothing reads a War-export zip back into a new draft yet.
 
 ---
 

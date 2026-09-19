@@ -67,6 +67,9 @@ export function IdentityMenu() {
           <NavLink role="menuitem" to="/wars/new" onClick={closeThen()}>
             Create War
           </NavLink>
+          <NavLink role="menuitem" to="/wars/import" onClick={closeThen()}>
+            Import a War
+          </NavLink>
           <button type="button" role="menuitem" data-testid="nav-logout" onClick={closeThen(logout)}>
             Log out
           </button>

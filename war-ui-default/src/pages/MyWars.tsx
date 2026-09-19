@@ -32,6 +32,9 @@ function MyWarsList({ wars }: { wars: WarSummary[] }) {
         <Link to="/wars/new" data-testid="my-wars-create-war-cta">
           Create a War
         </Link>
+        <Link to="/wars/import" data-testid="my-wars-import-war-cta">
+          Import a War
+        </Link>
       </div>
     )
   }
