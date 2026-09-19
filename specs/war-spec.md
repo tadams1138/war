@@ -761,6 +761,15 @@ theme, contestant schema, and each contestant's name, bio, attributes, and image
 file the creator can keep. It carries no votes, rankings, or win counts; it exists to let a
 creator recreate a War, not to report on one.
 
+**Import** reverses Export. Given a previously exported file, it creates a brand-new draft
+War — metadata, contestants, and their images — owned by the importing voter, entirely
+independent of whatever War the export came from; nothing about the original is referenced or
+affected. The file is validated in full before anything is created: a malformed or incomplete
+file is rejected with one clear message and creates nothing at all. Once the new draft exists,
+any later failure (a contestant, an image) leaves it in place with its error shown, rather than
+discarding what already succeeded — the creator lands on its Edit page and finishes repairing
+it by hand, the same way an abandoned Create War draft is already just findable, never lost.
+
 **War cards** summarise a War: title, category, status, contestant count, and time remaining
 where an end date is set. Time remaining renders "Ended" at or past the end date, whole days
 rounded up at a day or more, and whole hours rounded up below that with a one-hour floor — so
@@ -802,7 +811,8 @@ an unreachable-but-findable draft behind at no cost — My Wars finds it again.
 including status — a creator needs status at a glance to tell a draft from an active or closed
 War. Selecting one opens its detail page. A draft's card additionally carries an edit
 affordance — an active or closed War does not, since editing is draft-only (10.2). This page
-adds no resume or delete affordance beyond that; its empty state links to Create War.
+adds no resume affordance beyond that. Its header and its empty state both carry two entry
+points, not one: Create War, and Import a War (above).
 
 **Editing a draft** is one page covering everything a draft needs: title, category,
 visibility, theme, end date, each contestant's name, bio, and images (add, remove, reorder, up
