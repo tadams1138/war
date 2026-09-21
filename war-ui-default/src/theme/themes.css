@@ -188,15 +188,19 @@
 [data-theme='arcade'] .win-bar-fill {
   background: var(--t-accent1);
 }
-[data-theme='arcade'] .rankings-table th {
+[data-theme='arcade'] .ranking-stat-label {
   font-family: var(--t-display-font);
   color: var(--t-accent2);
   font-size: 0.7rem;
 }
-[data-theme='arcade'] .rankings-table td.col-rank {
+[data-theme='arcade'] .ranking-rank {
   font-family: var(--t-display-font);
+  background: var(--t-accent1);
+  color: var(--t-bg);
+  box-shadow: 2px 2px 0 var(--t-accent3);
 }
-[data-theme='arcade'] .bio-content a {
+[data-theme='arcade'] .bio-content a,
+[data-theme='arcade'] .bio-snippet-toggle {
   color: var(--t-accent2);
 }
 [data-theme='arcade'] .bio-content a:visited {
@@ -252,14 +256,17 @@
 [data-theme='fight_card'] .win-bar-fill {
   background: linear-gradient(90deg, var(--t-accent2), #efd28c);
 }
-[data-theme='fight_card'] .rankings-table th {
+[data-theme='fight_card'] .ranking-stat-label {
   font-family: var(--t-display-font);
   color: var(--t-accent2);
 }
-[data-theme='fight_card'] .rankings-table td.col-rank {
+[data-theme='fight_card'] .ranking-rank {
   font-family: var(--t-display-font);
+  background: var(--t-accent1);
+  color: #fff;
 }
-[data-theme='fight_card'] .bio-content a {
+[data-theme='fight_card'] .bio-content a,
+[data-theme='fight_card'] .bio-snippet-toggle {
   color: var(--t-accent2);
 }
 [data-theme='fight_card'] .bio-content a:visited {
@@ -325,19 +332,24 @@
   background: var(--t-accent1);
   border-radius: 7px;
 }
-[data-theme='scrapbook'] .rankings-table th {
+[data-theme='scrapbook'] .ranking-stat-label {
   font-family: var(--t-display-font);
   color: var(--t-accent1);
 }
-[data-theme='scrapbook'] .rankings-table td.col-rank {
+[data-theme='scrapbook'] .ranking-rank {
   font-family: var(--t-display-font);
+  background: var(--t-accent1);
+  color: #2b2118;
+  border-radius: 50%;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.28);
 }
 /* accent2 (a light yellow) is the link color elsewhere in this theme, but
    .bio-content sits on the light --t-surface tan here, not the dark
    --t-bg teal every other theme's link sits on -- accent2 there would be
    nearly invisible. accent3, a muted teal-green, is dark enough to read on
    the tan surface instead. */
-[data-theme='scrapbook'] .bio-content a {
+[data-theme='scrapbook'] .bio-content a,
+[data-theme='scrapbook'] .bio-snippet-toggle {
   color: var(--t-accent3);
 }
 [data-theme='scrapbook'] .bio-content a:visited {

@@ -200,8 +200,8 @@ test("A War that doesn't exist shows a not-found message", async ({ page }) => {
   await expect(page.getByText("This War doesn't exist or has been removed")).toBeVisible()
 })
 
-test('Bio, image, and stat columns hold their allotted share of the row width', async ({ page }) => {
-  // Arrange — a wide viewport proves the column widths are fixed
+test('Bio, image, and stat groups hold their allotted share of the row width', async ({ page }) => {
+  // Arrange — a wide viewport proves the group widths are fixed
   // proportions of the row, not content- or viewport-dependent (previously
   // a card-grid layout blew media up to near-half-screen width here).
   await page.setViewportSize({ width: 1600, height: 900 })
@@ -227,21 +227,103 @@ test('Bio, image, and stat columns hold their allotted share of the row width', 
   // Act
   await page.goto('/wars/war-wide')
 
-  // Assert — bio gets about half the row, image about a quarter, the four
-  // narrow columns (rank/wins/appearances/win share) share the rest,
-  // regardless of how wide the viewport is.
-  const tableBox = await page.getByTestId('rankings-table').boundingBox()
-  expect(tableBox).not.toBeNull()
+  // Assert — bio gets about half the row, image about a quarter, and the
+  // wins/appearances/win-share group shares the rest, regardless of how
+  // wide the viewport is. Rank now overlays the image itself (a badge on
+  // its corner), rather than claiming a separate narrow slice.
+  const listBox = await page.getByTestId('rankings-list').boundingBox()
+  expect(listBox).not.toBeNull()
   const firstRow = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
   const imageBox = await firstRow.locator('img').boundingBox()
   expect(imageBox).not.toBeNull()
-  expect(imageBox!.width / tableBox!.width).toBeGreaterThan(0.2)
-  expect(imageBox!.width / tableBox!.width).toBeLessThan(0.3)
+  expect(imageBox!.width / listBox!.width).toBeGreaterThan(0.2)
+  expect(imageBox!.width / listBox!.width).toBeLessThan(0.3)
   const bioBox = await firstRow.getByTestId('contestant-bio').boundingBox()
   expect(bioBox).not.toBeNull()
-  expect(bioBox!.width / tableBox!.width).toBeGreaterThan(0.4)
-  expect(bioBox!.width / tableBox!.width).toBeLessThan(0.6)
+  expect(bioBox!.width / listBox!.width).toBeGreaterThan(0.4)
+  expect(bioBox!.width / listBox!.width).toBeLessThan(0.6)
   expect(bioBox!.y + bioBox!.height).toBeLessThanOrEqual(900)
+})
+
+test("On a narrow viewport, a result's image is a large, prominent part of its card", async ({ page }) => {
+  // Arrange — the original complaint: a fixed-percentage column gave a
+  // phone-width viewport a barely-visible thumbnail, not a large image.
+  await page.setViewportSize({ width: 390, height: 844 })
+  const detail = buildWarDetail({
+    id: 'war-narrow',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-narrow',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-narrow`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-narrow/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-narrow')
+
+  // Assert
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  const rowBox = await row.boundingBox()
+  const imageBox = await row.locator('img').boundingBox()
+  expect(rowBox).not.toBeNull()
+  expect(imageBox).not.toBeNull()
+  expect(imageBox!.width / rowBox!.width).toBeGreaterThan(0.9)
+})
+
+test('A long bio is truncated with a More affordance that expands it', async ({ page }) => {
+  // Arrange
+  const longBio =
+    'Luke Skywalker leads a mission to rescue his friend Han Solo from the clutches of Jabba the Hutt, while the Emperor prepares to crush the Rebellion with a more powerful Death Star.'
+  const detail = buildWarDetail({
+    id: 'war-long-bio',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: longBio })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-long-bio',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-long-bio`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-long-bio/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+  await page.goto('/wars/war-long-bio')
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  const toggle = row.getByTestId('bio-more-toggle')
+  await expect(toggle).toHaveText('More')
+
+  // Act
+  await toggle.click()
+
+  // Assert
+  await expect(toggle).toHaveText('Less')
+  await expect(row.getByTestId('contestant-bio')).toContainText('Death Star')
+})
+
+test('A short bio has no truncation affordance', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: 'war-short-bio',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'A brilliant mathematician.' })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-short-bio',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-short-bio`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-short-bio/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-short-bio')
+
+  // Assert
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  await expect(row.getByTestId('bio-more-toggle')).toHaveCount(0)
 })
 
 test('A contestant with multiple images is browsable in place', async ({ page }) => {
@@ -326,13 +408,13 @@ test('The detail page shows results with rank, image, wins, appearances, and a w
   // Assert
   const rows = page.getByTestId('ranking-row')
   await expect(rows).toHaveCount(2)
-  // Cell-scoped, not whole-row `toContainText`: '10' and '12' both being
+  // Testid-scoped, not whole-row `toContainText`: '10' and '12' both being
   // digits in the row would let Wins and Appearances pass transposed.
-  const firstRowCells = rows.nth(0).getByRole('cell')
-  await expect(firstRowCells.nth(0)).toHaveText('1')
-  await expect(firstRowCells.nth(2)).toHaveText('Contestant One')
-  await expect(firstRowCells.nth(3)).toHaveText('10')
-  await expect(firstRowCells.nth(4)).toHaveText('12')
+  const firstRow = rows.nth(0)
+  await expect(firstRow.getByTestId('ranking-rank')).toHaveText('1')
+  await expect(firstRow.locator('.results-name')).toHaveText('Contestant One')
+  await expect(firstRow.getByTestId('ranking-wins')).toHaveText('10')
+  await expect(firstRow.getByTestId('ranking-appearances')).toHaveText('12')
   // The Image column (spec): c1's media is `c1-media-0` with 400/1600
   // variants (src/mocks/fixtures.ts's buildMediaItem default). The image
   // itself is decorative (alt=""); the carousel group it sits in carries
@@ -369,11 +451,11 @@ test('The UI renders results in the order and ranks the API returns', async ({ p
   // Assert
   const rows = page.getByTestId('ranking-row')
   await expect(rows.nth(0)).toContainText('Contestant B')
-  // Cell-scoped: `toContainText('2')` on the whole row is satisfied by any
+  // Testid-scoped: `toContainText('2')` on the whole row is satisfied by any
   // digit anywhere in it and cannot actually distinguish rank from wins.
-  await expect(rows.nth(0).getByRole('cell').nth(0)).toHaveText('2')
+  await expect(rows.nth(0).getByTestId('ranking-rank')).toHaveText('2')
   await expect(rows.nth(1)).toContainText('Contestant A')
-  await expect(rows.nth(1).getByRole('cell').nth(0)).toHaveText('1')
+  await expect(rows.nth(1).getByTestId('ranking-rank')).toHaveText('1')
 })
 
 test('Unranked contestants are shown at the bottom of results', async ({ page }) => {
@@ -395,7 +477,7 @@ test('Unranked contestants are shown at the bottom of results', async ({ page })
   // Assert
   const rows = page.getByTestId('ranking-row')
   await expect(rows.nth(1)).toContainText('Contestant C')
-  await expect(rows.nth(1).getByRole('cell').nth(0)).toHaveText('—')
+  await expect(rows.nth(1).getByTestId('ranking-rank')).toHaveText('—')
 })
 
 test('Results poll while the War is active', async ({ page }) => {
@@ -452,21 +534,21 @@ test('A failed results poll keeps the last loaded leaderboard on screen', async 
   ])
   await page.goto(`/wars/${RESULTS_WAR_ID}`)
   const rows = page.getByTestId('ranking-row')
-  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('5')
+  await expect(rows.nth(0).getByTestId('ranking-wins')).toHaveText('5')
 
   // Act — the second poll (the failing one)
   await page.clock.fastForward(30_000)
 
   // Assert — the wins column still reflects the first, successfully loaded
   // response; no error state has replaced the table.
-  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('5')
+  await expect(rows.nth(0).getByTestId('ranking-wins')).toHaveText('5')
   await expect(page.getByRole('alert')).toHaveCount(0)
 
   // Act — a third poll, still on the same 30s schedule, that succeeds
   await page.clock.fastForward(30_000)
 
   // Assert — polling was never stopped by the failure in between
-  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('9')
+  await expect(rows.nth(0).getByTestId('ranking-wins')).toHaveText('9')
   const rankingsCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/rankings'))
   expect(rankingsCalls.length).toBeGreaterThanOrEqual(3)
 })
@@ -497,7 +579,7 @@ test('The leaderboard recovers once a later results poll succeeds', async ({ pag
   ])
   await page.goto(`/wars/${RESULTS_WAR_ID}`)
   const rows = page.getByTestId('ranking-row')
-  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('5')
+  await expect(rows.nth(0).getByTestId('ranking-wins')).toHaveText('5')
   // The failed poll — the "whose last poll failed" precondition
   await page.clock.fastForward(30_000)
   await expect(page.getByRole('alert')).toHaveCount(0)
@@ -506,7 +588,7 @@ test('The leaderboard recovers once a later results poll succeeds', async ({ pag
   await page.clock.fastForward(30_000)
 
   // Assert
-  await expect(rows.nth(0).getByRole('cell').nth(3)).toHaveText('9')
+  await expect(rows.nth(0).getByTestId('ranking-wins')).toHaveText('9')
 })
 
 test('Results do not poll once the War is closed', async ({ page }) => {

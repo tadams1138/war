@@ -363,57 +363,97 @@ label {
   height: 100%;
 }
 
-/* Fixed column widths (via <colgroup>, not content-based sizing) so a
-   short bio never lets media balloon to fill the row and a long one never
-   squeezes media past legibility either: bio gets about half the row,
-   image about a quarter, and the four narrow columns share the rest. */
-.rankings-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+/* The results list (spec 10.4): fixed group widths so a short bio never
+   lets media balloon to fill the row and a long one never squeezes media
+   past legibility either -- bio gets about half the row, image about a
+   quarter, and the wins/appearances/win-share group shares the rest. Below
+   the mobile breakpoint each group stacks full-width instead, image first
+   -- the fixed-percentage split below that width is what used to squeeze
+   every group into an unusably narrow sliver. */
+.rankings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
-.rankings-table .col-rank {
-  width: 6%;
+.ranking-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
 }
-.rankings-table .col-image {
-  width: 25%;
+.ranking-media {
+  position: relative;
+  flex: 0 0 25%;
+  min-width: 0;
 }
-.rankings-table .col-contestant {
-  width: 50%;
+.ranking-content {
+  flex: 1 1 50%;
+  min-width: 0;
 }
-.rankings-table .col-wins,
-.rankings-table .col-appearances {
-  width: 6%;
+.ranking-stats {
+  flex: 0 0 25%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: center;
 }
-.rankings-table .col-win-share {
-  width: 7%;
+.ranking-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+/* The rank badge overlays the image's own corner rather than claiming a
+   separate column -- a stamp on the poster, not a stripped-down table cell
+   that has to survive being squeezed to a handful of pixels. */
+.ranking-rank {
+  position: absolute;
+  top: -0.5rem;
+  left: -0.5rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.3rem;
 }
 @media (max-width: 640px) {
-  .rankings-table {
-    display: block;
-    overflow-x: auto;
+  .ranking-row {
+    flex-direction: column;
+  }
+  .ranking-media,
+  .ranking-content,
+  .ranking-stats {
+    flex: none;
+    width: 100%;
+  }
+  .ranking-stats {
+    flex-direction: row;
+    justify-content: space-between;
   }
 }
 
-/* Breathing room between columns -- unset otherwise, cell content sat
-   flush against its neighbors. */
-.rankings-table th,
-.rankings-table td {
-  padding: 0.6rem 0.75rem;
+/* Collapsed state of a truncated bio (BioSnippet) -- the full text/HTML
+   stays in the DOM either way, only its rendered height is clipped, so a
+   test reading the bio's content sees it regardless of this class. */
+.bio-snippet-clamped .bio-content {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-
-/* Rank, Wins, Appear., and Win share are all short, single-value columns
-   -- centered reads as one glanceable strip instead of a ragged left edge
-   next to Contestant's much wider block of text. */
-.rankings-table th.col-rank,
-.rankings-table td.col-rank,
-.rankings-table th.col-wins,
-.rankings-table td.col-wins,
-.rankings-table th.col-appearances,
-.rankings-table td.col-appearances,
-.rankings-table th.col-win-share,
-.rankings-table td.col-win-share {
-  text-align: center;
+.bio-snippet-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .win-bar-track {
