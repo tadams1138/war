@@ -259,26 +259,27 @@ empty state. Live in staging and production.
   width is raw wins over the row's highest win count, *not* wins over appearances — the
   appearance-normalized percentage §7 explicitly rejects as a display value — and, like the
   rest of the leaderboard, is never rendered as text.
-- **Results list reworked for mobile; `<table>` replaced with `<ol>`/`<li>`.** The
-  `<colgroup>`-based fixed-percentage table above rendered its full desktop proportions at any
-  viewport width — on a phone the rank/wins/appearances/win-share columns collapsed to a few
+- **Results list reworked for mobile and wide viewports; `<table>` replaced with `<ol>`/`<li>`.**
+  The `<colgroup>`-based fixed-percentage table above rendered its full desktop proportions at
+  any viewport width — on a phone the rank/wins/appearances/win-share columns collapsed to a few
   px and the image stayed thumbnail-sized. `ResultsTable.tsx`'s `<table>` is now an `<ol
   data-testid="rankings-list">` of `<li data-testid="ranking-row">` cards — rank is an ordering,
   not a column value, so a list gives each entry native "item N of M" semantics a table's rank
   cell never did. The old `col-rank`/`col-image`/`col-contestant`/`col-wins`/`col-appearances`/
-  `col-win-share` classes and their per-theme `.rankings-table th`/`td.col-rank` rules are gone;
-  `.ranking-media`/`.ranking-content`/`.ranking-stats` hold the same ~25/50/25 width split via
-  flex instead, restacking to a single column below the existing 640px breakpoint (previously
-  that breakpoint just made the table horizontally scrollable at its unchanged desktop
-  proportions — the actual bug). Rank now renders as a badge overlaid on the media's own corner
-  (`.ranking-rank`, themed per theme) rather than a separate narrow column. Long bios are
-  truncated behind a "More"/"Less" toggle (`BioSnippet.tsx`, `bio-more-toggle`) — a character-
-  count heuristic (140 chars), not real overflow detection; truncation is CSS `line-clamp` on
-  the rendered bio, so the full HTML stays in the DOM and `BioContent`'s own tests are
-  unaffected regardless of clamp state. The 8 acceptance assertions that used
-  to disambiguate a row's rank/wins cell via `getByRole('cell').nth(n)` now use dedicated
-  testids (`ranking-rank`/`ranking-wins`/`ranking-appearances`) instead, since a `<li>` carries
-  no cell role to key off of.
+  `col-win-share` classes and their per-theme `.rankings-table th`/`td.col-rank` rules are gone.
+  Each card's `.ranking-media`/`.ranking-content`/`.ranking-stats` groups now stack in one column
+  at *every* width (an initial pass kept a side-by-side ~25/50/25 flex split above 640px; a
+  follow-up round of feedback replaced that with always-stacked, since a laptop-width row that
+  wide read as sparse rather than spacious) — `.rankings-list` caps at 90rem/1440px and centers
+  itself (`margin: 0 auto`) on a wide viewport instead of stretching full-bleed, with margin above
+  it so the rank badge's overlay never crowds the category text or action bar above the list.
+  Rank renders as a badge overlaid on the media's own corner (`.ranking-rank`, themed per theme)
+  rather than a separate narrow column. Bios render in full at every width — a same-day attempt
+  at truncating long ones behind a "More"/"Less" toggle (`BioSnippet.tsx`) was reverted; that
+  file and its CSS/theme rules are gone. The 8 acceptance assertions that used to disambiguate a
+  row's rank/wins cell via `getByRole('cell').nth(n)` now use dedicated testids
+  (`ranking-rank`/`ranking-wins`/`ranking-appearances`) instead, since a `<li>` carries no cell
+  role to key off of.
 - **Results-page Edit/Delete/Vote/Export entry points.** `WarDetail.tsx`'s new
   `ResultsActions` shows **Edit** and **Delete** (`war-detail-edit-link`/
   `war-detail-delete-button`) when `war.is_owner && status === 'draft'`; **Vote**

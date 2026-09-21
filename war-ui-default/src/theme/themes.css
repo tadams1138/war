@@ -199,8 +199,7 @@
   color: var(--t-bg);
   box-shadow: 2px 2px 0 var(--t-accent3);
 }
-[data-theme='arcade'] .bio-content a,
-[data-theme='arcade'] .bio-snippet-toggle {
+[data-theme='arcade'] .bio-content a {
   color: var(--t-accent2);
 }
 [data-theme='arcade'] .bio-content a:visited {
@@ -265,8 +264,7 @@
   background: var(--t-accent1);
   color: #fff;
 }
-[data-theme='fight_card'] .bio-content a,
-[data-theme='fight_card'] .bio-snippet-toggle {
+[data-theme='fight_card'] .bio-content a {
   color: var(--t-accent2);
 }
 [data-theme='fight_card'] .bio-content a:visited {
@@ -348,8 +346,7 @@
    --t-bg teal every other theme's link sits on -- accent2 there would be
    nearly invisible. accent3, a muted teal-green, is dark enough to read on
    the tan surface instead. */
-[data-theme='scrapbook'] .bio-content a,
-[data-theme='scrapbook'] .bio-snippet-toggle {
+[data-theme='scrapbook'] .bio-content a {
   color: var(--t-accent3);
 }
 [data-theme='scrapbook'] .bio-content a:visited {

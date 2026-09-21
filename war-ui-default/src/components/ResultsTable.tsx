@@ -7,13 +7,12 @@
 //
 // An <ol>, not a <table>: rank is an ordering, not a column value, so a
 // list gives every entry "item N of M" semantics for free, which neither a
-// table's rank column nor a plain <div> would. Group widths (bio ~50%,
-// image ~25%, the wins/appearances/win-share group ~25%) are set structurally
-// in layout.css, restacking into a single column below its mobile
-// breakpoint — a short bio never lets media balloon to fill the row, and a
-// long one never squeezes media past legibility either, at any width.
+// table's rank column nor a plain <div> would. Each card stacks its media,
+// content, and stats groups in one column at every width (layout.css) --
+// capped and centered on a wide viewport rather than stretched full-bleed
+// or split into side-by-side columns.
 import type { ContestantDetail, RankingsResponse } from '../api/client'
-import { BioSnippet } from './BioSnippet'
+import { BioContent } from '../bio/BioContent'
 import { ContestantAttributes } from './ContestantAttributes'
 import { ImageCarousel } from './ImageCarousel'
 
@@ -76,7 +75,7 @@ function ResultCard({
       </div>
       <div className="ranking-content">
         <span className="results-name">{entry.contestant.name}</span>
-        {detail && <BioSnippet bio={detail.bio} />}
+        {detail && <BioContent bio={detail.bio} />}
         {detail && <ContestantAttributes attributes={detail.attributes} />}
       </div>
       <div className="ranking-stats">

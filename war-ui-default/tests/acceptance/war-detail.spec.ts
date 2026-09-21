@@ -200,24 +200,16 @@ test("A War that doesn't exist shows a not-found message", async ({ page }) => {
   await expect(page.getByText("This War doesn't exist or has been removed")).toBeVisible()
 })
 
-test('Bio, image, and stat groups hold their allotted share of the row width', async ({ page }) => {
-  // Arrange — a wide viewport proves the group widths are fixed
-  // proportions of the row, not content- or viewport-dependent (previously
-  // a card-grid layout blew media up to near-half-screen width here).
-  await page.setViewportSize({ width: 1600, height: 900 })
+test('On a wide viewport, the results list is capped in width and centered', async ({ page }) => {
+  // Arrange
+  await page.setViewportSize({ width: 1920, height: 1000 })
   const detail = buildWarDetail({
     id: 'war-wide',
-    contestants: [
-      buildContestant({ id: 'c-1', name: 'Ada', bio: 'A brilliant mathematician.' }),
-      buildContestant({ id: 'c-2', name: 'Grace', bio: 'A pioneering programmer.' }),
-    ],
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'A brilliant mathematician.' })],
   })
   const rankings = buildRankingsResponse({
     war_id: 'war-wide',
-    rankings: [
-      buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 }),
-      buildRankingEntry({ rank: 2, contestant: { id: 'c-2', name: 'Grace' }, wins: 0, appearances: 1 }),
-    ],
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/war-wide`, responses: [{ status: 200, body: detail }] },
@@ -227,22 +219,71 @@ test('Bio, image, and stat groups hold their allotted share of the row width', a
   // Act
   await page.goto('/wars/war-wide')
 
-  // Assert — bio gets about half the row, image about a quarter, and the
-  // wins/appearances/win-share group shares the rest, regardless of how
-  // wide the viewport is. Rank now overlays the image itself (a badge on
-  // its corner), rather than claiming a separate narrow slice.
+  // Assert — capped at 1440px, and centered: roughly equal empty space on
+  // either side rather than stretched edge to edge.
   const listBox = await page.getByTestId('rankings-list').boundingBox()
   expect(listBox).not.toBeNull()
-  const firstRow = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
-  const imageBox = await firstRow.locator('img').boundingBox()
-  expect(imageBox).not.toBeNull()
-  expect(imageBox!.width / listBox!.width).toBeGreaterThan(0.2)
-  expect(imageBox!.width / listBox!.width).toBeLessThan(0.3)
-  const bioBox = await firstRow.getByTestId('contestant-bio').boundingBox()
+  expect(listBox!.width).toBeLessThanOrEqual(1440)
+  const leftGap = listBox!.x
+  const rightGap = 1920 - (listBox!.x + listBox!.width)
+  expect(Math.abs(leftGap - rightGap)).toBeLessThan(2)
+})
+
+test('On a wide viewport, the wins/appearances/win-share group renders below the bio, not beside it', async ({ page }) => {
+  // Arrange
+  await page.setViewportSize({ width: 1920, height: 1000 })
+  const detail = buildWarDetail({
+    id: 'war-wide-stack',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'A brilliant mathematician.' })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-wide-stack',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-wide-stack`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-wide-stack/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-wide-stack')
+
+  // Assert
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  const bioBox = await row.getByTestId('contestant-bio').boundingBox()
+  const winsBox = await row.getByTestId('ranking-wins').boundingBox()
   expect(bioBox).not.toBeNull()
-  expect(bioBox!.width / listBox!.width).toBeGreaterThan(0.4)
-  expect(bioBox!.width / listBox!.width).toBeLessThan(0.6)
-  expect(bioBox!.y + bioBox!.height).toBeLessThanOrEqual(900)
+  expect(winsBox).not.toBeNull()
+  expect(winsBox!.y).toBeGreaterThanOrEqual(bioBox!.y + bioBox!.height)
+})
+
+test("There is visible space between the War's category and the first result", async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: 'war-spacing',
+    category: 'Movies',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-spacing',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-spacing`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-spacing/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-spacing')
+
+  // Assert — the rank badge overlaps its own row's top edge by design
+  // (it's a stamp on the image corner), so the gap has to be measured from
+  // the category text to the row itself, not the badge.
+  const categoryBox = await page.getByText('Movies').boundingBox()
+  const rowBox = await page.getByTestId('ranking-row').first().boundingBox()
+  expect(categoryBox).not.toBeNull()
+  expect(rowBox).not.toBeNull()
+  expect(rowBox!.y - (categoryBox!.y + categoryBox!.height)).toBeGreaterThan(16)
 })
 
 test("On a narrow viewport, a result's image is a large, prominent part of its card", async ({ page }) => {
@@ -274,7 +315,7 @@ test("On a narrow viewport, a result's image is a large, prominent part of its c
   expect(imageBox!.width / rowBox!.width).toBeGreaterThan(0.9)
 })
 
-test('A long bio is truncated with a More affordance that expands it', async ({ page }) => {
+test('A long bio renders in full, with no truncation control', async ({ page }) => {
   // Arrange
   const longBio =
     'Luke Skywalker leads a mission to rescue his friend Han Solo from the clutches of Jabba the Hutt, while the Emperor prepares to crush the Rebellion with a more powerful Death Star.'
@@ -290,39 +331,13 @@ test('A long bio is truncated with a More affordance that expands it', async ({ 
     { method: 'GET', path: `${API}/wars/war-long-bio`, responses: [{ status: 200, body: detail }] },
     { method: 'GET', path: `${API}/wars/war-long-bio/rankings`, responses: [{ status: 200, body: rankings }] },
   ])
+
+  // Act
   await page.goto('/wars/war-long-bio')
-  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
-  const toggle = row.getByTestId('bio-more-toggle')
-  await expect(toggle).toHaveText('More')
-
-  // Act
-  await toggle.click()
 
   // Assert
-  await expect(toggle).toHaveText('Less')
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
   await expect(row.getByTestId('contestant-bio')).toContainText('Death Star')
-})
-
-test('A short bio has no truncation affordance', async ({ page }) => {
-  // Arrange
-  const detail = buildWarDetail({
-    id: 'war-short-bio',
-    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'A brilliant mathematician.' })],
-  })
-  const rankings = buildRankingsResponse({
-    war_id: 'war-short-bio',
-    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
-  })
-  await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-short-bio`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-short-bio/rankings`, responses: [{ status: 200, body: rankings }] },
-  ])
-
-  // Act
-  await page.goto('/wars/war-short-bio')
-
-  // Assert
-  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
   await expect(row.getByTestId('bio-more-toggle')).toHaveCount(0)
 })
 
