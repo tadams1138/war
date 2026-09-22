@@ -122,6 +122,10 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   propagation on `onPointerDown`/`onPointerUp`, not just `onClick` — a real click fires
   pointerdown → pointerup → click in that order, so stopping propagation only on click let a
   click on an arrow also register as a vote tap on the card underneath.
+- **Matchup cards are keyed by contestant id.** `MatchupView` keys each `ContestantCard` by
+  `matchup.left/right.id`, not position — `ImageCarousel`'s paging state (`currentIndex`)
+  lives in the card, so an unkeyed card at a fixed left/right slot would carry a contestant's
+  leftover paging index into the next contestant shown at that same slot.
 - **Activate no longer requires media (client-side).** `missingForActivation`
   (`EditWar.tsx`) mirrors the API: only "at least 2 contestants" is required, no
   per-contestant image check.
@@ -214,19 +218,6 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 - **Editing an active War.** The API rejects any PATCH once a War leaves draft (by design,
   fairness during voting); no UI or API path exists to change anything about a live War short
   of closing it.
-
-### Known defects
-
-- **TODO: vote card shows no image for a contestant with exactly one image, after paging
-  images on the previous matchup's card.** Repro: on a matchup card, click the carousel's
-  next-image arrow (contestant has 2+ images), vote, then reach a matchup where one
-  contestant has exactly 1 image ("Attack of the Clones (2002)",
-  https://staging.war.tmad.dev/wars/9fa3f341-fe72-4789-8a7f-69809ea1202b) — its card shows no
-  image at all. Suspected cause: `ImageCarousel` (`ImageCarousel.tsx`) keeps `currentIndex` in
-  its own `useState`; `ContestantCard` (`ContestantCard.tsx`) renders it with no `key` prop, so
-  React reuses the same instance across matchups instead of remounting it — a leftover
-  `currentIndex` from a contestant with more images than the next matchup's contestant has
-  points past the end of the new `media` array. Not yet root-caused or fixed.
 
 ---
 

@@ -1,6 +1,6 @@
 // Binds features/vote-mode.feature.
 import { expect, test } from '@playwright/test'
-import { buildMatchupResponse } from '../../src/mocks/fixtures'
+import { buildMatchupResponse, buildMediaItem } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
 
 const WAR_ID = 'war-vote-1'
@@ -121,6 +121,43 @@ test('Voter casts a vote and the next matchup loads automatically', async ({ pag
   await expect(page.getByText('1 of 2 matchups')).toBeVisible()
   await expect(page.getByTestId('contestant-card').filter({ hasText: 'C' })).toBeVisible()
   await expect(page.getByTestId('contestant-card').nth(0)).toHaveAttribute('aria-busy', 'false')
+})
+
+test("Paging a card's images does not carry into the next matchup's card at the same position", async ({ page }) => {
+  // Arrange — left card in matchup one has 2 images (pageable to index 1);
+  // left card in matchup two has exactly 1, so a leaked index-1 points past
+  // the end of its media array.
+  const matchupOne = buildMatchupResponse({
+    matchup: {
+      id: 'matchup-1',
+      left: { id: 'a', name: 'A', media: [buildMediaItem({ id: 'a-0', display_order: 0 }), buildMediaItem({ id: 'a-1', display_order: 1 })] },
+      right: { id: 'b', name: 'B', media: [buildMediaItem({ id: 'b-0' })] },
+    },
+    progress: { voted: 0, total: 2 },
+  })
+  const matchupTwo = buildMatchupResponse({
+    matchup: {
+      id: 'matchup-2',
+      left: { id: 'c', name: 'C', media: [buildMediaItem({ id: 'c-0' })] },
+      right: { id: 'd', name: 'D', media: [buildMediaItem({ id: 'd-0' })] },
+    },
+    progress: { voted: 1, total: 2 },
+  })
+  await useScenario(page, [
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
+    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchupOne }, { status: 200, body: matchupTwo }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/matchups/matchup-1/vote`, responses: [{ status: 201, body: { vote_id: 'v1' } }] },
+  ])
+  await gotoVotePage(page)
+
+  // Act — page A's carousel to its second image, then vote for B.
+  await page.getByTestId('contestant-card').filter({ hasText: 'A' }).getByTestId('carousel-arrow-next').click()
+  await page.getByTestId('contestant-card').filter({ hasText: 'B' }).click()
+
+  // Assert — C, at the same (left) position A occupied, still shows an image.
+  const cCard = page.getByTestId('contestant-card').filter({ hasText: 'C' })
+  await expect(cCard).toBeVisible()
+  await expect(cCard.getByTestId('carousel-image')).toBeVisible()
 })
 
 test('A decided pair is never shown again', async ({ page }) => {

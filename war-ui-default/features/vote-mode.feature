@@ -18,6 +18,11 @@ Feature: Vote Mode
     Then Contestant B is displayed on the left
     And Contestant A is displayed on the right
 
+  Scenario: A card's image paging does not carry over to the next matchup
+    Given a voter has paged a contestant's card to its second image
+    When they vote and the next matchup loads
+    Then the contestant now shown at that same position displays its own first image
+
   Scenario: Both cards are disabled while a vote is in flight
     Given a voter on the vote screen with matchup M
     When they select a card
