@@ -290,6 +290,65 @@ test('On a wide viewport, the poster renders beside the bio, not above it', asyn
   expect(Math.abs(mediaBox!.y - bioBox!.y)).toBeLessThan(60)
 })
 
+test('On a narrow but landscape viewport, the poster still renders beside the bio', async ({ page }) => {
+  // Arrange — a phone rotated to landscape: under the 900px width
+  // breakpoint, but wider than it is tall, and short on vertical room.
+  await page.setViewportSize({ width: 751, height: 384 })
+  const detail = buildWarDetail({
+    id: 'war-landscape-poster',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'A brilliant mathematician.' })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-landscape-poster',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-landscape-poster`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-landscape-poster/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-landscape-poster')
+
+  // Assert
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  const mediaBox = await row.locator('.ranking-media').boundingBox()
+  const bioBox = await row.getByTestId('contestant-bio').boundingBox()
+  expect(mediaBox).not.toBeNull()
+  expect(bioBox).not.toBeNull()
+  expect(mediaBox!.x + mediaBox!.width).toBeLessThanOrEqual(bioBox!.x)
+})
+
+test('On a narrow portrait viewport under 900px, the poster still stacks above the bio', async ({ page }) => {
+  // Arrange — same width as the landscape case above, but taller than
+  // wide: must not pick up the landscape-only side-by-side layout.
+  await page.setViewportSize({ width: 751, height: 1200 })
+  const detail = buildWarDetail({
+    id: 'war-narrow-portrait',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'A brilliant mathematician.' })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-narrow-portrait',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-narrow-portrait`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-narrow-portrait/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-narrow-portrait')
+
+  // Assert — media sits above the bio (same x-start, media's bottom at or
+  // above the bio's top), not beside it.
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  const mediaBox = await row.locator('.ranking-media').boundingBox()
+  const bioBox = await row.getByTestId('contestant-bio').boundingBox()
+  expect(mediaBox).not.toBeNull()
+  expect(bioBox).not.toBeNull()
+  expect(mediaBox!.y + mediaBox!.height).toBeLessThanOrEqual(bioBox!.y)
+})
+
 test("There is visible space between the War's category and the first result", async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({

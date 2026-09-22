@@ -8,10 +8,12 @@
 // An <ol>, not a <table>: rank is an ordering, not a column value, so a
 // list gives every entry "item N of M" semantics for free, which neither a
 // table's rank column nor a plain <div> would. Each card stacks its media,
-// content, and stats groups in one column on a narrow viewport; at laptop
-// width the media moves beside the content instead of above it, with stats
-// staying under the content either way (layout.css). The list itself is
-// capped and centered on a wide viewport rather than stretched full-bleed.
+// content, and stats groups in one column on a narrow portrait viewport;
+// at laptop width, or on any landscape-oriented viewport regardless of
+// width, the media moves beside the content instead of above it, with
+// stats staying under the content either way (layout.css). The list
+// itself is capped and centered on a wide viewport rather than stretched
+// full-bleed.
 import type { ContestantDetail, RankingsResponse } from '../api/client'
 import { BioContent } from '../bio/BioContent'
 import { ContestantAttributes } from './ContestantAttributes'

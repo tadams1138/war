@@ -421,13 +421,24 @@ label {
   flex-direction: column;
   gap: 1rem;
 }
-/* At laptop width (matches this file's other side-by-side breakpoints --
-   .bio-editor, .edit-war-layout) the poster moves beside the bio instead of
-   above it. The wins/appearances/win-share group stays under the bio rather
-   than beside it either way (the user's own request), so this is a grid --
-   media spans both rows of a right-hand column that's bio on top, stats
-   below -- not a row flip, which would put stats beside the poster too. */
-@media (min-width: 900px) {
+/* At laptop width -- or a phone rotated to landscape, which can be well
+   under 900px wide but has plenty of horizontal room and very little
+   vertical room, exactly the case stacking is wrong for -- the poster
+   moves beside the bio instead of above it. A comma is an OR: either
+   condition alone is enough, so a tall/narrow desktop window (portrait
+   aspect, but easily 900px+ wide) is unaffected by the orientation half,
+   and a landscape phone under 900px is unaffected by the width half.
+   `orientation: landscape` means width >= height, matching this file's
+   other side-by-side breakpoints (.bio-editor, .edit-war-layout) in
+   spirit even though its trigger differs. The wins/appearances/win-share
+   group stays under the bio rather than beside it either way (the user's
+   own request), so this is a grid -- media spans both rows of a
+   right-hand column that's bio on top, stats below -- not a row flip,
+   which would put stats beside the poster too. No separate minimum width
+   for the landscape case: `minmax(0, 22rem)` below already keeps the grid
+   from overflowing at any width, and no real phone's landscape CSS
+   viewport is narrow enough to make that look cramped in practice. */
+@media (min-width: 900px), (orientation: landscape) {
   .ranking-row {
     display: grid;
     grid-template-columns: minmax(0, 22rem) 1fr;

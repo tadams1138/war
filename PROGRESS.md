@@ -156,9 +156,12 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   overlaid on the media's own corner (`.ranking-rank`, themed per theme) rather than a
   separate column. Bios render in full at every width, never truncated. Each card's
   `.ranking-media`/`.ranking-content`/`.ranking-stats` groups stack in one column, media
-  first, below 900px; at ≥900px the poster sits beside the bio via CSS grid
-  (`grid-template-areas: "media content" / "media stats"`), with wins/appearances/win-share
-  staying under the bio either way. `.rankings-list` caps at 90rem/1440px and centers itself
+  first, on a narrow portrait viewport; the poster moves beside the bio via CSS grid
+  (`grid-template-areas: "media content" / "media stats"`) at `min-width: 900px` **or**
+  `orientation: landscape` — a phone rotated sideways can be well under 900px wide but has
+  little vertical room to spare, so width alone isn't the right trigger there. Either
+  condition alone is sufficient; wins/appearances/win-share stays under the bio regardless of
+  which one applies. `.rankings-list` caps at 90rem/1440px and centers itself
   on a wide viewport, with margin above it so the rank badge's overlay never crowds the
   category text or action bar above the list.
 - **Results-page Edit/Delete/Vote/Export entry points.** `WarDetail.tsx`'s `ResultsActions`

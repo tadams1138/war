@@ -730,11 +730,12 @@ marked by a dash. There is no separate "Results" heading and no separate gallery
 list *is* the page. Results render exactly as returned, with no percentages computed or displayed.
 Needs no authentication for a public War (§6.4).
 
-Each row stacks its parts top to bottom on a narrow viewport — media, then bio and
-attributes, then the wins/appearances/win-share group. At laptop width and above, media moves
-beside the bio and attributes instead of above them; the wins/appearances/win-share group stays
-underneath the bio either way, never beside it. Media stays large regardless of width, never
-shrinking to a sliver. A
+Each row stacks its parts top to bottom on a narrow, portrait-oriented viewport — media, then
+bio and attributes, then the wins/appearances/win-share group. At laptop width and above, or on
+any viewport wider than it is tall (a phone rotated to landscape, short on vertical room
+regardless of its width), media moves beside the bio and attributes instead of above them; the
+wins/appearances/win-share group stays underneath the bio either way, never beside it. Media
+stays large regardless of width, never shrinking to a sliver. A
 contestant's rank is shown directly on its media (a marker on the image itself, "—" for
 unranked) rather than in a column of its own. On a wide viewport the list is capped in width and
 centered, leaving open space on either side rather than stretching every row edge to edge. A
