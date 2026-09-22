@@ -233,6 +233,29 @@ label {
   padding: 0.75rem 1rem;
 }
 
+/* Sits after <Routes> as #app's last flex child (#app is a full-height flex
+   column, above) -- always at the bottom of the viewport on a short page,
+   never pinned there over real content on a long one. Its own [data-theme]
+   (Footer.tsx, same pattern as .nav-bar) gets background/text color for
+   free from the generic `[data-theme] { background; color; padding }` rule
+   in themes.css; this only adds the row layout and a divider from the page
+   above it. */
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  padding: 1rem;
+  border-top: 1px solid var(--t-accent2, currentColor);
+  font-size: 0.85rem;
+}
+/* Tailwind's base reset strips anchor underlines app-wide (themes.css,
+   .bio-content a restores it for the same reason) -- these plain credit
+   links need the same restoration, they're not .button-styled actions. */
+.app-footer a {
+  text-decoration: underline;
+}
+
 .identity-menu {
   position: relative;
 }

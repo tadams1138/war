@@ -319,6 +319,12 @@ empty state. Live in staging and production.
   a `.modal` surface rule (same theme-surface treatment as `.bio-content`) and `layout.css` a
   `.modal::backdrop` rule. No `data-testid` changed on any of this — it's a pure markup/CSS
   reorganization, not a behavior change.
+- **Persistent footer.** `Footer.tsx`, rendered once by `App.tsx` alongside `NavBar` (same
+  `useActiveTheme` pattern), shows a copyright line and links to the project's GitHub repo and
+  to `docs/building-a-war-import.md` — a new instructions doc, written for an AI coding
+  assistant, detailing exactly how to build a War Import feature for a new client (a war.json
+  wire-contract reference, build order, and the gotchas hit building the real one, e.g. the
+  MIME-type-on-upload fix above).
 - **War export.** `src/export/exportWar.ts`'s `buildWarExportZip` builds a zip (via `fflate`,
   new dependency) containing `war.json` (title, category, visibility, theme,
   `contestant_schema`, `ends_at`, and each contestant's name/bio/attributes — no votes, no

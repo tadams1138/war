@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/context'
+import { Footer } from './components/Footer'
 import { NavBar } from './components/NavBar'
 import { RequireAuth } from './router/RequireAuth'
 import { ThemeProvider } from './theme/ThemeContext'
@@ -65,6 +66,7 @@ export default function App() {
               }
             />
           </Routes>
+          <Footer />
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

@@ -635,7 +635,9 @@ redirects to sign-in carrying the intended destination, and returns there afterw
 
 **Every route renders beneath a persistent navigation header**, rendered once by a shell
 wrapping the whole route tree rather than added page by page — a page that forgets it is then
-not a possible failure mode.
+not a possible failure mode. Every route likewise renders above a persistent footer carrying
+attribution, a link to the project's source repository, and a link to its guide for building
+an Import feature (§10.4) for a new client.
 
 ### 10.2 Navigation
 

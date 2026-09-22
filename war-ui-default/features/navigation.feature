@@ -1,5 +1,11 @@
 Feature: Navigation
 
+  Scenario: Every page shows a persistent footer with attribution and project links
+    Given any visitor on any page
+    Then the footer shows a copyright notice
+    And the footer links to the project's GitHub repository
+    And the footer links to the Import build guide
+
   Scenario: An anonymous visitor sees only a link to log in
     Given an anonymous visitor on the home page
     Then the navigation shows a link to log in

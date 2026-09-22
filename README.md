@@ -4,6 +4,10 @@ A web-first social voting platform where authenticated users rank contestants th
 head-to-head binary matchups. See [`specs/war-spec.md`](specs/war-spec.md) for the
 overview, goals, and roles.
 
+Building a War import feature for a new client? See
+[`docs/building-a-war-import.md`](docs/building-a-war-import.md) — instructions written for
+an AI coding assistant to follow.
+
 ## Layout
 
 | Directory | What it is |

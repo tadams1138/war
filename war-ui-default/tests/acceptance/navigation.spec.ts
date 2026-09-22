@@ -20,6 +20,26 @@ async function openIdentityMenu(page: import('@playwright/test').Page): Promise<
   await expect(identityMenu(page)).toBeVisible()
 }
 
+function footer(page: import('@playwright/test').Page) {
+  return page.getByRole('contentinfo')
+}
+
+test("Every page shows a persistent footer with attribution and project links", async ({ page }) => {
+  // Arrange / Act
+  await page.goto('/')
+
+  // Assert
+  await expect(footer(page)).toContainText('©')
+  await expect(footer(page).getByRole('link', { name: /GitHub/i })).toHaveAttribute(
+    'href',
+    'https://github.com/tadams1138/war',
+  )
+  await expect(footer(page).getByRole('link', { name: /import/i })).toHaveAttribute(
+    'href',
+    'https://github.com/tadams1138/war/blob/master/docs/building-a-war-import.md',
+  )
+})
+
 test('An anonymous visitor sees only a link to log in', async ({ page }) => {
   // Arrange / Act
   await page.goto('/')
