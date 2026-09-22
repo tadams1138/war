@@ -349,6 +349,18 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            retry_after_seconds: number;
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -949,6 +961,18 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            retry_after_seconds: number;
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -1285,6 +1309,18 @@ export interface paths {
                     content: {
                         "application/json": {
                             error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            retry_after_seconds: number;
                         };
                     };
                 };

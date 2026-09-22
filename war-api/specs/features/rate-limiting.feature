@@ -16,3 +16,15 @@ Feature: Rate Limiting
     When their vote is rejected with 429
     Then no Vote record is created
     And no counters change
+
+  Scenario: Creating Wars beyond the per-voter limit is throttled
+    Given a voter who has created 10 Wars within one hour
+    When they create another War
+    Then the response status is 429
+    And a Retry-After header is present
+
+  Scenario: Uploading images beyond the per-voter limit is throttled
+    Given a voter who has uploaded 100 images within one hour
+    When they upload another image
+    Then the response status is 429
+    And a Retry-After header is present

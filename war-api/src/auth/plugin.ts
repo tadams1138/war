@@ -67,7 +67,18 @@ export function optionalAuth(deps: AuthDependencies) {
  * neither can be added without the other (spec). Accepts the
  * route's own schema (if any) so adding request/response validation later
  * can never overwrite the security marker.
+ *
+ * `extraPreHandlers` run after `requireAuth`, in order -- for a route also
+ * gated by a per-voter rate limit (`shared/rateLimit.ts`'s
+ * `rateLimitByVoter`, spec §8.4), which needs `request.voterId` already
+ * populated. Fastify accepts a single preHandler function or an array
+ * interchangeably, so every existing caller (no third argument) is
+ * unaffected by `preHandler` becoming an array here.
  */
-export function bearerAuthRoute(deps: AuthDependencies, schema: FastifySchema = {}) {
-  return { schema: { ...schema, security: [{ bearerAuth: [] }] }, preHandler: requireAuth(deps) };
+export function bearerAuthRoute(
+  deps: AuthDependencies,
+  schema: FastifySchema = {},
+  extraPreHandlers: Array<(request: FastifyRequest, reply: FastifyReply) => Promise<void>> = [],
+) {
+  return { schema: { ...schema, security: [{ bearerAuth: [] }] }, preHandler: [requireAuth(deps), ...extraPreHandlers] };
 }

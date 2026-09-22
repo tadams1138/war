@@ -4,6 +4,7 @@ import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
+import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 import type { ObjectStorage } from './storage.js';
 import { addContestant, patchContestant, removeContestant } from './contestantsService.js';
 import { addContestantImage, reorderContestantMedia, removeContestantMedia } from './mediaService.js';
@@ -16,6 +17,8 @@ export interface ContestantsRouteDeps {
   auth: AuthDependencies;
   storage: ObjectStorage;
   publicBaseUrl: string;
+  /** Per-voter image-upload limit (spec §8.4: 100/hour). */
+  rateLimiter: RateLimiter;
 }
 
 /**
@@ -143,20 +146,25 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
 
   app.post<{ Params: { id: string; cId: string } }>(
     '/wars/:id/contestants/:cId/images',
-    bearerAuthRoute(auth, {
-      response: {
-        201: imageUploadResponseSchema,
-        403: errorResponseSchema,
-        404: errorResponseSchema,
-        // Not errorResponseSchema (no `details` property -- strips the
-        // validation-error shape's only actionable text) and not
-        // validationErrorResponseSchema (`details` required -- rejects the
-        // no-file shape, which has none). This route's three 422s produce
-        // two distinct bodies sharing the one status (spec); see
-        // imageUploadErrorResponseSchema above.
-        422: imageUploadErrorResponseSchema,
+    bearerAuthRoute(
+      auth,
+      {
+        response: {
+          201: imageUploadResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+          // Not errorResponseSchema (no `details` property -- strips the
+          // validation-error shape's only actionable text) and not
+          // validationErrorResponseSchema (`details` required -- rejects the
+          // no-file shape, which has none). This route's three 422s produce
+          // two distinct bodies sharing the one status (spec); see
+          // imageUploadErrorResponseSchema above.
+          422: imageUploadErrorResponseSchema,
+          429: rateLimitedResponseSchema,
+        },
       },
-    }),
+      [rateLimitByVoter(deps.rateLimiter)],
+    ),
     async (request, reply) => {
       const file = await request.file();
       if (!file) {

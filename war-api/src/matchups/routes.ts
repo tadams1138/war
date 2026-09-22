@@ -5,6 +5,7 @@ import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { castVoteForVoter, type CastVoteOutcome } from '../votes/votesService.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
+import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 import { countMatchupsForWar, countVotesByVoterInWar } from './matchupsRepository.js';
 import { nextMatchupForVoter, nextMatchupResponseSchema } from './matchupsService.js';
 
@@ -62,6 +63,8 @@ export interface MatchupsRouteDeps {
   db: Kysely<Database>;
   auth: AuthDependencies;
   publicBaseUrl: string;
+  /** Per-voter vote-casting limit (spec §8.4: 60/minute and 2,000/day). */
+  rateLimiter: RateLimiter;
 }
 
 /**
@@ -83,6 +86,7 @@ const VOTE_OUTCOME_RESPONSES: Record<CastVoteOutcome['kind'], (outcome: CastVote
 
 export function registerMatchupsRoutes(app: FastifyInstance, deps: MatchupsRouteDeps): void {
   const { db, auth } = deps;
+  const voteRateLimit = rateLimitByVoter(deps.rateLimiter);
 
   app.get<{ Params: { id: string } }>(
     '/wars/:id/matchups/next',
@@ -110,26 +114,31 @@ export function registerMatchupsRoutes(app: FastifyInstance, deps: MatchupsRoute
 
   app.post<{ Params: { id: string; mId: string }; Body: { winner_id: string } }>(
     '/wars/:id/matchups/:mId/vote',
-    bearerAuthRoute(auth, {
-      body: {
-        type: 'object',
-        required: ['winner_id'],
-        properties: { winner_id: { type: 'string', format: 'uuid' } },
-      },
-      response: {
-        201: { type: 'object', required: ['vote_id'], properties: { vote_id: { type: 'string', format: 'uuid' } } },
-        200: {
+    bearerAuthRoute(
+      auth,
+      {
+        body: {
           type: 'object',
-          required: ['status'],
-          properties: { status: { type: 'string', enum: ['already recorded'] } },
+          required: ['winner_id'],
+          properties: { winner_id: { type: 'string', format: 'uuid' } },
         },
-        400: validationErrorResponseSchema,
-        409: errorResponseSchema,
-        422: errorResponseSchema,
-        403: voteForbiddenResponseSchema,
-        404: errorResponseSchema,
+        response: {
+          201: { type: 'object', required: ['vote_id'], properties: { vote_id: { type: 'string', format: 'uuid' } } },
+          200: {
+            type: 'object',
+            required: ['status'],
+            properties: { status: { type: 'string', enum: ['already recorded'] } },
+          },
+          400: validationErrorResponseSchema,
+          409: errorResponseSchema,
+          422: errorResponseSchema,
+          403: voteForbiddenResponseSchema,
+          404: errorResponseSchema,
+          429: rateLimitedResponseSchema,
+        },
       },
-    }),
+      [voteRateLimit],
+    ),
     async (request, reply) => {
       const outcome = await castVoteForVoter(db, {
         warId: request.params.id,

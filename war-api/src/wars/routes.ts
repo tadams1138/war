@@ -4,6 +4,7 @@ import type { Database } from '../db/types.js';
 import { bearerAuthRoute, optionalAuth, requireAuthIf } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
+import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 import { countContestantsByWarIds, countContestantsForWar } from '../contestants/contestantsRepository.js';
 import { presentWarDetail, presentWarSummary, warDetailResponseSchema, warSummaryProperties } from './warPresenter.js';
 import { activateWar, closeWar, createWarForVoter, deleteWar, getWar, joinWar, patchWar } from './warsService.js';
@@ -14,6 +15,8 @@ export interface WarsRouteDeps {
   auth: AuthDependencies;
   publicBaseUrl: string;
   internalTaskToken: string;
+  /** Per-voter War-creation limit (spec §8.4: 10/hour). */
+  rateLimiter: RateLimiter;
 }
 
 /**
@@ -86,7 +89,11 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
 
   app.post(
     '/wars',
-    bearerAuthRoute(auth, { response: { 201: { $ref: 'WarSummary#' }, 422: validationErrorResponseSchema } }),
+    bearerAuthRoute(
+      auth,
+      { response: { 201: { $ref: 'WarSummary#' }, 422: validationErrorResponseSchema, 429: rateLimitedResponseSchema } },
+      [rateLimitByVoter(deps.rateLimiter)],
+    ),
     async (request, reply) => {
       const body = request.body as Record<string, unknown>;
       const outcome = await createWarForVoter(db, {

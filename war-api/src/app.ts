@@ -18,6 +18,7 @@ import { registerRankingsRoutes } from './rankings/routes.js';
 import { registerWarsRoutes } from './wars/routes.js';
 import type { AppConfig } from './config.js';
 import { redactedRequestSerializer } from './logging.js';
+import { RateLimiter } from './shared/rateLimit.js';
 
 export interface AppDeps {
   db: Kysely<Database>;
@@ -58,6 +59,16 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     jwt: { secret: deps.config.jwtSecret, issuer: deps.config.jwtIssuer },
   };
 
+  // Per-voter rate limits (spec §8.4) -- one limiter instance per scope, per
+  // app instance, so each `buildApp()` call (a fresh process in production,
+  // a fresh test harness in `buildTestHarness`) starts with clean state.
+  const voteRateLimiter = new RateLimiter([
+    { windowMs: 60_000, max: 60 },
+    { windowMs: 86_400_000, max: 2000 },
+  ]);
+  const warCreationRateLimiter = new RateLimiter([{ windowMs: 3_600_000, max: 10 }]);
+  const imageUploadRateLimiter = new RateLimiter([{ windowMs: 3_600_000, max: 100 }]);
+
   await app.register(
     async (instance) => {
       registerOpenApiRoutes(instance);
@@ -70,14 +81,21 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         auth: authDeps,
         publicBaseUrl: deps.config.s3.publicBaseUrl,
         internalTaskToken: deps.config.internalTaskToken,
+        rateLimiter: warCreationRateLimiter,
       });
       registerContestantsRoutes(instance, {
         db: deps.db,
         auth: authDeps,
         storage: deps.storage,
         publicBaseUrl: deps.config.s3.publicBaseUrl,
+        rateLimiter: imageUploadRateLimiter,
       });
-      registerMatchupsRoutes(instance, { db: deps.db, auth: authDeps, publicBaseUrl: deps.config.s3.publicBaseUrl });
+      registerMatchupsRoutes(instance, {
+        db: deps.db,
+        auth: authDeps,
+        publicBaseUrl: deps.config.s3.publicBaseUrl,
+        rateLimiter: voteRateLimiter,
+      });
       registerRankingsRoutes(instance, { db: deps.db, auth: authDeps, publicBaseUrl: deps.config.s3.publicBaseUrl });
     },
     { prefix: API_PREFIX },

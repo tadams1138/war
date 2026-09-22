@@ -43,12 +43,20 @@ Staging and production both run as a single application per environment containi
   (`auth/plugin.ts`) — populates `request.voterId` from a bearer token when one is present and
   valid, but never 401s otherwise. `WarDetailResponse` (not `WarSummary`) carries
   `is_owner: boolean`, true iff the caller's voter id matches the War's `creatorId`.
+- **Per-voter rate limiting** (spec §8.4): vote casting (60/minute and 2,000/day, both
+  enforced), War creation (10/hour), and image upload (100/hour), each keyed by voter id via
+  an in-process fixed-window limiter (`shared/rateLimit.ts`) — one instance per scope, built
+  once per app instance. `bearerAuthRoute` takes an optional list of extra preHandlers so a
+  route can compose auth with a rate-limit check. Exceeding a limit replies `429` with a
+  `Retry-After` header and a `{ error, retry_after_seconds }` body; every attempt counts
+  against every configured window regardless of the request's ultimate outcome. The edge's
+  address-keyed limits (sign-in, token refresh — spec §8.4's other two rows) are enforced by
+  Cloudflare (`war-infra/terraform/shared/main.tf`), not here.
 
 ### Not built
 
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
-- Per-voter rate limiting. The edge's volumetric limits are live; the API's own are not.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
 
 ---
@@ -223,8 +231,8 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 ## Test coverage gaps
 
-- Video mode, per-voter rate limiting, and three War-expiry scenarios sit unbound in
-  `war-api/specs/features/pending/` and describe behaviour that is not built.
+- Video mode and three War-expiry scenarios sit unbound in `war-api/specs/features/pending/`
+  and describe behaviour that is not built.
 - `war-ui-default/features/pending/` holds 13 unbound scenarios — video mode, plus wording
   variants of scenarios that already run under other names.
 - `war-infra/specs/features/pending/` holds 27 routing and edge scenarios with no runner,
@@ -243,9 +251,6 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   environment** — `assertProductionConfig` now refuses to boot with any of the four
   unconfigured. Bring staging up first, confirm all four buttons work end-to-end, then
   production.
-- The API's address-keyed rate limits need the reverse-proxy hop count configured to key on
-  the real client address. **The correct value is unknown** and must come from the provider;
-  until then clients behind the same hop share a bucket.
 
 ---
 
