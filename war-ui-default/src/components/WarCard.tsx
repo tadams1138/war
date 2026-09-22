@@ -43,11 +43,11 @@ function HomeWarCard({ war }: { war: WarSummary }) {
   return (
     <div data-testid="war-card" className="war-card">
       <WarCardDetails war={war} />
-      <div className="war-card-actions">
-        <Link to={`/wars/${war.id}/vote`} data-testid="war-vote-link" className="war-card-link">
+      <div className="action-bar">
+        <Link to={`/wars/${war.id}/vote`} data-testid="war-vote-link" className="button">
           Vote
         </Link>
-        <Link to={`/wars/${war.id}`} data-testid="war-results-link" className="war-card-link">
+        <Link to={`/wars/${war.id}`} data-testid="war-results-link" className="button">
           Results
         </Link>
       </div>
@@ -67,9 +67,11 @@ function MyWarsWarCard({ war, showEditLink }: { war: WarSummary; showEditLink: b
         <p data-testid="war-status-badge">{war.status}</p>
       </Link>
       {showEditLink && war.status === 'draft' && (
-        <Link to={`/wars/${war.id}/edit`} data-testid="edit-war-link">
-          Edit
-        </Link>
+        <div className="action-bar">
+          <Link to={`/wars/${war.id}/edit`} className="button" data-testid="edit-war-link">
+            Edit
+          </Link>
+        </div>
       )}
     </div>
   )

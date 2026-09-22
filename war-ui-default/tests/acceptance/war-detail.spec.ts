@@ -870,6 +870,37 @@ test('A non-creator sees no Export button', async ({ page }) => {
   await expect(page.getByTestId('war-detail-export-button')).toHaveCount(0)
 })
 
+test('The results-page action row lays out horizontally, shares consistent button styling, and sets Delete apart', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-actions', status: 'draft', is_owner: true, theme: 'arcade' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-actions`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await page.goto('/wars/war-actions')
+
+  // Assert — a horizontal row: Delete sits to the right of Edit, both at
+  // roughly the same vertical position rather than stacked.
+  const editBox = await page.getByTestId('war-detail-edit-link').boundingBox()
+  const deleteBox = await page.getByTestId('war-detail-delete-button').boundingBox()
+  const exportBox = await page.getByTestId('war-detail-export-button').boundingBox()
+  expect(editBox).not.toBeNull()
+  expect(deleteBox).not.toBeNull()
+  expect(exportBox).not.toBeNull()
+  expect(deleteBox!.x).toBeGreaterThan(editBox!.x)
+  expect(Math.abs(editBox!.y - deleteBox!.y)).toBeLessThan(5)
+
+  // Assert — Edit (a link) and Export (a button) share the same themed
+  // button background rather than Edit rendering as plain unstyled text.
+  const editBg = await page.getByTestId('war-detail-edit-link').evaluate((el) => getComputedStyle(el).backgroundColor)
+  const exportBg = await page.getByTestId('war-detail-export-button').evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(editBg).toBe(exportBg)
+  expect(editBg).not.toBe('rgba(0, 0, 0, 0)')
+
+  // Assert — Delete, a destructive action, is visually distinct.
+  const deleteBg = await page.getByTestId('war-detail-delete-button').evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(deleteBg).not.toBe(exportBg)
+})
+
 test('An anonymous visitor sees no Vote entry point', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-anon', status: 'active', is_owner: false })

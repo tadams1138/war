@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getToken } from '../api/authState'
 import { getMyProgress, getWar, type ContestantDetail, type WarDetailResponse } from '../api/client'
+import { DeleteButton } from '../components/DeleteButton'
 import { DeleteWarConfirmDialog } from '../components/DeleteWarConfirmDialog'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { ExportButton } from '../components/ExportButton'
@@ -86,12 +87,10 @@ function useVoteEligibility(warId: string, status: string): boolean {
 function OwnerDraftActions({ warId, onDeleteClick }: { warId: string; onDeleteClick: () => void }) {
   return (
     <>
-      <Link to={`/wars/${warId}/edit`} data-testid="war-detail-edit-link">
+      <Link to={`/wars/${warId}/edit`} className="button" data-testid="war-detail-edit-link">
         Edit
       </Link>
-      <button type="button" data-testid="war-detail-delete-button" onClick={onDeleteClick}>
-        Delete
-      </button>
+      <DeleteButton testId="war-detail-delete-button" onClick={onDeleteClick} />
     </>
   )
 }
@@ -104,14 +103,16 @@ function ResultsActions({ war }: { war: WarDetailResponse }) {
   const showOwnerActions = war.is_owner && war.status === 'draft'
 
   return (
-    <div className="war-detail-actions">
-      {showOwnerActions && <OwnerDraftActions warId={war.id} onDeleteClick={deleteFlow.open} />}
-      <ExportButton show={war.is_owner} testId="war-detail-export-button" onClick={exportFlow.trigger} />
-      {showVote && (
-        <Link to={`/wars/${war.id}/vote`} data-testid="war-detail-vote-link">
-          Vote
-        </Link>
-      )}
+    <>
+      <div className="action-bar">
+        {showOwnerActions && <OwnerDraftActions warId={war.id} onDeleteClick={deleteFlow.open} />}
+        <ExportButton show={war.is_owner} testId="war-detail-export-button" onClick={exportFlow.trigger} />
+        {showVote && (
+          <Link to={`/wars/${war.id}/vote`} className="button" data-testid="war-detail-vote-link">
+            Vote
+          </Link>
+        )}
+      </div>
       <ErrorMessage message={deleteFlow.error} />
       <ErrorMessage message={exportFlow.error} />
       <DeleteWarConfirmDialog
@@ -120,7 +121,7 @@ function ResultsActions({ war }: { war: WarDetailResponse }) {
         onCancel={deleteFlow.cancel}
         testIdPrefix="war-detail"
       />
-    </div>
+    </>
   )
 }
 

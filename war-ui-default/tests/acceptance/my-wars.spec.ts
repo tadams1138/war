@@ -94,6 +94,21 @@ test('A draft War card shows an Edit link', async ({ page }) => {
   await expect(page.getByTestId('war-card').getByTestId('edit-war-link')).toBeVisible()
 })
 
+test("A draft War card's Edit link is styled as a themed button, not plain text", async ({ page }) => {
+  // Arrange
+  const war = buildWarSummary({ id: 'war-draft-2', title: 'My Other Draft War', status: 'draft' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/my-wars')
+
+  // Assert
+  const bg = await page.getByTestId('war-card').getByTestId('edit-war-link').evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(bg).not.toBe('rgba(0, 0, 0, 0)')
+})
+
 test('An active War card shows no Edit link', async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-active-1', title: 'My Active War', status: 'active' })

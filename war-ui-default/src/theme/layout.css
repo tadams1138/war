@@ -9,6 +9,29 @@
   text-decoration: none;
 }
 
+/* One action row, reused everywhere a group of buttons/links needs to sit
+   side by side with consistent spacing (My Wars/Home cards, the results
+   page, the edit page, every confirmation dialog) -- this used to be a
+   different, unstyled div per page, which is how Edit/Delete/Export ended
+   up inconsistently laid out and inconsistently styled in the first place
+   (PROGRESS.md). Flex items here are auto-blockified (CSS Display Module
+   3 §2.7), so a plain `.button`-class <a> sizes and pads correctly as a
+   flex child with no display override needed on the class itself. */
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0 1.5rem;
+}
+
+/* A native <dialog>'s backdrop (Modal.tsx) -- generic and theme-agnostic,
+   unlike the dialog's own surface (themes.css's `.modal`), so it lives
+   here. */
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
 /* #app is the real DOM root (index.html); making it a full-height flex
    column and letting the active page's <main> absorb the remaining space
    is what makes a theme's background reach the bottom of the viewport
@@ -310,15 +333,6 @@ label {
 .war-card {
   display: block;
   padding: 1rem;
-}
-
-.war-card-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-.war-card-actions .war-card-link {
-  display: inline-block;
 }
 
 .matchup-view {

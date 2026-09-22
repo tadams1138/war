@@ -10,7 +10,7 @@ interface ExportButtonProps {
 export function ExportButton({ show = true, testId, onClick }: ExportButtonProps) {
   if (!show) return null
   return (
-    <button type="button" data-testid={testId} onClick={onClick}>
+    <button type="button" className="button" data-testid={testId} onClick={onClick}>
       Export
     </button>
   )

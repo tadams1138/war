@@ -40,9 +40,30 @@
    against every button's edges (Save, the identity menu trigger, the
    EditWar nav) app-wide, not just the one spot first reported. Elements
    that genuinely need different sizing (the icon toolbar, the EditWar nav)
-   already have their own more specific rule and are unaffected. */
-[data-theme] button {
+   already have their own more specific rule and are unaffected.
+
+   Also matches `.button` — a class, not just the bare tag — so a <Link>
+   meant to read as an action (Edit, Vote, Results) gets identical
+   treatment to a real <button> (Delete, Export) instead of silently
+   falling outside every rule here that only ever matched the tag. */
+[data-theme] button,
+[data-theme] .button {
   padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+/* A confirmation dialog's surface (Modal.tsx) -- the same theme-surface
+   treatment `.bio-content` already gets below, so a modal reads as "the
+   same app" rather than introducing a new visual language. Native <dialog>
+   centers and layers itself once opened via showModal() -- nothing here
+   needs to position it, only give it a themed look. */
+[data-theme] .modal {
+  background: var(--t-surface);
+  color: var(--t-text-on-surface, var(--t-text));
+  border: 1px solid var(--t-accent2);
+  border-radius: 4px;
+  padding: 1rem;
+  max-width: 28rem;
 }
 
 /* A rendered bio (BioEditor's live preview and the real WarDetail display —
@@ -145,6 +166,8 @@
   --t-accent1: #ff3e7f;
   --t-accent2: #35e8d4;
   --t-accent3: #f4e04d;
+  --t-danger: #ff1a1a;
+  --t-danger-text: #0d0b1a;
   --t-display-font: 'Press Start 2P', monospace;
   --t-body-font: 'Share Tech Mono', monospace;
   font-family: var(--t-body-font);
@@ -167,7 +190,8 @@
   font-family: var(--t-display-font);
   font-size: 0.9rem;
 }
-[data-theme='arcade'] button {
+[data-theme='arcade'] button,
+[data-theme='arcade'] .button {
   font-family: var(--t-body-font);
   background: var(--t-accent1);
   color: #0d0b1a;
@@ -214,6 +238,11 @@
   --t-accent1: #e8442c;
   --t-accent2: #d8ae53;
   --t-accent3: #475168;
+  /* accent1 (red-orange) is already unused by buttons -- only
+     .vs-divider/.ranking-rank use it, both already white-on-accent1, so
+     reusing it as the danger color needs no new palette entry. */
+  --t-danger: var(--t-accent1);
+  --t-danger-text: #ffffff;
   --t-display-font: 'Anton', sans-serif;
   --t-body-font: 'Work Sans', sans-serif;
   font-family: var(--t-body-font);
@@ -238,7 +267,8 @@
   font-family: var(--t-display-font);
   font-size: 1.4rem;
 }
-[data-theme='fight_card'] button {
+[data-theme='fight_card'] button,
+[data-theme='fight_card'] .button {
   font-family: var(--t-body-font);
   font-weight: 600;
   background: var(--t-accent2);
@@ -280,6 +310,10 @@
   --t-accent1: #ff6f59;
   --t-accent2: #ffc857;
   --t-accent3: #4e8d7c;
+  /* A deeper "marker red" -- accent1 (coral) is already the primary button
+     color here, too close to a generic red to also read as "danger". */
+  --t-danger: #d64545;
+  --t-danger-text: #ffffff;
   --t-display-font: 'Permanent Marker', cursive;
   --t-body-font: 'Quicksand', sans-serif;
   font-family: var(--t-body-font);
@@ -306,7 +340,8 @@
   font-family: var(--t-display-font);
   font-size: 1.2rem;
 }
-[data-theme='scrapbook'] button {
+[data-theme='scrapbook'] button,
+[data-theme='scrapbook'] .button {
   font-family: var(--t-body-font);
   font-weight: 600;
   background: var(--t-accent1);
@@ -351,4 +386,21 @@
 }
 [data-theme='scrapbook'] .bio-content a:visited {
   color: var(--t-accent1);
+}
+
+/* Destructive actions (deleting a War, discarding unsaved edits) get a
+   distinct, per-theme "danger" color instead of the primary accent --
+   picked from each theme's own palette rather than a generic red, so it
+   never clashes with a theme whose primary button color is already
+   saturated/red-adjacent.
+
+   This MUST stay the last rule in the file: `.button--danger` and each
+   per-theme `[data-theme='X'] .button` rule above have equal specificity
+   (attribute + one class each), so which one wins is decided by source
+   order alone, and this one needs to win. Don't reorder it above the
+   per-theme blocks, and don't add a later rule that also targets
+   `.button` at this specificity without accounting for it. */
+[data-theme] .button--danger {
+  background: var(--t-danger);
+  color: var(--t-danger-text);
 }

@@ -389,6 +389,57 @@ test('Cancelling delete leaves the draft untouched', async ({ page }) => {
   expect(deleteCalls).toHaveLength(0)
 })
 
+test('The top action row lays out horizontally, shares consistent button styling, and sets Delete apart', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    theme: 'arcade',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
+  })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await gotoEditPage(page)
+
+  // Assert — a horizontal row: Activate War sits to the right of Export,
+  // both at roughly the same vertical position rather than stacked.
+  const exportBox = await page.getByTestId('edit-war-export-button').boundingBox()
+  const deleteBox = await page.getByTestId('edit-war-delete-button').boundingBox()
+  const activateBox = await page.getByTestId('activate-submit').boundingBox()
+  expect(exportBox).not.toBeNull()
+  expect(deleteBox).not.toBeNull()
+  expect(activateBox).not.toBeNull()
+  expect(activateBox!.x).toBeGreaterThan(exportBox!.x)
+  expect(Math.abs(exportBox!.y - activateBox!.y)).toBeLessThan(5)
+
+  // Assert — Export and Activate War share the same themed button background.
+  const exportBg = await page.getByTestId('edit-war-export-button').evaluate((el) => getComputedStyle(el).backgroundColor)
+  const activateBg = await page.getByTestId('activate-submit').evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(exportBg).toBe(activateBg)
+
+  // Assert — Delete, a destructive action, is visually distinct.
+  const deleteBg = await page.getByTestId('edit-war-delete-button').evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(deleteBg).not.toBe(exportBg)
+})
+
+test("The delete-confirmation dialog's buttons lay out horizontally", async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+
+  // Act
+  await page.getByTestId('edit-war-delete-button').click()
+
+  // Assert
+  const submitBox = await page.getByTestId('edit-war-delete-confirm-submit').boundingBox()
+  const cancelBox = await page.getByTestId('edit-war-delete-confirm-cancel').boundingBox()
+  expect(submitBox).not.toBeNull()
+  expect(cancelBox).not.toBeNull()
+  expect(Math.abs(submitBox!.y - cancelBox!.y)).toBeLessThan(5)
+})
+
 test('Activate is disabled with fewer than 2 contestants', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })

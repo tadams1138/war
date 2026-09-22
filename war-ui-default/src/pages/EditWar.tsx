@@ -13,8 +13,10 @@
 import { useRef, useState, type RefObject } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { ContestantDetail, PatchContestantPayload, WarDetailResponse, WarSummary } from '../api/client'
+import { DeleteButton } from '../components/DeleteButton'
 import { DeleteWarConfirmDialog } from '../components/DeleteWarConfirmDialog'
 import { ExportButton } from '../components/ExportButton'
+import { Modal } from '../components/Modal'
 import { Toast } from '../components/Toast'
 import { AddContestantForm } from '../editWar/AddContestantForm'
 import { EditWarContestant } from '../editWar/EditWarContestant'
@@ -105,10 +107,10 @@ export function EditWar() {
     <main data-theme={theme}>
       <h1>Edit {warTitle(state.war.title)}</h1>
       <Toast message={state.toast} />
-      <ExportSection exportFlow={exportFlow} />
-      <DeleteWarSection deleteFlow={deleteFlow} />
-      <ActivateSection
+      <TopActions
         state={state}
+        exportFlow={exportFlow}
+        deleteFlow={deleteFlow}
         showDirtyConfirm={showDirtyConfirm}
         showActivateConfirm={showActivateConfirm}
         onActivateClick={handleActivateClick}
@@ -133,29 +135,16 @@ export function EditWar() {
   )
 }
 
-function ExportSection({ exportFlow }: { exportFlow: WarExportDownload }) {
-  return (
-    <div className="edit-war-export">
-      <ExportButton testId="edit-war-export-button" onClick={exportFlow.trigger} />
-      {exportFlow.error && <p role="alert">{exportFlow.error}</p>}
-    </div>
-  )
-}
-
-function DeleteWarSection({ deleteFlow }: { deleteFlow: DeleteWarFlow }) {
-  return (
-    <div className="edit-war-delete">
-      <button type="button" data-testid="edit-war-delete-button" onClick={deleteFlow.open}>
-        Delete
-      </button>
-      {deleteFlow.error && <p role="alert">{deleteFlow.error}</p>}
-      <DeleteWarConfirmDialog show={deleteFlow.showConfirm} onConfirm={deleteFlow.confirm} onCancel={deleteFlow.cancel} testIdPrefix="edit-war" />
-    </div>
-  )
-}
-
-function ActivateSection({
+// The three top-level actions (Export, Delete, Activate) as one row, with
+// each action's own error text and confirmation dialog(s) rendered
+// alongside it -- these used to be three separate, unstyled divs
+// (ExportSection/DeleteWarSection/ActivateSection), which is how they ended
+// up stacked vertically and inconsistently styled (PROGRESS.md) instead of
+// reading as one action bar.
+function TopActions({
   state,
+  exportFlow,
+  deleteFlow,
   showDirtyConfirm,
   showActivateConfirm,
   onActivateClick,
@@ -166,6 +155,8 @@ function ActivateSection({
   onCancelActivateConfirm,
 }: {
   state: EditWarLoadedState
+  exportFlow: WarExportDownload
+  deleteFlow: DeleteWarFlow
   showDirtyConfirm: boolean
   showActivateConfirm: boolean
   onActivateClick: () => void
@@ -178,23 +169,18 @@ function ActivateSection({
   const missing = missingForActivation(state.war.contestants)
   const canActivate = missing.length === 0
   return (
-    <div className="edit-war-activate">
-      {!canActivate && <p data-testid="activate-requirements">To activate this War, add {missing.join(' and ')}.</p>}
-      {state.activateDetails && (
-        <ul role="alert" data-testid="activate-error">
-          {state.activateDetails.map((detail) => (
-            <li key={detail}>{detail}</li>
-          ))}
-        </ul>
-      )}
-      <button
-        type="button"
-        data-testid="activate-submit"
-        disabled={!canActivate || state.activating}
-        onClick={onActivateClick}
-      >
-        Activate War
-      </button>
+    <>
+      <div className="action-bar">
+        <ExportButton testId="edit-war-export-button" onClick={exportFlow.trigger} />
+        <DeleteButton testId="edit-war-delete-button" onClick={deleteFlow.open} />
+        <button type="button" className="button" data-testid="activate-submit" disabled={!canActivate || state.activating} onClick={onActivateClick}>
+          Activate War
+        </button>
+      </div>
+      {exportFlow.error && <p role="alert">{exportFlow.error}</p>}
+      {deleteFlow.error && <p role="alert">{deleteFlow.error}</p>}
+      <ActivateStatus missing={missing} activateDetails={state.activateDetails} />
+      <DeleteWarConfirmDialog show={deleteFlow.showConfirm} onConfirm={deleteFlow.confirm} onCancel={deleteFlow.cancel} testIdPrefix="edit-war" />
       <ActivateDirtyConfirmDialog
         show={showDirtyConfirm}
         onSaveThenReview={onSaveThenReview}
@@ -206,7 +192,22 @@ function ActivateSection({
         onConfirmActivate={onConfirmActivate}
         onCancelActivateConfirm={onCancelActivateConfirm}
       />
-    </div>
+    </>
+  )
+}
+
+function ActivateStatus({ missing, activateDetails }: { missing: string[]; activateDetails: string[] | null }) {
+  return (
+    <>
+      {missing.length > 0 && <p data-testid="activate-requirements">To activate this War, add {missing.join(' and ')}.</p>}
+      {activateDetails && (
+        <ul role="alert" data-testid="activate-error">
+          {activateDetails.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
+      )}
+    </>
   )
 }
 
@@ -221,20 +222,25 @@ function ActivateDirtyConfirmDialog({
   onDiscardAndActivate: () => void
   onCancelConfirm: () => void
 }) {
-  if (!show) return null
   return (
-    <div role="alertdialog" data-testid="activate-dirty-confirm">
+    <Modal show={show} onCancel={onCancelConfirm} testId="activate-dirty-confirm">
       <p>You have unsaved War details. Save them, discard them, or cancel before activating.</p>
-      <button type="button" data-testid="activate-dirty-save" onClick={onSaveThenReview}>
-        Save changes
-      </button>
-      <button type="button" data-testid="activate-dirty-discard" onClick={onDiscardAndActivate}>
-        Discard and activate
-      </button>
-      <button type="button" data-testid="activate-dirty-cancel" onClick={onCancelConfirm}>
-        Cancel
-      </button>
-    </div>
+      <div className="action-bar">
+        <button type="button" className="button" data-testid="activate-dirty-save" onClick={onSaveThenReview}>
+          Save changes
+        </button>
+        {/* Discards unsaved edits -- the same "throws away data" danger
+            convention as deleting a War (DeleteButton), not because
+            activation itself is irreversible (it is, but that's the
+            desired outcome, not a destructive one). */}
+        <button type="button" className="button button--danger" data-testid="activate-dirty-discard" onClick={onDiscardAndActivate}>
+          Discard and activate
+        </button>
+        <button type="button" className="button" data-testid="activate-dirty-cancel" onClick={onCancelConfirm}>
+          Cancel
+        </button>
+      </div>
+    </Modal>
   )
 }
 
@@ -250,20 +256,21 @@ function ActivatePermanenceConfirmDialog({
   onConfirmActivate: () => void
   onCancelActivateConfirm: () => void
 }) {
-  if (!show) return null
   return (
-    <div role="alertdialog" data-testid="activate-confirm">
+    <Modal show={show} onCancel={onCancelActivateConfirm} testId="activate-confirm">
       <p>
         Activating is permanent. Once this War goes live, its contestants and details can no longer be edited. Do
         you want to continue?
       </p>
-      <button type="button" data-testid="activate-confirm-submit" onClick={onConfirmActivate}>
-        Activate War
-      </button>
-      <button type="button" data-testid="activate-confirm-cancel" onClick={onCancelActivateConfirm}>
-        Cancel
-      </button>
-    </div>
+      <div className="action-bar">
+        <button type="button" className="button" data-testid="activate-confirm-submit" onClick={onConfirmActivate}>
+          Activate War
+        </button>
+        <button type="button" className="button" data-testid="activate-confirm-cancel" onClick={onCancelActivateConfirm}>
+          Cancel
+        </button>
+      </div>
+    </Modal>
   )
 }
 

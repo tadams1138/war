@@ -92,6 +92,32 @@ test('A War card offers direct Vote and Results entry points, not a status label
   await expect(card).not.toContainText('active')
 })
 
+test("A War card's Vote and Results actions lay out horizontally with consistent themed button styling", async ({ page }) => {
+  // Arrange
+  const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', status: 'active' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await page.goto('/')
+
+  // Act
+  await loginAsTestVoter(page)
+
+  // Assert — a horizontal row, not stacked.
+  const card = page.getByTestId('war-card').filter({ hasText: 'Miss Universe 2026' })
+  const voteBox = await card.getByTestId('war-vote-link').boundingBox()
+  const resultsBox = await card.getByTestId('war-results-link').boundingBox()
+  expect(voteBox).not.toBeNull()
+  expect(resultsBox).not.toBeNull()
+  expect(resultsBox!.x).toBeGreaterThan(voteBox!.x)
+  expect(Math.abs(voteBox!.y - resultsBox!.y)).toBeLessThan(5)
+
+  // Assert — both share the same themed button background rather than
+  // rendering as plain unstyled links.
+  const voteBg = await card.getByTestId('war-vote-link').evaluate((el) => getComputedStyle(el).backgroundColor)
+  const resultsBg = await card.getByTestId('war-results-link').evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(voteBg).toBe(resultsBg)
+  expect(voteBg).not.toBe('rgba(0, 0, 0, 0)')
+})
+
 test("A War card's Results link opens its detail page", async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', category: 'Pageant' })

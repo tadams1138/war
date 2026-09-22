@@ -828,7 +828,10 @@ from that entry point; opening it any other way for a War that has left draft sh
 not-editable message instead of the form.
 
 A **Delete** affordance sits alongside Activate, removing the draft entirely (§6.1); like every
-action on this page, it asks for confirmation first, since deletion cannot be undone.
+action on this page, it asks for confirmation first, since deletion cannot be undone. Delete,
+and any other action that destroys or discards data (this page's own confirmation dialogs
+included), is visually distinguished from ordinary actions, so a creator never mistakes a
+destructive choice for a routine one.
 
 **Activate**, on that same page, is disabled with an inline reason until the War meets the
 API's own activation requirements (§6.1: at least two contestants) — a client-side mirror of a

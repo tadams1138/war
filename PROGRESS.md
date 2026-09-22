@@ -267,12 +267,15 @@ empty state. Live in staging and production.
   not a column value, so a list gives each entry native "item N of M" semantics a table's rank
   cell never did. The old `col-rank`/`col-image`/`col-contestant`/`col-wins`/`col-appearances`/
   `col-win-share` classes and their per-theme `.rankings-table th`/`td.col-rank` rules are gone.
-  Each card's `.ranking-media`/`.ranking-content`/`.ranking-stats` groups now stack in one column
-  at *every* width (an initial pass kept a side-by-side ~25/50/25 flex split above 640px; a
-  follow-up round of feedback replaced that with always-stacked, since a laptop-width row that
-  wide read as sparse rather than spacious) — `.rankings-list` caps at 90rem/1440px and centers
-  itself (`margin: 0 auto`) on a wide viewport instead of stretching full-bleed, with margin above
-  it so the rank badge's overlay never crowds the category text or action bar above the list.
+  Each card's `.ranking-media`/`.ranking-content`/`.ranking-stats` groups stack in one column,
+  media first, below 900px (an initial pass kept a side-by-side ~25/50/25 flex split above
+  640px; a follow-up round of feedback replaced that with always-stacked; a later round put the
+  poster back beside the bio at >=900px via CSS grid — `grid-template-areas: "media content" /
+  "media stats"` — with wins/appearances/win-share staying under the bio either way, since that
+  was the one part of "stack it" actually asked for) — `.rankings-list` caps at 90rem/1440px and
+  centers itself (`margin: 0 auto`) on a wide viewport instead of stretching full-bleed, with
+  margin above it so the rank badge's overlay never crowds the category text or action bar above
+  the list.
   Rank renders as a badge overlaid on the media's own corner (`.ranking-rank`, themed per theme)
   rather than a separate narrow column. Bios render in full at every width — a same-day attempt
   at truncating long ones behind a "More"/"Less" toggle (`BioSnippet.tsx`) was reverted; that
@@ -292,6 +295,30 @@ empty state. Live in staging and production.
   reuses the same Delete confirmation and Export button rather than duplicating them.
 - **Edit-page Delete.** `EditWar.tsx` gained a Delete button (`edit-war-delete-button`) next to
   Activate, same permanence-confirm pattern, navigating to `/my-wars` on success.
+- **Action-bar/button consistency pass; confirmation dialogs are now native `<dialog>`
+  modals.** Every action row (results page, edit page, both War-card variants) used to be its
+  own unstyled div — `.war-detail-actions`/`.edit-war-export`/`.edit-war-delete`/
+  `.edit-war-activate`/`.war-card-actions` had no CSS at all — so Edit (a `<Link>`, matched by
+  none of `themes.css`'s tag-only `button` selectors) rendered as plain text next to Delete/Export
+  (real `<button>`s, fully themed), and each row stacked vertically with no gap. Replaced with two
+  shared primitives: `.action-bar` (`layout.css`, a flex row with a standard gap — one definition
+  instead of five near-duplicates) and a `.button` class (`themes.css`, added alongside every
+  per-theme `button` tag selector) so any element meant to look like an action — including a
+  `<Link>` — gets identical treatment to a real `<button>`. New `DeleteButton.tsx` (mirrors
+  `ExportButton.tsx`) replaces two hand-rolled Delete buttons that had already drifted out of
+  sync once. Destructive actions (`.button--danger`: both Delete buttons, the delete-confirm
+  dialog's submit, "Discard and activate") get a per-theme danger color (`--t-danger`/
+  `--t-danger-text`, picked from each theme's own palette — fight_card reuses its already-unused
+  `accent1`) instead of the primary accent, so they read as visually distinct; the modifier rule
+  has to be the last rule in `themes.css` since it ties in specificity with each per-theme
+  `.button` rule and source order breaks the tie. `DeleteWarConfirmDialog`,
+  `ActivateDirtyConfirmDialog`, and `ActivatePermanenceConfirmDialog` (previously bare
+  `<div role="alertdialog">`s with no positioning, backdrop, focus trap, or Escape handling) now
+  render through a new shared `Modal.tsx` wrapping a native `<dialog>` — `showModal()`/`close()`
+  synced to a `show` prop in a `useEffect` — which gets all of that for free; `themes.css` gained
+  a `.modal` surface rule (same theme-surface treatment as `.bio-content`) and `layout.css` a
+  `.modal::backdrop` rule. No `data-testid` changed on any of this — it's a pure markup/CSS
+  reorganization, not a behavior change.
 - **War export.** `src/export/exportWar.ts`'s `buildWarExportZip` builds a zip (via `fflate`,
   new dependency) containing `war.json` (title, category, visibility, theme,
   `contestant_schema`, `ends_at`, and each contestant's name/bio/attributes — no votes, no
