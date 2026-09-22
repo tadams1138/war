@@ -25,6 +25,11 @@ lerna-debug.log*
 
 # Secrets
 .env
+.env.secrets
+
+# scripts/local-dev-up.ps1's generated self-signed TLS cert/key -- it
+# regenerates these itself (with an expiry check), never source.
+scripts/nginx/certs/
 
 # Playwright (war-ui-default)
 test-results/
