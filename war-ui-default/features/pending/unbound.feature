@@ -85,5 +85,3 @@ Feature: Rankings
     Given a War where Contestant C has received no votes
     When the War detail page loads
     Then Contestant C appears at the bottom with rank "—"
-
-Feature: Create War

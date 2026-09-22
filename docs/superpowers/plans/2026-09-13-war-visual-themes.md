@@ -8,7 +8,7 @@
 
 **Tech Stack:** war-api: Fastify + Kysely + node-pg-migrate raw SQL, Vitest + Supertest + `@amiceli/vitest-cucumber`. war-ui-default: React + Vite, plain CSS (Tailwind v4 is imported but unused by this feature), Vitest + Testing Library for units, Playwright + MSW for acceptance.
 
-**Spec:** `specs/war-spec.md` §4 ("Visual Theme", War table), §6.1 (Wars — creation), §10.4 ("Theme switching"). Already written and committed to this repo as of this plan — read it alongside this plan; it states the *why* behind several steps below (e.g. why the override never reaches the server, why Home/My Wars default to `arcade`).
+**Spec:** `war-spec.md` §4 ("Visual Theme", War table), §6.1 (Wars — creation), §10.4 ("Theme switching"). Already written and committed to this repo as of this plan — read it alongside this plan; it states the *why* behind several steps below (e.g. why the override never reaches the server, why Home/My Wars default to `arcade`).
 
 ## Global Constraints
 

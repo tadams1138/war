@@ -1,4 +1,4 @@
-# Managed PostgreSQL — see specs/war-spec.md
+# Managed PostgreSQL — see war-spec.md
 #
 # The connection pooler is the reason this module exists as more than a single
 # resource. The API must connect through PgBouncer, never directly: the

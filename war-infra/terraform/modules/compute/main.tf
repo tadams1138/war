@@ -1,4 +1,4 @@
-# App Platform app — see specs/war-spec.md
+# App Platform app — see war-spec.md
 #
 # OWNERSHIP SPLIT — read this before changing anything here.
 #

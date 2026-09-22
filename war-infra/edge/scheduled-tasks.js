@@ -1,4 +1,4 @@
-// Scheduled task dispatch — see specs/war-spec.md
+// Scheduled task dispatch — see war-spec.md
 //
 // App Platform has no cron primitive (its jobs are deploy-lifecycle only), so
 // the scheduler role sits at the edge. This Worker has no fetch handler — it is

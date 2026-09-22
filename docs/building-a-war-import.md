@@ -8,12 +8,12 @@ implementation-agnostic: nothing here assumes React, TypeScript, or any particul
 library. Where a concrete example is useful, it points at `war-ui-default`'s working
 implementation as a reference, not as something to copy line for line.
 
-If anything here conflicts with [`specs/war-spec.md`](../specs/war-spec.md), the spec wins —
+If anything here conflicts with [`war-spec.md`](../war-spec.md), the spec wins —
 that document is the contract, this one is a build guide.
 
 ## What Import does (the contract)
 
-From `specs/war-spec.md` §10.4:
+From `war-spec.md` §10.4:
 
 > **Import** reverses Export. Given a previously exported file, it creates a brand-new draft
 > War — metadata, contestants, and their images — owned by the importing voter, entirely
@@ -117,7 +117,8 @@ Implement these steps, in this order, and don't parallelize across them:
 
 This step should be pure, synchronous, and fully unit-testable without a network or a server
 — see `war-ui-default/src/import/validateWarImport.ts` for the reference implementation and
-`validateWarImport.test.ts` for the shape of its test coverage.
+`war-ui-default/src/import/__tests__/validateWarImport.test.ts` for the shape of its test
+coverage.
 
 ### 2. Create the War
 

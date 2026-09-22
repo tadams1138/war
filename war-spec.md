@@ -306,9 +306,8 @@ Browse, create, read, update, activate, close, and join.
 caller's own Wars, the list **never** includes a draft War or an invite-only one, regardless
 of any status filter supplied — asking for drafts returns an empty list rather than someone
 else's. Being authenticated grants no extra visibility on its own. With no status filter at
-all the default is active Wars only. This scoping belongs in the data-access layer, not in a
-route handler, so that every caller inherits it and no future entry point can bypass it by
-forgetting to apply it.
+all the default is active Wars only. Every caller inherits this scoping; no future entry point
+can bypass it by forgetting to apply it.
 
 **A voter may list their own Wars** across every status, drafts and invite-only included.
 This requires authentication and is the only thing that widens visibility.
@@ -1081,18 +1080,18 @@ another's, with deploy stages gated on not being a pull request.
   production
 
 **Production promotes the exact artefact staging validated; it is never rebuilt.** Approval
-gates are environment protection rules, not steps inside a workflow, so a gate cannot be
-bypassed by editing a pipeline.
+gates are a required-approval step tied to the environment itself, not a step inside a
+pipeline, so a gate cannot be bypassed by editing a pipeline.
 
 **Migrations run as a pre-deploy hook inside the deployment**, not as a pipeline stage, so a
 failed migration aborts the deployment and never ships. They are plain ordered SQL files
 tracked in a table, must be backwards-compatible — the hook runs while the previous revision
 is still serving — and roll back manually, with point-in-time recovery as the backstop.
 
-Custom UIs use a shared reusable pipeline, since each brand lives in its own repository. Such
-a call resolves its reference when the run is first triggered and keeps it for the run's
-life, so re-running an old failed run silently executes the *old* pipeline; prefer a fresh
-trigger after changing it.
+Custom UIs share one pipeline template, invoked from each brand's own repository. Invoking it
+resolves the template's version when the run is first triggered and keeps that version for the
+run's life, so re-running an old failed run silently executes the *old* template; prefer a
+fresh trigger after changing it.
 
 ### 12.6 Secrets
 
@@ -1157,14 +1156,15 @@ Changing any of them needs a better reason than tidiness.
   Infrastructure creates the application and outputs its id, but nothing publishes it; the
   deploy pipelines read it from a per-environment variable that must be set by hand. The
   failure when missing does not obviously point at a missing variable.
-- **Each deploy pipeline needs its own concurrency group, per environment.** A "do not cancel
-  in progress" setting protects a *running* job, not a *pending* one, and only one pending run
-  is kept per group. A job waiting at a required-reviewer gate is pending, so a sibling
-  pipeline entering the same group evicts it — reading as "cancelled", with nothing
-  distinguishing it from any other cancellation. This silently dropped three production
-  deploys of a security fix before diagnosis. A build-time check now fails if two pipelines
-  declare the same group. Sharing a group also buys nothing: both pipelines deploy components
-  of the same application, and the platform already queues concurrent deployment requests.
+- **Each deploy pipeline needs its own named serialization group, per environment.** A "do not
+  cancel in progress" setting protects a *running* job, not a *pending* one, and only one
+  pending run is kept per serialization group. A job waiting at a required-reviewer gate is
+  pending, so a sibling pipeline entering the same serialization group evicts it — reading as
+  "cancelled", with nothing distinguishing it from any other cancellation. This silently
+  dropped three production deploys of a security fix before diagnosis. A build-time check now
+  fails if two pipelines declare the same serialization group. Sharing one also buys nothing:
+  both pipelines deploy components of the same application, and the platform already queues
+  concurrent deployment requests.
 - **Infrastructure cannot bootstrap the application with the real image**, which requires
   secrets to boot and exits without them, failing the apply. A trivial placeholder image is
   pushed once and replaced the moment the real spec deploys.
@@ -1187,17 +1187,8 @@ preview environments, and scheduled tasks beyond expiry reconciliation.
 ## 13. Acceptance Tests
 
 Behaviour is specified in the sections above. Its executable expression lives with the code
-that implements it, never in this document:
-
-| Project | Location |
-|---|---|
-| API | `war-api/specs/features/` |
-| Default UI | `war-ui-default/features/` |
-| Infrastructure | `war-infra/specs/features/` |
-| Custom UI | `war-ui-custom/specs/features/` |
-
-Each has a `pending/` subdirectory holding scenarios with no binding yet — behaviour not
-built, or behaviour built but not yet covered at the acceptance layer. See `PROGRESS.md`.
+that implements it, never in this document — see `CLAUDE.md`'s Specs section for where each
+project's executable Gherkin lives, and `PROGRESS.md` for what is built versus still pending.
 
 Where a test and this document disagree, **this document is the contract** and the test is
 wrong.

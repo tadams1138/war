@@ -1,13 +1,14 @@
 # war
 
-The War platform. Three projects and one set of specifications:
+The War platform. Three projects and one specification:
 
 | Directory | What it is |
 |---|---|
 | `war-api/` | Backend REST API — Node/TypeScript, Fastify, Kysely, PostgreSQL |
 | `war-ui-default/` | Default web frontend — React SPA, Vite, Playwright |
 | `war-infra/` | Terraform, App Platform specs, Cloudflare Workers, deploy scripts |
-| `specs/` | The specifications for all of the above |
+
+`war-spec.md`, at the repo root, is the platform specification.
 
 ## Testing
 
@@ -102,7 +103,7 @@ These commands mirror the pipelines in `.github/workflows/`, so local runs match
 
 ## Specs
 
-`specs/war-spec.md` is the single specification and the contract. It describes **what** the
+`war-spec.md` is the single specification and the contract. It describes **what** the
 platform does, in implementation-agnostic terms — no payload shapes, no schemas, no folder
 structures. Keep it accurate enough to rebuild the project from alone, and keep
 implementation detail out of it: that belongs here.

@@ -1,4 +1,4 @@
-# war-api pipeline — see specs/war-spec.md
+# war-api pipeline — see war-spec.md
 #
 # Per-environment GitHub Environment variables:
 #   DO_APP_ID          App Platform app id for that environment
@@ -49,7 +49,7 @@ env:
   REGISTRY: registry.digitalocean.com/war
   IMAGE_NAME: war-api
   # The deployed runtime is 24.x, not the 22 this pinned before — see
-  # specs/war-spec.md "Toolchain deviation".
+  # war-spec.md "Toolchain deviation".
   NODE_VERSION: '24'
 
 jobs:
@@ -154,7 +154,7 @@ jobs:
     # gate is pending, not running — a shared group lets the other
     # pipeline's job evict it there, silently. That cancelled a live
     # production security fix (commit 9404ffe) for seven days. See
-    # specs/war-spec.md.
+    # war-spec.md.
     # Do not unify this with ui-default.yml's group.
     concurrency:
       group: deploy-staging-api
@@ -224,7 +224,7 @@ jobs:
     # at the production approval gate is pending, not running — a shared
     # group lets the other pipeline's job evict it there, silently. That
     # cancelled a live production security fix (commit 9404ffe) for seven
-    # days. See specs/war-spec.md.
+    # days. See war-spec.md.
     # Do not unify this with ui-default.yml's group.
     concurrency:
       group: deploy-production-api

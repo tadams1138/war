@@ -1,4 +1,4 @@
-# Concurrency group isolation guard — see specs/war-spec.md, "Operational
+# Concurrency group isolation guard — see war-spec.md, "Operational
 # constraints", and war-infra/specs/features/pending/routing.feature,
 # "Feature: Concurrency Group Isolation".
 #

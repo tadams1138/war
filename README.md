@@ -1,7 +1,7 @@
 # war
 
 A web-first social voting platform where authenticated users rank contestants through
-head-to-head binary matchups. See [`specs/war-spec.md`](specs/war-spec.md) for the
+head-to-head binary matchups. See [`war-spec.md`](war-spec.md) for the
 overview, goals, and roles.
 
 Building a War import feature for a new client? See
@@ -12,12 +12,14 @@ an AI coding assistant to follow.
 
 | Directory | What it is |
 |---|---|
-| [`war-api/`](war-api) | Backend REST API — Node/TypeScript, Fastify, Kysely, PostgreSQL |
-| [`war-ui-default/`](war-ui-default) | Default web frontend — React SPA, Vite, Playwright |
-| [`war-infra/`](war-infra) | Terraform, App Platform specs, Cloudflare Workers, deploy scripts |
+| [`war-api/`](war-api) | Backend REST API |
+| [`war-ui-default/`](war-ui-default) | Default web frontend |
+| [`war-infra/`](war-infra) | Terraform, deploy scripts, and other infrastructure |
 | [`war-ui-custom/`](war-ui-custom) | Not built yet — holds only the pending custom-UI template-contract scenarios |
-| [`specs/`](specs) | The platform specification, [`war-spec.md`](specs/war-spec.md) |
 | [`.github/workflows/`](.github/workflows) | CI/CD for every project |
+
+See [`CLAUDE.md`](CLAUDE.md) for the tech stack each project uses. The platform specification,
+[`war-spec.md`](war-spec.md), lives at the repo root alongside this file — see below.
 
 Each project keeps its own `package.json` and `node_modules`; there is no workspace tying
 them together. All commands run from the repository root — `npm --prefix <project>` and
@@ -27,11 +29,13 @@ follows.
 
 ## Status
 
-Live in staging and production: sign in with Google, browse Wars, view a War and its
-contestants, vote on image-mode matchups, Rankings, the Create War wizard, and My Wars.
+Live in staging and production: sign in with Google, Microsoft, Facebook, or Twitter/X; browse,
+create, edit, delete, export, and import Wars; view a War and vote on image-mode matchups; and
+My Wars. Three selectable visual themes and a persistent nav ship across every page.
 
-Not yet built: video-mode matchups, sign-in providers other than Google, the API's
-per-voter rate limiting, and custom UIs with their registry.
+Not yet built: video-mode matchups, the API's per-voter rate limiting, and custom UIs with
+their registry. Apple sign-in is fully designed but deliberately deferred (see PROGRESS.md,
+"To revisit").
 
 [`PROGRESS.md`](PROGRESS.md) is the authoritative status board — a section of the spec
 describing the full design does not mean it has been built.
@@ -48,7 +52,7 @@ UI from a single domain:
 
 ## Specification and tests
 
-`specs/war-spec.md` is the single specification and the contract — one document for the
+`war-spec.md` is the single specification and the contract — one document for the
 whole platform, describing **what** it does in implementation-agnostic terms. Implementation
 detail (stack, folder layout, build commands) lives in [`CLAUDE.md`](CLAUDE.md), not the
 spec. Where a test and the spec disagree, the spec wins (spec section 13).
@@ -65,16 +69,9 @@ built:
 | Custom UI | `war-ui-custom/specs/features/` | — project does not exist yet | — |
 
 Each project has a `pending/` subdirectory holding scenarios with **no binding**, so nothing
-in it runs: behaviour not built, or built but not yet covered at the acceptance layer.
-
-| File | Scenarios | Why it is pending |
-|---|---|---|
-| `war-api/specs/features/pending/oauth-authentication.feature` | 1 | Same email across two providers yields separate voters — needs a second sign-in provider; only Google is built. |
-| `war-api/specs/features/pending/media-mode.feature` | 8 | `video` media mode is not built. |
-| `war-api/specs/features/pending/rate-limiting.feature` | 3 | The API's per-voter rate limits are not built. |
-| `war-api/specs/features/pending/war-expiry.feature` | 3 | Expiry scenarios beyond those already bound in `../war-expiry.feature`. |
-| `war-ui-default/features/pending/unbound.feature` | 13 | Video-mode playback, plus wording variants of vote-flow and rankings scenarios that already run under other names. |
-| `war-infra/specs/features/pending/routing.feature` | 27 | Edge, routing, concurrency-group and secrets behaviour. No runner in this project; verifiable only by hand against a live environment. |
-| `war-ui-custom/specs/features/pending/template-contract.feature` | 11 | The contract a custom UI bundle must satisfy. `war-ui-custom` does not exist yet. |
+in it runs: behaviour not built, or built but not yet covered at the acceptance layer. See
+[`PROGRESS.md`](PROGRESS.md)'s "Test coverage gaps" section for the current file-by-file
+breakdown — kept there, not duplicated here, so it can't drift out of sync as scenarios get
+bound.
 
 To bind a pending API scenario, move the file up one directory and write its `.steps.ts`.

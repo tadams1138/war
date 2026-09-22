@@ -1,5 +1,5 @@
 # App Platform spec — production
-# See specs/war-spec.md
+# See war-spec.md
 #
 # THIS FILE IS THE SOURCE OF TRUTH FOR THE APP. Terraform creates the app and
 # then ignores its spec (terraform/modules/compute), because the image tag

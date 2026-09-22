@@ -1,5 +1,5 @@
 # Cloudflare edge — per-environment DNS and Worker routing. See
-# specs/war-spec.md. The zone-wide WAF/rate-limit/cache
+# war-spec.md. The zone-wide WAF/rate-limit/cache
 # rulesets live in terraform/shared instead, applied once —
 # see that module for why.
 #

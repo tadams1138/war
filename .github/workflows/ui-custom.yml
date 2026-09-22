@@ -1,4 +1,4 @@
-# war-ui-{slug} pipeline — see specs/war-spec.md
+# war-ui-{slug} pipeline — see war-spec.md
 #
 # Custom UIs deploy straight to object storage. There is no App Platform
 # component, no CDN origin, and no routing rule per slug — every custom UI is a

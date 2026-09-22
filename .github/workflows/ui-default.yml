@@ -1,4 +1,4 @@
-# war-ui-default pipeline — see specs/war-spec.md
+# war-ui-default pipeline — see war-spec.md
 #
 # App Platform builds the static site from source on deployment, so the `build`
 # step here is a fast-fail check rather than the artefact that ships. Deploying
@@ -105,7 +105,7 @@ jobs:
     # run per concurrency group, and a job queued at an approval gate is
     # pending, not running — a shared group lets the other pipeline's job
     # evict it there, silently. That cancelled a live production security
-    # fix (commit 9404ffe) for seven days. See specs/war-spec.md,
+    # fix (commit 9404ffe) for seven days. See war-spec.md,
     # "Operational constraints".
     #
     # Do not unify this with api.yml's group.
@@ -153,7 +153,7 @@ jobs:
     # production approval gate is pending, not running — a shared group
     # lets the other pipeline's job evict it there, silently. That
     # cancelled a live production security fix (commit 9404ffe) for seven
-    # days. See specs/war-spec.md.
+    # days. See war-spec.md.
     # Do not unify this with api.yml's group.
     concurrency:
       group: deploy-production-ui

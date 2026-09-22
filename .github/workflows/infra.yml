@@ -1,4 +1,4 @@
-# war-infra pipeline — see specs/war-spec.md
+# war-infra pipeline — see war-spec.md
 #
 # Spaces provides no state locking (spec), so the per-environment
 # concurrency groups below are what prevent two applies colliding.

@@ -8,7 +8,7 @@
 
 **Tech Stack:** war-api: Fastify + Kysely + raw-SQL migrations, Vitest + Supertest + `@amiceli/vitest-cucumber` (Testcontainers Postgres, migrations auto-applied by the test harness). war-ui-default: React + Vite, Vitest + Testing Library for units, Playwright + MSW for acceptance, types generated from war-api's OpenAPI document via `npm run generate:api`.
 
-**Spec:** `specs/war-spec.md` §4 (Domain Model — War table, Title row), §6.1 (Wars — Creation, Activation), §10.1 (Routes), §10.4 ("Create War", "My Wars", "Editing a draft", "Activate"). Already written and committed as of this plan — read it alongside this plan for the *why* behind each step.
+**Spec:** `war-spec.md` §4 (Domain Model — War table, Title row), §6.1 (Wars — Creation, Activation), §10.1 (Routes), §10.4 ("Create War", "My Wars", "Editing a draft", "Activate"). Already written and committed as of this plan — read it alongside this plan for the *why* behind each step.
 
 ## Global Constraints
 

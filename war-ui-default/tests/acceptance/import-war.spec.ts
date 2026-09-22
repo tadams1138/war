@@ -1,4 +1,4 @@
-// Binds features/import-war (spec §10.4, "Import"). Reverses Export:
+// Binds features/import-war.feature (spec §10.4, "Import"). Reverses Export:
 // unzips a previously exported file client-side and recreates a draft War
 // through the same endpoints EditWar's own UI already calls.
 import { strToU8, zipSync } from 'fflate'
