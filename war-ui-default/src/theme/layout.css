@@ -364,7 +364,7 @@ label {
 }
 
 /* The results list (spec 10.4): each card's media, content, and stats
-   groups stack in one column at every width, media first -- a fixed
+   groups stack in one column, media first, on a narrow viewport -- a fixed
    percentage split would squeeze every group into an unusably narrow
    sliver below some breakpoint, the bug this replaced (PROGRESS.md). The
    list itself is capped and centered on a wide viewport rather than
@@ -383,6 +383,32 @@ label {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+/* At laptop width (matches this file's other side-by-side breakpoints --
+   .bio-editor, .edit-war-layout) the poster moves beside the bio instead of
+   above it. The wins/appearances/win-share group stays under the bio rather
+   than beside it either way (the user's own request), so this is a grid --
+   media spans both rows of a right-hand column that's bio on top, stats
+   below -- not a row flip, which would put stats beside the poster too. */
+@media (min-width: 900px) {
+  .ranking-row {
+    display: grid;
+    grid-template-columns: minmax(0, 22rem) 1fr;
+    grid-template-areas:
+      'media content'
+      'media stats';
+    align-items: start;
+    gap: 1rem 1.5rem;
+  }
+  .ranking-media {
+    grid-area: media;
+  }
+  .ranking-content {
+    grid-area: content;
+  }
+  .ranking-stats {
+    grid-area: stats;
+  }
 }
 .ranking-media {
   position: relative;

@@ -257,6 +257,39 @@ test('On a wide viewport, the wins/appearances/win-share group renders below the
   expect(winsBox!.y).toBeGreaterThanOrEqual(bioBox!.y + bioBox!.height)
 })
 
+test('On a wide viewport, the poster renders beside the bio, not above it', async ({ page }) => {
+  // Arrange
+  await page.setViewportSize({ width: 1920, height: 1000 })
+  const detail = buildWarDetail({
+    id: 'war-wide-poster',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'A brilliant mathematician.' })],
+  })
+  const rankings = buildRankingsResponse({
+    war_id: 'war-wide-poster',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-wide-poster`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-wide-poster/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-wide-poster')
+
+  // Assert — the poster sits to the left of the bio, roughly top-aligned
+  // with it, rather than stacked above it.
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  const mediaBox = await row.locator('.ranking-media').boundingBox()
+  const bioBox = await row.getByTestId('contestant-bio').boundingBox()
+  expect(mediaBox).not.toBeNull()
+  expect(bioBox).not.toBeNull()
+  expect(mediaBox!.x + mediaBox!.width).toBeLessThanOrEqual(bioBox!.x)
+  // The bio sits below the name within .ranking-content, so it starts a
+  // little lower than the media box's own top -- not exactly flush, just
+  // near it rather than pushed down a full row height by a stacked poster.
+  expect(Math.abs(mediaBox!.y - bioBox!.y)).toBeLessThan(60)
+})
+
 test("There is visible space between the War's category and the first result", async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
