@@ -37,6 +37,21 @@ function fileNameFor(path: string): string {
   return path.split('/').pop() ?? path
 }
 
+// Mirrors war-api's own extension<->MIME mapping (contestants/imageProcessing.ts,
+// ALLOWED_MIME_TYPES) so a re-imported file passes the server's upload validation --
+// `new File(...)` never infers `type` from a filename on its own.
+const MIME_TYPE_BY_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
+
+function mimeTypeFor(path: string): string | undefined {
+  const ext = path.split('.').pop()?.toLowerCase()
+  return ext ? MIME_TYPE_BY_EXTENSION[ext] : undefined
+}
+
 async function importContestant(
   warId: string,
   contestant: ValidatedContestant,
@@ -46,7 +61,7 @@ async function importContestant(
   const created = await api.addContestant(warId, { name: contestant.name, bio: contestant.bio, attributes: contestant.attributes })
   for (const media of contestant.media) {
     const bytes = files[media.path]
-    const file = new File([bytes as Uint8Array<ArrayBuffer>], fileNameFor(media.path))
+    const file = new File([bytes as Uint8Array<ArrayBuffer>], fileNameFor(media.path), { type: mimeTypeFor(media.path) })
     await api.uploadImage(warId, created.id, file)
   }
 }

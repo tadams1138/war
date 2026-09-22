@@ -54,11 +54,31 @@ describe('importWar', () => {
     })
     expect(api.addContestant).toHaveBeenCalledWith('war-new', { name: 'Ada', bio: 'A brilliant mathematician.', attributes: [] })
     expect(api.uploadImage).toHaveBeenCalledWith('war-new', 'contestant-new', expect.any(File))
+    const uploadedFile = (api.uploadImage as ReturnType<typeof vi.fn>).mock.calls[0][2] as File
+    expect(uploadedFile.type).toBe('image/jpeg')
     const createOrder = (api.createWar as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
     const addOrder = (api.addContestant as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
     const uploadOrder = (api.uploadImage as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
     expect(createOrder).toBeLessThan(addOrder)
     expect(addOrder).toBeLessThan(uploadOrder)
+  })
+
+  it("sets each uploaded File's type from its path extension, so the server's MIME-type validation accepts it", async () => {
+    // Arrange
+    const data = validatedImport({
+      contestants: [
+        { name: 'Ada', bio: null, attributes: [], media: [{ display_order: 0, aspect_ratio: 0.75, path: 'media/c-1/m-1.webp' }] },
+      ],
+    })
+    const files = { 'media/c-1/m-1.webp': new Uint8Array([1, 2, 3]) }
+    const api = fakeApi()
+
+    // Act
+    await importWar(data, files, api)
+
+    // Assert
+    const uploadedFile = (api.uploadImage as ReturnType<typeof vi.fn>).mock.calls[0][2] as File
+    expect(uploadedFile.type).toBe('image/webp')
   })
 
   it('returns the new War id on full success', async () => {
