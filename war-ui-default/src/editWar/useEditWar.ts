@@ -2,7 +2,7 @@
 // editing of a War's metadata and its contestants' name, bio, and images) —
 // extracted out of the page component, mirroring useVoteSession's split for
 // the same reason.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   activateWar,
   addContestant as addContestantApi,
@@ -30,6 +30,13 @@ export interface EditWarLoadedState {
   // Keyed by contestant id -- each contestant's own save can fail
   // independently of every other's, and of the metadata form's.
   contestantErrors: Record<string, string | null>
+  // Keyed by contestant id, like contestantErrors -- a separate field
+  // rather than reusing it because a rate-limited upload (the spec §10.5:
+  // "a wait, using the supplied delay -- never presented as an error")
+  // needs different presentation than an ordinary upload failure, and the
+  // two must never clobber each other if a save error and an image error
+  // are both live for the same contestant.
+  imageErrors: Record<string, { message: string; kind: 'error' | 'wait' } | null>
   // Set on a successful metadata or contestant save; Toast owns clearing
   // its own visibility, so this never needs to be reset back to null.
   toast: string | null
@@ -70,6 +77,10 @@ function detailsFromActivateError(error: unknown): string[] {
   return [toUserMessage(error)]
 }
 
+function isRateLimited(error: unknown): error is ApiError & { reason: 'rate-limited' } {
+  return error instanceof ApiError && error.reason === 'rate-limited'
+}
+
 function withContestant(
   war: WarDetailResponse,
   contestantId: string,
@@ -83,6 +94,9 @@ export function useEditWar(
   onActivated?: (war: WarSummary) => void,
 ): { state: EditWarState } & EditWarActions {
   const [state, setState] = useState<EditWarState>({ status: 'loading' })
+  // Keyed by contestant id, like imageErrors -- each contestant's rate-limit
+  // wait clears itself independently on its own timer.
+  const imageWaitTimersRef = useRef<Record<string, number>>({})
 
   async function load(): Promise<void> {
     if (!warId) return
@@ -100,6 +114,7 @@ export function useEditWar(
         savingMetadata: false,
         addContestantError: null,
         contestantErrors: {},
+        imageErrors: {},
         toast: null,
         activating: false,
         activateDetails: null,
@@ -111,6 +126,9 @@ export function useEditWar(
 
   useEffect(() => {
     void load()
+    return () => {
+      Object.values(imageWaitTimersRef.current).forEach((timer) => window.clearTimeout(timer))
+    }
   }, [warId])
 
   function setLoaded(update: (prev: EditWarLoadedState) => EditWarLoadedState): void {
@@ -176,8 +194,34 @@ export function useEditWar(
   // War-detail fetch.
   async function addImages(contestantId: string, files: File[]): Promise<void> {
     if (!warId || files.length === 0) return
-    await uploadContestantImages(warId, contestantId, files)
-    await load()
+    setLoaded((prev) => ({ ...prev, imageErrors: { ...prev.imageErrors, [contestantId]: null } }))
+    try {
+      await uploadContestantImages(warId, contestantId, files)
+      await load()
+    } catch (error) {
+      if (isRateLimited(error)) {
+        applyImageRateLimit(contestantId, error)
+        return
+      }
+      setLoaded((prev) => ({
+        ...prev,
+        imageErrors: { ...prev.imageErrors, [contestantId]: { message: toUserMessage(error), kind: 'error' } },
+      }))
+    }
+  }
+
+  // Mirrors useVoteSession's applyRateLimit: shows the wait (the spec
+  // §10.5, never an error) and clears itself once the delay passes, no
+  // action required from the creator.
+  function applyImageRateLimit(contestantId: string, error: ApiError): void {
+    setLoaded((prev) => ({
+      ...prev,
+      imageErrors: { ...prev.imageErrors, [contestantId]: { message: error.message, kind: 'wait' } },
+    }))
+    window.clearTimeout(imageWaitTimersRef.current[contestantId])
+    imageWaitTimersRef.current[contestantId] = window.setTimeout(() => {
+      setLoaded((prev) => ({ ...prev, imageErrors: { ...prev.imageErrors, [contestantId]: null } }))
+    }, (error.retryAfterSeconds ?? 0) * 1000)
   }
 
   async function removeImage(contestantId: string, mediaId: string): Promise<void> {

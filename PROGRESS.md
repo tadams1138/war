@@ -218,6 +218,14 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   boolean-literal-discriminated union (e.g. import's `ok`/`error` result type) to narrow
   correctly — without it, `if (!result.ok) { result.error }` leaves `result` typed as the
   full union.
+- **Rate-limited actions show a wait, never an error (spec §10.5).** `api/client.ts`
+  classifies any `429` as `reason: 'rate-limited'` with `retryAfterSeconds`, endpoint-agnostic
+  — every caller gets it for free. Vote casting (`useVoteSession.ts`) keeps both cards busy
+  and shows the wait on `role="status"`, re-enabling automatically once the delay passes.
+  Create War (`CreateWar.tsx`) shows the wait the same way and retries on its own, no manual
+  "Try again" needed for a mere cooldown. Image upload (`useEditWar.ts`,
+  `EditWarContestant.tsx`) shows the wait per contestant and disables that contestant's
+  add-image control until the delay passes.
 
 ### Not built
 

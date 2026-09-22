@@ -52,6 +52,37 @@ test('A failed creation shows an error with a retry control', async ({ page }) =
   await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
 })
 
+test('Rate-limited creation is shown as a wait, not an error, and retries automatically', async ({ page }) => {
+  // Arrange — the first POST is rate limited, the retried one succeeds
+  const createdWar = buildWarSummary({ id: WAR_ID, title: null, status: 'draft' })
+  const detail = buildWarDetail({ id: WAR_ID, title: null, status: 'draft', contestants: [] })
+  await useScenario(page, [
+    {
+      method: 'POST',
+      path: `${API}/wars`,
+      responses: [
+        { status: 429, body: { error: 'rate limited' }, headers: { 'Retry-After': '1' } },
+        { status: 201, body: createdWar },
+      ],
+    },
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/wars/new')
+
+  // Assert
+  const wait = page.getByTestId('create-war-wait')
+  await expect(wait).toContainText('Slow down a moment')
+  await expect(wait).toHaveAttribute('role', 'status')
+  await expect(page.getByTestId('create-war-error')).toHaveCount(0)
+
+  // retries automatically once the delay has passed, no click needed
+  await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`, { timeout: 3000 })
+})
+
 test('Creating a War requires authentication', async ({ page }) => {
   // Act
   await page.goto('/wars/new')

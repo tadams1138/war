@@ -824,6 +824,68 @@ test('Adding a second image shows both, in order', async ({ page }) => {
   await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(2)
 })
 
+test('A failed image upload shows an error', async ({ page }) => {
+  // Arrange
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', media: [] })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    {
+      method: 'POST',
+      path: `${API}/wars/${WAR_ID}/contestants/c-1/images`,
+      responses: [{ status: 422, body: { error: 'unsupported file type' } }],
+    },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-image-input').setInputFiles({
+    name: 'photo.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+  })
+
+  // Assert
+  const error = item.getByTestId('edit-war-image-error')
+  await expect(error).toBeVisible()
+  await expect(error).toHaveAttribute('role', 'alert')
+})
+
+test('Rate-limited image upload is shown as a wait, not an error', async ({ page }) => {
+  // Arrange
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', media: [] })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    {
+      method: 'POST',
+      path: `${API}/wars/${WAR_ID}/contestants/c-1/images`,
+      responses: [{ status: 429, body: { error: 'rate limited' }, headers: { 'Retry-After': '1' } }],
+    },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-image-input').setInputFiles({
+    name: 'photo.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+  })
+
+  // Assert
+  const wait = item.getByTestId('edit-war-image-wait')
+  await expect(wait).toContainText('Slow down a moment')
+  await expect(wait).toHaveAttribute('role', 'status')
+  await expect(item.getByTestId('edit-war-image-error')).toHaveCount(0)
+
+  // the input re-enables automatically once the delay has passed
+  await expect(item.getByTestId('edit-war-image-input')).toBeEnabled({ timeout: 3000 })
+})
+
 test('Removing an image drops it from the gallery', async ({ page }) => {
   // Arrange
   const firstImage = buildMediaItem({ id: 'image-1', display_order: 0 })

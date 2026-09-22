@@ -88,6 +88,17 @@ Feature: Edit War
     When they add a second image
     Then both images are shown, in order
 
+  Scenario: A failed image upload shows an error
+    Given an authenticated voter editing a contestant
+    When they add an image and the upload fails
+    Then an error is shown
+
+  Scenario: Rate-limited image upload is shown as a wait, not an error
+    Given an authenticated voter editing a contestant
+    When they add an image and the request is rate limited
+    Then a wait is shown, using the supplied delay, not an error
+    And the add-image control re-enables on its own once the delay passes
+
   Scenario: Removing an image drops it from the gallery
     Given an authenticated voter editing a contestant with two images
     When they remove one

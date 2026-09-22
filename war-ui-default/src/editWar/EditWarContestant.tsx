@@ -12,6 +12,7 @@ const MAX_IMAGES_PER_CONTESTANT = 10
 interface EditWarContestantProps {
   contestant: ContestantDetail
   error: string | null
+  imageNotice: { message: string; kind: 'error' | 'wait' } | null
   onSave: (payload: { name: string; bio: string | null }) => Promise<void>
   onRemove: () => void
   onAddImages: (files: File[]) => void
@@ -22,6 +23,7 @@ interface EditWarContestantProps {
 export function EditWarContestant({
   contestant,
   error,
+  imageNotice,
   onSave,
   onRemove,
   onAddImages,
@@ -79,8 +81,29 @@ export function EditWarContestant({
         onRemoveImage={onRemoveImage}
         onMoveImageUp={onMoveImageUp}
       />
-      <AddImageControl imageCount={sortedMedia.length} onAddImages={onAddImages} />
+      <ImageNotice notice={imageNotice} />
+      <AddImageControl imageCount={sortedMedia.length} onAddImages={onAddImages} waiting={imageNotice?.kind === 'wait'} />
     </li>
+  )
+}
+
+// Rate-limited (the spec §10.5: "a wait, using the supplied delay --
+// never presented as an error") renders on role="status", not
+// role="alert" -- the same distinction useVoteSession's vote-error
+// message already draws.
+function ImageNotice({ notice }: { notice: { message: string; kind: 'error' | 'wait' } | null }) {
+  if (!notice) return null
+  if (notice.kind === 'wait') {
+    return (
+      <p role="status" data-testid="edit-war-image-wait">
+        {notice.message}
+      </p>
+    )
+  }
+  return (
+    <p role="alert" data-testid="edit-war-image-error">
+      {notice.message}
+    </p>
   )
 }
 
@@ -129,7 +152,15 @@ function ContestantImageGallery({
   )
 }
 
-function AddImageControl({ imageCount, onAddImages }: { imageCount: number; onAddImages: (files: File[]) => void }) {
+function AddImageControl({
+  imageCount,
+  onAddImages,
+  waiting,
+}: {
+  imageCount: number
+  onAddImages: (files: File[]) => void
+  waiting: boolean
+}) {
   if (imageCount >= MAX_IMAGES_PER_CONTESTANT) {
     return <span data-testid="edit-war-image-cap-reached">Maximum of {MAX_IMAGES_PER_CONTESTANT} images reached</span>
   }
@@ -140,6 +171,7 @@ function AddImageControl({ imageCount, onAddImages }: { imageCount: number; onAd
         type="file"
         accept="image/*"
         multiple
+        disabled={waiting}
         data-testid="edit-war-image-input"
         onChange={(event) => {
           const files = event.target.files ? Array.from(event.target.files) : []

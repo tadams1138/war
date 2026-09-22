@@ -319,6 +319,10 @@ function EditWarNav({
   )
 }
 
+function orNull<T>(value: T | null | undefined): T | null {
+  return value ?? null
+}
+
 function EditWarDetailPane({
   selected,
   state,
@@ -363,7 +367,8 @@ function EditWarDetailPane({
       {selectedContestant && (
         <SelectedContestantEditor
           contestant={selectedContestant}
-          error={state.contestantErrors[selectedContestant.id] ?? null}
+          error={orNull(state.contestantErrors[selectedContestant.id])}
+          imageNotice={orNull(state.imageErrors[selectedContestant.id])}
           onSave={(payload) => editWar.saveContestant(selectedContestant.id, payload)}
           onRemove={() => void handleRemove(selectedContestant.id)}
           onAddImages={(files) => void editWar.addImages(selectedContestant.id, files)}
@@ -378,6 +383,7 @@ function EditWarDetailPane({
 function SelectedContestantEditor({
   contestant,
   error,
+  imageNotice,
   onSave,
   onRemove,
   onAddImages,
@@ -386,6 +392,7 @@ function SelectedContestantEditor({
 }: {
   contestant: ContestantDetail
   error: string | null
+  imageNotice: { message: string; kind: 'error' | 'wait' } | null
   onSave: (payload: PatchContestantPayload) => Promise<void>
   onRemove: () => void
   onAddImages: (files: File[]) => void
@@ -398,6 +405,7 @@ function SelectedContestantEditor({
         key={contestant.id}
         contestant={contestant}
         error={error}
+        imageNotice={imageNotice}
         onSave={onSave}
         onRemove={onRemove}
         onAddImages={onAddImages}
