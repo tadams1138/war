@@ -1,7 +1,7 @@
 // Binds features/vote-mode.feature.
 import { expect, test } from '@playwright/test'
 import { buildMatchupResponse, buildMediaItem } from '../../src/mocks/fixtures'
-import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
 
 const WAR_ID = 'war-vote-1'
 
@@ -90,11 +90,15 @@ test('Both cards are disabled while a vote is in flight', async ({ page }) => {
   await page.getByTestId('contestant-card').nth(0).click()
   await page.getByTestId('contestant-card').nth(1).click({ force: true })
 
-  // Assert — still in flight
+  // Assert — still in flight. The UI's aria-busy reflects a React state
+  // update, which happens before the click's fetch() actually reaches the
+  // network layer -- a one-shot getCallLog() right after would race that
+  // under load (mocking.ts's own waitForCallLog doc comment), so poll for
+  // the request to actually land instead of reading the log once.
   await expect(page.getByTestId('contestant-card').nth(0)).toHaveAttribute('aria-busy', 'true')
   await expect(page.getByTestId('contestant-card').nth(1)).toHaveAttribute('aria-busy', 'true')
-  const inFlightLog = (await getCallLog(page)).filter((entry) => entry.url.includes('/vote'))
-  expect(inFlightLog).toHaveLength(1)
+  const inFlightLog = await waitForCallLog(page, (log) => log.some((entry) => entry.url.includes('/vote')))
+  expect(inFlightLog.filter((entry) => entry.url.includes('/vote'))).toHaveLength(1)
 })
 
 test('Voter casts a vote and the next matchup loads automatically', async ({ page }) => {

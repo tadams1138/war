@@ -44,6 +44,11 @@ test('Contestant media is capped so voting never requires scrolling first', asyn
   // Act
   await navigateAuthenticated(page, '/wars/war-1/vote')
   await expect(page.getByTestId('contestant-card').last()).toBeVisible()
+  // Web fonts (Google Fonts, index.html) can still be swapping in after the
+  // card is visible -- measuring scrollHeight before the swap finishes
+  // races the fallback font's own metrics under load (CI's shared
+  // runners), not a real height regression.
+  await page.evaluate(() => document.fonts.ready)
 
   // Assert — the whole page fits in the viewport height; a voter never has
   // to scroll to reach either card's tap target (war-spec.md 10.3).
