@@ -8,6 +8,7 @@ import { useAuth } from '../auth/context'
 import { useActiveTheme } from '../theme/ThemeContext'
 import { ThemeSwitcher } from '../theme/ThemeSwitcher'
 import { IdentityMenu } from './IdentityMenu'
+import { Logo } from './Logo'
 
 // Every route that renders a <main data-theme> also publishes it here via
 // usePublishTheme, including the 'home'-keyed ones (Home, MyWars, Login,
@@ -25,8 +26,14 @@ export function NavBar() {
 
   return (
     <nav className="nav-bar" aria-label="Primary" data-theme={theme}>
-      <ThemeSwitcher theme={theme} onChange={setTheme} />
-      {isAuthenticated ? <IdentityMenu /> : <Link to="/login">Log in</Link>}
+      <Link to="/" className="brand-mark" data-testid="nav-home" aria-label="Home">
+        <Logo />
+        <span className="brand-wordmark" aria-hidden="true">WAR</span>
+      </Link>
+      <div className="nav-bar-actions">
+        <ThemeSwitcher theme={theme} onChange={setTheme} />
+        {isAuthenticated ? <IdentityMenu /> : <Link to="/login">Log in</Link>}
+      </div>
     </nav>
   )
 }

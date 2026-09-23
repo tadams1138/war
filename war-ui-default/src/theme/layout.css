@@ -227,10 +227,48 @@ label {
 .nav-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
   padding: 0.75rem 1rem;
+}
+
+/* The brand mark (Logo.tsx) is a fixed identity, deliberately outside any
+   War's own theme -- same as the footer already sits outside per-War
+   theming -- so it's styled here, not per-theme in themes.css. */
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ede6d6;
+  text-decoration: none;
+}
+.brand-mark svg {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+}
+.brand-wordmark {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+/* Icon-only below phone width -- the icon plus wordmark plus the theme
+   switcher plus identity/login no longer fit one row at 390px, and
+   wrapping to a second row grows the nav bar just enough to break the
+   vote page's own "no scroll to vote" guarantee (vote-mode-responsive
+   spec). The mark alone is still a clickable, recognizable Home link. */
+@media (max-width: 480px) {
+  .brand-wordmark {
+    display: none;
+  }
+}
+
+.nav-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 /* Sits after <Routes> as #app's last flex child (#app is a full-height flex

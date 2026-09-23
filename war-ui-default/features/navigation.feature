@@ -6,11 +6,16 @@ Feature: Navigation
     And the footer links to the project's GitHub repository
     And the footer links to the Import build guide
 
-  Scenario: An anonymous visitor sees only a link to log in
+  Scenario: An anonymous visitor sees a link to log in and the Home brand mark
     Given an anonymous visitor on the home page
     Then the navigation shows a link to log in
-    And the navigation shows no link to Home
+    And the navigation shows the Home brand mark
     And the navigation shows no voter identity
+
+  Scenario: The Home brand mark sits left of the theme switcher and links to Home
+    Given an authenticated voter viewing the navigation
+    Then the Home brand mark sits to the left of the theme switcher
+    And the Home brand mark links to the home page
 
   Scenario: An authenticated voter's identity is shown in the navigation, menu closed
     Given an authenticated voter whose display name is "Jordan"
@@ -24,11 +29,10 @@ Feature: Navigation
     When they navigate to the home page
     Then the navigation shows a fallback identity label instead of a blank
 
-  Scenario: Opening the identity menu reveals Home, My Wars, Create War and Log out
+  Scenario: Opening the identity menu reveals My Wars, Create War and Log out
     Given an authenticated voter viewing the navigation
     When they open the identity menu
-    Then the identity menu shows a link to Home
-    And the identity menu shows a link to My Wars
+    Then the identity menu shows a link to My Wars
     And the identity menu shows a link to create a War
     And the identity menu shows a log out control
 
@@ -37,12 +41,12 @@ Feature: Navigation
     When they open the identity menu
     Then the menu renders on an opaque or translucent surface of its own
 
-  Scenario Outline: My Wars, Create War and Home remain reachable, via the identity menu, from every route
+  Scenario Outline: My Wars, Create War and Home remain reachable from every route
     Given an authenticated voter who has already created a War
     When they navigate to "<page>"
-    And they open the identity menu
-    Then the identity menu shows a link to Home
-    And the identity menu shows a link to My Wars
+    Then the Home brand mark links to the home page
+    When they open the identity menu
+    Then the identity menu shows a link to My Wars
     And the identity menu shows a link to create a War
 
     Examples:
@@ -65,7 +69,6 @@ Feature: Navigation
     When they open the identity menu
     Then the My Wars item is marked as the current page
     And the Create War item is not marked as the current page
-    And the Home item is not marked as the current page
 
   Scenario: Clicking outside the identity menu closes it
     Given an authenticated voter viewing the navigation

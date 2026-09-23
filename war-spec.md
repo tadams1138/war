@@ -92,9 +92,12 @@ A named voting campaign, owned by its creator.
 | End date | Optional; closes the War when reached |
 | Custom UI slug | Optional; selects a registered custom UI |
 | Theme | `arcade`, `fight_card`, or `scrapbook` (below); set by the creator, overridable per voter |
+| Share image | Optional; a single 1200×630 image shown on the War's card and used as its link-preview thumbnail when shared outside the platform. Distinct from contestant media — one fixed-size image per War, not a set of responsive variants. |
 
-A War is created as a draft. All configuration is editable in draft only. Activation
-generates its matchups and makes it votable. Closing ends voting; rankings remain readable.
+A War is created as a draft. All configuration is editable in any status, by its creator,
+always (§6.1). Its matchups exist as soon as it has contestants to generate them from — they
+are not tied to activation. Activation makes the War reachable by anyone but its creator and is
+freely reversible (§6.1). Closing ends voting for good; rankings remain readable.
 
 **Effective status.** An end date is enforced *lazily, on every read and write*. A War is
 treated as closed the instant its end date passes, regardless of its stored status. A vote
@@ -178,7 +181,10 @@ what any other voter sees — see §10.4.
 ### Matchup
 
 An **unordered** head-to-head pairing of two contestants. A War with `n` contestants has
-`n(n−1)/2` matchups, generated atomically on activation and immutable thereafter.
+`n(n−1)/2` matchups. A contestant's matchups are generated the moment it's added, against every
+other contestant present at that time, and removed if the contestant is (§6.1) — the full set
+is always exactly what the current roster implies, not a one-time snapshot frozen at
+activation.
 
 A pairing has no direction: **A vs B and B vs A are the same matchup.** This is enforced
 structurally by storing the two contestants in a canonical order, so a mirrored duplicate
@@ -316,19 +322,49 @@ This requires authentication and is the only thing that widens visibility.
 mode, contestant schema, theme, and end date are all optional, with documented defaults. The
 War is created as a draft owned by the authenticated voter and can be filled in afterward.
 
-**Activation** requires at least two contestants. It generates every matchup atomically. Only
-the creator may activate, and only from draft. A contestant may activate with no media at all
-— voting and rankings render whatever media (if any) a contestant has, same as every other
-optional field.
+**Activation is visibility, not a one-time step.** Only the creator may toggle it, in either
+direction, at any time — `draft` and `active` are reversible states, not a one-way gate. Turning
+it on requires at least two contestants; turning it off requires nothing and does not touch any
+matchup, vote, or contestant. A contestant may be active with no media at all — voting and
+rankings render whatever media (if any) a contestant has, same as every other optional field.
+`closed` remains the one true terminal state, reached only by its end date passing (§4,
+"Effective status") — nothing in this reversible toggle affects it, and nothing reverses it.
+
+**A War not currently active is invisible to everyone but its creator**, exactly like a War
+that has never been activated: its detail, rankings, and vote pages report it as not found
+(§10.5) to anyone else, the same response an actually-missing War produces, never a distinct
+"this exists but is private" signal that would confirm its existence to someone it isn't meant
+for. The creator can always reach it, in any state.
 
 **Joining** records the voter's membership. Voting requires it.
 
-**Deletion** removes a draft War and its contestants entirely. Only the creator may delete, and
-only from draft — a War that has left draft cannot be deleted.
+**A War is always editable by its creator, in any status.** Metadata, and a contestant's own
+name/bio/media, never touch matchups or votes and are never restricted. Adding a contestant is
+always safe — matchups generate for it against every existing contestant, and pair selection's
+existing exposure-balancing (§6.3) already gives a late addition priority until it catches up,
+no special-casing needed. Removing a contestant that has no votes on any of its matchups
+likewise just removes them. Removing a contestant that **does** carry votes clears those
+votes as part of removing it — scoped to that contestant's own matchups only, not the whole
+War — and, like every destructive action on this page, asks for confirmation first, naming
+what will be lost.
+
+**Deletion** removes a War, its contestants, its media, and its votes entirely, in any status.
+Only the creator may delete, and confirmation is always required first — this app's standard
+guard on anything that cannot be undone (§10.4).
+
+**Clear Votes**, reachable by the creator from the Edit page in any status, deletes every vote
+cast in the War and resets every contestant's win and appearance counters to zero — the same
+starting point as before anyone voted. Membership records are untouched: joining already
+happens silently on every vote-page visit, so nothing about re-voting changes whether or not a
+past membership row survives. This is a genuine, unrecoverable loss of vote history, applied
+on explicit request — §2's tamper-evident audit trail goal does not extend to a creator's own
+deliberate reset of their own War.
 
 ### 6.2 Contestants and media
 
-Contestants may be added, updated and removed while the War is in draft, by its creator only.
+Contestants may be added, updated and removed at any time, by its creator only, in any status
+(§6.1) — adding and updating are always unconditional; removing a contestant with votes on its
+matchups clears those votes as part of removing it (§6.1).
 Attribute values are validated against the War's schema (§4). Responses carry attributes
 already resolved against that schema — label, type and value together, in schema order — so
 clients need not fetch the schema separately and cannot render fields out of order.
@@ -550,6 +586,13 @@ A width is omitted when the source was narrower than it.
 Processing is synchronous within the upload request; bulk uploads happen in draft, where
 latency is tolerable.
 
+**A War's share image (§4, §10.4) follows none of the above.** It is a single fixed 1200×630
+image, not a set of responsive variants, and is stored as JPEG rather than the modern format
+contestant media uses — chosen so the same asset works as both the in-app card thumbnail and
+a third-party link-preview image without a second encoding, since not every external platform
+that renders a link preview supports the modern format. Metadata stripping and a privately
+retained original still apply.
+
 **Why this matters.** Serving a multi-megabyte original to a phone showing two cards side by
 side is simultaneously the worst experience and the largest line on the bandwidth bill — image
 delivery is the dominant traffic driver for the whole platform. A small variant is typically
@@ -623,7 +666,7 @@ against, so those tests exercise real shapes rather than believed ones.
 | War detail | Overview and results — one merged, rank-ordered list, not a gallery plus a separate leaderboard | No |
 | Vote | Binary matchup voting | Yes |
 | Create War | Creates an empty draft War and forwards to its Edit page | Yes |
-| Edit War | Metadata, contestants and media, and Activate, for a draft the voter created | Yes |
+| Edit War | Metadata, contestants and media, Activate, Clear Votes, and Delete, for any War the voter created, any status | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
 | Sign in | Provider selection | No |
 | Auth callback | Exchanges the refresh cookie for a token, then returns the voter where they were going | No |
@@ -640,18 +683,24 @@ an Import feature (§10.4) for a new client.
 
 ### 10.2 Navigation
 
-Content depends only on whether the visitor is authenticated; there is no partial or
-transitional state.
+**A brand mark sits at the header's leading edge, before everything else, every
+visitor's own fixed identity for the platform — not a War's** (§4's Theme is per-War;
+this is deliberately not). It is a link to Home and needs no authentication to use — Home
+itself needs none (§10.1) — so it renders identically whether or not the visitor is signed in.
 
-- **Anonymous:** sign-in only. No links to authenticated destinations — offering an action
-  that only ends in a redirect is friction the header exists to remove.
-- **Authenticated:** a single identity control (the voter's avatar and name) that opens a menu
-  holding Home, My Wars, Create War, and a sign-out control, always together. The control is
-  closed by default, so the persistent header stays small regardless of how many destinations
-  it holds. The open menu renders on an opaque or sufficiently translucent surface of its own,
-  never the bare page behind it — a themed page can render a contestant's own media directly
-  beneath the header, and menu text must stay legible against it regardless of what that
-  background is.
+Everything else's content depends only on whether the visitor is authenticated; there is no
+partial or transitional state.
+
+- **Anonymous:** the brand mark, plus sign-in only. No links to authenticated destinations —
+  offering an action that only ends in a redirect is friction the header exists to remove.
+- **Authenticated:** the brand mark, plus a single identity control (the voter's avatar and
+  name) that opens a menu holding My Wars, Create War, and a sign-out control, always
+  together — Home is not repeated in this menu, since the brand mark already covers it for
+  every visitor. The control is closed by default, so the persistent header stays small
+  regardless of how many destinations it holds. The open menu renders on an opaque or
+  sufficiently translucent surface of its own, never the bare page behind it — a themed page
+  can render a contestant's own media directly beneath the header, and menu text must stay
+  legible against it regardless of what that background is.
 
 **Create War is a top-level action** within that menu, not something reached through My
 Wars — the tradeoff being a second item rather than a leaner menu. My Wars remains a separate
@@ -778,9 +827,11 @@ discarding what already succeeded — the creator lands on its Edit page and fin
 it by hand, the same way an abandoned Create War draft is already just findable, never lost.
 
 **War cards** summarise a War: title, category, status, contestant count, and time remaining
-where an end date is set. Time remaining renders "Ended" at or past the end date, whole days
-rounded up at a day or more, and whole hours rounded up below that with a one-hour floor — so
-a War ending in minutes reads "1 hour" rather than "0 hours" or a misleading "1 day".
+where an end date is set, topped by its share image when it has one — no placeholder when it
+doesn't; the card simply carries no image slot rather than a generic stand-in. Time remaining
+renders "Ended" at or past the end date, whole days rounded up at a day or more, and whole
+hours rounded up below that with a one-hour floor — so a War ending in minutes reads "1 hour"
+rather than "0 hours" or a misleading "1 day".
 
 **Theme switching.** A War's detail (which carries its results) and vote pages render in its
 creator-chosen theme (§4) until the voter viewing them picks a different one from the theme control in the
@@ -815,34 +866,49 @@ abandonment (navigating away before the draft has a title, contestants, or is ac
 an unreachable-but-findable draft behind at no cost — My Wars finds it again.
 
 **My Wars** lists every War the voter created, most recent first, each as a full war card
-including status — a creator needs status at a glance to tell a draft from an active or closed
-War. Selecting one opens its detail page. A draft's card additionally carries an edit
-affordance — an active or closed War does not, since editing is draft-only (10.2). This page
-adds no resume affordance beyond that. Its header and its empty state both carry two entry
-points, not one: Create War, and Import a War (above).
+including status — a creator needs status at a glance to tell a draft, active, or closed War
+apart. Selecting one opens its detail page. Every card, regardless of status, additionally
+carries an edit affordance, since editing is never status-gated (§6.1). This page adds no
+resume affordance beyond that. Its header and its empty state both carry two entry points, not
+one: Create War, and Import a War (above).
 
-**Editing a draft** is one page covering everything a draft needs: title, category,
-visibility, theme, end date, each contestant's name, bio, and images (add, remove, reorder, up
-to the per-contestant cap), and **Activate**. There is no fixed order to walk since a draft
-already exists the moment this page is reachable. It is reachable only from a draft's own My
-Wars card, not from the public War detail page; identity of "this is a War I can edit" comes
-from that entry point; opening it any other way for a War that has left draft shows a
-not-editable message instead of the form.
+**Editing** is one page covering everything a War needs: title, category, visibility, theme,
+end date, share image, each contestant's name, bio, and images (add, remove, reorder, up to
+the per-contestant cap), **Activate**, **Clear Votes**, and **Delete**. There is no fixed order
+to walk, and none of it is gated by status — a War the creator finished voting on is exactly as
+editable as one they just created. It is reachable only from its own My Wars card, not from the
+public War detail page, and only for its creator: opened any other way, a non-owner sees
+whatever the War itself would show them (§6.1) — not found for a War that isn't active, a
+plain "this isn't your War" for one that is, never a form they could try to submit.
 
-A **Delete** affordance sits alongside Activate, removing the draft entirely (§6.1); like every
-action on this page, it asks for confirmation first, since deletion cannot be undone. Delete,
-and any other action that destroys or discards data (this page's own confirmation dialogs
-included), is visually distinguished from ordinary actions, so a creator never mistakes a
+**The share image** is set one of two ways, both reachable from the same metadata form: upload
+a file directly, or generate one from the draft's own contestants — two of them chosen at
+random, each shown only if they have at least one image, composited side by side with a
+styled "VS" between them in the War's chosen theme, the same visual language the vote page's
+own matchup divider already uses. Generating is a live preview a creator can re-roll for a
+different random pair as many times as they like before committing to one; like every other
+field on this form, neither an upload nor a generated preview takes effect until **Save** is
+pressed, and either replaces whatever share image the War already had. A file uploaded that
+isn't already 1200×630 is center-cropped to it rather than rejected — the same forgiving
+treatment contestant images already get. Generating requires at least two contestants with an
+image each; the control explains why it's unavailable rather than disappearing silently when
+that isn't met.
+
+**Delete** removes the War entirely — contestants, media, and every vote (§6.1) — regardless of
+status. **Clear Votes** deletes every vote cast in the War and resets every contestant's
+counters to zero, also regardless of status. Both ask for confirmation first, naming what will
+be lost, since neither can be undone; both, like removing a contestant that carries votes
+(§6.1), are visually distinguished from ordinary actions so a creator never mistakes a
 destructive choice for a routine one.
 
-**Activate**, on that same page, is disabled with an inline reason until the War meets the
-API's own activation requirements (§6.1: at least two contestants) — a client-side mirror of a
-rule the API enforces regardless, so a creator sees why before attempting it rather than only
-after a rejected request. Clicking it always asks for confirmation first — activation is
-permanent and, once live, the War can no longer be edited (§6.2) — and only proceeds if the
-creator continues past that warning. If the creator also has unsaved metadata edits, that is
-asked about first (save, discard, or cancel); discarding still leads to the same permanence
-warning before anything is actually activated. Confirming navigates to the War's Vote page. A
+**Activate** toggles whether anyone but the creator can currently reach the War — not a
+one-time step, and reversible in either direction (§6.1). Turning it on is disabled with an
+inline reason until the War meets the API's own requirement (at least two contestants) — a
+client-side mirror of a rule the API enforces regardless, so a creator sees why before
+attempting it rather than only after a rejected request. Either direction asks for
+confirmation first, naming what changes (who can now reach it, or who no longer can), and
+stays on the Edit page afterward rather than navigating away — there is nothing left to
+protect by leaving, since a subsequent edit is never blocked by the War's current status. A
 failure the client-side check didn't catch (a race, a network error) shows the API's own
 validation messages verbatim, never generic error copy — these are addressed to the creator,
 and only the creator ever reaches them.

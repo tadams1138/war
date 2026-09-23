@@ -1,6 +1,8 @@
 // The authenticated half of NavBar (the spec, "NavBar"): a single
-// avatar+name control that opens a menu holding Home, My Wars, Create War
-// and Log out — collapsed by default so the persistent chrome stays small.
+// avatar+name control that opens a menu holding My Wars, Create War,
+// Import a War, and Log out — collapsed by default so the persistent
+// chrome stays small. Home lives outside this menu now, as the brand
+// mark every visitor sees regardless of auth state (NavBar.tsx).
 // Fetches identity once per authenticated session, same as before this
 // collapsed behind a menu.
 import { useEffect, useRef, useState } from 'react'
@@ -58,9 +60,6 @@ export function IdentityMenu() {
       </button>
       {open && (
         <div role="menu" aria-label="Account">
-          <NavLink role="menuitem" to="/" end onClick={closeThen()}>
-            Home
-          </NavLink>
           <NavLink role="menuitem" to="/my-wars" onClick={closeThen()}>
             My Wars
           </NavLink>

@@ -71,7 +71,7 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 - **Visual themes** — the three themes render on WarDetail, VoteMode, and Home/My Wars, with
   a per-device, per-War voter override (cookie-based, never synced to the server or other
   devices) and a theme picker on Edit War.
-- **Nav.** The persistent header collapses Home/My Wars/Create War/Log out behind a single
+- **Nav.** The persistent header collapses My Wars/Create War/Log out behind a single
   identity control (avatar + name, top right); logged out shows only Log in. The theme
   picker sits in the nav as a dropdown, always visible, and themes the nav bar itself plus
   the Login and CreateWar pages via a `ThemeContext` that lets WarDetail/VoteMode publish
@@ -79,6 +79,17 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   brand-guideline-accurate provider logos (see the
   google-oauth/facebook-oauth/microsoft-oauth/twitter-x-oauth skills' "Sign-in button
   branding" sections).
+- **Brand mark.** `Logo.tsx` — a faceted hexagon badge (the Arcade Showdown palette) with a
+  13-block mosaic standing in for "W" — sits at the nav bar's leading edge as a Home link
+  (`aria-label="Home"`), shown to every visitor regardless of auth state; Home is no longer a
+  separate item in the identity menu. Fixed colors, not theme tokens — a War's own theme never
+  recolors it, the same way the footer already sits outside per-War theming. The wordmark
+  beside it hides below 480px so the mark still fits one row alongside the theme switcher and
+  identity/login without wrapping (guarded by the vote page's own "no scroll to vote" test).
+  `public/favicon.svg` (vector tab icon) and `apple-touch-icon.png`/`icon-192.png`/
+  `icon-512.png` (rasterized via `sharp`, opaque `#0d0b1a` background — iOS/Android composite
+  transparency badly) plus `manifest.webmanifest` cover the browser tab and Android/iOS
+  home-screen cases; `index.html` links all three.
 - **Editing a draft War.** `PATCH /wars/:id`, `PATCH /wars/:id/contestants/:cId`, and
   `DELETE /wars/:id/contestants/:cId` (all draft-only, creator-only server-side) have a UI
   route, `/wars/:id/edit`, reachable from a draft's own My Wars card. Covers
