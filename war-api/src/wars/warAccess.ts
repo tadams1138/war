@@ -61,23 +61,3 @@ export async function loadOwnedWar(db: Kysely<Database>, warId: string, voterId:
 export function isWarVisibleTo(war: War, now: Date, voterId: string | undefined | null): boolean {
   return effectiveStatus(war, now) !== 'draft' || war.creatorId === voterId;
 }
-
-export type DraftWarAccessOutcome =
-  | { kind: 'ok'; war: War }
-  | { kind: 'notFound' }
-  | { kind: 'forbidden' }
-  | { kind: 'notDraft' };
-
-/** The common case across contestant/media/War-field mutations: draft-only editing. */
-export async function loadDraftWarOwnedBy(
-  db: Kysely<Database>,
-  warId: string,
-  voterId: string,
-  now: Date,
-): Promise<DraftWarAccessOutcome> {
-  const outcome = await loadWarOwnedBy(db, warId, voterId, now, 'draft');
-  if (outcome.kind === 'wrongStatus') {
-    return { kind: 'notDraft' };
-  }
-  return outcome;
-}

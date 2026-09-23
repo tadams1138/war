@@ -1,6 +1,6 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
-import { loadDraftWarOwnedBy } from '../wars/warAccess.js';
+import { loadOwnedWar } from '../wars/warAccess.js';
 import type { War } from '../wars/warsRepository.js';
 import type { MutationOutcome } from '../shared/outcomes.js';
 import { findContestantById, type Contestant } from './contestantsRepository.js';
@@ -8,19 +8,15 @@ import { deleteMedia, findMediaById, setDisplayOrder, type ContestantMedia } fro
 import { uploadContestantImage, type UploadOutcome } from './imageUploadService.js';
 import type { ObjectStorage } from './storage.js';
 
-async function guardDraftOwnedContestant(
+/** A contestant's own media is always editable by the War's creator, in any status (spec §6.1, §6.2). */
+async function guardOwnedContestant(
   db: Kysely<Database>,
   warId: string,
   contestantId: string,
   voterId: string,
   now: Date,
-): Promise<
-  | { kind: 'ok'; war: War; contestant: Contestant }
-  | { kind: 'notFound' }
-  | { kind: 'forbidden' }
-  | { kind: 'notDraft' }
-> {
-  const warGuard = await loadDraftWarOwnedBy(db, warId, voterId, now);
+): Promise<{ kind: 'ok'; war: War; contestant: Contestant } | { kind: 'notFound' } | { kind: 'forbidden' }> {
+  const warGuard = await loadOwnedWar(db, warId, voterId, now);
   if (warGuard.kind !== 'ok') return warGuard;
 
   const contestant = await findContestantById(db, contestantId);
@@ -46,7 +42,7 @@ export async function addContestantImage(
   input: AddImageInput,
   now: Date,
 ): Promise<AddImageOutcome> {
-  const guard = await guardDraftOwnedContestant(db, input.warId, input.contestantId, input.voterId, now);
+  const guard = await guardOwnedContestant(db, input.warId, input.contestantId, input.voterId, now);
   if (guard.kind !== 'ok') return guard;
 
   const outcome: UploadOutcome = await uploadContestantImage(db, storage, {
@@ -72,7 +68,7 @@ export async function reorderContestantMedia(
   displayOrder: number,
   now: Date,
 ): Promise<MutationOutcome<void>> {
-  const guard = await guardDraftOwnedContestant(db, warId, contestantId, voterId, now);
+  const guard = await guardOwnedContestant(db, warId, contestantId, voterId, now);
   if (guard.kind !== 'ok') return guard;
 
   const media = await findMediaById(db, mediaId);
@@ -90,7 +86,7 @@ export async function removeContestantMedia(
   voterId: string,
   now: Date,
 ): Promise<MutationOutcome<void>> {
-  const guard = await guardDraftOwnedContestant(db, warId, contestantId, voterId, now);
+  const guard = await guardOwnedContestant(db, warId, contestantId, voterId, now);
   if (guard.kind !== 'ok') return guard;
 
   const media = await findMediaById(db, mediaId);

@@ -8,9 +8,6 @@ export interface NotFound {
 export interface Forbidden {
   kind: 'forbidden';
 }
-export interface NotDraft {
-  kind: 'notDraft';
-}
 export interface NotPublished {
   kind: 'notPublished';
 }
@@ -19,12 +16,12 @@ export interface ValidationError {
   errors: string[];
 }
 
-/** The common case: not found / not owned / War no longer a draft / invalid input. */
-export type MutationFailure = NotFound | Forbidden | NotDraft | ValidationError;
+/** The common case: not found / not owned / invalid input. */
+export type MutationFailure = NotFound | Forbidden | ValidationError;
 
 /** A common shape for mutation results shared across domain services. The
  * failure set defaults to the common case but is a parameter, so a service
- * needing a different set (e.g. `NotPublished` instead of `NotDraft`) composes
- * its own union instead of the shared type acquiring every state anyone
- * needs, or a bespoke union being declared from scratch. */
+ * needing a different set (e.g. `NotPublished`) composes its own union
+ * instead of the shared type acquiring every state anyone needs, or a
+ * bespoke union being declared from scratch. */
 export type MutationOutcome<T, F extends { kind: string } = MutationFailure> = { kind: 'ok'; value: T } | F;

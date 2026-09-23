@@ -373,7 +373,7 @@ clients need not fetch the schema separately and cannot render fields out of ord
 
 **Images.** Up to ten per contestant, ordered, the first being primary. Uploads are rejected
 if the War is in video mode, if no file is present, if the limit is exceeded, or if the bytes
-are not a readable image. New images append; ordering is editable in draft.
+are not a readable image. New images append; ordering is editable at any time (§6.1).
 
 **Video.** Exactly one per contestant, rejected if the War is in image mode or the contestant
 already has one. See §9.2 for validation.
