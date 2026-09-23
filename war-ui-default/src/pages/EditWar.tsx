@@ -354,6 +354,7 @@ function EditWarDetailPane({
           error={state.metadataError}
           saving={state.savingMetadata}
           onSave={editWar.saveMetadata}
+          onUploadShareImage={editWar.uploadShareImage}
           onDirtyChange={onDirtyChange}
         />
       )}

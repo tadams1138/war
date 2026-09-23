@@ -301,6 +301,13 @@ export async function uploadContestantImages(warId: string, contestantId: string
   return results
 }
 
+export async function uploadShareImage(warId: string, file: File | Blob): Promise<WarSummary> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/share-image`, { method: 'POST', body: formData }))
+  return response.json() as Promise<WarSummary>
+}
+
 export async function patchWar(warId: string, payload: PatchWarPayload): Promise<WarSummary> {
   const response = await ensureOk(
     await apiFetch(`/wars/${warId}`, {

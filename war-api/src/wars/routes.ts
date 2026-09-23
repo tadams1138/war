@@ -5,19 +5,38 @@ import { bearerAuthRoute, optionalAuth, requireAuthIf } from '../auth/plugin.js'
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
 import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
+import { extensionFor } from '../contestants/imageProcessing.js';
+import type { ObjectStorage } from '../contestants/storage.js';
 import { countContestantsByWarIds, countContestantsForWar } from '../contestants/contestantsRepository.js';
 import { presentWarDetail, presentWarSummary, warDetailResponseSchema, warSummaryProperties } from './warPresenter.js';
-import { activateWar, closeWar, createWarForVoter, deleteWar, getWar, joinWar, patchWar } from './warsService.js';
+import { activateWar, closeWar, createWarForVoter, deleteWar, getWar, joinWar, patchWar, setShareImage } from './warsService.js';
 import { closeExpiredWars, listWars } from './warsRepository.js';
 
 export interface WarsRouteDeps {
   db: Kysely<Database>;
   auth: AuthDependencies;
+  storage: ObjectStorage;
   publicBaseUrl: string;
   internalTaskToken: string;
   /** Per-voter War-creation limit (spec §8.4: 10/hour). */
   rateLimiter: RateLimiter;
+  /** The same limiter contestant image uploads use (spec §8.4: 100/hour) --
+   * one shared image-upload bucket per voter, not a separate one for this
+   * route, so it isn't a loophole around that limit. */
+  imageUploadRateLimiter: RateLimiter;
 }
+
+/** Mirrors contestants/routes.ts's own imageUploadErrorResponseSchema -- this
+ * route's 422 also has a no-file shape (`{ error }`) and a validation-error
+ * shape (`{ error, details }`) sharing one status. */
+const shareImageErrorResponseSchema = {
+  type: 'object',
+  required: ['error'],
+  properties: {
+    error: { type: 'string' },
+    details: { type: 'array', items: { type: 'string' } },
+  },
+};
 
 /**
  * "Wants own-Wars scoping" was previously stated three times -- the ajv
@@ -83,7 +102,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         db,
         wars.map((war) => war.id),
       );
-      return reply.send({ wars: wars.map((war) => presentWarSummary(war, now, counts.get(war.id) ?? 0)) });
+      return reply.send({ wars: wars.map((war) => presentWarSummary(war, now, counts.get(war.id) ?? 0, deps.publicBaseUrl)) });
     },
   );
 
@@ -111,7 +130,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return reply.code(422).send({ error: 'validation error', details: outcome.errors });
       }
       // A freshly created War has no contestants yet -- creation only inserts the `wars` row.
-      return reply.code(201).send(presentWarSummary(outcome.war, new Date(), 0));
+      return reply.code(201).send(presentWarSummary(outcome.war, new Date(), 0, deps.publicBaseUrl));
     },
   );
 
@@ -187,7 +206,9 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
-      return reply.send(presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id)));
+      return reply.send(
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+      );
     },
   );
 
@@ -206,7 +227,49 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
-      return reply.send(presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id)));
+      return reply.send(
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+      );
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    '/wars/:id/share-image',
+    bearerAuthRoute(
+      auth,
+      {
+        response: {
+          200: { $ref: 'WarSummary#' },
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+          422: shareImageErrorResponseSchema,
+          429: rateLimitedResponseSchema,
+        },
+      },
+      [rateLimitByVoter(deps.imageUploadRateLimiter)],
+    ),
+    async (request, reply) => {
+      const file = await request.file();
+      if (!file) {
+        return reply.code(422).send({ error: 'no file uploaded' });
+      }
+      const buffer = await file.toBuffer();
+      const outcome = await setShareImage(
+        db,
+        deps.storage,
+        {
+          warId: request.params.id,
+          voterId: request.voterId!,
+          buffer,
+          mimeType: file.mimetype,
+          originalExt: extensionFor(file.mimetype),
+        },
+        new Date(),
+      );
+      if (outcome.kind !== 'ok') {
+        return replyForOutcome(reply, outcome);
+      }
+      return reply.send(presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl));
     },
   );
 
@@ -218,7 +281,9 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
-      return reply.send(presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id)));
+      return reply.send(
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+      );
     },
   );
 

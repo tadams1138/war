@@ -79,9 +79,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       registerWarsRoutes(instance, {
         db: deps.db,
         auth: authDeps,
+        storage: deps.storage,
         publicBaseUrl: deps.config.s3.publicBaseUrl,
         internalTaskToken: deps.config.internalTaskToken,
         rateLimiter: warCreationRateLimiter,
+        imageUploadRateLimiter,
       });
       registerContestantsRoutes(instance, {
         db: deps.db,

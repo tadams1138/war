@@ -91,6 +91,7 @@ describe('response body schemas serialize every field (spec)', () => {
       contestant_schema: [{ key: 'height', label: 'Height', type: 'number' }],
       ends_at: '2026-01-01T00:00:00.000Z',
       contestant_count: 4,
+      share_image_url: 'https://cdn.test/share-images/a5b1e2c4-2222-4a11-8a11-000000000001.jpg',
     };
     const app = buildProbeApp(warSummarySchema, fixture);
 
@@ -114,6 +115,7 @@ describe('response body schemas serialize every field (spec)', () => {
       contestant_schema: [],
       ends_at: null,
       contestant_count: 0,
+      share_image_url: null,
     };
     const app = buildProbeApp(warSummarySchema, fixture);
 

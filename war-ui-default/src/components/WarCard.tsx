@@ -31,6 +31,7 @@ export function WarCard({ war, showEditLink = false, variant = 'my-wars' }: WarC
 function WarCardDetails({ war }: { war: WarSummary }) {
   return (
     <>
+      {war.share_image_url && <img className="war-card-image" src={war.share_image_url} alt="" />}
       <h3>{warTitle(war.title)}</h3>
       {war.category && <p>{war.category}</p>}
       <p>{contestantCountLabel(war.contestant_count)}</p>

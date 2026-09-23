@@ -34,6 +34,7 @@ export interface WarsTable {
   contestant_schema: Generated<unknown>;
   ends_at: Timestamp | null;
   ui_slug: string | null;
+  share_image_key: string | null;
   created_at: GeneratedTimestamp;
 }
 

@@ -2,9 +2,12 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { validateSchemaDefinition, type ContestantSchemaField } from '../contestants/schemaValidation.js';
 import { listContestantsByWar } from '../contestants/contestantsRepository.js';
+import { validateImageUpload } from '../contestants/imageProcessing.js';
+import type { ObjectStorage } from '../contestants/storage.js';
 import { generateMatchups } from '../matchups/matchupsRepository.js';
 import type { Forbidden, MutationOutcome, NotActive, NotFound } from '../shared/outcomes.js';
 import { effectiveStatus } from './effectiveStatus.js';
+import { processShareImage } from './shareImageProcessing.js';
 import { loadDraftWarOwnedBy, loadWarOwnedBy } from './warAccess.js';
 import { isWarTheme } from './theme.js';
 import {
@@ -13,6 +16,7 @@ import {
   deleteWarRow,
   findWarById,
   isMember,
+  setWarShareImageKey,
   setWarStatus,
   updateWar,
   type War,
@@ -240,6 +244,44 @@ export async function activateWar(db: Kysely<Database>, warId: string, voterId: 
   await generateMatchups(db, warId, contestants.map((c) => c.id));
   const activated = await setWarStatus(db, warId, 'active');
   return { kind: 'ok', value: activated };
+}
+
+export interface SetShareImageInput {
+  warId: string;
+  voterId: string;
+  buffer: Buffer;
+  mimeType: string;
+  originalExt: string;
+}
+
+/**
+ * Draft-only, creator-only, same gate as every other Edit War field (spec
+ * §9.1, §10.4) -- not the separate, not-yet-built "always editable"
+ * lifecycle work. Always replaces: one deterministic key per War, so a
+ * second upload overwrites the object in place rather than accumulating,
+ * and the War's own row is the only place "has one" is tracked.
+ */
+export async function setShareImage(
+  db: Kysely<Database>,
+  storage: ObjectStorage,
+  input: SetShareImageInput,
+  now: Date,
+): Promise<MutationOutcome<War>> {
+  const guard = await loadDraftWarOwnedBy(db, input.warId, input.voterId, now);
+  if (guard.kind !== 'ok') return guard;
+
+  const validation = validateImageUpload({ mimeType: input.mimeType, sizeBytes: input.buffer.length });
+  if (!validation.ok) {
+    return { kind: 'validationError', errors: [validation.reason] };
+  }
+
+  const jpeg = await processShareImage(input.buffer);
+  const key = `share-images/${input.warId}.jpg`;
+  await storage.putPublic(key, jpeg, 'image/jpeg');
+  await storage.putPrivate(`originals/share-images/${input.warId}.${input.originalExt}`, input.buffer, input.mimeType);
+
+  const updated = await setWarShareImageKey(db, input.warId, key);
+  return { kind: 'ok', value: updated };
 }
 
 export type CloseOutcome = MutationOutcome<War, NotFound | Forbidden | NotActive>;

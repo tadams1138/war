@@ -14,6 +14,7 @@ function makeWar(overrides: Partial<War> = {}): War {
     theme: 'arcade',
     contestantSchema: [],
     endsAt: null,
+    shareImageKey: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     ...overrides,
   };
@@ -40,7 +41,7 @@ describe('presentWarSummary', () => {
     });
 
     // Act
-    const view = presentWarSummary(war, new Date('2026-01-01T00:00:00Z'), 2);
+    const view = presentWarSummary(war, new Date('2026-01-01T00:00:00Z'), 2, 'https://cdn.test');
 
     // Assert
     expect(view).toEqual({
@@ -54,6 +55,18 @@ describe('presentWarSummary', () => {
       contestant_schema: [],
       ends_at: '2026-02-01T00:00:00.000Z',
       contestant_count: 2,
+      share_image_url: null,
     });
+  });
+
+  it('builds share_image_url from the stored key and publicBaseUrl when the War has one', () => {
+    // Arrange
+    const war = makeWar({ shareImageKey: 'share-images/a5b1e2c4-9999-4a11-8a11-000000000002.jpg' });
+
+    // Act
+    const view = presentWarSummary(war, new Date('2026-01-01T00:00:00Z'), 0, 'https://cdn.test');
+
+    // Assert
+    expect(view.share_image_url).toBe('https://cdn.test/share-images/a5b1e2c4-9999-4a11-8a11-000000000002.jpg');
   });
 });

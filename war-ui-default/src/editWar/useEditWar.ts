@@ -13,6 +13,7 @@ import {
   patchWar,
   reorderContestantMedia,
   uploadContestantImages,
+  uploadShareImage as uploadShareImageApi,
   type ContestantDetail,
   type PatchContestantPayload,
   type PatchWarPayload,
@@ -55,6 +56,7 @@ export type EditWarState =
 
 export interface EditWarActions {
   saveMetadata: (payload: PatchWarPayload) => Promise<void>
+  uploadShareImage: (blob: Blob) => Promise<void>
   saveContestant: (contestantId: string, payload: PatchContestantPayload) => Promise<void>
   addContestant: (name: string, bio: string | null) => Promise<ContestantDetail | null>
   removeContestant: (contestantId: string) => Promise<void>
@@ -143,6 +145,20 @@ export function useEditWar(
       setLoaded((prev) => ({ ...prev, war: { ...prev.war, ...summary }, savingMetadata: false, toast: 'War details saved' }))
     } catch (error) {
       setLoaded((prev) => ({ ...prev, savingMetadata: false, metadataError: toUserMessage(error) }))
+    }
+  }
+
+  // Fired from the metadata form's submit(), before its own PATCH, only
+  // when a pending upload or generated image exists (spec: deferred until
+  // Save). Reloads the War afterward so the saved share_image_url is what
+  // renders, the same reload-after-mutation pattern addImages uses.
+  async function uploadShareImage(blob: Blob): Promise<void> {
+    if (!warId) return
+    try {
+      await uploadShareImageApi(warId, blob)
+      await load()
+    } catch (error) {
+      setLoaded((prev) => ({ ...prev, metadataError: toUserMessage(error) }))
     }
   }
 
@@ -264,6 +280,7 @@ export function useEditWar(
   return {
     state,
     saveMetadata,
+    uploadShareImage,
     saveContestant,
     addContestant,
     removeContestant,

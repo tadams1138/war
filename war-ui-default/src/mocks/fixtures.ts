@@ -62,6 +62,7 @@ export function buildWarSummary(overrides: Partial<WarSummary> = {}): WarSummary
     contestant_schema: [],
     ends_at: null,
     contestant_count: 0,
+    share_image_url: null,
     ...overrides,
   }
 }

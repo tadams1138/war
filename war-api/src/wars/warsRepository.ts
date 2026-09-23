@@ -15,6 +15,7 @@ export interface War {
   theme: string;
   contestantSchema: ContestantSchemaField[];
   endsAt: Date | null;
+  shareImageKey: string | null;
   createdAt: Date;
 }
 
@@ -30,6 +31,7 @@ function toWar(row: Selectable<WarsTable>): War {
     theme: row.theme,
     contestantSchema: (row.contestant_schema ?? []) as ContestantSchemaField[],
     endsAt: row.ends_at ? new Date(row.ends_at) : null,
+    shareImageKey: row.share_image_key,
     createdAt: new Date(row.created_at),
   };
 }
@@ -185,6 +187,16 @@ export async function setWarStatus(db: Kysely<Database>, id: string, status: str
   const row = await db
     .updateTable('wars')
     .set({ status })
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  return toWar(row);
+}
+
+export async function setWarShareImageKey(db: Kysely<Database>, id: string, shareImageKey: string | null): Promise<War> {
+  const row = await db
+    .updateTable('wars')
+    .set({ share_image_key: shareImageKey })
     .where('id', '=', id)
     .returningAll()
     .executeTakeFirstOrThrow();

@@ -415,6 +415,8 @@ export interface paths {
                             /** Format: date-time */
                             ends_at: null | string;
                             contestant_count: number;
+                            /** Format: uri */
+                            share_image_url: null | string;
                             contestants: components["schemas"]["ContestantDetail"][];
                             is_owner: boolean;
                         };
@@ -618,6 +620,89 @@ export interface paths {
                         "application/json": {
                             error: string;
                             details: string[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wars/{id}/share-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WarSummary"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            details?: string[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            retry_after_seconds: number;
                         };
                     };
                 };
@@ -1456,6 +1541,8 @@ export interface components {
             /** Format: date-time */
             ends_at: null | string;
             contestant_count: number;
+            /** Format: uri */
+            share_image_url: null | string;
         };
         ContestantDetail: {
             /** Format: uuid */

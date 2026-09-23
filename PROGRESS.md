@@ -52,6 +52,16 @@ Staging and production both run as a single application per environment containi
   against every configured window regardless of the request's ultimate outcome. The edge's
   address-keyed limits (sign-in, token refresh — spec §8.4's other two rows) are enforced by
   Cloudflare (`war-infra/terraform/shared/main.tf`), not here.
+- **Share image** (spec §4/§9.1). `POST /wars/:id/share-image` (multipart, single file),
+  creator-only and draft-only like every other Edit War mutation. `shareImageProcessing.ts`
+  center-crops to exactly 1200×630 via sharp regardless of the input's own size, encodes JPEG
+  (not the WebP contestant media uses — chosen so the same asset works as a third-party
+  link-preview image without a second encoding), and strips metadata the same way contestant
+  uploads already do. The original is retained privately (`originals/share-images/:warId`);
+  the processed JPEG always overwrites the same deterministic key
+  (`share-images/:warId.jpg`), so re-uploading replaces rather than accumulates. `WarSummary`
+  carries `share_image_url` (nullable) — `presentWarSummary` gained a `publicBaseUrl`
+  parameter to build it, threaded through every route that calls it.
 
 ### Not built
 
@@ -240,6 +250,16 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   "Try again" needed for a mere cooldown. Image upload (`useEditWar.ts`,
   `EditWarContestant.tsx`) shows the wait per contestant and disables that contestant's
   add-image control until the delay passes.
+- **Share image** (spec §4/§10.4), set from Edit War's metadata form two ways: upload a file
+  directly, or `generateShareImage.ts` composites two random qualifying contestants (each
+  needs ≥1 image) into a 1200×630 canvas with a "VS" badge styled per the War's theme,
+  replicating each theme's `.vs-divider` shape/colors/font as Canvas 2D paths (no shared
+  source with the CSS — a manual port, kept in sync by hand). Generating is a re-rollable live
+  preview; the control is disabled with an inline explanation when fewer than two contestants
+  qualify. Neither path uploads anything until **Save** is pressed — `EditWarMetadataForm`
+  holds the pending file/Blob in local state and `submit()` uploads it (if present) before the
+  ordinary metadata PATCH. `WarCard` shows `share_image_url` at the top of the card when a War
+  has one, no placeholder when it doesn't.
 
 ### Not built
 

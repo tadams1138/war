@@ -395,6 +395,14 @@ label {
   display: block;
   padding: 1rem;
 }
+.war-card-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1200 / 630;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
 
 .matchup-view {
   display: flex;
