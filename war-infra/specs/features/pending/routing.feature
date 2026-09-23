@@ -22,6 +22,38 @@ Feature: Routing
     Then index.html is returned with HTTP 200
     And the client-side router handles the route
 
+  Scenario: A War's detail page carries that War's own link-preview tags
+    Given a public War titled "Miss Universe 2026" with a share image
+    When a request is made to /wars/that-war's-id
+    Then the response's <head> includes an og:title of "Miss Universe 2026"
+    And an og:image pointing at that War's share image
+    And a twitter:card of "summary_large_image"
+
+  Scenario: A War with no share image gets title tags but no image tag
+    Given a public War titled "Spelling Bee Champs" with no share image
+    When a request is made to that War's detail page
+    Then the response's <head> includes an og:title of "Spelling Bee Champs"
+    And no og:image tag is present
+    And the twitter:card is "summary"
+
+  Scenario: An untitled War falls back to a generic title, not a blank one
+    Given a draft War with no title set
+    When a request is made to its detail page
+    Then the response's <head> includes an og:title of "War"
+
+  Scenario: A nonexistent War's detail URL still renders, with generic tags
+    Given no War exists with id "does-not-exist"
+    When a request is made to /wars/does-not-exist
+    Then the underlying page still renders exactly as it would without link-preview tags
+    And the response's <head> includes a generic og:title of "War"
+
+  Scenario: Only the War's own detail page gets per-War tags
+    Given a public War titled "Miss Universe 2026"
+    When a request is made to /wars/new
+    And a request is made to /wars/import
+    And a request is made to that War's own /edit and /vote pages
+    Then none of those responses' <head> tags mention that War's title
+
   Scenario: SPA deep links into a custom UI return index.html with status 200
     Given a registered slug "miss-universe-2026"
     When a request is made to /ui/miss-universe-2026/rankings

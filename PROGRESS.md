@@ -271,6 +271,24 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 ---
 
+## war-infra
+
+### Built
+
+- **Link-preview tags** (spec §10.4, "Pasting a War's own link elsewhere"). `edge/og-tags-router.js`,
+  bound to `/wars/*`, rewrites `<head>` with a War's own `og:title`/`og:description`/`og:image`/
+  `twitter:*` tags — a crawler (Facebook, Twitter/X, Slack, Teams, iMessage) never executes the
+  SPA's own client-side `<title>`/meta, so without this every War's link produced the same
+  generic preview. Only the exact detail path `/wars/:id` gets real tags (checked by segment
+  count, `new`/`import` excluded); every other route under `/wars/` (edit, vote, ...) passes
+  through untouched — they serve the identical `index.html` as the detail page (client
+  routing), so this is the one place that would otherwise wrongly tag them too. No image tag
+  when the War has none (no fallback banner exists to point a crawler at instead); a missing
+  title falls back to a generic one, never a blank. `index.html` is never edge-cached, same
+  reasoning `ui-router.js`'s own shell already has.
+
+---
+
 ## Test coverage gaps
 
 - Video mode and three War-expiry scenarios sit unbound in `war-api/specs/features/pending/`

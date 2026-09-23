@@ -51,8 +51,9 @@ variable "ui_custom_cdn_host" {
 locals {
   # Everything not matched by a Worker route proxies to App Platform, which
   # performs the path→component routing.
-  ui_worker_name    = "war-ui-router-${var.env}"
-  media_worker_name = "war-media-router-${var.env}"
+  ui_worker_name      = "war-ui-router-${var.env}"
+  media_worker_name   = "war-media-router-${var.env}"
+  og_tags_worker_name = "war-og-tags-router-${var.env}"
 }
 
 # ── DNS ───────────────────────────────────────────────────────────────────────
@@ -120,6 +121,28 @@ resource "cloudflare_workers_route" "ui_router" {
   script_name = cloudflare_workers_script.ui_router.name
 }
 
+# ── Open Graph tag injector Worker ────────────────────────────────────────────
+# Rewrites <head> on /wars/:id (only) with that War's own og:title/og:image/etc
+# (spec, "War cards" / "10.4 Share image") so a pasted link previews correctly
+# on Facebook/Twitter/Slack/Teams/iMessage — none of which execute the SPA's
+# own client-side <title>/meta. No origin binding needed: edge/og-tags-router.js
+# never changes hostname, so its same-origin fetches resolve straight to App
+# Platform via this zone's own DNS record.
+
+resource "cloudflare_workers_script" "og_tags_router" {
+  account_id         = var.account_id
+  name               = local.og_tags_worker_name
+  content            = file("${path.module}/../../../edge/og-tags-router.js")
+  module             = true
+  compatibility_date = "2025-04-02" # pinned for predictable behaviour, matching the other two Workers; this script sets no cf overrides today
+}
+
+resource "cloudflare_workers_route" "og_tags_router" {
+  zone_id     = var.zone_id
+  pattern     = "${var.domain}/wars/*"
+  script_name = cloudflare_workers_script.og_tags_router.name
+}
+
 # WAF, rate limiting, and cache rules used to live here, one copy per
 # environment. They moved to terraform/shared: staging and production are
 # both subdomains of the same Cloudflare zone (one CLOUDFLARE_ZONE_ID, not
@@ -138,4 +161,8 @@ output "worker_name" {
 
 output "media_worker_name" {
   value = cloudflare_workers_script.media_router.name
+}
+
+output "og_tags_worker_name" {
+  value = cloudflare_workers_script.og_tags_router.name
 }

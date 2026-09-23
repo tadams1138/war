@@ -894,6 +894,13 @@ treatment contestant images already get. Generating requires at least two contes
 image each; the control explains why it's unavailable rather than disappearing silently when
 that isn't met.
 
+**Pasting a War's own link elsewhere** (a chat app, a social post) shows that War's title and,
+when it has one, its share image — the reason the share image exists at all (§4). A War with
+no title or no share image falls back to a generic label and no image respectively, rather
+than a blank or broken preview. This applies to the War's detail page specifically; other
+pages under the same War (editing, voting) are not meant to be shared and carry no such
+preview of their own.
+
 **Delete** removes the War entirely — contestants, media, and every vote (§6.1) — regardless of
 status. **Clear Votes** deletes every vote cast in the War and resets every contestant's
 counters to zero, also regardless of status. Both ask for confirmation first, naming what will
