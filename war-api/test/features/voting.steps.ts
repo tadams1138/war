@@ -6,7 +6,7 @@ import type { Contestant } from '../../src/contestants/contestantsRepository.js'
 import { stableHash } from '../../src/matchups/stableHash.js';
 import type { War } from '../../src/wars/warsRepository.js';
 import {
-  activateWarForTest,
+  publishWarForTest,
   joinWarAsVoter,
   makeDraftWarWithContestants,
   makeVoter,
@@ -22,13 +22,13 @@ interface Setup {
   voterId: string;
 }
 
-async function setupActiveWarWithJoinedVoter(harness: TestHarness, contestantCount: number): Promise<Setup> {
+async function setupPublishedWarWithJoinedVoter(harness: TestHarness, contestantCount: number): Promise<Setup> {
   const creator = await makeVoter(harness.db, 'creator');
   const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, contestantCount);
-  const activated = await activateWarForTest(harness.db, war);
+  const published = await publishWarForTest(harness.db, war);
   const voter = await makeVoter(harness.db, 'voter');
-  await joinWarAsVoter(harness.db, activated.id, voter.id);
-  return { war: activated, contestants, voterId: voter.id };
+  await joinWarAsVoter(harness.db, published.id, voter.id);
+  return { war: published, contestants, voterId: voter.id };
 }
 
 async function getNextMatchup(harness: TestHarness, warId: string, voterId: string) {
@@ -60,8 +60,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let winnerId: string;
     let voteResponse: request.Response;
 
-    Given('a voter who joined an active War', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 2);
+    Given('a voter who joined a published War', async () => {
+      setup = await setupPublishedWarWithJoinedVoter(harness, 2);
     });
 
     And('matchup M has not been voted on by this voter', async () => {
@@ -99,7 +99,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter who voted Contestant A in matchup M', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 2);
+      setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       matchupId = next.body.matchup.id;
       contestantA = next.body.matchup.left.id;
@@ -134,7 +134,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter who voted Contestant A in matchup M', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 2);
+      setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       matchupId = next.body.matchup.id;
       contestantA = next.body.matchup.left.id;
@@ -164,8 +164,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   Scenario('A pairing has no direction', ({ Given, Then, And }) => {
     let setup: Setup;
 
-    Given('contestants A and B in an active War', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 2);
+    Given('contestants A and B in a published War', async () => {
+      setup = await setupPublishedWarWithJoinedVoter(harness, 2);
     });
 
     Then('exactly one matchup exists for that pair', async () => {
@@ -194,7 +194,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let votedMatchupId: string;
 
     Given('a voter who has voted on matchup M', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 3);
+      setup = await setupPublishedWarWithJoinedVoter(harness, 3);
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       votedMatchupId = next.body.matchup.id;
       await postVote(harness, setup.war.id, votedMatchupId, setup.voterId, next.body.matchup.left.id);
@@ -220,8 +220,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let setup: Setup;
     const voted = new Set<string>();
 
-    Given('an active War with 4 contestants and therefore 6 pairs', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 4);
+    Given('a published War with 4 contestants and therefore 6 pairs', async () => {
+      setup = await setupPublishedWarWithJoinedVoter(harness, 4);
     });
 
     When('a voter requests and votes until /matchups/next returns 204', async () => {
@@ -244,8 +244,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let setup: Setup;
     let voterBId: string;
 
-    Given('two voters in the same active War', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 5);
+    Given('two voters in the same published War', async () => {
+      setup = await setupPublishedWarWithJoinedVoter(harness, 5);
       const voterB = await makeVoter(harness.db, 'voter-b');
       voterBId = voterB.id;
       await joinWarAsVoter(harness.db, setup.war.id, voterBId);
@@ -292,8 +292,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let setup: Setup;
     let contestantC: string;
 
-    Given('an active War where contestant C has the lowest appearance_count', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 4);
+    Given('a published War where contestant C has the lowest appearance_count', async () => {
+      setup = await setupPublishedWarWithJoinedVoter(harness, 4);
       const [a, b, c, d] = setup.contestants;
       contestantC = c!.id;
       for (const contestant of [a, b, d]) {
@@ -322,7 +322,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let rightId: string;
 
     Given('a voter served matchup M', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 2);
+      setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       matchupId = next.body.matchup.id;
       leftId = next.body.matchup.left.id;
@@ -363,7 +363,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter with at least two pairs remaining', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 3);
+      setup = await setupPublishedWarWithJoinedVoter(harness, 3);
     });
 
     When('they request /matchups/next', async () => {
@@ -383,7 +383,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let matchupId: string;
 
     Given('a voter served matchup M who never votes on it', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 2);
+      setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       matchupId = next.body.matchup.id;
     });
@@ -413,7 +413,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War in "closed" status', async () => {
-      setup = await setupActiveWarWithJoinedVoter(harness, 2);
+      setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const matchup = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', setup.war.id).executeTakeFirstOrThrow();
       matchupId = matchup.id;
       await harness.app.ready();
@@ -430,8 +430,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(response.status).toBe(403);
     });
 
-    And('the response reason is "war_not_active"', () => {
-      expect(response.body.reason).toBe('war_not_active');
+    And('the response reason is "war_not_published"', () => {
+      expect(response.body.reason).toBe('war_not_published');
     });
   });
 
@@ -441,10 +441,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let voterId: string;
     let response: request.Response;
 
-    Given('an active War', async () => {
+    Given('a published War', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const built = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      war = await activateWarForTest(harness.db, built.war);
+      war = await publishWarForTest(harness.db, built.war);
       contestants = built.contestants;
     });
 

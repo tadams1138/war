@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeVoter, makeDraftWar, makeDraftWarWithContestants, activateWarForTest, closeWarForTest } from '../setup/fixtures.js';
+import { makeVoter, makeDraftWar, makeDraftWarWithContestants, publishWarForTest, closeWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -44,7 +44,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
           const { war: activeWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
             title: 'Public Active War',
           });
-          const active = await activateWarForTest(harness.db, activeWar);
+          const active = await publishWarForTest(harness.db, activeWar);
           activeWarId = active.id;
 
           await makeDraftWar(harness.db, creator.id, { title: 'Public Draft War' });
@@ -52,14 +52,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
           const { war: closedWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
             title: 'Public Closed War',
           });
-          const activatedClosed = await activateWarForTest(harness.db, closedWar);
+          const activatedClosed = await publishWarForTest(harness.db, closedWar);
           await closeWarForTest(harness.db, activatedClosed);
 
           const { war: inviteOnlyWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
             title: 'Active Invite Only War',
             visibility: 'invite_only',
           });
-          await activateWarForTest(harness.db, inviteOnlyWar);
+          await publishWarForTest(harness.db, inviteOnlyWar);
         },
       );
 
@@ -108,7 +108,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
         title: 'Closed Invite Only War',
         visibility: 'invite_only',
       });
-      const active = await activateWarForTest(harness.db, war);
+      const active = await publishWarForTest(harness.db, war);
       const closed = await closeWarForTest(harness.db, active);
       closedInviteOnlyWarId = closed.id;
     });

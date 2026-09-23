@@ -11,8 +11,8 @@ export interface Forbidden {
 export interface NotDraft {
   kind: 'notDraft';
 }
-export interface NotActive {
-  kind: 'notActive';
+export interface NotPublished {
+  kind: 'notPublished';
 }
 export interface ValidationError {
   kind: 'validationError';
@@ -24,7 +24,7 @@ export type MutationFailure = NotFound | Forbidden | NotDraft | ValidationError;
 
 /** A common shape for mutation results shared across domain services. The
  * failure set defaults to the common case but is a parameter, so a service
- * needing a different set (e.g. `NotActive` instead of `NotDraft`) composes
+ * needing a different set (e.g. `NotPublished` instead of `NotDraft`) composes
  * its own union instead of the shared type acquiring every state anyone
  * needs, or a bespoke union being declared from scratch. */
 export type MutationOutcome<T, F extends { kind: string } = MutationFailure> = { kind: 'ok'; value: T } | F;

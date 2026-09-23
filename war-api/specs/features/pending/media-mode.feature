@@ -10,10 +10,10 @@ Feature: Media Mode
     When a video URL is attached to a contestant
     Then the response status is 409
 
-  Scenario: Activation requires media matching the mode
+  Scenario: Publishing requires media matching the mode
     Given a draft War with media_mode video
     And a contestant with no video attached
-    When the creator activates the War
+    When the creator publishes the War
     Then the response status is 422
     And the War remains draft
 

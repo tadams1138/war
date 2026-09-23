@@ -5,7 +5,7 @@ import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { countVotesByVoterInWar } from '../../src/matchups/matchupsRepository.js';
 import { findVote } from '../../src/votes/votesRepository.js';
-import { activateWarForTest, makeContestant, makeDraftWar, makeDraftWarWithContestants, makeVoter, joinWarAsVoter } from '../setup/fixtures.js';
+import { publishWarForTest, makeContestant, makeDraftWar, makeDraftWarWithContestants, makeVoter, joinWarAsVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -76,7 +76,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('a voter who has cast 60 votes within one minute', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, CONTESTANTS_FOR_60_PLUS_MATCHUPS);
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
       const voter = await makeVoter(harness.db, 'voter');
       voterId = voter.id;
@@ -110,7 +110,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // reaching the limit does not consume voter B's own bucket.
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, CONTESTANTS_FOR_60_PLUS_MATCHUPS);
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
 
       const throttledVoter = await makeVoter(harness.db, 'voter-a');
@@ -145,7 +145,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('a voter who is being rate limited', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, CONTESTANTS_FOR_60_PLUS_MATCHUPS);
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
       const voter = await makeVoter(harness.db, 'voter');
       voterId = voter.id;

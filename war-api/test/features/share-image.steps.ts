@@ -3,7 +3,7 @@ import sharp from 'sharp';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeVoter, makeDraftWar, makeContestant, giveContestantAnImage, activateWarForTest } from '../setup/fixtures.js';
+import { makeVoter, makeDraftWar, makeContestant, giveContestantAnImage, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import type { War } from '../../src/wars/warsRepository.js';
@@ -128,7 +128,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then("the War's share_image_url points at the new image", async () => {
       expect(response.status).toBe(200);
-      const detail = await request(harness.app.server).get(`/api/v1/wars/${war.id}`);
+      const jwt = await harness.jwtFor(creatorId);
+      const detail = await request(harness.app.server).get(`/api/v1/wars/${war.id}`).set('Authorization', `Bearer ${jwt}`);
       // Same deterministic key every time (spec: replaces, not accumulates)
       // -- the URL string itself doesn't change, but the bytes behind it do.
       expect(detail.body.share_image_url).toBe(firstUrl);
@@ -172,25 +173,25 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A War that has left draft cannot have its share image changed', ({ Given, When, Then }) => {
+  Scenario("A published War's share image can still be changed", ({ Given, When, Then }) => {
     let war: War;
     let response: request.Response;
 
-    Given('an active War owned by its creator', async () => {
+    Given('a published War owned by its creator', async () => {
       const draft = await makeDraftWar(harness.db, creatorId);
       const a = await makeContestant(harness.db, draft.id, 'A');
       const b = await makeContestant(harness.db, draft.id, 'B');
       await giveContestantAnImage(harness.db, harness.storage, a.id);
       await giveContestantAnImage(harness.db, harness.storage, b.id);
-      war = await activateWarForTest(harness.db, draft);
+      war = await publishWarForTest(harness.db, draft);
     });
 
     When('the creator uploads a share image', async () => {
       response = await uploadShareImage(war.id, creatorId, await jpeg(1200, 630));
     });
 
-    Then('the response status is 403', () => {
-      expect(response.status).toBe(403);
+    Then('the response status is 200', () => {
+      expect(response.status).toBe(200);
     });
   });
 
@@ -203,7 +204,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('any endpoint returns that War', async () => {
-      response = await request(harness.app.server).get(`/api/v1/wars/${war.id}`);
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server).get(`/api/v1/wars/${war.id}`).set('Authorization', `Bearer ${jwt}`);
     });
 
     Then('its share_image_url is null', () => {

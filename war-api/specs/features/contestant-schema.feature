@@ -33,7 +33,7 @@ Feature: Contestant Schema
     When a contestant supplies them in the opposite order
     Then the resolved attributes list country before age
 
-  Scenario: The schema is fixed once a War is active
-    Given an active War
+  Scenario: The schema is fixed once a War is published
+    Given a published War
     When its contestant_schema is modified
-    Then the response status is 403
+    Then the response status is 422

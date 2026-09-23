@@ -132,7 +132,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     // private "originals/" prefix ever appears in the public object store,
     // and that no endpoint's response ever advertises such a URL.
     When('it is requested through the public media path', async () => {
-      warResponse = await request(harness.app.server).get(`/api/v1/wars/${warId}`);
+      const jwt = await harness.jwtFor(creatorId);
+      warResponse = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
     });
 
     Then('it is not served', () => {
@@ -157,7 +158,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('any endpoint returns that contestant', async () => {
-      warResponse = await request(harness.app.server).get(`/api/v1/wars/${warId}`);
+      const jwt = await harness.jwtFor(creatorId);
+      warResponse = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
     });
 
     Then('each image includes a variants array with width and url', () => {

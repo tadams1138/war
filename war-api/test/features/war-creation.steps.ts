@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeVoter, makeDraftWar, makeDraftWarWithContestants, activateWarForTest } from '../setup/fixtures.js';
+import { makeVoter, makeDraftWar, makeDraftWarWithContestants, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -202,7 +202,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And("it appears in the War's contestant list", async () => {
-      const warResponse = await request(harness.app.server).get(`/api/v1/wars/${warId}`);
+      const jwt = await harness.jwtFor(creatorId);
+      const warResponse = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
       const names = (warResponse.body.contestants as { name: string }[]).map((c) => c.name);
       expect(names).toContain('Maria');
     });
@@ -253,16 +254,16 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A contestant cannot be added once the War is active', ({ Given, When, Then }) => {
+  Scenario('A contestant can be added even once the War is published', ({ Given, When, Then }) => {
     let warId: string;
     let creatorId: string;
     let response: request.Response;
 
-    Given('an active War', async () => {
+    Given('a published War', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
-      await activateWarForTest(harness.db, war);
+      await publishWarForTest(harness.db, war);
       warId = war.id;
     });
 
@@ -270,8 +271,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       response = await authedPost(creatorId, `/api/v1/wars/${warId}/contestants`, { name: 'Latecomer' });
     });
 
-    Then('the response status is 403', () => {
-      expect(response.status).toBe(403);
+    Then('the contestant is created', () => {
+      expect(response.status).toBe(201);
     });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { castVote, findVote } from '../../src/votes/votesRepository.js';
-import { activateWarForTest, joinWarAsVoter, makeDraftWarWithContestants, makeVoter } from '../setup/fixtures.js';
+import { publishWarForTest, joinWarAsVoter, makeDraftWarWithContestants, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import type { Matchup } from '../../src/matchups/matchupsRepository.js';
@@ -23,7 +23,7 @@ describe('castVote concurrency (spec, idempotent retry)', () => {
   async function setup(): Promise<{ matchup: Matchup; voterId: string }> {
     const creator = await makeVoter(harness.db, 'creator');
     const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-    const activated = await activateWarForTest(harness.db, war);
+    const activated = await publishWarForTest(harness.db, war);
     const voter = await makeVoter(harness.db, 'voter');
     await joinWarAsVoter(harness.db, activated.id, voter.id);
     const row = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', activated.id).executeTakeFirstOrThrow();

@@ -27,6 +27,20 @@ function toVote(row: {
   };
 }
 
+/** Deletes every vote cast on any of the given matchups (contestant removal, spec §6.1: "clears those votes... scoped to that contestant's own matchups only"). */
+export async function deleteVotesForMatchups(db: Kysely<Database>, matchupIds: string[]): Promise<void> {
+  if (matchupIds.length === 0) return;
+  await db.deleteFrom('votes').where('matchup_id', 'in', matchupIds).execute();
+}
+
+/** Deletes every vote cast anywhere in a War (Clear Votes, spec §6.1: "deletes every vote cast in the War"). */
+export async function deleteVotesForWar(db: Kysely<Database>, warId: string): Promise<void> {
+  await db
+    .deleteFrom('votes')
+    .where('matchup_id', 'in', (eb) => eb.selectFrom('matchups').select('id').where('war_id', '=', warId))
+    .execute();
+}
+
 export async function findVote(db: Kysely<Database>, matchupId: string, voterId: string): Promise<Vote | undefined> {
   const row = await db
     .selectFrom('votes')

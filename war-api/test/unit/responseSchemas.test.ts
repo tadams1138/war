@@ -215,9 +215,9 @@ describe('response body schemas serialize every field (spec)', () => {
     expect(response.body).toBe(JSON.stringify(fixture));
   });
 
-  it('VoteForbiddenView: war_not_active', async () => {
+  it('VoteForbiddenView: war_not_published', async () => {
     // Arrange
-    const fixture: VoteForbiddenView = { error: 'War is not active', reason: 'war_not_active' };
+    const fixture: VoteForbiddenView = { error: 'War is not published', reason: 'war_not_published' };
     const app = buildProbeApp(voteForbiddenResponseSchema, fixture);
 
     // Act

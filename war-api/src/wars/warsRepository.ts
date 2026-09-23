@@ -90,7 +90,7 @@ export interface ListWarsFilter {
 
 /**
  * The ownership-scoping decision (own Wars, every status, vs. the default
- * public/active scoping), extracted purely to keep `listWars`'s own branch
+ * public/published scoping), extracted purely to keep `listWars`'s own branch
  * count down -- it's one cohesive rule, not several independent filters,
  * and reads better as its own named step. Builds the base query itself so
  * its return type is inferred from actual `.where()` usage rather than
@@ -108,12 +108,12 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
   // `draft` War, never an `invite_only` one, regardless of any `status`
   // filter supplied -- `status=draft` returns empty rather than another
   // voter's drafts, since `status != 'draft'` and `status = 'draft'` can
-  // never both hold. Omitting `status` entirely defaults to `active`.
+  // never both hold. Omitting `status` entirely defaults to `published`.
   // This is the one place that rule is enforced; every caller of
   // `listWars` inherits it, so a future caller cannot bypass it by
   // forgetting to ask.
   return query
-    .where('status', '=', filter.status ?? 'active')
+    .where('status', '=', filter.status ?? 'published')
     .where('status', '!=', 'draft')
     .where('visibility', '!=', 'invite_only');
 }
@@ -208,7 +208,7 @@ export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise
   const rows = await db
     .updateTable('wars')
     .set({ status: 'closed' })
-    .where('status', '=', 'active')
+    .where('status', '=', 'published')
     .where('ends_at', 'is not', null)
     .where('ends_at', '<=', now)
     .returning('id')
@@ -217,27 +217,34 @@ export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise
 }
 
 /**
- * Removes a draft War and its contestants (`deleteWar` in `warsService.ts`
- * only ever calls this once `loadDraftWarOwnedBy` has confirmed draft
- * status, so there are never matchups, votes, or memberships to clean up --
- * those only exist from activation onward). Contestant media rows go first,
- * matching `deleteContestant`'s own precedent of leaving the underlying
- * storage objects in place rather than reaching into the object store.
+ * Removes a War and everything it owns, in any status (spec §6.1
+ * "Deletion") -- votes and matchups now exist well before publishing
+ * (matchups generate incrementally as contestants are added, §4), so unlike
+ * the old draft-only version this must clean up every dependent table, in
+ * FK dependency order, in one transaction: none of `20260101000000_init.sql`'s
+ * foreign keys cascade. Contestant media rows go first, matching
+ * `deleteContestant`'s own precedent of leaving the underlying storage
+ * objects in place rather than reaching into the object store.
  */
 export async function deleteWarRow(db: Kysely<Database>, warId: string): Promise<void> {
-  const contestantIds = await db.selectFrom('contestants').select('id').where('war_id', '=', warId).execute();
-  if (contestantIds.length > 0) {
-    await db
-      .deleteFrom('contestant_media')
-      .where(
-        'contestant_id',
-        'in',
-        contestantIds.map((row) => row.id),
-      )
-      .execute();
-  }
-  await db.deleteFrom('contestants').where('war_id', '=', warId).execute();
-  await db.deleteFrom('wars').where('id', '=', warId).execute();
+  await db.transaction().execute(async (trx) => {
+    const matchupRows = await trx.selectFrom('matchups').select('id').where('war_id', '=', warId).execute();
+    const matchupIds = matchupRows.map((row) => row.id);
+    if (matchupIds.length > 0) {
+      await trx.deleteFrom('votes').where('matchup_id', 'in', matchupIds).execute();
+      await trx.deleteFrom('matchups').where('id', 'in', matchupIds).execute();
+    }
+
+    const contestantRows = await trx.selectFrom('contestants').select('id').where('war_id', '=', warId).execute();
+    const contestantIds = contestantRows.map((row) => row.id);
+    if (contestantIds.length > 0) {
+      await trx.deleteFrom('contestant_media').where('contestant_id', 'in', contestantIds).execute();
+    }
+
+    await trx.deleteFrom('contestants').where('war_id', '=', warId).execute();
+    await trx.deleteFrom('war_memberships').where('war_id', '=', warId).execute();
+    await trx.deleteFrom('wars').where('id', '=', warId).execute();
+  });
 }
 
 export async function createMembership(db: Kysely<Database>, warId: string, voterId: string): Promise<void> {

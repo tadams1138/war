@@ -1,24 +1,24 @@
 Feature: War Expiry
 
   Scenario: An expired War reports as closed before the close task runs
-    Given an active War whose ends_at passed one minute ago
+    Given a published War whose ends_at passed one minute ago
     And the close-expired-wars task has not yet run
     When anyone GETs /api/v1/wars/:id
     Then the response status field is "closed"
 
   Scenario: Voting is rejected the moment a War expires
-    Given an active War whose ends_at passed one second ago
+    Given a published War whose ends_at passed one second ago
     And the close-expired-wars task has not yet run
     When a joined voter POSTs a vote
     Then the response status is 403
 
   Scenario: A War with no end date never expires
-    Given an active War with ends_at set to NULL
+    Given a published War with ends_at set to NULL
     When the close-expired-wars task runs
-    Then the War remains "active"
+    Then the War remains "published"
 
   Scenario: The close task materialises the stored status
-    Given an active War whose ends_at passed six hours ago
+    Given a published War whose ends_at passed six hours ago
     When the close-expired-wars task runs
     Then the stored status column becomes "closed"
     And the response reports 1 War closed

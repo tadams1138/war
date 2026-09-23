@@ -6,7 +6,7 @@ import {
   makeVoter,
   makeDraftWar,
   makeDraftWarWithContestants,
-  activateWarForTest,
+  publishWarForTest,
   closeWarForTest,
 } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
@@ -57,13 +57,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const { war: activeWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, {
         title: 'My Active War',
       });
-      const active = await activateWarForTest(harness.db, activeWar);
+      const active = await publishWarForTest(harness.db, activeWar);
       activeId = active.id;
 
       const { war: closedWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, {
         title: 'My Closed War',
       });
-      const activatedClosed = await activateWarForTest(harness.db, closedWar);
+      const activatedClosed = await publishWarForTest(harness.db, closedWar);
       const closed = await closeWarForTest(harness.db, activatedClosed);
       closedId = closed.id;
     });
@@ -73,7 +73,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, other.id, 2, {
         title: "Someone Else's War",
       });
-      await activateWarForTest(harness.db, war);
+      await publishWarForTest(harness.db, war);
     });
 
     When('they GET /api/v1/wars?creator=me', async () => {
@@ -103,7 +103,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const { war: activeWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, {
         title: 'My Active War',
       });
-      await activateWarForTest(harness.db, activeWar);
+      await publishWarForTest(harness.db, activeWar);
     });
 
     And('another voter has created a draft War', async () => {

@@ -1,8 +1,8 @@
 import type { FastifyReply } from 'fastify';
-import type { Forbidden, NotActive, NotDraft, NotFound, ValidationError } from './outcomes.js';
+import type { Forbidden, NotDraft, NotFound, NotPublished, ValidationError } from './outcomes.js';
 
 /** Every non-'ok' outcome kind a domain service in this codebase returns. */
-export type HttpFailure = NotFound | Forbidden | NotDraft | NotActive | ValidationError;
+export type HttpFailure = NotFound | Forbidden | NotDraft | NotPublished | ValidationError;
 
 /**
  * The response body JSON Schema for the `{ "error": string }` shape every
@@ -46,7 +46,7 @@ const STATUS_BY_KIND: Record<HttpFailure['kind'], number> = {
   notFound: 404,
   forbidden: 403,
   notDraft: 403,
-  notActive: 403,
+  notPublished: 403,
   validationError: 422,
 };
 
@@ -54,7 +54,7 @@ const MESSAGE_BY_KIND: Record<HttpFailure['kind'], string> = {
   notFound: 'not found',
   forbidden: 'forbidden',
   notDraft: 'War is no longer editable',
-  notActive: 'War is not active',
+  notPublished: 'War is not published',
   validationError: 'validation error',
 };
 

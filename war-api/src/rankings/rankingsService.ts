@@ -5,6 +5,7 @@ import { listMediaByContestants } from '../contestants/contestantMediaRepository
 import { presentMedia } from '../contestants/mediaPresenter.js';
 import { contestantViewSchema, type ContestantView } from '../contestants/contestantPresenter.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
+import { isWarVisibleTo } from '../wars/warAccess.js';
 import { findWarById, isMember } from '../wars/warsRepository.js';
 import { THEMES } from '../wars/theme.js';
 import { rankContestants } from './scoring.js';
@@ -36,7 +37,7 @@ export const rankingsResponseSchema = {
   required: ['war_id', 'status', 'theme', 'updated_at', 'rankings'],
   properties: {
     war_id: { type: 'string', format: 'uuid' },
-    status: { type: 'string', enum: ['draft', 'active', 'closed'] },
+    status: { type: 'string', enum: ['draft', 'published', 'closed'] },
     theme: { type: 'string', enum: [...THEMES] },
     updated_at: { type: 'string', format: 'date-time' },
     rankings: {
@@ -88,6 +89,12 @@ export async function rankingsFor(
 ): Promise<RankingsOutcome> {
   const war = await findWarById(db, warId);
   if (!war) {
+    return { kind: 'notFound' };
+  }
+  // A War not currently published is invisible to anyone but its creator
+  // (spec §6.1) -- rankings report it as not found, identically to an
+  // actually-missing War.
+  if (!isWarVisibleTo(war, now, viewerId)) {
     return { kind: 'notFound' };
   }
 

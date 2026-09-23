@@ -58,7 +58,7 @@ Feature: War Creation
     When Voter B POSTs a contestant to it
     Then the response status is 403
 
-  Scenario: A contestant cannot be added once the War is active
-    Given an active War
+  Scenario: A contestant can be added even once the War is published
+    Given a published War
     When its creator POSTs a new contestant
-    Then the response status is 403
+    Then the contestant is created

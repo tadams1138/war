@@ -1,7 +1,7 @@
 Feature: Voting
 
   Scenario: Voter casts a vote
-    Given a voter who joined an active War
+    Given a voter who joined a published War
     And matchup M has not been voted on by this voter
     When they POST /vote with a valid winner_id
     Then a Vote record is created
@@ -23,7 +23,7 @@ Feature: Voting
     And no counters change
 
   Scenario: A pairing has no direction
-    Given contestants A and B in an active War
+    Given contestants A and B in a published War
     Then exactly one matchup exists for that pair
     And attempting to insert the mirrored pairing violates a constraint
 
@@ -33,17 +33,17 @@ Feature: Voting
     Then matchup M is never returned
 
   Scenario: Every pair is served before completion
-    Given an active War with 4 contestants and therefore 6 pairs
+    Given a published War with 4 contestants and therefore 6 pairs
     When a voter requests and votes until /matchups/next returns 204
     Then they have voted on all 6 pairs exactly once
 
   Scenario: Pair order is randomised but stable per voter
-    Given two voters in the same active War
+    Given two voters in the same published War
     Then the order pairs are served in differs between them
     And each voter's own order is identical across repeated requests
 
   Scenario: Pair selection favours the least-shown contestants
-    Given an active War where contestant C has the lowest appearance_count
+    Given a published War where contestant C has the lowest appearance_count
     When a voter requests /matchups/next
     And they have unvoted pairs both containing and not containing C
     Then the returned pair contains C
@@ -70,10 +70,10 @@ Feature: Voting
     Given a War in "closed" status
     When a voter POSTs a vote
     Then the response status is 403
-    And the response reason is "war_not_active"
+    And the response reason is "war_not_published"
 
   Scenario: Non-joined voter cannot vote
-    Given an active War
+    Given a published War
     And an authenticated voter who has not joined
     When they POST a vote
     Then the response status is 403

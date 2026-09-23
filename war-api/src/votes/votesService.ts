@@ -11,7 +11,7 @@ export type CastVoteOutcome =
   | { kind: 'retried' }
   | { kind: 'conflict' }
   | { kind: 'invalidWinner' }
-  | { kind: 'warNotActive' }
+  | { kind: 'warNotPublished' }
   | { kind: 'notJoined' }
   | { kind: 'notFound' };
 
@@ -27,15 +27,15 @@ function outcomeForVote(recordedWinnerId: string, winnerId: string): CastVoteOut
   return recordedWinnerId === winnerId ? { kind: 'retried' } : { kind: 'conflict' };
 }
 
-/** The War itself must exist, be active by effective status, and have this voter as a member. */
-async function resolveActiveJoinedWar(
+/** The War itself must exist, be published by effective status, and have this voter as a member. */
+async function resolvePublishedJoinedWar(
   db: Kysely<Database>,
   input: CastVoteInput,
   now: Date,
 ): Promise<CastVoteOutcome | null> {
   const war = await findWarById(db, input.warId);
   if (!war) return { kind: 'notFound' };
-  if (effectiveStatus(war, now) !== 'active') return { kind: 'warNotActive' };
+  if (effectiveStatus(war, now) !== 'published') return { kind: 'warNotPublished' };
   if (!(await isMember(db, input.warId, input.voterId))) return { kind: 'notJoined' };
   return null;
 }
@@ -67,13 +67,13 @@ async function insertOrIdempotentOutcome(
   return { kind: 'created', vote: result.vote };
 }
 
-/** Casts a vote, enforcing the spec's rules: active War, joined voter, valid winner, final vote. */
+/** Casts a vote, enforcing the spec's rules: published War, joined voter, valid winner, final vote. */
 export async function castVoteForVoter(
   db: Kysely<Database>,
   input: CastVoteInput,
   now: Date = new Date(),
 ): Promise<CastVoteOutcome> {
-  const warOutcome = await resolveActiveJoinedWar(db, input, now);
+  const warOutcome = await resolvePublishedJoinedWar(db, input, now);
   if (warOutcome) return warOutcome;
 
   const matchupResolution = await resolveValidMatchup(db, input);

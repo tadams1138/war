@@ -510,18 +510,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario("The activate endpoint's response schemas cover its status variations", ({ When, Then, And }) => {
+  Scenario("The publish endpoint's response schemas cover its status variations", ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
       ({ response, document } = await fetchDocument(harness));
     });
 
-    Then('the POST /api/v1/wars/{id}/activate 200 response schema requires "id", "title", and "status"', () => {
-      const schema = responseSchema(document, '/wars/{id}/activate', 'post', '200');
+    Then('the POST /api/v1/wars/{id}/publish 200 response schema requires "id", "title", and "status"', () => {
+      const schema = responseSchema(document, '/wars/{id}/publish', 'post', '200');
       expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'title', 'status']));
     });
 
     And('its 422 response schema requires "error" and "details"', () => {
-      const schema = responseSchema(document, '/wars/{id}/activate', 'post', '422');
+      const schema = responseSchema(document, '/wars/{id}/publish', 'post', '422');
       expect(schema.required ?? []).toEqual(expect.arrayContaining(['error', 'details']));
     });
   });

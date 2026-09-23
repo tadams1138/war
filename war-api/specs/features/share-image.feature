@@ -32,10 +32,10 @@ Feature: Share Image
     When a voter who is not its creator uploads a share image
     Then the response status is 403
 
-  Scenario: A War that has left draft cannot have its share image changed
-    Given an active War owned by its creator
+  Scenario: A published War's share image can still be changed
+    Given a published War owned by its creator
     When the creator uploads a share image
-    Then the response status is 403
+    Then the response status is 200
 
   Scenario: A War with no share image has none in its response
     Given a draft War with no share image

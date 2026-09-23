@@ -3,7 +3,7 @@ import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import {
-  activateWarForTest,
+  publishWarForTest,
   joinWarAsVoter,
   makeDraftWarWithContestants,
   makeVoter,
@@ -33,10 +33,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let warId: string;
     let response: request.Response;
 
-    Given('a public War in "active" status', async () => {
+    Given('a public War in "published" status', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { visibility: 'public' });
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
     });
 
@@ -59,7 +59,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('Contestant A has 320 wins and Contestant B has 300 wins', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
       [idA, idB] = contestants.map((c) => c.id) as [string, string];
       await setCounts(harness, idA, 320, 400);
@@ -89,7 +89,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('Contestants A and B both have 50 wins', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
       [idA, idB] = contestants.map((c) => c.id) as [string, string];
     });
@@ -122,7 +122,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('Contestant A has 3 wins from 3 appearances', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
       [idA, idB] = contestants.map((c) => c.id) as [string, string];
       await setCounts(harness, idA, 3, 3);
@@ -154,7 +154,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('Contestant C has an appearance_count of 0', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
       idC = contestants[1]!.id;
       await setCounts(harness, contestants[0]!.id, 5, 10);
@@ -180,10 +180,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let warId: string;
     let voterId: string;
 
-    Given('an active War that has received several hundred votes', async () => {
+    Given('a published War that has received several hundred votes', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 5);
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
 
       // 5 contestants → 10 pairs; simulate many voters so appearance_counts
@@ -226,7 +226,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('a public War', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const war = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { visibility: 'public' });
-      const activated = await activateWarForTest(harness.db, war.war);
+      const activated = await publishWarForTest(harness.db, war.war);
       warId = activated.id;
     });
 
@@ -248,7 +248,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('an invite_only War', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { visibility: 'invite_only' });
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
       const member = await makeVoter(harness.db, 'member');
       memberId = member.id;
@@ -273,7 +273,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('an invite_only War', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { visibility: 'invite_only' });
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
     });
 
@@ -297,7 +297,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
         visibility: 'public',
         theme: 'fight_card',
       });
-      const activated = await activateWarForTest(harness.db, war);
+      const activated = await publishWarForTest(harness.db, war);
       warId = activated.id;
     });
 

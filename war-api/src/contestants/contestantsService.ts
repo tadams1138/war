@@ -1,13 +1,21 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
-import { loadDraftWarOwnedBy } from '../wars/warAccess.js';
+import { loadOwnedWar } from '../wars/warAccess.js';
 import type { War } from '../wars/warsRepository.js';
 import type { MutationOutcome } from '../shared/outcomes.js';
+import {
+  deleteMatchupsByIds,
+  findMatchupIdsForContestant,
+  generateMatchupsForNewContestant,
+} from '../matchups/matchupsRepository.js';
+import { deleteVotesForMatchups } from '../votes/votesRepository.js';
 import { validateAttributes, type ContestantSchemaField } from './schemaValidation.js';
 import {
   createContestant,
   deleteContestant,
   findContestantById,
+  listContestantsByWar,
+  recomputeContestantCounters,
   updateContestant,
   type Contestant,
 } from './contestantsRepository.js';
@@ -74,7 +82,7 @@ export async function addContestant(
   input: CreateContestantInput,
   now: Date,
 ): Promise<MutationOutcome<ContestantWithWar>> {
-  const guard = await loadDraftWarOwnedBy(db, input.warId, input.voterId, now);
+  const guard = await loadOwnedWar(db, input.warId, input.voterId, now);
   if (guard.kind !== 'ok') return guard;
   const { war } = guard;
 
@@ -87,12 +95,22 @@ export async function addContestant(
     return { kind: 'validationError', errors: NAME_LENGTH_ERROR };
   }
 
+  const existing = await listContestantsByWar(db, input.warId);
   const contestant = await createContestant(db, {
     warId: input.warId,
     name: input.name,
     bio: input.bio ?? null,
     attributes: attributesResult.attributes,
   });
+  // Matchups generate incrementally: this new contestant is paired against
+  // every contestant already on the roster, not recomputed for the whole
+  // War (spec §4 "Matchup").
+  await generateMatchupsForNewContestant(
+    db,
+    input.warId,
+    contestant.id,
+    existing.map((c) => c.id),
+  );
   return { kind: 'ok', value: { contestant, war } };
 }
 
@@ -110,7 +128,7 @@ export async function patchContestant(
   input: PatchContestantInput,
   now: Date,
 ): Promise<MutationOutcome<ContestantWithWar>> {
-  const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
+  const guard = await loadOwnedWar(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
   const { war } = guard;
 
@@ -133,6 +151,15 @@ export async function patchContestant(
   return { kind: 'ok', value: { contestant: updated, war } };
 }
 
+/**
+ * Removes a contestant, any status, creator-only (spec §6.1). A contestant
+ * with no votes on its matchups is simply removed; one that does carry
+ * votes has those votes cleared as part of removing it -- scoped to that
+ * contestant's own matchups only, never the whole War -- and every
+ * surviving contestant's counters are recomputed from what remains
+ * afterward. All in one transaction so a failure partway never leaves a
+ * matchup or vote orphaned from a contestant that no longer exists.
+ */
 export async function removeContestant(
   db: Kysely<Database>,
   warId: string,
@@ -140,12 +167,22 @@ export async function removeContestant(
   voterId: string,
   now: Date,
 ): Promise<MutationOutcome<void>> {
-  const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
+  const guard = await loadOwnedWar(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
 
   const contestant = await findContestantInWar(db, warId, contestantId);
   if (!contestant) return { kind: 'notFound' };
 
-  await deleteContestant(db, contestantId);
+  await db.transaction().execute(async (trx) => {
+    const matchupIds = await findMatchupIdsForContestant(trx, warId, contestantId);
+    if (matchupIds.length > 0) {
+      await deleteVotesForMatchups(trx, matchupIds);
+      await deleteMatchupsByIds(trx, matchupIds);
+    }
+    await deleteContestant(trx, contestantId);
+    if (matchupIds.length > 0) {
+      await recomputeContestantCounters(trx, warId);
+    }
+  });
   return { kind: 'ok', value: undefined };
 }

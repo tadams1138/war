@@ -1,14 +1,14 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { validateSchemaDefinition, type ContestantSchemaField } from '../contestants/schemaValidation.js';
-import { listContestantsByWar } from '../contestants/contestantsRepository.js';
+import { listContestantsByWar, recomputeContestantCounters } from '../contestants/contestantsRepository.js';
 import { validateImageUpload } from '../contestants/imageProcessing.js';
 import type { ObjectStorage } from '../contestants/storage.js';
-import { generateMatchups } from '../matchups/matchupsRepository.js';
-import type { Forbidden, MutationOutcome, NotActive, NotFound } from '../shared/outcomes.js';
+import { deleteVotesForWar } from '../votes/votesRepository.js';
+import type { Forbidden, MutationOutcome, NotFound, NotPublished } from '../shared/outcomes.js';
 import { effectiveStatus } from './effectiveStatus.js';
 import { processShareImage } from './shareImageProcessing.js';
-import { loadDraftWarOwnedBy, loadWarOwnedBy } from './warAccess.js';
+import { loadOwnedWar, loadWarOwnedBy } from './warAccess.js';
 import { isWarTheme } from './theme.js';
 import {
   createMembership,
@@ -184,6 +184,21 @@ function resolvePatchEndsAt(raw: string | null | undefined): { value?: Date | nu
     : { value: parsed, error: null };
 }
 
+/**
+ * The one field on War-patch still gated on status (spec §4 "Contestant
+ * Schema": "Editable: Draft only") -- every other field is always editable
+ * by the creator (spec §6.1). `undefined` when the patch doesn't touch the
+ * schema at all, so an unrelated patch on a published War is never blocked
+ * by this check.
+ */
+function contestantSchemaStatusError(raw: unknown, war: War, now: Date): string | null {
+  if (raw === undefined) return null;
+  if (effectiveStatus(war, now) !== 'draft') {
+    return 'contestant schema can only be changed while the War is a draft';
+  }
+  return null;
+}
+
 export async function patchWar(
   db: Kysely<Database>,
   warId: string,
@@ -191,16 +206,18 @@ export async function patchWar(
   input: PatchWarInput,
   now: Date,
 ): Promise<MutationOutcome<War>> {
-  const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
+  const guard = await loadOwnedWar(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
+  const { war } = guard;
 
   const title = resolvePatchTitle(input.title);
   const visibility = resolvePatchVisibility(input.visibility);
   const theme = resolvePatchTheme(input.theme);
   const schema = resolvePatchContestantSchema(input.contestantSchema);
   const endsAt = resolvePatchEndsAt(input.endsAt);
+  const schemaStatusError = contestantSchemaStatusError(input.contestantSchema, war, now);
 
-  const errors = collectErrors(title.error, visibility.error, theme.error, schema.errors, endsAt.error);
+  const errors = collectErrors(title.error, visibility.error, theme.error, schema.errors, endsAt.error, schemaStatusError);
   if (errors.length > 0) {
     return { kind: 'validationError', errors };
   }
@@ -220,30 +237,66 @@ export async function patchWar(
 
 export type DeleteWarOutcome = MutationOutcome<void>;
 
-/** Draft-only, creator-only (spec §6.1 "Deletion") -- `loadDraftWarOwnedBy` enforces both before anything is removed. */
+/** Any status, creator-only (spec §6.1 "Deletion") -- `loadOwnedWar` enforces ownership and existence; `deleteWarRow` cascades everything the War owns. */
 export async function deleteWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<DeleteWarOutcome> {
-  const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
+  const guard = await loadOwnedWar(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
 
   await deleteWarRow(db, warId);
   return { kind: 'ok', value: undefined };
 }
 
-export type ActivateOutcome = MutationOutcome<War>;
+export type PublishOutcome = MutationOutcome<War>;
 
-/** draft → active: requires ≥2 contestants (spec). A contestant need not have media. */
-export async function activateWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<ActivateOutcome> {
-  const guard = await loadDraftWarOwnedBy(db, warId, voterId, now);
+/**
+ * Publish/Unpublish are the two directions of one reversible toggle (spec
+ * §6.1) -- not the one-way "activate" this replaces. `closed` is the one
+ * true terminal state and rejects both directions; every other transition
+ * is either the real state change or an idempotent no-op.
+ */
+
+/** draft → published: requires ≥2 contestants (spec). A contestant need not have media.
+ *  published → published is idempotent: republishing never re-checks the
+ *  contestant count, since nothing in spec revokes visibility retroactively
+ *  once a War has dropped below 2 contestants through removal. */
+export async function publishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<PublishOutcome> {
+  const guard = await loadOwnedWar(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
+  const { war } = guard;
+
+  const status = effectiveStatus(war, now);
+  if (status === 'closed') {
+    return { kind: 'validationError', errors: ['a closed War cannot be published'] };
+  }
+  if (status === 'published') {
+    return { kind: 'ok', value: war };
+  }
 
   const contestants = await listContestantsByWar(db, warId);
   if (contestants.length < 2) {
-    return { kind: 'validationError', errors: ['a War needs at least 2 contestants to activate'] };
+    return { kind: 'validationError', errors: ['a War needs at least 2 contestants to publish'] };
   }
 
-  await generateMatchups(db, warId, contestants.map((c) => c.id));
-  const activated = await setWarStatus(db, warId, 'active');
-  return { kind: 'ok', value: activated };
+  const published = await setWarStatus(db, warId, 'published');
+  return { kind: 'ok', value: published };
+}
+
+/** published → draft: requires nothing (spec) -- touches no matchup, vote, or contestant. draft → draft is idempotent. */
+export async function unpublishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<PublishOutcome> {
+  const guard = await loadOwnedWar(db, warId, voterId, now);
+  if (guard.kind !== 'ok') return guard;
+  const { war } = guard;
+
+  const status = effectiveStatus(war, now);
+  if (status === 'closed') {
+    return { kind: 'validationError', errors: ['a closed War cannot be unpublished'] };
+  }
+  if (status === 'draft') {
+    return { kind: 'ok', value: war };
+  }
+
+  const unpublished = await setWarStatus(db, warId, 'draft');
+  return { kind: 'ok', value: unpublished };
 }
 
 export interface SetShareImageInput {
@@ -255,11 +308,11 @@ export interface SetShareImageInput {
 }
 
 /**
- * Draft-only, creator-only, same gate as every other Edit War field (spec
- * §9.1, §10.4) -- not the separate, not-yet-built "always editable"
- * lifecycle work. Always replaces: one deterministic key per War, so a
- * second upload overwrites the object in place rather than accumulating,
- * and the War's own row is the only place "has one" is tracked.
+ * Creator-only, always editable in any status (spec §6.1, §9.1, §10.4) --
+ * a War's metadata is never status-gated. Always replaces: one deterministic
+ * key per War, so a second upload overwrites the object in place rather
+ * than accumulating, and the War's own row is the only place "has one" is
+ * tracked.
  */
 export async function setShareImage(
   db: Kysely<Database>,
@@ -267,7 +320,7 @@ export async function setShareImage(
   input: SetShareImageInput,
   now: Date,
 ): Promise<MutationOutcome<War>> {
-  const guard = await loadDraftWarOwnedBy(db, input.warId, input.voterId, now);
+  const guard = await loadOwnedWar(db, input.warId, input.voterId, now);
   if (guard.kind !== 'ok') return guard;
 
   const validation = validateImageUpload({ mimeType: input.mimeType, sizeBytes: input.buffer.length });
@@ -284,26 +337,46 @@ export async function setShareImage(
   return { kind: 'ok', value: updated };
 }
 
-export type CloseOutcome = MutationOutcome<War, NotFound | Forbidden | NotActive>;
+export type CloseOutcome = MutationOutcome<War, NotFound | Forbidden | NotPublished>;
 
 export async function closeWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<CloseOutcome> {
-  const guard = await loadWarOwnedBy(db, warId, voterId, now, 'active');
-  if (guard.kind === 'wrongStatus') return { kind: 'notActive' };
+  const guard = await loadWarOwnedBy(db, warId, voterId, now, 'published');
+  if (guard.kind === 'wrongStatus') return { kind: 'notPublished' };
   if (guard.kind !== 'ok') return guard;
 
   const closed = await setWarStatus(db, warId, 'closed');
   return { kind: 'ok', value: closed };
 }
 
-export type JoinOutcome = MutationOutcome<void, NotFound | NotActive>;
+export type JoinOutcome = MutationOutcome<void, NotFound | NotPublished>;
 
 export async function joinWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<JoinOutcome> {
   const war = await findWarById(db, warId);
   if (!war) return { kind: 'notFound' };
-  if (effectiveStatus(war, now) !== 'active') return { kind: 'notActive' };
+  if (effectiveStatus(war, now) !== 'published') return { kind: 'notPublished' };
 
   if (!(await isMember(db, warId, voterId))) {
     await createMembership(db, warId, voterId);
   }
   return { kind: 'ok', value: undefined };
+}
+
+/**
+ * Deletes every vote cast in the War and resets every contestant's counters
+ * to zero (spec §6.1 "Clear Votes") -- any status, creator-only, no other
+ * precondition. A hard delete: this is a deliberate, user-confirmed reset,
+ * not a bug. Membership rows are untouched. Runs in one transaction so a
+ * failure between the delete and the recompute never leaves counters
+ * inconsistent with an emptied `votes` table.
+ */
+export async function clearVotes(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, warId, voterId, now);
+  if (guard.kind !== 'ok') return guard;
+
+  await db.transaction().execute(async (trx) => {
+    await deleteVotesForWar(trx, warId);
+    await recomputeContestantCounters(trx, warId);
+  });
+
+  return { kind: 'ok', value: guard.war };
 }

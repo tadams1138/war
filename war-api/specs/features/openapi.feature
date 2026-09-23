@@ -96,7 +96,7 @@ Feature: OpenAPI Contract
     When a client fetches the OpenAPI document
     Then the POST /api/v1/wars/{id}/contestants/{cId}/images 201 response schema requires "id" and "display_order"
 
-  Scenario: The activate endpoint's response schemas cover its status variations
+  Scenario: The publish endpoint's response schemas cover its status variations
     When a client fetches the OpenAPI document
-    Then the POST /api/v1/wars/{id}/activate 200 response schema requires "id", "title", and "status"
+    Then the POST /api/v1/wars/{id}/publish 200 response schema requires "id", "title", and "status"
     And its 422 response schema requires "error" and "details"

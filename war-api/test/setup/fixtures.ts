@@ -4,9 +4,10 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../../src/db/types.js';
 import { findOrCreateVoter, type Voter } from '../../src/auth/votersRepository.js';
 import { createWar, type War } from '../../src/wars/warsRepository.js';
-import { activateWar, closeWar } from '../../src/wars/warsService.js';
+import { publishWar, closeWar } from '../../src/wars/warsService.js';
 import { createContestant, type Contestant } from '../../src/contestants/contestantsRepository.js';
 import { uploadContestantImage } from '../../src/contestants/imageUploadService.js';
+import { generateMatchupsForNewContestant } from '../../src/matchups/matchupsRepository.js';
 import type { ContestantSchemaField } from '../../src/contestants/schemaValidation.js';
 import type { ObjectStorage } from '../../src/contestants/storage.js';
 import { createMembership } from '../../src/wars/warsRepository.js';
@@ -75,7 +76,12 @@ export async function giveContestantAnImage(
   }
 }
 
-/** Builds a War with `count` contestants, each with one image, still in draft. */
+/**
+ * Builds a War with `count` contestants, each with one image, still in
+ * draft. Generates matchups incrementally as each contestant is added,
+ * mirroring `addContestant` (spec §4 "Matchup") -- matchups exist as soon as
+ * a War has contestants to pair, independent of publishing.
+ */
 export async function makeDraftWarWithContestants(
   db: Kysely<Database>,
   storage: ObjectStorage,
@@ -87,17 +93,23 @@ export async function makeDraftWarWithContestants(
   const contestants: Contestant[] = [];
   for (let i = 0; i < count; i += 1) {
     const contestant = await makeContestant(db, war.id, `Contestant ${i + 1}`);
+    await generateMatchupsForNewContestant(
+      db,
+      war.id,
+      contestant.id,
+      contestants.map((c) => c.id),
+    );
     await giveContestantAnImage(db, storage, contestant.id);
     contestants.push(contestant);
   }
   return { war, contestants };
 }
 
-/** Activates a War as its creator, generating matchups. Throws if activation is rejected. */
-export async function activateWarForTest(db: Kysely<Database>, war: War): Promise<War> {
-  const outcome = await activateWar(db, war.id, war.creatorId!, new Date());
+/** Publishes a War as its creator. Throws if publishing is rejected. */
+export async function publishWarForTest(db: Kysely<Database>, war: War): Promise<War> {
+  const outcome = await publishWar(db, war.id, war.creatorId!, new Date());
   if (outcome.kind !== 'ok') {
-    throw new Error(`failed to activate War in test fixture: ${outcome.kind}`);
+    throw new Error(`failed to publish War in test fixture: ${outcome.kind}`);
   }
   return outcome.value;
 }
@@ -106,7 +118,7 @@ export async function joinWarAsVoter(db: Kysely<Database>, warId: string, voterI
   await createMembership(db, warId, voterId);
 }
 
-/** Closes an already-active War as its creator. Throws if closing is rejected. */
+/** Closes an already-published War as its creator. Throws if closing is rejected. */
 export async function closeWarForTest(db: Kysely<Database>, war: War): Promise<War> {
   const outcome = await closeWar(db, war.id, war.creatorId!, new Date());
   if (outcome.kind !== 'ok') {

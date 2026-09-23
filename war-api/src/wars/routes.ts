@@ -8,8 +8,20 @@ import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '.
 import { extensionFor } from '../contestants/imageProcessing.js';
 import type { ObjectStorage } from '../contestants/storage.js';
 import { countContestantsByWarIds, countContestantsForWar } from '../contestants/contestantsRepository.js';
+import { isWarVisibleTo } from './warAccess.js';
 import { presentWarDetail, presentWarSummary, warDetailResponseSchema, warSummaryProperties } from './warPresenter.js';
-import { activateWar, closeWar, createWarForVoter, deleteWar, getWar, joinWar, patchWar, setShareImage } from './warsService.js';
+import {
+  clearVotes,
+  closeWar,
+  createWarForVoter,
+  deleteWar,
+  getWar,
+  joinWar,
+  patchWar,
+  publishWar,
+  setShareImage,
+  unpublishWar,
+} from './warsService.js';
 import { closeExpiredWars, listWars } from './warsRepository.js';
 
 export interface WarsRouteDeps {
@@ -142,7 +154,11 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       if (lookup.kind === 'notFound') {
         return reply.code(404).send({ error: 'not found' });
       }
-      const detail = await presentWarDetail(db, lookup.war, new Date(), deps.publicBaseUrl, request.voterId);
+      const now = new Date();
+      if (!isWarVisibleTo(lookup.war, now, request.voterId)) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      const detail = await presentWarDetail(db, lookup.war, now, deps.publicBaseUrl, request.voterId);
       return reply.send(detail);
     },
   );
@@ -213,7 +229,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
   );
 
   app.post<{ Params: { id: string } }>(
-    '/wars/:id/activate',
+    '/wars/:id/publish',
     bearerAuthRoute(auth, {
       response: {
         200: { $ref: 'WarSummary#' },
@@ -223,7 +239,48 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       },
     }),
     async (request, reply) => {
-      const outcome = await activateWar(db, request.params.id, request.voterId!, new Date());
+      const outcome = await publishWar(db, request.params.id, request.voterId!, new Date());
+      if (outcome.kind !== 'ok') {
+        return replyForOutcome(reply, outcome);
+      }
+      return reply.send(
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+      );
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    '/wars/:id/unpublish',
+    bearerAuthRoute(auth, {
+      response: {
+        200: { $ref: 'WarSummary#' },
+        403: errorResponseSchema,
+        404: errorResponseSchema,
+        422: validationErrorResponseSchema,
+      },
+    }),
+    async (request, reply) => {
+      const outcome = await unpublishWar(db, request.params.id, request.voterId!, new Date());
+      if (outcome.kind !== 'ok') {
+        return replyForOutcome(reply, outcome);
+      }
+      return reply.send(
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+      );
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    '/wars/:id/clear-votes',
+    bearerAuthRoute(auth, {
+      response: {
+        200: { $ref: 'WarSummary#' },
+        403: errorResponseSchema,
+        404: errorResponseSchema,
+      },
+    }),
+    async (request, reply) => {
+      const outcome = await clearVotes(db, request.params.id, request.voterId!, new Date());
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }

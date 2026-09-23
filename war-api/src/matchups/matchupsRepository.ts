@@ -20,23 +20,47 @@ function toMatchup(row: MatchupColumns): Matchup {
   return { id: row.id, warId: row.war_id, contestantAId: row.contestant_a_id, contestantBId: row.contestant_b_id };
 }
 
-/** Generates every unordered pair for a War's contestants (spec). */
-export async function generateMatchups(db: Kysely<Database>, warId: string, contestantIds: string[]): Promise<number> {
-  const sorted = [...contestantIds].sort();
-  const rows: { id: string; war_id: string; contestant_a_id: string; contestant_b_id: string }[] = [];
-
-  for (let i = 0; i < sorted.length; i += 1) {
-    for (let j = i + 1; j < sorted.length; j += 1) {
-      rows.push({ id: newId(), war_id: warId, contestant_a_id: sorted[i]!, contestant_b_id: sorted[j]! });
-    }
-  }
-
-  if (rows.length === 0) {
+/**
+ * Generates matchups for one newly-added contestant against every
+ * contestant already on the roster (spec §4 "Matchup": "generated the
+ * moment it's added, against every other contestant present at that time").
+ * Not a re-run of a bulk pairwise generator over the whole roster -- that
+ * would try to recreate every existing pair too and collide with the
+ * canonical-ordering unique constraint.
+ */
+export async function generateMatchupsForNewContestant(
+  db: Kysely<Database>,
+  warId: string,
+  newContestantId: string,
+  existingContestantIds: string[],
+): Promise<number> {
+  if (existingContestantIds.length === 0) {
     return 0;
   }
 
+  const rows = existingContestantIds.map((otherId) => {
+    const [a, b] = [newContestantId, otherId].sort();
+    return { id: newId(), war_id: warId, contestant_a_id: a!, contestant_b_id: b! };
+  });
+
   await db.insertInto('matchups').values(rows).execute();
   return rows.length;
+}
+
+/** Every matchup id involving `contestantId`, needed to clean up its votes and matchups before it's removed (spec §6.1). */
+export async function findMatchupIdsForContestant(db: Kysely<Database>, warId: string, contestantId: string): Promise<string[]> {
+  const rows = await db
+    .selectFrom('matchups')
+    .select('id')
+    .where('war_id', '=', warId)
+    .where((eb) => eb.or([eb('contestant_a_id', '=', contestantId), eb('contestant_b_id', '=', contestantId)]))
+    .execute();
+  return rows.map((row) => row.id);
+}
+
+export async function deleteMatchupsByIds(db: Kysely<Database>, matchupIds: string[]): Promise<void> {
+  if (matchupIds.length === 0) return;
+  await db.deleteFrom('matchups').where('id', 'in', matchupIds).execute();
 }
 
 export async function countMatchupsForWar(db: Kysely<Database>, warId: string): Promise<number> {

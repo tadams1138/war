@@ -33,7 +33,7 @@ export const warSummaryProperties = {
   id: { type: 'string', format: 'uuid' },
   title: { type: ['string', 'null'] },
   category: { type: ['string', 'null'] },
-  status: { type: 'string', enum: ['draft', 'active', 'closed'] },
+  status: { type: 'string', enum: ['draft', 'published', 'closed'] },
   visibility: { type: 'string', enum: ['public', 'invite_only'] },
   media_mode: { type: 'string', enum: ['image'] },
   theme: { type: 'string', enum: [...THEMES] },

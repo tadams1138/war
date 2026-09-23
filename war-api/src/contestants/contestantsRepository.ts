@@ -1,4 +1,5 @@
 import type { Kysely, Selectable } from 'kysely';
+import { sql } from 'kysely';
 import type { ContestantsTable, Database } from '../db/types.js';
 import { toJsonb } from '../db/jsonb.js';
 import { newId } from '../db/uuid.js';
@@ -131,6 +132,29 @@ export async function updateContestant(db: Kysely<Database>, id: string, patch: 
   return toContestant(row);
 }
 
+/** Removes a contestant's own media rows first -- the FK from `contestant_media` to `contestants` has no cascade,
+ *  so deleting a contestant with any image would otherwise violate it. Matches `deleteWarRow`'s own precedent of
+ *  leaving the underlying storage objects in place rather than reaching into the object store. */
 export async function deleteContestant(db: Kysely<Database>, id: string): Promise<void> {
+  await db.deleteFrom('contestant_media').where('contestant_id', '=', id).execute();
   await db.deleteFrom('contestants').where('id', '=', id).execute();
+}
+
+/**
+ * Recomputes every contestant's `win_count`/`appearance_count` in a War from
+ * the votes/matchups that actually remain (spec §4 "Vote": normally
+ * maintained incrementally alongside each vote insert, but a bulk vote
+ * deletion -- Clear Votes, or removing a contestant that carries votes,
+ * §6.1 -- needs the survivors' counters corrected afterward). A
+ * `COUNT(*)`-based aggregate write, not hand-rolled decrement math: recompute
+ * from source of truth rather than risk a subtle delta bug in vote-count
+ * integrity.
+ */
+export async function recomputeContestantCounters(db: Kysely<Database>, warId: string): Promise<void> {
+  await sql`
+    UPDATE contestants c SET
+      win_count = COALESCE((SELECT COUNT(*) FROM votes v JOIN matchups m ON m.id = v.matchup_id WHERE m.war_id = c.war_id AND v.winner_id = c.id), 0),
+      appearance_count = COALESCE((SELECT COUNT(*) FROM votes v JOIN matchups m ON m.id = v.matchup_id WHERE m.war_id = c.war_id AND (m.contestant_a_id = c.id OR m.contestant_b_id = c.id)), 0)
+    WHERE c.war_id = ${warId}
+  `.execute(db);
 }

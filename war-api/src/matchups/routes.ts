@@ -6,6 +6,8 @@ import type { AuthDependencies } from '../auth/authService.js';
 import { castVoteForVoter, type CastVoteOutcome } from '../votes/votesService.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
 import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
+import { isWarVisibleTo } from '../wars/warAccess.js';
+import { findWarById } from '../wars/warsRepository.js';
 import { countMatchupsForWar, countVotesByVoterInWar } from './matchupsRepository.js';
 import { nextMatchupForVoter, nextMatchupResponseSchema } from './matchupsService.js';
 
@@ -35,7 +37,7 @@ const validationErrorResponseSchema = {
  * compile error rather than a value `fast-json-stringify` would otherwise
  * pass straight through (it does not enforce `enum` on output).
  */
-const voteForbiddenReasons = ['war_not_active', 'not_joined'] as const;
+const voteForbiddenReasons = ['war_not_published', 'not_joined'] as const;
 export type VoteForbiddenReason = (typeof voteForbiddenReasons)[number];
 export interface VoteForbiddenView {
   error: string;
@@ -79,10 +81,30 @@ const VOTE_OUTCOME_RESPONSES: Record<CastVoteOutcome['kind'], (outcome: CastVote
   retried: () => ({ status: 200, body: { status: 'already recorded' } }),
   conflict: () => ({ status: 409, body: { error: 'vote already cast for a different winner' } }),
   invalidWinner: () => ({ status: 422, body: { error: 'winner_id must be a contestant in this matchup' } }),
-  warNotActive: () => ({ status: 403, body: { error: 'War is not active', reason: 'war_not_active' } satisfies VoteForbiddenView }),
+  warNotPublished: () => ({ status: 403, body: { error: 'War is not published', reason: 'war_not_published' } satisfies VoteForbiddenView }),
   notJoined: () => ({ status: 403, body: { error: 'voter has not joined this War', reason: 'not_joined' } satisfies VoteForbiddenView }),
   notFound: () => ({ status: 404, body: { error: 'not found' } }),
 };
+
+/**
+ * Loads a War and 404s (`{ error: 'not found' }`, identical to an
+ * actually-missing War) unless the requester may see it -- matchups now
+ * exist as soon as a War has two contestants, well before publishing (spec
+ * §4 "Matchup"), so `/matchups/next` and `/my-progress` would otherwise leak
+ * an unpublished War's roster and pair count to any authenticated caller.
+ * Mirrors the same rule `GET /wars/:id` and rankings enforce (spec §6.1).
+ */
+async function loadVisibleWarOr404(
+  db: Kysely<Database>,
+  warId: string,
+  voterId: string | undefined,
+): Promise<{ ok: true } | { ok: false }> {
+  const war = await findWarById(db, warId);
+  if (!war || !isWarVisibleTo(war, new Date(), voterId)) {
+    return { ok: false };
+  }
+  return { ok: true };
+}
 
 export function registerMatchupsRoutes(app: FastifyInstance, deps: MatchupsRouteDeps): void {
   const { db, auth } = deps;
@@ -90,8 +112,12 @@ export function registerMatchupsRoutes(app: FastifyInstance, deps: MatchupsRoute
 
   app.get<{ Params: { id: string } }>(
     '/wars/:id/matchups/next',
-    bearerAuthRoute(auth, { response: { 200: nextMatchupResponseSchema, 204: {} } }),
+    bearerAuthRoute(auth, { response: { 200: nextMatchupResponseSchema, 204: {}, 404: errorResponseSchema } }),
     async (request, reply) => {
+      const visible = await loadVisibleWarOr404(db, request.params.id, request.voterId);
+      if (!visible.ok) {
+        return reply.code(404).send({ error: 'not found' });
+      }
       const view = await nextMatchupForVoter(db, request.params.id, request.voterId!, deps.publicBaseUrl);
       if (!view) {
         return reply.code(204).send();
@@ -102,8 +128,12 @@ export function registerMatchupsRoutes(app: FastifyInstance, deps: MatchupsRoute
 
   app.get<{ Params: { id: string } }>(
     '/wars/:id/my-progress',
-    bearerAuthRoute(auth),
+    bearerAuthRoute(auth, { response: { 404: errorResponseSchema } }),
     async (request, reply) => {
+      const visible = await loadVisibleWarOr404(db, request.params.id, request.voterId);
+      if (!visible.ok) {
+        return reply.code(404).send({ error: 'not found' });
+      }
       const [voted, total] = await Promise.all([
         countVotesByVoterInWar(db, request.params.id, request.voterId!),
         countMatchupsForWar(db, request.params.id),

@@ -239,12 +239,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('The schema is fixed once a War is active', ({ Given, When, Then }) => {
+  Scenario('The schema is fixed once a War is published', ({ Given, When, Then }) => {
     let warId: string;
     let creatorId: string;
     let response: request.Response;
 
-    Given('an active War', async () => {
+    Given('a published War', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, {
@@ -252,7 +252,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       });
       await harness.app.ready();
       const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server).post(`/api/v1/wars/${war.id}/activate`).set('Authorization', `Bearer ${jwt}`).send();
+      await request(harness.app.server).post(`/api/v1/wars/${war.id}/publish`).set('Authorization', `Bearer ${jwt}`).send();
       warId = war.id;
     });
 
@@ -264,8 +264,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
         .send({ contestant_schema: [{ key: 'country', label: 'Country', type: 'string' }, { key: 'age', label: 'Age', type: 'number' }] });
     });
 
-    Then('the response status is 403', () => {
-      expect(response.status).toBe(403);
+    Then('the response status is 422', () => {
+      expect(response.status).toBe(422);
     });
   });
 });

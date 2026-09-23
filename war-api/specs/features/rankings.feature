@@ -1,7 +1,7 @@
 Feature: Rankings
 
   Scenario: Anonymous user views public War rankings
-    Given a public War in "active" status
+    Given a public War in "published" status
     When an unauthenticated user GETs /wars/:id/rankings
     Then the response status is 200
 
@@ -29,7 +29,7 @@ Feature: Rankings
     And its rank is null
 
   Scenario: Exposure stays balanced as a War progresses
-    Given an active War that has received several hundred votes
+    Given a published War that has received several hundred votes
     When contestants' appearance_counts are compared
     Then they are clustered within a narrow range
 

@@ -3,7 +3,7 @@ import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { findWarById } from '../../src/wars/warsRepository.js';
-import { makeVoter, makeDraftWarWithContestants, joinWarAsVoter, activateWarForTest } from '../setup/fixtures.js';
+import { makeVoter, makeDraftWarWithContestants, joinWarAsVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -27,10 +27,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let warId: string;
     let response: request.Response;
 
-    Given('an active War whose ends_at passed one minute ago', async () => {
+    Given('a published War whose ends_at passed one minute ago', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      await activateWarForTest(harness.db, war);
+      await publishWarForTest(harness.db, war);
       await setEndsAt(harness, war.id, new Date(Date.now() - 60_000));
       warId = war.id;
     });
@@ -54,10 +54,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let matchupId: string;
     let voterId: string;
 
-    Given('an active War whose ends_at passed one second ago', async () => {
+    Given('a published War whose ends_at passed one second ago', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      await activateWarForTest(harness.db, war);
+      await publishWarForTest(harness.db, war);
       const matchup = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', war.id).executeTakeFirstOrThrow();
       matchupId = matchup.id;
       const voter = await makeVoter(harness.db, 'voter');
@@ -91,10 +91,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   Scenario('A War with no end date never expires', ({ Given, When, Then }) => {
     let warId: string;
 
-    Given('an active War with ends_at set to NULL', async () => {
+    Given('a published War with ends_at set to NULL', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      await activateWarForTest(harness.db, war);
+      await publishWarForTest(harness.db, war);
       warId = war.id;
     });
 
@@ -103,9 +103,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       await request(harness.app.server).post('/api/v1/internal/close-expired-wars').set('X-Internal-Token', INTERNAL_TOKEN).send();
     });
 
-    Then('the War remains "active"', async () => {
+    Then('the War remains "published"', async () => {
       const war = await findWarById(harness.db, warId);
-      expect(war?.status).toBe('active');
+      expect(war?.status).toBe('published');
     });
   });
 
@@ -113,10 +113,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let warId: string;
     let response: request.Response;
 
-    Given('an active War whose ends_at passed six hours ago', async () => {
+    Given('a published War whose ends_at passed six hours ago', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      await activateWarForTest(harness.db, war);
+      await publishWarForTest(harness.db, war);
       await setEndsAt(harness, war.id, new Date(Date.now() - 6 * 60 * 60 * 1000));
       warId = war.id;
     });
@@ -146,7 +146,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('the close-expired-wars task has already closed all expired Wars', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      await activateWarForTest(harness.db, war);
+      await publishWarForTest(harness.db, war);
       await setEndsAt(harness, war.id, new Date(Date.now() - 6 * 60 * 60 * 1000));
       await harness.app.ready();
       await request(harness.app.server).post('/api/v1/internal/close-expired-wars').set('X-Internal-Token', INTERNAL_TOKEN).send();
