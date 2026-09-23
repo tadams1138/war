@@ -433,9 +433,12 @@ label {
      each of the two stacked cards) rather than once each side -- trimmed
      here for extra headroom under the vote page's "no scroll to vote"
      guarantee (vote-mode-responsive spec), matching .nav-bar's own
-     narrow-viewport trim above. */
+     narrow-viewport trim above. Second pass: the first trim (1rem ->
+     0.75rem) still left CI's renderer 2px over budget (846 vs. an 844px
+     viewport) despite passing locally both times -- trimming to 0.5rem
+     now for real margin instead of chasing an exact-fit number again. */
   .contestant-card {
-    padding: 0.75rem;
+    padding: 0.5rem;
   }
 }
 
