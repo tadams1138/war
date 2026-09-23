@@ -1,13 +1,18 @@
 // Generates a War's share image client-side from two of its own contestants
 // (the spec, "The share image is set one of two ways"): a 1200x630 canvas,
-// each contestant's largest image covering its own half, with a "VS" badge
-// styled per the War's theme centered over the seam -- the same visual
-// language the vote page's own matchup divider (.vs-divider, themes.css)
-// uses, replicated here as Canvas 2D paths since CSS clip-path/gradients
-// don't apply to a canvas. Colors/fonts are copied from themes.css directly;
-// if that file's theme tokens ever change, this drifts and needs updating
-// by hand -- there's no shared source between CSS and Canvas 2D.
+// each contestant's own primary image (utils/media.ts's primaryMedia --
+// display_order 0, never just the media array's first entry, which the API
+// happens to return pre-sorted today but this codebase's own convention
+// elsewhere never trusts) at its largest available variant, covering its
+// half, with a "VS" badge styled per the War's theme centered over the
+// seam -- the same visual language the vote page's own matchup divider
+// (.vs-divider, themes.css) uses, replicated here as Canvas 2D paths since
+// CSS clip-path/gradients don't apply to a canvas. Colors/fonts are copied
+// from themes.css directly; if that file's theme tokens ever change, this
+// drifts and needs updating by hand -- there's no shared source between
+// CSS and Canvas 2D.
 import type { ContestantDetail, WarDetailResponse } from '../api/client'
+import { primaryMedia } from '../utils/media'
 
 const WIDTH = 1200
 const HEIGHT = 630
@@ -154,8 +159,8 @@ export async function generateShareImage(war: WarDetailResponse): Promise<Blob |
   await document.fonts.load(FONT_LOAD_SPEC_BY_THEME[war.theme] ?? FONT_LOAD_SPEC_BY_THEME.arcade!)
 
   const [leftImg, rightImg] = await Promise.all([
-    loadImage(largestVariant(left.media[0]!).url),
-    loadImage(largestVariant(right.media[0]!).url),
+    loadImage(largestVariant(primaryMedia(left.media)!).url),
+    loadImage(largestVariant(primaryMedia(right.media)!).url),
   ])
 
   const canvas = document.createElement('canvas')

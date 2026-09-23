@@ -85,6 +85,36 @@ describe('generateShareImage', () => {
     expect(result!.type).toBe('image/jpeg')
   })
 
+  it("uses each contestant's primary (display_order 0) image, not just the first array entry", async () => {
+    // Arrange — the second array entry is the one declared display_order:
+    // 0, mirroring war-detail.spec.ts's own "primary image" regression
+    // test (ResultsTable had this exact bug once).
+    const ctx = stubCanvas()
+    const war = buildWarDetail({
+      contestants: [
+        buildContestant({
+          id: 'c-1',
+          name: 'Ada',
+          media: [
+            buildMediaItem({ id: 'second-in-array', display_order: 1 }),
+            buildMediaItem({ id: 'actually-primary', display_order: 0 }),
+          ],
+        }),
+        buildContestant({ id: 'c-2', name: 'Grace', media: [buildMediaItem({ id: 'm-2', display_order: 0 })] }),
+      ],
+    })
+
+    // Act
+    await generateShareImage(war)
+
+    // Assert — whichever contestant landed on the left or right, Ada's
+    // drawn image must be her display_order:0 one, never the array's
+    // first entry.
+    const drawnSrcs = ctx.drawImage.mock.calls.map((call) => (call[0] as HTMLImageElement).src)
+    expect(drawnSrcs.some((src) => src.includes('actually-primary'))).toBe(true)
+    expect(drawnSrcs.some((src) => src.includes('second-in-array'))).toBe(false)
+  })
+
   it('loads the theme display font before drawing, per theme', async () => {
     // Arrange
     const war = buildWarDetail({
