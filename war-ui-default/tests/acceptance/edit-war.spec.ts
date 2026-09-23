@@ -1,9 +1,8 @@
-// Binds features/edit-war.feature. Draft-only editing (the spec's approved
-// scope decision) of a War's metadata and its contestants' name, bio, and
-// images — using the war-api PATCH/media routes that already existed but had
-// no UI route calling them (PROGRESS.md). Two-pane layout: a left nav list
-// (Metadata, each contestant, Add contestant) selects what the right pane
-// shows — only one section renders at a time, Metadata by default.
+// Binds features/edit-war.feature. A War is always editable by its
+// creator, in any status (spec §6.1) — using the war-api PATCH/media routes
+// alongside Publish/Unpublish and Clear Votes. Two-pane layout: a left nav
+// list (Metadata, each contestant, Add contestant) selects what the right
+// pane shows — only one section renders at a time, Metadata by default.
 import { expect, test } from '@playwright/test'
 import { buildContestant, buildMediaItem, buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
@@ -19,19 +18,6 @@ async function gotoEditPage(page: import('@playwright/test').Page) {
 async function selectContestant(page: import('@playwright/test').Page, name: string) {
   await page.getByTestId('edit-war-nav-contestant').filter({ hasText: name }).click()
 }
-
-test('An active War shows a "no longer editable" message, not a form', async ({ page }) => {
-  // Arrange
-  const detail = buildWarDetail({ id: WAR_ID, status: 'active' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-
-  // Act
-  await gotoEditPage(page)
-
-  // Assert
-  await expect(page.getByTestId('edit-war-not-editable')).toBeVisible()
-  await expect(page.getByTestId('edit-war-title-input')).toHaveCount(0)
-})
 
 test('Metadata is shown by default', async ({ page }) => {
   // Arrange
@@ -98,7 +84,7 @@ test('Switching to a different contestant shows fresh field values, not the prev
   await expect(graceItem.getByTestId('bio-textarea')).toHaveValue('Grace bio')
 })
 
-test('Removing a contestant deletes it and returns to Metadata', async ({ page }) => {
+test('Removing a contestant with no votes deletes it immediately and returns to Metadata', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
     id: WAR_ID,
@@ -116,11 +102,87 @@ test('Removing a contestant deletes it and returns to Metadata', async ({ page }
   // Act
   await item.getByTestId('edit-war-contestant-remove').click()
 
-  // Assert
+  // Assert — removed immediately, no confirmation dialog
+  await expect(page.getByTestId('edit-war-contestant-remove-confirm')).toHaveCount(0)
   await expect(page.getByTestId('edit-war-nav-contestant').filter({ hasText: 'Ada' })).toHaveCount(0)
   await expect(page.getByTestId('edit-war-contestant')).toHaveCount(0)
   const calls = await getCallLog(page)
   expect(calls.some((c) => c.method === 'DELETE' && c.url.endsWith('/contestants/c-1'))).toBe(true)
+})
+
+test('Removing a contestant with votes asks for confirmation, naming how many votes will be lost', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'published',
+    contestants: [
+      buildContestant({ id: 'c-1', name: 'Ada', appearance_count: 3 }),
+      buildContestant({ id: 'c-2', name: 'Grace' }),
+    ],
+  })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+
+  // Act
+  await page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' }).getByTestId('edit-war-contestant-remove').click()
+
+  // Assert — no request fired yet
+  await expect(page.getByTestId('edit-war-contestant-remove-confirm')).toContainText('3')
+  const calls = await getCallLog(page)
+  expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
+})
+
+test('Confirming removal of a contestant with votes deletes it', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'published',
+    contestants: [
+      buildContestant({ id: 'c-1', name: 'Ada', appearance_count: 3 }),
+      buildContestant({ id: 'c-2', name: 'Grace' }),
+    ],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1`, responses: [{ status: 204 }] },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  await page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' }).getByTestId('edit-war-contestant-remove').click()
+
+  // Act
+  await page.getByTestId('edit-war-contestant-remove-confirm-submit').click()
+
+  // Assert
+  await expect(page.getByTestId('edit-war-nav-contestant').filter({ hasText: 'Ada' })).toHaveCount(0)
+  const calls = await getCallLog(page)
+  expect(calls.some((c) => c.method === 'DELETE' && c.url.endsWith('/contestants/c-1'))).toBe(true)
+})
+
+test('Cancelling removal of a contestant with votes leaves it untouched', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'published',
+    contestants: [
+      buildContestant({ id: 'c-1', name: 'Ada', appearance_count: 3 }),
+      buildContestant({ id: 'c-2', name: 'Grace' }),
+    ],
+  })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  await page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' }).getByTestId('edit-war-contestant-remove').click()
+
+  // Act
+  await page.getByTestId('edit-war-contestant-remove-confirm-cancel').click()
+
+  // Assert
+  await expect(page.getByTestId('edit-war-contestant-remove-confirm')).toHaveCount(0)
+  await expect(page.getByTestId('edit-war-nav-contestant').filter({ hasText: 'Ada' })).toBeVisible()
+  const calls = await getCallLog(page)
+  expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
 })
 
 test('Add contestant shows a form; submitting adds it to the nav and selects it', async ({ page }) => {
@@ -295,6 +357,274 @@ test('Changing the theme persists it', async ({ page }) => {
   expect(JSON.parse(patchCall!.body ?? '{}').theme).toBe('fight_card')
 })
 
+test('Metadata remains editable on a published War', async ({ page }) => {
+  // Arrange — editing is never status-gated (spec §6.1)
+  const detail = buildWarDetail({ id: WAR_ID, status: 'published', title: 'Old Title' })
+  const patched = buildWarSummary({ id: WAR_ID, status: 'published', title: 'New Title' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: patched }] },
+  ])
+  await gotoEditPage(page)
+
+  // Act
+  await page.getByTestId('edit-war-title-input').fill('New Title')
+  await page.getByTestId('edit-war-metadata-submit').click()
+
+  // Assert
+  const calls = await waitForCallLog(page, (log) => log.some((c) => c.method === 'PATCH' && c.url.endsWith(`/wars/${WAR_ID}`)))
+  expect(calls.some((c) => c.method === 'PATCH')).toBe(true)
+})
+
+test('The bio toolbar wraps selected text in bold markdown syntax', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'hello world' })] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+  const textarea = item.getByTestId('bio-textarea')
+
+  // Act
+  await textarea.click()
+  await textarea.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(0, 5))
+  await item.getByTestId('bio-format-bold').click()
+
+  // Assert
+  await expect(textarea).toHaveValue('**hello** world')
+})
+
+test('A heading toolbar button inserts a markdown heading, rendered live', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'Section title' })] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+  const textarea = item.getByTestId('bio-textarea')
+
+  // Act
+  await textarea.click()
+  await textarea.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(0, 13))
+  await item.getByTestId('bio-format-heading2').click()
+
+  // Assert
+  await expect(textarea).toHaveValue('## Section title')
+  await expect(item.getByTestId('bio-preview').locator('h2')).toHaveText('Section title')
+})
+
+test('The bio preview updates live as the bio changes, with no save required', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: '' })] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('bio-textarea').fill('*emphasis*')
+
+  // Assert
+  await expect(item.getByTestId('bio-preview').locator('em')).toHaveText('emphasis')
+})
+
+test('The bio editor links to the markdown syntax reference', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+
+  // Act
+  await selectContestant(page, 'Ada')
+
+  // Assert
+  await expect(page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' }).getByTestId('bio-syntax-link')).toBeVisible()
+})
+
+test('The bio preview renders lists and a visibly distinct, underlined link', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: '' })] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('bio-textarea').fill('- one\n- two\n\n[link](https://example.com)')
+
+  // Assert
+  const preview = item.getByTestId('bio-preview')
+  await expect(preview.locator('li')).toHaveCount(2)
+  const link = preview.locator('a')
+  await expect(link).toHaveText('link')
+  await expect(link).toHaveCSS('text-decoration-line', 'underline')
+})
+
+test('A contestant with fewer than the image cap still shows a control to add more', async ({ page }) => {
+  // Arrange
+  const media = buildMediaItem({ id: 'm-1', display_order: 0 })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media] })] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+
+  // Act
+  await selectContestant(page, 'Ada')
+
+  // Assert
+  await expect(page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' }).getByTestId('edit-war-image-input')).toBeVisible()
+})
+
+test('Adding an image shows it alongside the existing ones, in order', async ({ page }) => {
+  // Arrange
+  const media = buildMediaItem({ id: 'm-1', display_order: 0 })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media] })] })
+  const uploaded = { id: 'm-2', display_order: 1 }
+  const refreshedDetail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media, buildMediaItem({ id: 'm-2', display_order: 1 })] })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }, { status: 200, body: refreshedDetail }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/contestants/c-1/images`, responses: [{ status: 201, body: uploaded }] },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-image-input').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('fake') })
+
+  // Assert
+  await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(2)
+})
+
+test('A failed image upload shows an error', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    {
+      method: 'POST',
+      path: `${API}/wars/${WAR_ID}/contestants/c-1/images`,
+      responses: [{ status: 422, body: { error: 'invalid image upload' } }],
+    },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-image-input').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('fake') })
+
+  // Assert
+  await expect(item.getByTestId('edit-war-image-error')).toBeVisible()
+})
+
+test('Rate-limited image upload is shown as a wait, not an error', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    {
+      method: 'POST',
+      path: `${API}/wars/${WAR_ID}/contestants/c-1/images`,
+      responses: [{ status: 429, headers: { 'Retry-After': '1' }, body: { error: 'rate limited' } }],
+    },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-image-input').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('fake') })
+
+  // Assert
+  await expect(item.getByTestId('edit-war-image-wait')).toBeVisible()
+  await expect(item.getByTestId('edit-war-image-error')).toHaveCount(0)
+  await expect(item.getByTestId('edit-war-image-input')).toBeEnabled({ timeout: 2000 })
+})
+
+test('Removing an image drops it from the gallery', async ({ page }) => {
+  // Arrange
+  const media1 = buildMediaItem({ id: 'm-1', display_order: 0 })
+  const media2 = buildMediaItem({ id: 'm-2', display_order: 1 })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media1, media2] })] })
+  const refreshedDetail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media2] })] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }, { status: 200, body: refreshedDetail }] },
+    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, responses: [{ status: 204 }] },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-contestant-image').filter({ has: page.getByTestId('edit-war-image-remove') }).first().getByTestId('edit-war-image-remove').click()
+
+  // Assert
+  await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(1)
+})
+
+test('Reordering images persists the new order', async ({ page }) => {
+  // Arrange
+  const media1 = buildMediaItem({ id: 'm-1', display_order: 0 })
+  const media2 = buildMediaItem({ id: 'm-2', display_order: 1 })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media1, media2] })] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }, { status: 200, body: detail }] },
+    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, responses: [{ status: 204 }] },
+    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-2`, responses: [{ status: 204 }] },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-image-move-up').click()
+
+  // Assert
+  const calls = await waitForCallLog(page, (log) => log.filter((c) => c.method === 'PATCH' && c.url.includes('/media/')).length >= 2)
+  const reorderCalls = calls.filter((c) => c.method === 'PATCH' && c.url.includes('/media/'))
+  expect(reorderCalls).toHaveLength(2)
+})
+
+test('At the per-contestant image cap, the add-more control is replaced by an explanation', async ({ page }) => {
+  // Arrange
+  const media = Array.from({ length: 10 }, (_, i) => buildMediaItem({ id: `m-${i}`, display_order: i }))
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media })] })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+
+  // Act
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Assert
+  await expect(item.getByTestId('edit-war-image-input')).toHaveCount(0)
+  await expect(item.getByTestId('edit-war-image-cap-reached')).toBeVisible()
+})
+
+test('Images remain editable on a published War', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'published', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
+  const uploaded = { id: 'm-2', display_order: 1 }
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/contestants/c-1/images`, responses: [{ status: 201, body: uploaded }] },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-image-input').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('fake') })
+
+  // Assert
+  const calls = await waitForCallLog(page, (log) => log.some((c) => c.method === 'POST' && c.url.includes('/images')))
+  expect(calls.some((c) => c.method === 'POST' && c.url.includes('/images'))).toBe(true)
+})
+
 test('Export button is shown on the edit page', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
@@ -337,7 +667,7 @@ test('Delete button is shown on the edit page', async ({ page }) => {
   await expect(page.getByTestId('edit-war-delete-button')).toBeVisible()
 })
 
-test('Clicking Delete asks for confirmation before removing the draft', async ({ page }) => {
+test('Clicking Delete asks for confirmation before removing the War', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
@@ -352,7 +682,7 @@ test('Clicking Delete asks for confirmation before removing the draft', async ({
   expect(deleteCalls).toHaveLength(0)
 })
 
-test('Confirming delete removes the draft and navigates to My Wars', async ({ page }) => {
+test('Confirming delete removes the War and navigates to My Wars', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
   await useScenario(page, [
@@ -372,7 +702,7 @@ test('Confirming delete removes the draft and navigates to My Wars', async ({ pa
   expect(deleteCalls).toHaveLength(1)
 })
 
-test('Cancelling delete leaves the draft untouched', async ({ page }) => {
+test('Cancelling delete leaves the War untouched', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
@@ -389,6 +719,24 @@ test('Cancelling delete leaves the draft untouched', async ({ page }) => {
   expect(deleteCalls).toHaveLength(0)
 })
 
+test('Deleting a published War works the same as deleting a draft', async ({ page }) => {
+  // Arrange — Delete works in any status (spec §6.1)
+  const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'DELETE', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 204 }] },
+    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [] } }] },
+  ])
+  await gotoEditPage(page)
+
+  // Act
+  await page.getByTestId('edit-war-delete-button').click()
+  await page.getByTestId('edit-war-delete-confirm-submit').click()
+
+  // Assert
+  await expect(page).toHaveURL('/my-wars')
+})
+
 test('The top action row lays out horizontally, shares consistent button styling, and sets Delete apart', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
@@ -402,45 +750,24 @@ test('The top action row lays out horizontally, shares consistent button styling
   // Act
   await gotoEditPage(page)
 
-  // Assert — a horizontal row: Activate War sits to the right of Export,
+  // Assert — a horizontal row: Publish War sits to the right of Export,
   // both at roughly the same vertical position rather than stacked.
   const exportBox = await page.getByTestId('edit-war-export-button').boundingBox()
   const deleteBox = await page.getByTestId('edit-war-delete-button').boundingBox()
-  const activateBox = await page.getByTestId('activate-submit').boundingBox()
+  const publishBox = await page.getByTestId('publish-toggle-submit').boundingBox()
   expect(exportBox).not.toBeNull()
   expect(deleteBox).not.toBeNull()
-  expect(activateBox).not.toBeNull()
-  expect(activateBox!.x).toBeGreaterThan(exportBox!.x)
-  expect(Math.abs(exportBox!.y - activateBox!.y)).toBeLessThan(5)
+  expect(publishBox).not.toBeNull()
+  expect(publishBox!.x).toBeGreaterThan(exportBox!.x)
+  expect(Math.abs(exportBox!.y - publishBox!.y)).toBeLessThan(5)
 
-  // Assert — Export and Activate War share the same themed button background.
+  // Assert — Export and Publish War share the same themed button background.
   const exportBg = await page.getByTestId('edit-war-export-button').evaluate((el) => getComputedStyle(el).backgroundColor)
-  const activateBg = await page.getByTestId('activate-submit').evaluate((el) => getComputedStyle(el).backgroundColor)
-  expect(exportBg).toBe(activateBg)
-
-  // Assert — Delete, a destructive action, is visually distinct.
-  const deleteBg = await page.getByTestId('edit-war-delete-button').evaluate((el) => getComputedStyle(el).backgroundColor)
-  expect(deleteBg).not.toBe(exportBg)
+  const publishBg = await page.getByTestId('publish-toggle-submit').evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(exportBg).toBe(publishBg)
 })
 
-test("The delete-confirmation dialog's buttons lay out horizontally", async ({ page }) => {
-  // Arrange
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
-
-  // Act
-  await page.getByTestId('edit-war-delete-button').click()
-
-  // Assert
-  const submitBox = await page.getByTestId('edit-war-delete-confirm-submit').boundingBox()
-  const cancelBox = await page.getByTestId('edit-war-delete-confirm-cancel').boundingBox()
-  expect(submitBox).not.toBeNull()
-  expect(cancelBox).not.toBeNull()
-  expect(Math.abs(submitBox!.y - cancelBox!.y)).toBeLessThan(5)
-})
-
-test('Activate is disabled with fewer than 2 contestants', async ({ page }) => {
+test('Publish War is disabled with fewer than 2 contestants', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
@@ -449,538 +776,226 @@ test('Activate is disabled with fewer than 2 contestants', async ({ page }) => {
   await gotoEditPage(page)
 
   // Assert
-  await expect(page.getByTestId('activate-submit')).toBeDisabled()
-  await expect(page.getByTestId('activate-requirements')).toContainText('at least 2 contestants')
+  await expect(page.getByTestId('publish-toggle-submit')).toBeDisabled()
+  await expect(page.getByTestId('publish-requirements')).toContainText('at least 2 contestants')
 })
 
-test('Activate is enabled even when a contestant has no image', async ({ page }) => {
+test('Publish War is enabled even when a contestant has no image', async ({ page }) => {
   // Arrange
-  const withImage = buildContestant({ id: 'c-1', name: 'Ada' })
-  const noImage = buildContestant({ id: 'c-2', name: 'Grace', media: [] })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [withImage, noImage] })
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [] }), buildContestant({ id: 'c-2', name: 'Grace' })],
+  })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
 
   // Act
   await gotoEditPage(page)
 
   // Assert
-  await expect(page.getByTestId('activate-submit')).toBeEnabled()
-  await expect(page.getByTestId('activate-requirements')).toHaveCount(0)
+  await expect(page.getByTestId('publish-toggle-submit')).toBeEnabled()
+  await expect(page.getByTestId('publish-requirements')).toHaveCount(0)
 })
 
-test('Clicking Activate shows a permanence warning before activating', async ({ page }) => {
+test('Clicking Publish War shows a confirmation naming that it becomes reachable by anyone', async ({ page }) => {
   // Arrange
-  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
-  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
+  })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
   await gotoEditPage(page)
-
-  // Act — no unsaved edits, so this is not the dirty-confirm step
-  await page.getByTestId('activate-submit').click()
-
-  // Assert — no activation request fired; the permanence warning is shown instead
-  await expect(page.getByTestId('activate-confirm')).toBeVisible()
-  const activateCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/activate'))
-  expect(activateCalls).toHaveLength(0)
-})
-
-test('Cancelling the permanence warning leaves the draft untouched', async ({ page }) => {
-  // Arrange
-  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
-  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
-  await page.getByTestId('activate-submit').click()
 
   // Act
-  await page.getByTestId('activate-confirm-cancel').click()
+  await page.getByTestId('publish-toggle-submit').click()
 
-  // Assert
-  await expect(page.getByTestId('activate-confirm')).toHaveCount(0)
-  await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
-  const activateCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/activate'))
-  expect(activateCalls).toHaveLength(0)
+  // Assert — no publish request fired; the confirmation is shown instead
+  await expect(page.getByTestId('publish-toggle-confirm')).toBeVisible()
+  const publishCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/publish'))
+  expect(publishCalls).toHaveLength(0)
 })
 
-test("Confirming the permanence warning activates and navigates to the War's vote page", async ({ page }) => {
+test('Cancelling the publish confirmation leaves the draft untouched', async ({ page }) => {
   // Arrange
-  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
-  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
-  const activated = buildWarSummary({ id: WAR_ID, status: 'active' })
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
+  })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await gotoEditPage(page)
+  await page.getByTestId('publish-toggle-submit').click()
+
+  // Act
+  await page.getByTestId('publish-toggle-confirm-cancel').click()
+
+  // Assert
+  await expect(page.getByTestId('publish-toggle-confirm')).toHaveCount(0)
+  const publishCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/publish'))
+  expect(publishCalls).toHaveLength(0)
+})
+
+test("Confirming Publish War publishes and navigates to the War's vote page", async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
+  })
+  const published = buildWarSummary({ id: WAR_ID, status: 'published' })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/activate`, responses: [{ status: 200, body: activated }] },
-    // The post-activation redirect lands on VoteMode, which joins and
-    // requests the first matchup on mount -- stub both so that page
-    // renders cleanly rather than surfacing an unrelated error.
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/publish`, responses: [{ status: 200, body: published }] },
+    // The post-publish redirect lands on VoteMode, which joins and
+    // requests the next matchup.
     { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 204 }] },
   ])
   await gotoEditPage(page)
-  await page.getByTestId('activate-submit').click()
 
   // Act
-  await page.getByTestId('activate-confirm-submit').click()
+  await page.getByTestId('publish-toggle-submit').click()
+  await page.getByTestId('publish-toggle-confirm-submit').click()
 
   // Assert
   await expect(page).toHaveURL(`/wars/${WAR_ID}/vote`)
 })
 
-test("A failed activation shows the API's validation messages", async ({ page }) => {
+test("A failed publish shows the API's validation messages", async ({ page }) => {
   // Arrange
-  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
-  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
+  })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
     {
       method: 'POST',
-      path: `${API}/wars/${WAR_ID}/activate`,
+      path: `${API}/wars/${WAR_ID}/publish`,
       responses: [{ status: 422, body: { error: 'validation error', details: ['every contestant needs media'] } }],
     },
   ])
   await gotoEditPage(page)
-  await page.getByTestId('activate-submit').click()
 
   // Act
-  await page.getByTestId('activate-confirm-submit').click()
+  await page.getByTestId('publish-toggle-submit').click()
+  await page.getByTestId('publish-toggle-confirm-submit').click()
 
   // Assert
-  await expect(page.getByTestId('activate-error')).toHaveText('every contestant needs media')
+  await expect(page.getByTestId('publish-error')).toHaveText('every contestant needs media')
   await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
 })
 
-test('Clicking Activate with unsaved metadata edits shows a confirm step, not an immediate activation', async ({ page }) => {
+test('Unpublishing a published War asks for confirmation, naming that it becomes reachable only by them', async ({ page }) => {
   // Arrange
-  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
-  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
   await gotoEditPage(page)
-  await page.getByTestId('edit-war-title-input').fill('A brand new title')
 
   // Act
-  await page.getByTestId('activate-submit').click()
-
-  // Assert — no activation request fired; the confirm step is shown instead
-  await expect(page.getByTestId('activate-dirty-confirm')).toBeVisible()
-  const activateCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/activate'))
-  expect(activateCalls).toHaveLength(0)
-})
-
-test('Cancelling the confirm step leaves the draft untouched, edits intact', async ({ page }) => {
-  // Arrange
-  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
-  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
-  await page.getByTestId('edit-war-title-input').fill('A brand new title')
-  await page.getByTestId('activate-submit').click()
-
-  // Act
-  await page.getByTestId('activate-dirty-cancel').click()
+  await page.getByTestId('publish-toggle-submit').click()
 
   // Assert
-  await expect(page.getByTestId('activate-dirty-confirm')).toHaveCount(0)
-  await expect(page.getByTestId('edit-war-title-input')).toHaveValue('A brand new title')
+  await expect(page.getByTestId('publish-toggle-confirm')).toContainText('reachable only by you')
+  const unpublishCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/unpublish'))
+  expect(unpublishCalls).toHaveLength(0)
+})
+
+test('Confirming unpublish returns the War to draft and stays on the Edit page', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
+  const unpublished = buildWarSummary({ id: WAR_ID, status: 'draft' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/unpublish`, responses: [{ status: 200, body: unpublished }] },
+  ])
+  await gotoEditPage(page)
+  await page.getByTestId('publish-toggle-submit').click()
+
+  // Act
+  await page.getByTestId('publish-toggle-confirm-submit').click()
+
+  // Assert
+  await expect(page.getByTestId('publish-toggle-submit')).toHaveText('Publish War')
   await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
 })
 
-test('Discarding from the confirm step activates anyway', async ({ page }) => {
+test('A closed War offers neither Publish nor Unpublish, and explains why', async ({ page }) => {
   // Arrange
-  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
-  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
-  const activated = buildWarSummary({ id: WAR_ID, status: 'active' })
-  await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/activate`, responses: [{ status: 200, body: activated }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 204 }] },
-  ])
-  await gotoEditPage(page)
-  await page.getByTestId('edit-war-title-input').fill('A brand new title')
-  await page.getByTestId('activate-submit').click()
-  await page.getByTestId('activate-dirty-discard').click()
+  const detail = buildWarDetail({ id: WAR_ID, status: 'closed' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
 
-  // Act — discarding still routes through the same permanence warning
-  // every other path to activation goes through.
-  await expect(page.getByTestId('activate-confirm')).toBeVisible()
-  await page.getByTestId('activate-confirm-submit').click()
+  // Act
+  await gotoEditPage(page)
 
   // Assert
-  await expect(page).toHaveURL(`/wars/${WAR_ID}/vote`)
+  await expect(page.getByTestId('publish-toggle-submit')).toHaveCount(0)
+  await expect(page.getByTestId('publish-closed-note')).toBeVisible()
 })
 
-test('Saving from the confirm step saves the edits without activating', async ({ page }) => {
+test('Clear Votes is available in any status', async ({ page }) => {
   // Arrange
-  const contestantOne = buildContestant({ id: 'c-1', name: 'Ada' })
-  const contestantTwo = buildContestant({ id: 'c-2', name: 'Grace' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestantOne, contestantTwo] })
-  await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: { ...detail, title: 'A brand new title' } }] },
-  ])
-  await gotoEditPage(page)
-  await page.getByTestId('edit-war-title-input').fill('A brand new title')
-  await page.getByTestId('activate-submit').click()
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
 
   // Act
-  await page.getByTestId('activate-dirty-save').click()
-
-  // Assert — the save fired and the confirm step is gone; the voter is
-  // still on Edit War, free to click Activate again once it's saved
-  await waitForCallLog(page, (log) => log.some((entry) => entry.method === 'PATCH' && entry.url.includes(`/wars/${WAR_ID}`)))
-  await expect(page.getByTestId('activate-dirty-confirm')).toHaveCount(0)
-  await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`)
-  const activateCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/activate'))
-  expect(activateCalls).toHaveLength(0)
-})
-
-test("Changing a contestant's name and bio persists both", async ({ page }) => {
-  // Arrange
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: 'Old bio' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  const patchedContestant = buildContestant({ id: 'c-1', name: 'Ada Lovelace', bio: '**New** bio' })
-  await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    {
-      method: 'PATCH',
-      path: `${API}/wars/${WAR_ID}/contestants/c-1`,
-      responses: [{ status: 200, body: patchedContestant }],
-    },
-  ])
   await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-
-  // Act
-  await item.getByTestId('edit-war-contestant-name-input').fill('Ada Lovelace')
-  await item.getByTestId('bio-textarea').fill('**New** bio')
-  await item.getByTestId('edit-war-contestant-submit').click()
-  await expect(item.getByTestId('edit-war-contestant-submit')).toBeEnabled()
 
   // Assert
-  const calls = await getCallLog(page)
-  const patchCall = calls.find((c) => c.method === 'PATCH' && c.url.endsWith('/contestants/c-1'))
-  expect(JSON.parse(patchCall!.body ?? '{}')).toEqual({ name: 'Ada Lovelace', bio: '**New** bio' })
+  await expect(page.getByTestId('clear-votes-submit')).toBeVisible()
 })
 
-test('The bio toolbar wraps the selected text in the right markdown syntax', async ({ page }) => {
+test('Clicking Clear Votes asks for confirmation before clearing', async ({ page }) => {
   // Arrange
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-  const textarea = item.getByTestId('bio-textarea')
-
-  // Act
-  await textarea.fill('brilliant')
-  await textarea.click()
-  await page.keyboard.press('ControlOrMeta+a')
-  await item.getByTestId('bio-format-bold').click()
-
-  // Assert
-  await expect(textarea).toHaveValue('**brilliant**')
-})
-
-test('The heading toolbar buttons insert markdown headers rendered in the preview', async ({ page }) => {
-  // Arrange
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-  const textarea = item.getByTestId('bio-textarea')
-  const preview = item.getByTestId('bio-preview')
-
-  // Act
-  await textarea.fill('Champion')
-  await textarea.click()
-  await page.keyboard.press('ControlOrMeta+a')
-  await item.getByTestId('bio-format-heading1').click()
-
-  // Assert
-  await expect(textarea).toHaveValue('# Champion')
-  await expect(preview.locator('.bio-content h1')).toHaveText('Champion')
-})
-
-test('The bio editor shows a live preview that updates as the bio changes', async ({ page }) => {
-  // Arrange
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-  const preview = item.getByTestId('bio-preview')
-
-  // Act
-  await item.getByTestId('bio-textarea').fill('A **great** contestant')
-
-  // Assert — no save required; the preview reflects the textarea live
-  await expect(preview.locator('strong')).toHaveText('great')
-})
-
-test('The bio editor links to the markdown renderer and its syntax reference', async ({ page }) => {
-  // Arrange
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-
-  // Assert
-  const syntaxLink = item.getByTestId('bio-syntax-link')
-  await expect(syntaxLink).toBeVisible()
-  await expect(syntaxLink).toHaveAttribute('href', 'https://marked.js.org/demo/')
-})
-
-test('The bio preview renders bullet and numbered lists, and links with a visible indicator', async ({ page }) => {
-  // Arrange
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: '' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-  const preview = item.getByTestId('bio-preview')
-
-  // Act
-  await item.getByTestId('bio-textarea').fill('- One\n- Two\n\n1. First\n2. Second\n\n[site](https://example.test)')
-
-  // Assert — real list markup, visibly styled as a list (not reset to
-  // flush, unmarked paragraphs by the app's own base CSS reset), and a
-  // link with a real visible color and underline, not just inherited body
-  // text color
-  const content = preview.locator('.bio-content')
-  await expect(content.locator('ul li')).toHaveCount(2)
-  await expect(content.locator('ol li')).toHaveCount(2)
-  const ulListStyle = await content.locator('ul').evaluate((el) => getComputedStyle(el).listStyleType)
-  expect(ulListStyle).not.toBe('none')
-  const link = content.locator('a')
-  const linkColor = await link.evaluate((el) => getComputedStyle(el).color)
-  const bodyColor = await content.evaluate((el) => getComputedStyle(el).color)
-  expect(linkColor).not.toBe(bodyColor)
-  const textDecoration = await link.evaluate((el) => getComputedStyle(el).textDecorationLine)
-  expect(textDecoration).toContain('underline')
-})
-
-test('A contestant with one image still shows a control to add more', async ({ page }) => {
-  // Arrange — buildContestant's default already includes one media item
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada' })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
   await gotoEditPage(page)
 
   // Act
-  await selectContestant(page, 'Ada')
+  await page.getByTestId('clear-votes-submit').click()
 
   // Assert
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-  await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(1)
-  await expect(item.getByTestId('edit-war-image-input')).toBeVisible()
+  await expect(page.getByTestId('clear-votes-confirm')).toBeVisible()
+  const clearCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/clear-votes'))
+  expect(clearCalls).toHaveLength(0)
 })
 
-test('Adding a second image shows both, in order', async ({ page }) => {
+test('Confirming Clear Votes clears every vote and shows a success toast', async ({ page }) => {
   // Arrange
-  const firstImage = buildMediaItem({ id: 'image-1', display_order: 0 })
-  const secondImage = buildMediaItem({ id: 'image-2', display_order: 1 })
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', media: [firstImage] })
-  const detailBefore = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  const detailAfter = buildWarDetail({
-    id: WAR_ID,
-    status: 'draft',
-    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [firstImage, secondImage] })],
-  })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
+  const cleared = buildWarSummary({ id: WAR_ID, status: 'published' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detailBefore }, { status: 200, body: detailAfter }] },
-    {
-      method: 'POST',
-      path: `${API}/wars/${WAR_ID}/contestants/c-1/images`,
-      responses: [{ status: 201, body: { id: 'image-2', display_order: 1 } }],
-    },
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }, { status: 200, body: detail }] },
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/clear-votes`, responses: [{ status: 200, body: cleared }] },
   ])
   await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+  await page.getByTestId('clear-votes-submit').click()
 
   // Act
-  await item.getByTestId('edit-war-image-input').setInputFiles({
-    name: 'photo.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
-  })
+  await page.getByTestId('clear-votes-confirm-submit').click()
 
   // Assert
-  await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(2)
+  const toast = page.getByTestId('toast')
+  await expect(toast).toBeVisible()
+  await expect(toast).toHaveText('Votes cleared')
+  const clearCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/clear-votes'))
+  expect(clearCalls).toHaveLength(1)
 })
 
-test('A failed image upload shows an error', async ({ page }) => {
+test('Cancelling Clear Votes leaves votes untouched', async ({ page }) => {
   // Arrange
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', media: [] })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    {
-      method: 'POST',
-      path: `${API}/wars/${WAR_ID}/contestants/c-1/images`,
-      responses: [{ status: 422, body: { error: 'unsupported file type' } }],
-    },
-  ])
-  await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-
-  // Act
-  await item.getByTestId('edit-war-image-input').setInputFiles({
-    name: 'photo.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
-  })
-
-  // Assert
-  const error = item.getByTestId('edit-war-image-error')
-  await expect(error).toBeVisible()
-  await expect(error).toHaveAttribute('role', 'alert')
-})
-
-test('Rate-limited image upload is shown as a wait, not an error', async ({ page }) => {
-  // Arrange
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', media: [] })
-  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    {
-      method: 'POST',
-      path: `${API}/wars/${WAR_ID}/contestants/c-1/images`,
-      responses: [{ status: 429, body: { error: 'rate limited' }, headers: { 'Retry-After': '1' } }],
-    },
-  ])
-  await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-
-  // Act
-  await item.getByTestId('edit-war-image-input').setInputFiles({
-    name: 'photo.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
-  })
-
-  // Assert
-  const wait = item.getByTestId('edit-war-image-wait')
-  await expect(wait).toContainText('Slow down a moment')
-  await expect(wait).toHaveAttribute('role', 'status')
-  await expect(item.getByTestId('edit-war-image-error')).toHaveCount(0)
-
-  // the input re-enables automatically once the delay has passed
-  await expect(item.getByTestId('edit-war-image-input')).toBeEnabled({ timeout: 3000 })
-})
-
-test('Removing an image drops it from the gallery', async ({ page }) => {
-  // Arrange
-  const firstImage = buildMediaItem({ id: 'image-1', display_order: 0 })
-  const secondImage = buildMediaItem({ id: 'image-2', display_order: 1 })
-  const detailBefore = buildWarDetail({
-    id: WAR_ID,
-    status: 'draft',
-    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [firstImage, secondImage] })],
-  })
-  const detailAfter = buildWarDetail({
-    id: WAR_ID,
-    status: 'draft',
-    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [firstImage] })],
-  })
-  await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detailBefore }, { status: 200, body: detailAfter }] },
-    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/image-2`, responses: [{ status: 204 }] },
-  ])
-  await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-  await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(2)
-
-  // Act
-  await item.getByTestId('edit-war-contestant-image').nth(1).getByTestId('edit-war-image-remove').click()
-
-  // Assert
-  await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(1)
-})
-
-test('Reordering images persists the new order', async ({ page }) => {
-  // Arrange
-  const firstImage = buildMediaItem({ id: 'image-1', display_order: 0 })
-  const secondImage = buildMediaItem({ id: 'image-2', display_order: 1 })
-  const detailBefore = buildWarDetail({
-    id: WAR_ID,
-    status: 'draft',
-    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [firstImage, secondImage] })],
-  })
-  const detailAfter = buildWarDetail({
-    id: WAR_ID,
-    status: 'draft',
-    contestants: [
-      buildContestant({
-        id: 'c-1',
-        name: 'Ada',
-        media: [
-          buildMediaItem({ id: 'image-2', display_order: 0 }),
-          buildMediaItem({ id: 'image-1', display_order: 1 }),
-        ],
-      }),
-    ],
-  })
-  await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detailBefore }, { status: 200, body: detailAfter }] },
-    // A "move up" is a genuine swap, not a relocation — both neighbors'
-    // display_order change, so both routes are mocked.
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/image-2`, responses: [{ status: 204 }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/image-1`, responses: [{ status: 204 }] },
-  ])
-  await gotoEditPage(page)
-  await selectContestant(page, 'Ada')
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-
-  // Act — move the second image up, ahead of the first
-  await item.getByTestId('edit-war-contestant-image').nth(1).getByTestId('edit-war-image-move-up').click()
-
-  // Assert — the render reflects the refetched (mocked) order, and both
-  // sides of the swap were actually sent
-  await expect(item.getByTestId('edit-war-contestant-image').nth(0)).toHaveAttribute('data-media-id', 'image-2')
-  await expect(item.getByTestId('edit-war-contestant-image').nth(1)).toHaveAttribute('data-media-id', 'image-1')
-  const calls = await getCallLog(page)
-  const image2Patch = calls.find((c) => c.method === 'PATCH' && c.url.endsWith('/media/image-2'))
-  const image1Patch = calls.find((c) => c.method === 'PATCH' && c.url.endsWith('/media/image-1'))
-  expect(JSON.parse(image2Patch!.body ?? '{}')).toEqual({ display_order: 0 })
-  expect(JSON.parse(image1Patch!.body ?? '{}')).toEqual({ display_order: 1 })
-})
-
-test('At 10 images, the add-more control is hidden with an explanatory message', async ({ page }) => {
-  // Arrange
-  const media = Array.from({ length: 10 }, (_, index) => buildMediaItem({ id: `image-${index}`, display_order: index }))
-  const detail = buildWarDetail({
-    id: WAR_ID,
-    status: 'draft',
-    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media })],
-  })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
   await gotoEditPage(page)
+  await page.getByTestId('clear-votes-submit').click()
 
   // Act
-  await selectContestant(page, 'Ada')
+  await page.getByTestId('clear-votes-confirm-cancel').click()
 
   // Assert
-  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
-  await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(10)
-  await expect(item.getByTestId('edit-war-image-input')).toHaveCount(0)
-  await expect(item.getByTestId('edit-war-image-cap-reached')).toBeVisible()
+  await expect(page.getByTestId('clear-votes-confirm')).toHaveCount(0)
+  const clearCalls = (await getCallLog(page)).filter((entry) => entry.url.includes('/clear-votes'))
+  expect(clearCalls).toHaveLength(0)
 })

@@ -1,14 +1,14 @@
 Feature: My Wars
 
   Scenario: A voter sees every War they created, across every status
-    Given an authenticated voter who created a draft War, an active War, and a closed War
+    Given an authenticated voter who created a draft War, a published War, and a closed War
     When they navigate to their My Wars page
     Then a War card is shown for each of their three Wars
     And each card shows its status
 
   Scenario: My Wars does not show another voter's Wars
     Given an authenticated voter with no Wars of their own
-    And another voter has created an active public War
+    And another voter has created a published public War
     When they navigate to their My Wars page
     Then that other voter's War is not shown
 

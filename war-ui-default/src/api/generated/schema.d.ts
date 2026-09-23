@@ -399,7 +399,7 @@ export interface paths {
                             title: null | string;
                             category: null | string;
                             /** @enum {string} */
-                            status: "draft" | "active" | "closed";
+                            status: "draft" | "published" | "closed";
                             /** @enum {string} */
                             visibility: "public" | "invite_only";
                             /** @enum {string} */
@@ -560,7 +560,7 @@ export interface paths {
         };
         trace?: never;
     };
-    "/wars/{id}/activate": {
+    "/wars/{id}/publish": {
         parameters: {
             query?: never;
             header?: never;
@@ -620,6 +620,136 @@ export interface paths {
                         "application/json": {
                             error: string;
                             details: string[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wars/{id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WarSummary"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            details: string[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wars/{id}/clear-votes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WarSummary"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
                         };
                     };
                 };
@@ -1240,6 +1370,17 @@ export interface paths {
                         "application/json": unknown;
                     };
                 };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -1269,11 +1410,15 @@ export interface paths {
             requestBody?: never;
             responses: {
                 /** @description Default Response */
-                200: {
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
                 };
             };
         };
@@ -1360,7 +1505,7 @@ export interface paths {
                         "application/json": {
                             error: string;
                             /** @enum {string} */
-                            reason: "war_not_active" | "not_joined";
+                            reason: "war_not_published" | "not_joined";
                         };
                     };
                 };
@@ -1445,7 +1590,7 @@ export interface paths {
                             /** Format: uuid */
                             war_id: string;
                             /** @enum {string} */
-                            status: "draft" | "active" | "closed";
+                            status: "draft" | "published" | "closed";
                             /** @enum {string} */
                             theme: "arcade" | "fight_card" | "scrapbook";
                             /** Format: date-time */
@@ -1525,7 +1670,7 @@ export interface components {
             title: null | string;
             category: null | string;
             /** @enum {string} */
-            status: "draft" | "active" | "closed";
+            status: "draft" | "published" | "closed";
             /** @enum {string} */
             visibility: "public" | "invite_only";
             /** @enum {string} */

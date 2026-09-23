@@ -2,11 +2,11 @@
 // title, category badge, contestant count, and time remaining (when
 // ends_at is set). MyWars ("MyWars Page") additionally needs a status badge
 // and a single link to the War's detail page, since it lists every status a
-// War can hold. Home's own Wars are all active by construction (the page's
-// query already filters to active), so repeating "active" on every card is
-// noise, not information (war-spec.md 10.4) -- Home instead offers direct
-// Vote and Results entry points in place of the status badge and the single
-// detail-page link.
+// War can hold. Home's own Wars are all published by construction (the
+// page's query already filters to published), so repeating "published" on
+// every card is noise, not information (war-spec.md 10.4) -- Home instead
+// offers direct Vote and Results entry points in place of the status badge
+// and the single detail-page link.
 import { Link } from 'react-router-dom'
 import type { WarSummary } from '../api/client'
 import { warTitle } from '../utils/warTitle'
@@ -15,8 +15,7 @@ interface WarCardProps {
   war: WarSummary
   // True only from MyWars, the one place a WarCard is known to be the
   // viewer's own -- Home renders the same card for every creator's Wars, so
-  // this cannot be inferred from `war.status` alone (PROGRESS.md's
-  // draft-only editing gap).
+  // this cannot be inferred from `war.status` alone.
   showEditLink?: boolean
   // 'my-wars' (default) keeps the status badge and single link to detail.
   // 'home' drops the status badge and offers Vote/Results entry points
@@ -67,7 +66,7 @@ function MyWarsWarCard({ war, showEditLink }: { war: WarSummary; showEditLink: b
         <WarCardDetails war={war} />
         <p data-testid="war-status-badge">{war.status}</p>
       </Link>
-      {showEditLink && war.status === 'draft' && (
+      {showEditLink && (
         <div className="action-bar">
           <Link to={`/wars/${war.id}/edit`} className="button" data-testid="edit-war-link">
             Edit

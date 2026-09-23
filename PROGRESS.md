@@ -30,15 +30,29 @@ Staging and production both run as a single application per environment containi
 - **Published API contract**, generated from route definitions. A CI guard fails the build
   if the committed client types drift.
 - **Health check.**
-- **Activation requires only "at least 2 contestants."** `activateWar` (`warsService.ts`)
-  has no per-contestant image-count check; a contestant may hold no media at all and the War
-  can still activate — vote/rankings render whatever media each contestant has (spec 6.1).
-- **Deleting a draft War.** `DELETE /wars/:id` (`warsService.deleteWar`), draft-only and
-  creator-only via the existing `loadDraftWarOwnedBy` guard — same 404/403/notDraft outcomes
-  `patchWar` already returns. Removes the War's `contestant_media` rows, then its `contestants`,
-  then the `wars` row itself (a draft never has matchups/votes/memberships, so no other table
-  needs cleanup). No object-storage cleanup, matching `deleteContestant`'s existing precedent of
-  leaving orphaned media objects behind.
+- **War lifecycle: Publish/Unpublish, always-editable, Clear Votes, cascading Delete**
+  (spec §6.1, §4). The one-way `active` status and its `activate` route are gone; `status` is
+  now `draft` → `published` → `closed`, with `publishWar`/`unpublishWar` (`warsService.ts`,
+  `POST /wars/:id/publish` and `/unpublish`) the two directions of one reversible toggle —
+  `closed` remains the sole terminal state, reachable only by end-date expiry, and rejects
+  both directions. Publishing still requires only "at least 2 contestants," no per-contestant
+  image check. Every War-owning mutation (metadata PATCH except `contestant_schema`, which
+  stays draft-only; contestant add/patch/remove; contestant image add/reorder/remove; share
+  image) now uses ownership-only guards (`loadOwnedWar`, `warAccess.ts`) instead of
+  draft-only ones — a creator can edit a War in any status. Matchups generate incrementally
+  per contestant as it's added (`generateMatchupsForNewContestant`,
+  `matchups/matchupsRepository.ts`) rather than as one batch at publish time, and are removed
+  along with a contestant's votes when it's removed. **Clear Votes**
+  (`POST /wars/:id/clear-votes`, `warsService.clearVotes`) deletes every vote in a War and
+  resets every contestant's counters to zero via `recomputeContestantCounters`
+  (`contestantsRepository.ts`) — a hard delete, any status, creator-only. **Delete**
+  (`DELETE /wars/:id`) now works in any status and cascades votes → matchups →
+  `contestant_media` → contestants → memberships → the `wars` row, all in one transaction
+  (`deleteWarRow`, `warsRepository.ts`) — no FK cascade exists at the schema level, so this
+  ordering is load-bearing. `GET /wars/:id` and `GET /wars/:id/rankings` gained a visibility
+  check (`isWarVisibleTo`, `warAccess.ts`) that was previously missing entirely: a War that
+  is currently a draft is invisible to anyone but its creator, identically to a missing War;
+  `closed` stays visible to everyone (rankings remain readable, spec §4).
 - **`is_owner` on War detail.** `GET /wars/:id` gained a new `optionalAuth` preHandler
   (`auth/plugin.ts`) — populates `request.voterId` from a bearer token when one is present and
   valid, but never 401s otherwise. `WarDetailResponse` (not `WarSummary`) carries
@@ -53,7 +67,8 @@ Staging and production both run as a single application per environment containi
   address-keyed limits (sign-in, token refresh — spec §8.4's other two rows) are enforced by
   Cloudflare (`war-infra/terraform/shared/main.tf`), not here.
 - **Share image** (spec §4/§9.1). `POST /wars/:id/share-image` (multipart, single file),
-  creator-only and draft-only like every other Edit War mutation. `shareImageProcessing.ts`
+  creator-only, editable in any status like every other War-field mutation.
+  `shareImageProcessing.ts`
   center-crops to exactly 1200×630 via sharp regardless of the input's own size, encodes JPEG
   (not the WebP contestant media uses — chosen so the same asset works as a third-party
   link-preview image without a second encoding), and strips metadata the same way contestant
@@ -100,12 +115,14 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   `icon-512.png` (rasterized via `sharp`, opaque `#0d0b1a` background — iOS/Android composite
   transparency badly) plus `manifest.webmanifest` cover the browser tab and Android/iOS
   home-screen cases; `index.html` links all three.
-- **Editing a draft War.** `PATCH /wars/:id`, `PATCH /wars/:id/contestants/:cId`, and
-  `DELETE /wars/:id/contestants/:cId` (all draft-only, creator-only server-side) have a UI
-  route, `/wars/:id/edit`, reachable from a draft's own My Wars card. Covers
-  title/category/visibility/end date, and each contestant's name, bio, image gallery (add,
-  remove, reorder, up to the ten-image cap), and outright removal. Editing an active War
-  remains out of scope — the API 403s any PATCH once a War leaves draft, by design.
+- **Editing a War, in any status.** `PATCH /wars/:id`, `PATCH /wars/:id/contestants/:cId`,
+  and `DELETE /wars/:id/contestants/:cId` (creator-only server-side, never status-gated) have
+  a UI route, `/wars/:id/edit`, reachable from any of a creator's own My Wars cards. Covers
+  title/category/visibility/end date (contestant schema stays draft-only), and each
+  contestant's name, bio, image gallery (add, remove, reorder, up to the ten-image cap), and
+  removal. Removing a contestant that carries votes asks for confirmation first, naming how
+  many votes will be lost, then clears just that contestant's own votes as part of removing
+  it (`RemoveContestantConfirmDialog`, `EditWar.tsx`).
 - **Contestant bio formatting.** A constrained markdown subset — bold, italic, bullet/numbered
   lists, links, and headings (`#`/`##`/`###`) — entered via a small toolbar (`BioEditor`) and
   rendered sanitized (`marked` + `DOMPurify`, allow-listing exactly those elements) via
@@ -121,11 +138,12 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   dismiss needed).
 - **Single-page War creation.** Create War creates an empty draft (`POST /wars`, no title
   required — `wars.title` is a nullable column) and forwards straight to `/wars/:id/edit`,
-  which also handles theme editing and an **Activate** button. Activate is client-side
-  disabled with an inline reason until the War meets the API's rule (≥2 contestants); a
-  failure the client-side check didn't catch shows the API's validation messages verbatim.
+  which also handles theme editing and the **Publish/Unpublish** toggle. Publish is
+  client-side disabled with an inline reason until the War meets the API's rule (≥2
+  contestants); a failure the client-side check didn't catch shows the API's validation
+  messages verbatim.
 - **Home Vote/Results entry points.** Home's War cards show no status word (every card there
-  is active by construction). Each card carries two direct links, `WarCard`'s
+  is published by construction). Each card carries two direct links, `WarCard`'s
   `variant="home"` (default remains `my-wars`): **Vote** to `/wars/:id/vote` and **Results**
   to `/wars/:id`. Vote's route is wrapped in `RequireAuth`, so an anonymous tap lands on
   sign-in and returns to Vote afterward, the same way `/wars/new` and `/my-wars` do.
@@ -137,16 +155,17 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   each theme's own surface color (`--t-surface`, the same one `.war-card`/`.contestant-card`
   use), part of that shared per-theme selector group so it can't drift from the other
   surfaces a theme defines.
-- **Activate dirty-check/confirm.** Clicking Activate while the metadata form (title,
-  category, visibility, theme, end date) has unsaved edits shows a confirm step
-  (`activate-dirty-confirm`) instead of activating immediately, offering **Save changes**
-  (submits the form via `EditWarMetadataFormHandle.submit()`, exposed through a
-  `forwardRef`, then returns to the Metadata section so the creator sees the result),
-  **Discard and activate**, or **Cancel**. The form reports its own dirty state up via
-  `onDirtyChange` rather than lifting its field state out, so `EditWar` can gate its sibling
-  Activate button without the form giving up ownership of its own fields. Known gap:
-  switching the left nav away from Metadata unmounts the form and discards any unsaved
-  edits.
+- **Publish/Unpublish and Clear Votes confirmations.** Publish and Unpublish are one toggle
+  button (`publish-toggle-submit`, label follows the War's current status) behind a single
+  confirmation dialog (`publish-toggle-confirm`) naming which direction it's about to take —
+  "reachable by anyone" vs. "reachable only by you." A closed War shows neither control, just
+  an explanatory note (`publish-closed-note`). Since editing is no longer status-gated, the
+  old "unsaved metadata edits block activation" dirty-check flow no longer applies and was
+  removed entirely — publishing never discards anything. **Clear Votes**
+  (`clear-votes-submit`/`clear-votes-confirm`) is a separate, always-available destructive
+  action with its own confirmation, naming that every vote and counter resets. Known gap:
+  switching the left nav away from Metadata unmounts the metadata form and discards any
+  unsaved edits.
 - **Carousel paging vs. voting.** `ImageCarousel`'s paging-arrow buttons stop pointer-event
   propagation on `onPointerDown`/`onPointerUp`, not just `onClick` — a real click fires
   pointerdown → pointerup → click in that order, so stopping propagation only on click let a
@@ -155,7 +174,7 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   `matchup.left/right.id`, not position — `ImageCarousel`'s paging state (`currentIndex`)
   lives in the card, so an unkeyed card at a fixed left/right slot would carry a contestant's
   leftover paging index into the next contestant shown at that same slot.
-- **Activate no longer requires media (client-side).** `missingForActivation`
+- **Publish no longer requires media (client-side).** `missingForPublish`
   (`EditWar.tsx`) mirrors the API: only "at least 2 contestants" is required, no
   per-contestant image check.
 - **Results list.** War detail is one page: `ResultsTable` (`components/ResultsTable.tsx`)
@@ -186,17 +205,18 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   on a wide viewport, with margin above it so the rank badge's overlay never crowds the
   category text or action bar above the list.
 - **Results-page Edit/Delete/Vote/Export entry points.** `WarDetail.tsx`'s `ResultsActions`
-  shows **Edit** and **Delete** (`war-detail-edit-link`/`war-detail-delete-button`) when
-  `war.is_owner && status === 'draft'`; **Vote** (`war-detail-vote-link`) when the War is
-  active, the voter is authenticated (`getToken()`), and `GET /wars/:id/my-progress` reports
-  `voted < total` — the request is skipped entirely for an anonymous visitor or a
-  non-active War rather than firing one the API would 401 anyway; and **Export**
-  (`war-detail-export-button`) whenever `war.is_owner`, regardless of status. Delete and
-  Export are shared hooks/components (`useDeleteWarFlow`, `DeleteWarConfirmDialog`,
-  `ExportButton`, `ErrorMessage`) so `EditWar.tsx` reuses the same Delete confirmation and
-  Export button rather than duplicating them.
-- **Edit-page Delete.** `EditWar.tsx` has a Delete button (`edit-war-delete-button`) next to
-  Activate, same permanence-confirm pattern, navigating to `/my-wars` on success.
+  shows **Edit** and **Delete** (`war-detail-edit-link`/`war-detail-delete-button`) whenever
+  `war.is_owner`, regardless of status — editing is never status-gated; **Vote**
+  (`war-detail-vote-link`) when the War is published, the voter is authenticated
+  (`getToken()`), and `GET /wars/:id/my-progress` reports `voted < total` — the request is
+  skipped entirely for an anonymous visitor or a non-published War rather than firing one the
+  API would 401 anyway; and **Export** (`war-detail-export-button`) whenever `war.is_owner`,
+  regardless of status. Delete and Export are shared hooks/components (`useDeleteWarFlow`,
+  `DeleteWarConfirmDialog`, `ExportButton`, `ErrorMessage`) so `EditWar.tsx` reuses the same
+  Delete confirmation and Export button rather than duplicating them.
+- **Edit-page Delete.** `EditWar.tsx` has a Delete button (`edit-war-delete-button`) in its
+  top action row, same confirm-first pattern, navigating to `/my-wars` on success; works in
+  any status and cascades contestants, media, matchups, and votes.
 - **Action-bar/button consistency; confirmation dialogs are native `<dialog>` modals.** Every
   action row (results page, edit page, both War-card variants) shares two primitives:
   `.action-bar` (`layout.css`, a flex row with a standard gap) and a `.button` class
@@ -204,20 +224,24 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   to look like an action — including a `<Link>` — gets identical treatment to a real
   `<button>`. `DeleteButton.tsx` (mirrors `ExportButton.tsx`) is the one Delete-button
   implementation, reused everywhere. Destructive actions (`.button--danger`: both Delete
-  buttons, the delete-confirm dialog's submit, "Discard and activate") get a per-theme
-  danger color (`--t-danger`/`--t-danger-text`, picked from each theme's own palette)
-  instead of the primary accent, so they read as visually distinct — the modifier rule is
-  the last rule in `themes.css` since it ties in specificity with each per-theme `.button`
-  rule and source order breaks the tie. `DeleteWarConfirmDialog`,
-  `ActivateDirtyConfirmDialog`, and `ActivatePermanenceConfirmDialog` render through a
-  shared `Modal.tsx` wrapping a native `<dialog>` — `showModal()`/`close()` synced to a
-  `show` prop — giving them positioning, backdrop, focus trap, and Escape handling for free;
-  `themes.css` has a `.modal` surface rule (same theme-surface treatment as `.bio-content`)
-  and `layout.css` a `.modal::backdrop` rule.
+  buttons, the delete-confirm dialog's submit, Clear Votes' confirm submit, a
+  contestant-removal-with-votes confirm submit) get a per-theme danger color
+  (`--t-danger`/`--t-danger-text`, picked from each theme's own palette) instead of the
+  primary accent, so they read as visually distinct — the modifier rule is the last rule in
+  `themes.css` since it ties in specificity with each per-theme `.button` rule and source
+  order breaks the tie. `DeleteWarConfirmDialog`, `PublishToggleConfirmDialog`,
+  `ClearVotesConfirmDialog`, and `RemoveContestantConfirmDialog` render through a shared
+  `Modal.tsx` wrapping a native `<dialog>` — `showModal()`/`close()` synced to a `show` prop —
+  giving them positioning, backdrop, focus trap, and Escape handling for free; `themes.css`
+  has a `.modal` surface rule (same theme-surface treatment as `.bio-content`) and
+  `layout.css` a `.modal::backdrop` rule.
 - **Persistent footer.** `Footer.tsx`, rendered once by `App.tsx` alongside `NavBar` (same
   `useActiveTheme` pattern), shows a copyright line and links to the project's GitHub repo
-  and to `docs/building-a-war-import.md` (instructions, written for an AI coding assistant,
-  for building a War Import feature for a new client).
+  and to `docs/building-a-war-import.md` (instructions for an AI assistant to assemble a
+  ready-to-upload War import `.zip` from a user's raw material — contestants, facts, photos —
+  for this app's existing Import feature; not a guide to building that feature). Note:
+  `Footer.tsx`'s own link label still reads "guide for AI implementers," left unchanged, and
+  now describes the doc's purpose inaccurately.
 - **War export.** `src/export/exportWar.ts`'s `buildWarExportZip` builds a zip (via `fflate`)
   containing `war.json` (title, category, visibility, theme, `contestant_schema`, `ends_at`,
   and each contestant's name/bio/attributes — no votes, no `win_count`/`appearance_count`)
@@ -265,9 +289,6 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
-- **Editing an active War.** The API rejects any PATCH once a War leaves draft (by design,
-  fairness during voting); no UI or API path exists to change anything about a live War short
-  of closing it.
 
 ---
 

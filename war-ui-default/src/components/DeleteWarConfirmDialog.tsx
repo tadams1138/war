@@ -10,7 +10,7 @@ interface DeleteWarConfirmDialogProps {
 export function DeleteWarConfirmDialog({ show, onConfirm, onCancel, testIdPrefix }: DeleteWarConfirmDialogProps) {
   return (
     <Modal show={show} onCancel={onCancel} testId={`${testIdPrefix}-delete-confirm`}>
-      <p>Deleting this War is permanent — its contestants are removed too. Do you want to continue?</p>
+      <p>Deleting this War is permanent — its contestants, media, and votes are all removed too. Do you want to continue?</p>
       <div className="action-bar">
         <button type="button" className="button button--danger" data-testid={`${testIdPrefix}-delete-confirm-submit`} onClick={onConfirm}>
           Delete War

@@ -1,4 +1,4 @@
-// Browse active public Wars (the spec).
+// Browse published public Wars (the spec).
 import { Link } from 'react-router-dom'
 import { getWars, type WarSummary } from '../api/client'
 import { useAuth } from '../auth/context'
@@ -45,17 +45,17 @@ function HomeWarList({ wars, isAuthenticated }: { wars: WarSummary[]; isAuthenti
 
 // The empty-state copy is auth-aware ("Home Page"): an anonymous
 // visitor's only options are to wait or log in (NavBar already covers the
-// latter), but a signed-in voter is the one visitor who can make an active
-// War exist, so they're pointed at /wars/new instead. This link is in
-// addition to NavBar's own persistent Create War link, not in place of it —
-// the same deliberate duplication MyWars's empty state already has.
+// latter), but a signed-in voter is the one visitor who can make a
+// published War exist, so they're pointed at /wars/new instead. This link
+// is in addition to NavBar's own persistent Create War link, not in place
+// of it — the same deliberate duplication MyWars's empty state already has.
 function HomeEmptyState({ isAuthenticated }: { isAuthenticated: boolean }) {
   if (!isAuthenticated) {
-    return <p data-testid="empty-state">No active Wars right now — check back soon.</p>
+    return <p data-testid="empty-state">No published Wars right now — check back soon.</p>
   }
   return (
     <div data-testid="empty-state">
-      <p>No active Wars right now — create one to get started.</p>
+      <p>No published Wars right now — create one to get started.</p>
       <Link to="/wars/new" data-testid="home-create-war-cta">
         Create a War
       </Link>

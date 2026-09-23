@@ -4,11 +4,9 @@
 // theme is editable the same way every other field here is, since there is
 // no longer a one-time wizard step to set it at creation instead.
 //
-// Exposes an imperative `submit()` via ref, and reports its own dirty state
-// via `onDirtyChange`, so EditWar's Activate button -- a sibling, not a
-// parent of this form's fields -- can gate on unsaved edits without this
-// component giving up ownership of its own field state (war-spec.md 10.4's
-// Activate dirty-check/confirm step).
+// Exposes an imperative `submit()` via ref, so EditWar's Publish/Unpublish
+// button -- a sibling, not a parent of this form's fields -- can trigger a
+// save without this component giving up ownership of its own field state.
 import { forwardRef, useEffect, useImperativeHandle, useState, type FormEvent } from 'react'
 import type { PatchWarPayload, WarDetailResponse } from '../api/client'
 import { THEME_LABELS, THEMES, type Theme } from '../theme/themeCookie'
@@ -19,7 +17,6 @@ interface EditWarMetadataFormProps {
   error: string | null
   saving: boolean
   onSave: (payload: PatchWarPayload) => void
-  onDirtyChange?: (dirty: boolean) => void
   // Deferred like every other field on this form (spec, "neither an upload
   // nor a generated preview takes effect until Save is pressed") -- called
   // from submit(), before onSave, only when a pending image exists.
@@ -31,28 +28,9 @@ export interface EditWarMetadataFormHandle {
 }
 
 // The `<input type="date">` value shape (YYYY-MM-DD) an ISO timestamp
-// collapses to -- needed both as the field's initial value and again in the
-// dirty check, so it's a named function rather than the same slice repeated
-// twice inline.
+// collapses to -- needed as the field's initial value.
 function endsAtInputValue(endsAt: string | null): string {
   return endsAt ? endsAt.slice(0, 10) : ''
-}
-
-function valueOrEmpty(value: string | null): string {
-  return value ?? ''
-}
-
-function computeIsDirty(
-  war: WarDetailResponse,
-  fields: { title: string; category: string; visibility: string; theme: string; endsAt: string },
-): boolean {
-  return (
-    fields.title !== valueOrEmpty(war.title) ||
-    fields.category !== valueOrEmpty(war.category) ||
-    fields.visibility !== war.visibility ||
-    fields.theme !== war.theme ||
-    fields.endsAt !== endsAtInputValue(war.ends_at)
-  )
 }
 
 function MetadataSaveError({ titleRequiredError, error }: { titleRequiredError: string | null; error: string | null }) {
@@ -110,7 +88,7 @@ function ShareImageField({
 }
 
 export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWarMetadataFormProps>(
-  function EditWarMetadataForm({ war, error, saving, onSave, onDirtyChange, onUploadShareImage }, ref) {
+  function EditWarMetadataForm({ war, error, saving, onSave, onUploadShareImage }, ref) {
   const [title, setTitle] = useState(war.title ?? '')
   const [category, setCategory] = useState(war.category ?? '')
   const [visibility, setVisibility] = useState<'public' | 'invite_only'>(war.visibility)
@@ -119,12 +97,6 @@ export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWar
   const [titleRequiredError, setTitleRequiredError] = useState<string | null>(null)
   const [pendingShareImage, setPendingShareImage] = useState<Blob | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-
-  const isDirty = computeIsDirty(war, { title, category, visibility, theme, endsAt })
-
-  useEffect(() => {
-    onDirtyChange?.(isDirty)
-  }, [isDirty, onDirtyChange])
 
   // The pending preview is a local object URL, not the saved share_image_url
   // -- revoked whenever it's replaced or the component unmounts, so a

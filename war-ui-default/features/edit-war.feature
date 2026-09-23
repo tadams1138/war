@@ -1,10 +1,5 @@
 Feature: Edit War
 
-  Scenario: An active War shows a not-editable message, not the editor
-    Given an authenticated voter navigates to the Edit page of a War that is no longer a draft
-    Then they see a message that the War is no longer editable
-    And no editing form is shown
-
   Scenario: Metadata is shown by default
     Given an authenticated voter viewing a draft War's Edit page
     Then the metadata form is shown
@@ -22,11 +17,27 @@ Feature: Edit War
     When they switch to a different contestant
     Then that contestant's own name and bio are shown, not the previous edits
 
-  Scenario: Removing a contestant deletes it and returns to Metadata
-    Given an authenticated voter viewing a contestant's editor
+  Scenario: Removing a contestant with no votes deletes it immediately and returns to Metadata
+    Given an authenticated voter viewing the editor of a contestant with no votes
     When they remove the contestant
     Then it is deleted and no longer appears in the nav
     And the metadata form is shown
+
+  Scenario: Removing a contestant with votes asks for confirmation, naming what will be lost
+    Given an authenticated voter viewing the editor of a contestant with votes
+    When they choose to remove the contestant
+    Then a confirmation is shown naming how many votes will be lost
+    And nothing is removed yet
+
+  Scenario: Confirming removal of a contestant with votes deletes it
+    Given a contestant-with-votes removal confirmation is shown
+    When the voter confirms
+    Then it is deleted and no longer appears in the nav
+
+  Scenario: Cancelling removal of a contestant with votes leaves it untouched
+    Given a contestant-with-votes removal confirmation is shown
+    When the voter cancels
+    Then the contestant is not removed
 
   Scenario: Adding a contestant selects it immediately
     Given an authenticated voter on a draft War's Edit page
@@ -48,6 +59,11 @@ Feature: Edit War
   Scenario: A metadata save failure shows a validation error
     Given an authenticated voter clears the title and saves
     Then a validation error is shown
+
+  Scenario: Metadata remains editable on a published War
+    Given an authenticated voter viewing a published War's Edit page
+    When they change the title and save
+    Then the change is persisted
 
   Scenario: Changing a contestant's name and bio persists both, confirmed by a toast
     Given an authenticated voter editing a contestant
@@ -115,6 +131,11 @@ Feature: Edit War
     Then no control to add more images is shown
     And an explanation of the cap is shown
 
+  Scenario: Images remain editable on a published War
+    Given an authenticated voter editing a contestant on a published War
+    When they add an image
+    Then it is uploaded
+
   Scenario: Export is available on the Edit page
     Given an authenticated voter viewing a draft War's Edit page
     Then an Export control is shown
@@ -124,78 +145,96 @@ Feature: Edit War
     When they choose Export
     Then a zip file of the War's definition downloads
 
-  Scenario: Deleting a draft asks for confirmation first
+  Scenario: Deleting a War asks for confirmation first
     Given an authenticated voter viewing a draft War's Edit page
     When they choose Delete
     Then a confirmation is shown
     And nothing is deleted yet
 
-  Scenario: Confirming delete removes the draft and returns to My Wars
+  Scenario: Confirming delete removes the War and returns to My Wars
     Given an authenticated voter has asked to delete a draft War
     When they confirm
-    Then the draft is deleted
+    Then the War is deleted
     And they land on My Wars
 
-  Scenario: Cancelling delete leaves the draft untouched
+  Scenario: Cancelling delete leaves the War untouched
     Given an authenticated voter has asked to delete a draft War
     When they cancel
-    Then the draft is not deleted
+    Then the War is not deleted
     And they remain on the Edit page
 
-  Scenario: Activation requires at least two contestants
+  Scenario: Deleting a published War works the same as deleting a draft
+    Given an authenticated voter viewing a published War's Edit page
+    When they delete it and confirm
+    Then the War is deleted
+
+  Scenario: Publish requires at least two contestants
     Given a draft War with fewer than two contestants
-    Then Activate is disabled
+    Then Publish War is disabled
     And a message states what's missing
 
-  Scenario: A contestant with no image does not block activation
+  Scenario: A contestant with no image does not block publishing
     Given a draft War where a contestant has no image
-    Then Activate is enabled
+    Then Publish War is enabled
 
-  Scenario: Activating asks for confirmation, since it is permanent
-    Given a draft War ready to activate, with no unsaved edits
-    When the voter chooses Activate
-    Then a permanence warning is shown
-    And activation does not happen yet
+  Scenario: Publishing asks for confirmation
+    Given a draft War ready to publish
+    When the voter chooses Publish War
+    Then a confirmation is shown, naming that it becomes reachable by anyone
+    And publishing does not happen yet
 
-  Scenario: Cancelling the permanence warning leaves the draft untouched
-    Given the permanence warning is shown
+  Scenario: Cancelling the publish confirmation leaves the draft untouched
+    Given the publish confirmation is shown
     When the voter cancels
-    Then activation does not happen
+    Then publishing does not happen
     And they remain on the Edit page
 
-  Scenario: Confirming activation activates the War and moves to voting
-    Given the permanence warning is shown
+  Scenario: Confirming publish publishes the War and moves to voting
+    Given the publish confirmation is shown
     When the voter confirms
-    Then the War activates
+    Then the War is published
     And they land on its vote page
 
-  Scenario: A failed activation shows the API's validation messages
-    Given the voter confirms activation
-    When activation is rejected
+  Scenario: A failed publish shows the API's validation messages
+    Given the voter confirms publishing
+    When publishing is rejected
     Then the validation messages are shown
     And they remain on the Edit page
 
-  Scenario: Activating with unsaved metadata edits asks whether to save or discard them first
-    Given the voter has unsaved metadata edits
-    When they choose Activate
-    Then they are asked to save the edits, discard them, or cancel
-    And activation does not happen yet
+  Scenario: Unpublishing a published War asks for confirmation
+    Given an authenticated voter viewing a published War's Edit page
+    When they choose Unpublish War
+    Then a confirmation is shown, naming that it becomes reachable only by them
+    And unpublishing does not happen yet
 
-  Scenario: Cancelling that step leaves the draft untouched, edits intact
-    Given that step is shown
-    When the voter cancels
-    Then the unsaved edits remain
-    And activation does not happen
-
-  Scenario: Discarding the edits proceeds to the permanence warning, then activates
-    Given that step is shown
-    When the voter discards the edits
-    Then the permanence warning is shown
-    And confirming it activates the War
-
-  Scenario: Saving from that step saves the edits without activating
-    Given that step is shown
-    When the voter chooses to save
-    Then the edits are persisted
-    And activation does not happen
+  Scenario: Confirming unpublish returns the War to draft
+    Given the unpublish confirmation is shown
+    When the voter confirms
+    Then the War becomes a draft
     And they remain on the Edit page
+
+  Scenario: A closed War offers neither Publish nor Unpublish
+    Given an authenticated voter viewing a closed War's Edit page
+    Then no Publish or Unpublish control is shown
+    And a note explains the War has closed
+
+  Scenario: Clear Votes is available in any status
+    Given an authenticated voter viewing a draft War's Edit page
+    Then a Clear Votes control is shown
+
+  Scenario: Clicking Clear Votes asks for confirmation
+    Given an authenticated voter viewing a published War's Edit page
+    When they choose Clear Votes
+    Then a confirmation is shown naming that every vote and counter resets
+    And votes are not cleared yet
+
+  Scenario: Confirming Clear Votes clears every vote
+    Given the Clear Votes confirmation is shown
+    When the voter confirms
+    Then every vote in the War is cleared
+    And a success toast appears
+
+  Scenario: Cancelling Clear Votes leaves votes untouched
+    Given the Clear Votes confirmation is shown
+    When the voter cancels
+    Then votes are not cleared

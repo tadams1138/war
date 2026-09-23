@@ -175,18 +175,18 @@ async function classifyError(response: Response, classify403: Classify403): Prom
 // The safe fallback for a 403 whose endpoint has no discriminator field —
 // join's is the only caller today, and its 403 (`{ error: string }`,
 // schema.d.ts) genuinely has only one possible cause (the War isn't
-// active), so there is nothing to discriminate; 'war-closed' is simply
+// published), so there is nothing to discriminate; 'war-closed' is simply
 // correct, not a guess.
 function classifyDefault403(): ApiErrorReason {
   return 'war-closed'
 }
 
 // castVote's 403 carries a typed `reason` (schema.d.ts:
-// "war_not_active" | "not_joined") — a real discriminator, not a message
+// "war_not_published" | "not_joined") — a real discriminator, not a message
 // to parse. The Record below makes a regenerated schema with a new enum
 // member a compile error here, rather than a silent misclassification.
 const VOTE_403_REASONS: Record<VoteForbiddenBody['reason'], ApiErrorReason> = {
-  war_not_active: 'war-closed',
+  war_not_published: 'war-closed',
   not_joined: 'not-joined',
 }
 
@@ -195,14 +195,14 @@ function classifyVote403(body: unknown): ApiErrorReason {
   return (reason && VOTE_403_REASONS[reason]) || 'war-closed'
 }
 
-// The four edit routes' 403 has no discriminator field either (like
-// join's) — httpOutcomes.ts sends one of exactly two literal `error`
-// strings, so the message text itself is the only signal available. Every
-// caller of this classifier passes it to `ensureOk`, never reads it
-// directly.
-function classifyEditForbidden(body: unknown): ApiErrorReason {
-  const message = (body as { error?: string } | null)?.error
-  return message === 'War is no longer editable' ? 'not-draft' : 'forbidden'
+// Every edit route's 403 means the same thing now that editing is never
+// status-gated (spec §6.1: "always editable ... in any status") — the
+// caller simply isn't this War's creator. Kept as its own classifier
+// (rather than the shared default) only because its callers are the edit
+// routes specifically, not because there's still a second cause to
+// discriminate.
+function classifyEditForbidden(): ApiErrorReason {
+  return 'forbidden'
 }
 
 async function safeReadJson<T>(response: Response): Promise<T | null> {
@@ -366,8 +366,18 @@ export async function deleteContestantMedia(warId: string, contestantId: string,
   )
 }
 
-export async function activateWar(warId: string): Promise<WarSummary> {
-  const response = await ensureOk(await apiFetch(`/wars/${warId}/activate`, { method: 'POST' }))
+export async function publishWar(warId: string): Promise<WarSummary> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/publish`, { method: 'POST' }))
+  return response.json() as Promise<WarSummary>
+}
+
+export async function unpublishWar(warId: string): Promise<WarSummary> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/unpublish`, { method: 'POST' }))
+  return response.json() as Promise<WarSummary>
+}
+
+export async function clearVotes(warId: string): Promise<WarSummary> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/clear-votes`, { method: 'POST' }))
   return response.json() as Promise<WarSummary>
 }
 

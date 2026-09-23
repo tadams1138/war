@@ -1,9 +1,9 @@
-// Draft-only War editing (the spec's approved scope): metadata plus each
-// contestant's name, bio, and images. Reachable only from a draft War's
-// card on My Wars (WarCard's showEditLink prop) -- see useEditWar for why
-// this page cannot itself distinguish "not the creator" from "editable" on
-// load (GET /wars/:id is a public read; ownership is only ever checked by
-// the API, at save time).
+// A War's own editing page (spec §6.1: always editable by its creator, in
+// any status): metadata, each contestant's name/bio/images, Publish/
+// Unpublish, Clear Votes, and Delete. Reachable only from a War's own My
+// Wars card -- see useEditWar for why this page cannot itself distinguish
+// "not the creator" from "not found" on load (GET /wars/:id already 404s
+// either case identically, spec §6.1).
 //
 // Two-pane layout: a left nav list (Metadata, each contestant, Add
 // contestant) selects what the right pane shows. Only one section renders
@@ -39,7 +39,7 @@ function loadedWarOrNull(state: EditWarState): WarDetailResponse | null {
   return state.status === 'loaded' ? state.war : null
 }
 
-function missingForActivation(contestants: ContestantDetail[]): string[] {
+function missingForPublish(contestants: ContestantDetail[]): string[] {
   const missing: string[] = []
   if (contestants.length < 2) missing.push('at least 2 contestants')
   return missing
@@ -49,58 +49,55 @@ export function EditWar() {
   const { id: warId } = useParams<{ id: string }>()
   const safeWarId = warId ?? ''
   const navigate = useNavigate()
-  const onActivated = (activated: WarSummary) => navigate(`/wars/${activated.id}/vote`)
-  const editWar = useEditWar(warId, onActivated)
+  const onPublished = (published: WarSummary) => navigate(`/wars/${published.id}/vote`)
+  const editWar = useEditWar(warId, onPublished)
   const deleteFlow = useDeleteWarFlow(safeWarId, () => navigate('/my-wars'))
   const exportFlow = useWarExportDownload(loadedWarOrNull(editWar.state))
   const [selected, setSelected] = useState<Selection>('metadata')
   const [theme, setTheme] = useTheme(safeWarId, initialTheme(editWar.state))
   usePublishTheme(safeWarId, theme, setTheme)
   const metadataFormRef = useRef<EditWarMetadataFormHandle>(null)
-  const [metadataDirty, setMetadataDirty] = useState(false)
-  const [showDirtyConfirm, setShowDirtyConfirm] = useState(false)
-  const [showActivateConfirm, setShowActivateConfirm] = useState(false)
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  const [showClearVotesConfirm, setShowClearVotesConfirm] = useState(false)
+  const [pendingRemoval, setPendingRemoval] = useState<ContestantDetail | null>(null)
 
   if (editWar.state.status === 'loading') return <p>Loading…</p>
   if (editWar.state.status === 'error') return <p role="alert">{editWar.state.message}</p>
-  if (editWar.state.status === 'notEditable') {
-    return (
-      <main data-theme={theme}>
-        <p data-testid="edit-war-not-editable">This War is no longer editable.</p>
-      </main>
-    )
-  }
 
   const state = editWar.state
 
-  // war-spec.md 10.4: Activate must not silently apply on top of metadata
-  // edits the creator never saved -- PATCH is rejected the instant a War
-  // leaves draft, so those edits would otherwise be unrecoverable.
-  function handleActivateClick(): void {
-    if (metadataDirty) {
-      setShowDirtyConfirm(true)
-      return
-    }
-    setShowActivateConfirm(true)
+  function handleConfirmPublishToggle(): void {
+    setShowPublishConfirm(false)
+    if (state.war.status === 'draft') void editWar.publish()
+    else void editWar.unpublish()
   }
 
-  function handleSaveThenReview(): void {
-    metadataFormRef.current?.submit()
-    setShowDirtyConfirm(false)
+  function handleConfirmClearVotes(): void {
+    setShowClearVotesConfirm(false)
+    void editWar.clearVotes()
+  }
+
+  // A contestant with no votes on its own matchups is just removed (spec
+  // §6.1); one that does carry votes asks first, naming what will be lost,
+  // like every other destructive action on this page.
+  function requestRemoveContestant(contestant: ContestantDetail): void {
+    if (contestant.appearance_count > 0) {
+      setPendingRemoval(contestant)
+    } else {
+      void handleRemove(contestant.id)
+    }
+  }
+
+  async function handleRemove(contestantId: string): Promise<void> {
+    await editWar.removeContestant(contestantId)
     setSelected('metadata')
   }
 
-  // Discarding still routes through the same permanence warning every other
-  // path to activation goes through -- it resolves the dirty-edits question,
-  // not the "this can't be undone" one.
-  function handleDiscardAndActivate(): void {
-    setShowDirtyConfirm(false)
-    setShowActivateConfirm(true)
-  }
-
-  function handleConfirmActivate(): void {
-    setShowActivateConfirm(false)
-    void editWar.activate()
+  function confirmRemoveContestant(): void {
+    if (!pendingRemoval) return
+    const contestantId = pendingRemoval.id
+    setPendingRemoval(null)
+    void handleRemove(contestantId)
   }
 
   return (
@@ -111,14 +108,14 @@ export function EditWar() {
         state={state}
         exportFlow={exportFlow}
         deleteFlow={deleteFlow}
-        showDirtyConfirm={showDirtyConfirm}
-        showActivateConfirm={showActivateConfirm}
-        onActivateClick={handleActivateClick}
-        onSaveThenReview={handleSaveThenReview}
-        onDiscardAndActivate={handleDiscardAndActivate}
-        onCancelConfirm={() => setShowDirtyConfirm(false)}
-        onConfirmActivate={handleConfirmActivate}
-        onCancelActivateConfirm={() => setShowActivateConfirm(false)}
+        showPublishConfirm={showPublishConfirm}
+        showClearVotesConfirm={showClearVotesConfirm}
+        onPublishToggleClick={() => setShowPublishConfirm(true)}
+        onConfirmPublishToggle={handleConfirmPublishToggle}
+        onCancelPublishConfirm={() => setShowPublishConfirm(false)}
+        onClearVotesClick={() => setShowClearVotesConfirm(true)}
+        onConfirmClearVotes={handleConfirmClearVotes}
+        onCancelClearVotesConfirm={() => setShowClearVotesConfirm(false)}
       />
       <div className="edit-war-layout">
         <EditWarNav selected={selected} contestants={state.war.contestants} onSelect={setSelected} />
@@ -126,83 +123,106 @@ export function EditWar() {
           selected={selected}
           state={state}
           metadataFormRef={metadataFormRef}
-          onDirtyChange={setMetadataDirty}
           onSelect={setSelected}
           editWar={editWar}
+          onRequestRemove={requestRemoveContestant}
         />
       </div>
+      <RemoveContestantConfirmDialog
+        contestant={pendingRemoval}
+        onConfirm={confirmRemoveContestant}
+        onCancel={() => setPendingRemoval(null)}
+      />
     </main>
   )
 }
 
-// The three top-level actions (Export, Delete, Activate) as one row, with
-// each action's own error text and confirmation dialog(s) rendered
-// alongside it -- these used to be three separate, unstyled divs
-// (ExportSection/DeleteWarSection/ActivateSection), which is how they ended
-// up stacked vertically and inconsistently styled (PROGRESS.md) instead of
-// reading as one action bar.
+// The top-level actions (Export, Delete, Publish/Unpublish, Clear Votes) as
+// one row, with each action's own error text and confirmation dialog(s)
+// rendered alongside it.
 function TopActions({
   state,
   exportFlow,
   deleteFlow,
-  showDirtyConfirm,
-  showActivateConfirm,
-  onActivateClick,
-  onSaveThenReview,
-  onDiscardAndActivate,
-  onCancelConfirm,
-  onConfirmActivate,
-  onCancelActivateConfirm,
+  showPublishConfirm,
+  showClearVotesConfirm,
+  onPublishToggleClick,
+  onConfirmPublishToggle,
+  onCancelPublishConfirm,
+  onClearVotesClick,
+  onConfirmClearVotes,
+  onCancelClearVotesConfirm,
 }: {
   state: EditWarLoadedState
   exportFlow: WarExportDownload
   deleteFlow: DeleteWarFlow
-  showDirtyConfirm: boolean
-  showActivateConfirm: boolean
-  onActivateClick: () => void
-  onSaveThenReview: () => void
-  onDiscardAndActivate: () => void
-  onCancelConfirm: () => void
-  onConfirmActivate: () => void
-  onCancelActivateConfirm: () => void
+  showPublishConfirm: boolean
+  showClearVotesConfirm: boolean
+  onPublishToggleClick: () => void
+  onConfirmPublishToggle: () => void
+  onCancelPublishConfirm: () => void
+  onClearVotesClick: () => void
+  onConfirmClearVotes: () => void
+  onCancelClearVotesConfirm: () => void
 }) {
-  const missing = missingForActivation(state.war.contestants)
-  const canActivate = missing.length === 0
   return (
     <>
       <div className="action-bar">
         <ExportButton testId="edit-war-export-button" onClick={exportFlow.trigger} />
         <DeleteButton testId="edit-war-delete-button" onClick={deleteFlow.open} />
-        <button type="button" className="button" data-testid="activate-submit" disabled={!canActivate || state.activating} onClick={onActivateClick}>
-          Activate War
+        <PublishToggleButton war={state.war} publishing={state.publishing} onClick={onPublishToggleClick} />
+        <button type="button" className="button" data-testid="clear-votes-submit" disabled={state.clearingVotes} onClick={onClearVotesClick}>
+          Clear Votes
         </button>
       </div>
       {exportFlow.error && <p role="alert">{exportFlow.error}</p>}
       {deleteFlow.error && <p role="alert">{deleteFlow.error}</p>}
-      <ActivateStatus missing={missing} activateDetails={state.activateDetails} />
+      <PublishStatus war={state.war} publishDetails={state.publishDetails} />
       <DeleteWarConfirmDialog show={deleteFlow.showConfirm} onConfirm={deleteFlow.confirm} onCancel={deleteFlow.cancel} testIdPrefix="edit-war" />
-      <ActivateDirtyConfirmDialog
-        show={showDirtyConfirm}
-        onSaveThenReview={onSaveThenReview}
-        onDiscardAndActivate={onDiscardAndActivate}
-        onCancelConfirm={onCancelConfirm}
+      <PublishToggleConfirmDialog
+        war={state.war}
+        show={showPublishConfirm}
+        onConfirm={onConfirmPublishToggle}
+        onCancel={onCancelPublishConfirm}
       />
-      <ActivatePermanenceConfirmDialog
-        show={showActivateConfirm}
-        onConfirmActivate={onConfirmActivate}
-        onCancelActivateConfirm={onCancelActivateConfirm}
-      />
+      <ClearVotesConfirmDialog show={showClearVotesConfirm} onConfirm={onConfirmClearVotes} onCancel={onCancelClearVotesConfirm} />
     </>
   )
 }
 
-function ActivateStatus({ missing, activateDetails }: { missing: string[]; activateDetails: string[] | null }) {
+// Publish and Unpublish are the two directions of one toggle (spec §6.1) --
+// one button whose label and action follow the War's current status, not
+// two separate controls. A closed War can be neither published nor
+// unpublished (spec: "nothing reverses" closing), so neither direction is
+// offered for one.
+function PublishToggleButton({
+  war,
+  publishing,
+  onClick,
+}: {
+  war: WarDetailResponse
+  publishing: boolean
+  onClick: () => void
+}) {
+  if (war.status === 'closed') return null
+  const isDraft = war.status === 'draft'
+  const disabled = publishing || (isDraft && missingForPublish(war.contestants).length > 0)
+  return (
+    <button type="button" className="button" data-testid="publish-toggle-submit" disabled={disabled} onClick={onClick}>
+      {isDraft ? 'Publish War' : 'Unpublish War'}
+    </button>
+  )
+}
+
+function PublishStatus({ war, publishDetails }: { war: WarDetailResponse; publishDetails: string[] | null }) {
+  const missing = war.status === 'draft' ? missingForPublish(war.contestants) : []
   return (
     <>
-      {missing.length > 0 && <p data-testid="activate-requirements">To activate this War, add {missing.join(' and ')}.</p>}
-      {activateDetails && (
-        <ul role="alert" data-testid="activate-error">
-          {activateDetails.map((detail) => (
+      {missing.length > 0 && <p data-testid="publish-requirements">To publish this War, add {missing.join(' and ')}.</p>}
+      {war.status === 'closed' && <p data-testid="publish-closed-note">This War has closed and can no longer be published or unpublished.</p>}
+      {publishDetails && (
+        <ul role="alert" data-testid="publish-error">
+          {publishDetails.map((detail) => (
             <li key={detail}>{detail}</li>
           ))}
         </ul>
@@ -211,32 +231,30 @@ function ActivateStatus({ missing, activateDetails }: { missing: string[]; activ
   )
 }
 
-function ActivateDirtyConfirmDialog({
+function PublishToggleConfirmDialog({
+  war,
   show,
-  onSaveThenReview,
-  onDiscardAndActivate,
-  onCancelConfirm,
+  onConfirm,
+  onCancel,
 }: {
+  war: WarDetailResponse
   show: boolean
-  onSaveThenReview: () => void
-  onDiscardAndActivate: () => void
-  onCancelConfirm: () => void
+  onConfirm: () => void
+  onCancel: () => void
 }) {
+  const isDraft = war.status === 'draft'
   return (
-    <Modal show={show} onCancel={onCancelConfirm} testId="activate-dirty-confirm">
-      <p>You have unsaved War details. Save them, discard them, or cancel before activating.</p>
+    <Modal show={show} onCancel={onCancel} testId="publish-toggle-confirm">
+      <p>
+        {isDraft
+          ? 'Publishing makes this War reachable by anyone. You can unpublish it again at any time. Continue?'
+          : 'Unpublishing makes this War reachable only by you. You can publish it again at any time. Continue?'}
+      </p>
       <div className="action-bar">
-        <button type="button" className="button" data-testid="activate-dirty-save" onClick={onSaveThenReview}>
-          Save changes
+        <button type="button" className="button" data-testid="publish-toggle-confirm-submit" onClick={onConfirm}>
+          {isDraft ? 'Publish War' : 'Unpublish War'}
         </button>
-        {/* Discards unsaved edits -- the same "throws away data" danger
-            convention as deleting a War (DeleteButton), not because
-            activation itself is irreversible (it is, but that's the
-            desired outcome, not a destructive one). */}
-        <button type="button" className="button button--danger" data-testid="activate-dirty-discard" onClick={onDiscardAndActivate}>
-          Discard and activate
-        </button>
-        <button type="button" className="button" data-testid="activate-dirty-cancel" onClick={onCancelConfirm}>
+        <button type="button" className="button" data-testid="publish-toggle-confirm-cancel" onClick={onCancel}>
           Cancel
         </button>
       </div>
@@ -244,29 +262,45 @@ function ActivateDirtyConfirmDialog({
   )
 }
 
-// The final gate before every activation, regardless of which path led
-// here (a clean click, or discarding unsaved edits from the dialog above):
-// activation cannot be undone, so the warning is never skipped.
-function ActivatePermanenceConfirmDialog({
-  show,
-  onConfirmActivate,
-  onCancelActivateConfirm,
-}: {
-  show: boolean
-  onConfirmActivate: () => void
-  onCancelActivateConfirm: () => void
-}) {
+function ClearVotesConfirmDialog({ show, onConfirm, onCancel }: { show: boolean; onConfirm: () => void; onCancel: () => void }) {
   return (
-    <Modal show={show} onCancel={onCancelActivateConfirm} testId="activate-confirm">
+    <Modal show={show} onCancel={onCancel} testId="clear-votes-confirm">
       <p>
-        Activating is permanent. Once this War goes live, its contestants and details can no longer be edited. Do
-        you want to continue?
+        Clear Votes deletes every vote cast in this War and resets every contestant&rsquo;s counters to zero. This
+        cannot be undone. Continue?
       </p>
       <div className="action-bar">
-        <button type="button" className="button" data-testid="activate-confirm-submit" onClick={onConfirmActivate}>
-          Activate War
+        <button type="button" className="button button--danger" data-testid="clear-votes-confirm-submit" onClick={onConfirm}>
+          Clear Votes
         </button>
-        <button type="button" className="button" data-testid="activate-confirm-cancel" onClick={onCancelActivateConfirm}>
+        <button type="button" className="button" data-testid="clear-votes-confirm-cancel" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
+function RemoveContestantConfirmDialog({
+  contestant,
+  onConfirm,
+  onCancel,
+}: {
+  contestant: ContestantDetail | null
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <Modal show={contestant !== null} onCancel={onCancel} testId="edit-war-contestant-remove-confirm">
+      <p>
+        Removing {contestant?.name} also clears the {contestant?.appearance_count} vote
+        {contestant?.appearance_count === 1 ? '' : 's'} cast on their matchups. This cannot be undone. Continue?
+      </p>
+      <div className="action-bar">
+        <button type="button" className="button button--danger" data-testid="edit-war-contestant-remove-confirm-submit" onClick={onConfirm}>
+          Remove contestant
+        </button>
+        <button type="button" className="button" data-testid="edit-war-contestant-remove-confirm-cancel" onClick={onCancel}>
           Cancel
         </button>
       </div>
@@ -327,23 +361,18 @@ function EditWarDetailPane({
   selected,
   state,
   metadataFormRef,
-  onDirtyChange,
   onSelect,
   editWar,
+  onRequestRemove,
 }: {
   selected: Selection
   state: EditWarLoadedState
   metadataFormRef: RefObject<EditWarMetadataFormHandle | null>
-  onDirtyChange: (dirty: boolean) => void
   onSelect: (selection: Selection) => void
   editWar: ReturnType<typeof useEditWar>
+  onRequestRemove: (contestant: ContestantDetail) => void
 }) {
   const selectedContestant = state.war.contestants.find((c) => c.id === selected)
-
-  async function handleRemove(contestantId: string): Promise<void> {
-    await editWar.removeContestant(contestantId)
-    onSelect('metadata')
-  }
 
   return (
     <div className="edit-war-detail">
@@ -355,7 +384,6 @@ function EditWarDetailPane({
           saving={state.savingMetadata}
           onSave={editWar.saveMetadata}
           onUploadShareImage={editWar.uploadShareImage}
-          onDirtyChange={onDirtyChange}
         />
       )}
       {selected === 'add' && (
@@ -371,7 +399,7 @@ function EditWarDetailPane({
           error={orNull(state.contestantErrors[selectedContestant.id])}
           imageNotice={orNull(state.imageErrors[selectedContestant.id])}
           onSave={(payload) => editWar.saveContestant(selectedContestant.id, payload)}
-          onRemove={() => void handleRemove(selectedContestant.id)}
+          onRemove={() => onRequestRemove(selectedContestant)}
           onAddImages={(files) => void editWar.addImages(selectedContestant.id, files)}
           onRemoveImage={(mediaId) => void editWar.removeImage(selectedContestant.id, mediaId)}
           onMoveImageUp={(mediaId) => void editWar.moveImageUp(selectedContestant.id, mediaId)}

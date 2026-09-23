@@ -2,9 +2,9 @@ import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  activateWar,
   addContestant,
   castVote,
+  clearVotes,
   createWar,
   deleteContestantMedia,
   getMe,
@@ -17,8 +17,10 @@ import {
   patchContestant,
   patchWar,
   providerLoginUrl,
+  publishWar,
   refreshSession,
   reorderContestantMedia,
+  unpublishWar,
   uploadContestantImages,
 } from '../client'
 import { __resetAuthStateForTests, getToken, registerUnauthorizedHandler, setToken } from '../authState'
@@ -129,11 +131,11 @@ describe('getWars', () => {
     )
 
     // Act
-    await getWars({ status: 'active', category: 'sports', cursor: 'war-99', limit: '10' })
+    await getWars({ status: 'published', category: 'sports', cursor: 'war-99', limit: '10' })
 
     // Assert
     const params = new URL(receivedUrl).searchParams
-    expect(params.get('status')).toBe('active')
+    expect(params.get('status')).toBe('published')
     expect(params.get('category')).toBe('sports')
     expect(params.get('cursor')).toBe('war-99')
     expect(params.get('limit')).toBe('10')
@@ -150,11 +152,11 @@ describe('getWars', () => {
     )
 
     // Act
-    await getWars({ status: 'active' })
+    await getWars({ status: 'published' })
 
     // Assert
     const params = new URL(receivedUrl).searchParams
-    expect(params.get('status')).toBe('active')
+    expect(params.get('status')).toBe('published')
     expect(params.has('category')).toBe(false)
     expect(params.has('cursor')).toBe(false)
     expect(params.has('limit')).toBe(false)
@@ -264,7 +266,7 @@ describe('joinWar', () => {
   })
 
   // join's 403 has no `reason` field in war-api's schema (there is only
-  // one possible cause — the War isn't active — unlike vote's 403, which
+  // one possible cause — the War isn't published — unlike vote's 403, which
   // can also mean "not joined"), so it always classifies as war-closed
   // (classifyDefault403), regardless of the body's content. This pins the
   // client-level contract only, not user-visible behavior: joinWar's only
@@ -274,7 +276,7 @@ describe('joinWar', () => {
   it('classifies its 403 as war-closed — the default for an endpoint with no discriminator', async () => {
     // Arrange
     server.use(
-      http.post(`${BASE}/wars/war-1/join`, () => HttpResponse.json({ error: 'War is not active' }, { status: 403 })),
+      http.post(`${BASE}/wars/war-1/join`, () => HttpResponse.json({ error: 'War is not published' }, { status: 403 })),
     )
 
     // Act / Assert
@@ -325,11 +327,11 @@ describe('castVote', () => {
     await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({ reason: 'conflict', message: '' })
   })
 
-  it('classifies a war_not_active 403 as war-closed, via the typed reason field', async () => {
+  it('classifies a war_not_published 403 as war-closed, via the typed reason field', async () => {
     // Arrange
     server.use(
       http.post(`${BASE}/wars/war-1/matchups/m1/vote`, () =>
-        HttpResponse.json({ error: 'War is not active', reason: 'war_not_active' }, { status: 403 }),
+        HttpResponse.json({ error: 'War is not published', reason: 'war_not_published' }, { status: 403 }),
       ),
     )
 
@@ -565,35 +567,63 @@ describe('uploadContestantImages', () => {
   })
 })
 
-describe('activateWar', () => {
-  it('resolves with the activated WarSummary on 200', async () => {
+describe('publishWar', () => {
+  it('resolves with the published WarSummary on 200', async () => {
     // Arrange
-    const war = buildWarSummary({ id: 'war-1', status: 'active' })
-    server.use(http.post(`${BASE}/wars/war-1/activate`, () => HttpResponse.json(war)))
+    const war = buildWarSummary({ id: 'war-1', status: 'published' })
+    server.use(http.post(`${BASE}/wars/war-1/publish`, () => HttpResponse.json(war)))
 
     // Act
-    const result = await activateWar('war-1')
+    const result = await publishWar('war-1')
 
     // Assert
-    expect(result.status).toBe('active')
+    expect(result.status).toBe('published')
   })
 
   it('carries the details array on a 422 validation failure', async () => {
     // Arrange
     server.use(
-      http.post(`${BASE}/wars/war-1/activate`, () =>
+      http.post(`${BASE}/wars/war-1/publish`, () =>
         HttpResponse.json(
-          { error: 'validation error', details: ['a War needs at least 2 contestants to activate'] },
+          { error: 'validation error', details: ['a War needs at least 2 contestants to publish'] },
           { status: 422 },
         ),
       ),
     )
 
     // Act / Assert
-    await expect(activateWar('war-1')).rejects.toMatchObject({
+    await expect(publishWar('war-1')).rejects.toMatchObject({
       reason: 'validation',
-      details: ['a War needs at least 2 contestants to activate'],
+      details: ['a War needs at least 2 contestants to publish'],
     })
+  })
+})
+
+describe('unpublishWar', () => {
+  it('resolves with the unpublished WarSummary on 200', async () => {
+    // Arrange
+    const war = buildWarSummary({ id: 'war-1', status: 'draft' })
+    server.use(http.post(`${BASE}/wars/war-1/unpublish`, () => HttpResponse.json(war)))
+
+    // Act
+    const result = await unpublishWar('war-1')
+
+    // Assert
+    expect(result.status).toBe('draft')
+  })
+})
+
+describe('clearVotes', () => {
+  it('resolves with the WarSummary on 200', async () => {
+    // Arrange
+    const war = buildWarSummary({ id: 'war-1' })
+    server.use(http.post(`${BASE}/wars/war-1/clear-votes`, () => HttpResponse.json(war)))
+
+    // Act
+    const result = await clearVotes('war-1')
+
+    // Assert
+    expect(result.id).toBe('war-1')
   })
 })
 
@@ -617,22 +647,7 @@ describe('patchWar', () => {
     expect(result.title).toBe('New Title')
   })
 
-  it('classifies a "War is no longer editable" 403 as not-draft', async () => {
-    // Arrange
-    server.use(
-      http.patch(`${BASE}/wars/war-1`, () =>
-        HttpResponse.json({ error: 'War is no longer editable' }, { status: 403 }),
-      ),
-    )
-
-    // Act / Assert
-    await expect(patchWar('war-1', { title: 'New Title' })).rejects.toMatchObject({
-      reason: 'not-draft',
-      message: 'This War is no longer editable',
-    })
-  })
-
-  it('classifies any other 403 body as forbidden', async () => {
+  it('classifies any 403 as forbidden — editing is never status-gated', async () => {
     // Arrange
     server.use(http.patch(`${BASE}/wars/war-1`, () => HttpResponse.json({ error: 'forbidden' }, { status: 403 })))
 
@@ -686,17 +701,17 @@ describe('patchContestant', () => {
     expect(result.bio).toBe('**bold**')
   })
 
-  it('classifies a "War is no longer editable" 403 as not-draft', async () => {
+  it('classifies its 403 as forbidden — editing is never status-gated', async () => {
     // Arrange
     server.use(
       http.patch(`${BASE}/wars/war-1/contestants/contestant-1`, () =>
-        HttpResponse.json({ error: 'War is no longer editable' }, { status: 403 }),
+        HttpResponse.json({ error: 'forbidden' }, { status: 403 }),
       ),
     )
 
     // Act / Assert
     await expect(patchContestant('war-1', 'contestant-1', { name: 'x' })).rejects.toMatchObject({
-      reason: 'not-draft',
+      reason: 'forbidden',
     })
   })
 })
@@ -745,17 +760,17 @@ describe('deleteContestantMedia', () => {
     await expect(deleteContestantMedia('war-1', 'contestant-1', 'media-1')).resolves.toBeUndefined()
   })
 
-  it('classifies a "War is no longer editable" 403 as not-draft', async () => {
+  it('classifies its 403 as forbidden — editing is never status-gated', async () => {
     // Arrange
     server.use(
       http.delete(`${BASE}/wars/war-1/contestants/contestant-1/media/media-1`, () =>
-        HttpResponse.json({ error: 'War is no longer editable' }, { status: 403 }),
+        HttpResponse.json({ error: 'forbidden' }, { status: 403 }),
       ),
     )
 
     // Act / Assert
     await expect(deleteContestantMedia('war-1', 'contestant-1', 'media-1')).rejects.toMatchObject({
-      reason: 'not-draft',
+      reason: 'forbidden',
     })
   })
 })

@@ -7,7 +7,6 @@ export type ApiErrorReason =
   | 'war-closed' // 403 — War is closed to voting
   | 'not-joined' // 403 — voter has not joined the War
   | 'forbidden' // 403 — the caller isn't the War's creator
-  | 'not-draft' // 403 — the War has left draft and is no longer editable
   | 'not-found' // 404
   | 'conflict' // 409 — already voted; handled silently by the caller
   | 'rate-limited' // 429
@@ -23,7 +22,7 @@ export class ApiError extends Error {
   // failing response carried one. Populated only for a
   // 'validation' reason whose body actually has it — most callers ignore
   // this and use `message` instead (the spec's generic 422 copy); Edit War's
-  // Activate action (src/editWar/useEditWar.ts) is the one deliberate
+  // Publish action (src/editWar/useEditWar.ts) is the one deliberate
   // exception that surfaces it verbatim (the spec).
   readonly details?: string[]
 
@@ -48,7 +47,6 @@ const REASON_MESSAGES: Record<ApiErrorReason, (retryAfterSeconds?: number) => st
   'war-closed': () => 'This War is locked — voting is closed',
   'not-joined': () => 'Join this War to vote',
   forbidden: () => "This isn't your War",
-  'not-draft': () => 'This War is no longer editable',
   'not-found': () => "This War doesn't exist or has been removed",
   conflict: () => '',
   'rate-limited': (retryAfterSeconds) => `Slow down a moment — try again in ${retryAfterSeconds ?? 0}s`,

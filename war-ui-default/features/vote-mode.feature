@@ -1,13 +1,13 @@
 Feature: Vote Mode
 
   Scenario: A voter is served a matchup
-    Given an authenticated voter viewing an active War with unvoted pairs remaining
+    Given an authenticated voter viewing a published War with unvoted pairs remaining
     When they navigate to that War's vote page
     Then two contestant cards are displayed
     And a progress bar shows "0 of N matchups"
 
   Scenario: Navigating to vote silently joins the War
-    Given an authenticated voter who has not yet joined an active War
+    Given an authenticated voter who has not yet joined a published War
     When they navigate to that War's vote page
     Then the War is joined on their behalf before the first matchup is requested
     And no Join control or message is shown to them

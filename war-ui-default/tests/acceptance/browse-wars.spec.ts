@@ -50,7 +50,7 @@ test('Authenticated user browses public Wars', async ({ page }) => {
   await expect(page.getByTestId('login-cta')).toHaveCount(0)
 })
 
-test('No active Wars for an anonymous visitor', async ({ page }) => {
+test('No published Wars for an anonymous visitor', async ({ page }) => {
   // Arrange
   await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
 
@@ -62,7 +62,7 @@ test('No active Wars for an anonymous visitor', async ({ page }) => {
   await expect(page.getByTestId('home-create-war-cta')).toHaveCount(0)
 })
 
-test('No active Wars for an authenticated voter', async ({ page }) => {
+test('No published Wars for an authenticated voter', async ({ page }) => {
   // Arrange
   await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
   await page.goto('/')
@@ -77,7 +77,7 @@ test('No active Wars for an authenticated voter', async ({ page }) => {
 
 test('A War card offers direct Vote and Results entry points, not a status label', async ({ page }) => {
   // Arrange
-  const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', status: 'active' })
+  const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', status: 'published' })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
   await page.goto('/')
 
@@ -89,12 +89,12 @@ test('A War card offers direct Vote and Results entry points, not a status label
   await expect(card.getByTestId('war-vote-link')).toBeVisible()
   await expect(card.getByTestId('war-results-link')).toBeVisible()
   await expect(card.getByTestId('war-status-badge')).toHaveCount(0)
-  await expect(card).not.toContainText('active')
+  await expect(card).not.toContainText('published')
 })
 
 test("A War card's Vote and Results actions lay out horizontally with consistent themed button styling", async ({ page }) => {
   // Arrange
-  const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', status: 'active' })
+  const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', status: 'published' })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
   await page.goto('/')
 

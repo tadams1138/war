@@ -1,17 +1,18 @@
-// State machine behind EditWar (the spec's approved scope: draft-only
-// editing of a War's metadata and its contestants' name, bio, and images) —
-// extracted out of the page component, mirroring useVoteSession's split for
-// the same reason.
+// State machine behind EditWar (spec §6.1: a War is always editable by its
+// creator, in any status) — extracted out of the page component, mirroring
+// useVoteSession's split for the same reason.
 import { useEffect, useRef, useState } from 'react'
 import {
-  activateWar,
   addContestant as addContestantApi,
+  clearVotes as clearVotesApi,
   deleteContestant as deleteContestantApi,
   deleteContestantMedia,
   getWar,
   patchContestant,
   patchWar,
+  publishWar,
   reorderContestantMedia,
+  unpublishWar,
   uploadContestantImages,
   uploadShareImage as uploadShareImageApi,
   type ContestantDetail,
@@ -41,18 +42,15 @@ export interface EditWarLoadedState {
   // Set on a successful metadata or contestant save; Toast owns clearing
   // its own visibility, so this never needs to be reset back to null.
   toast: string | null
-  // Set while an Activate request is in flight, and to the API's own
-  // validation messages when one fails -- mirrors the deleted wizard's
-  // Review step, the spec's one deliberate exception to generic 422 copy.
-  activating: boolean
-  activateDetails: string[] | null
+  // Set while a Publish/Unpublish request is in flight, and to the API's
+  // own validation messages when one fails -- the spec's one deliberate
+  // exception to generic 422 copy.
+  publishing: boolean
+  publishDetails: string[] | null
+  clearingVotes: boolean
 }
 
-export type EditWarState =
-  | { status: 'loading' }
-  | { status: 'notEditable' }
-  | { status: 'error'; message: string }
-  | EditWarLoadedState
+export type EditWarState = { status: 'loading' } | { status: 'error'; message: string } | EditWarLoadedState
 
 export interface EditWarActions {
   saveMetadata: (payload: PatchWarPayload) => Promise<void>
@@ -63,16 +61,18 @@ export interface EditWarActions {
   addImages: (contestantId: string, files: File[]) => Promise<void>
   removeImage: (contestantId: string, mediaId: string) => Promise<void>
   moveImageUp: (contestantId: string, mediaId: string) => Promise<void>
-  activate: () => Promise<void>
+  publish: () => Promise<void>
+  unpublish: () => Promise<void>
+  clearVotes: () => Promise<void>
 }
 
 /**
- * The Activate action's own error copy (the spec's deliberate exception to
- * its generic 422 copy): the API's `details` array verbatim when the
- * failure actually carries one, falling back to the generic message
- * otherwise.
+ * The Publish/Unpublish action's own error copy (the spec's deliberate
+ * exception to its generic 422 copy): the API's `details` array verbatim
+ * when the failure actually carries one, falling back to the generic
+ * message otherwise.
  */
-function detailsFromActivateError(error: unknown): string[] {
+function detailsFromPublishError(error: unknown): string[] {
   if (error instanceof ApiError && error.reason === 'validation' && error.details) {
     return error.details
   }
@@ -93,7 +93,7 @@ function withContestant(
 
 export function useEditWar(
   warId: string | undefined,
-  onActivated?: (war: WarSummary) => void,
+  onPublished?: (war: WarSummary) => void,
 ): { state: EditWarState } & EditWarActions {
   const [state, setState] = useState<EditWarState>({ status: 'loading' })
   // Keyed by contestant id, like imageErrors -- each contestant's rate-limit
@@ -105,10 +105,6 @@ export function useEditWar(
     setState({ status: 'loading' })
     try {
       const war = await getWar(warId)
-      if (war.status !== 'draft') {
-        setState({ status: 'notEditable' })
-        return
-      }
       setState({
         status: 'loaded',
         war,
@@ -118,8 +114,9 @@ export function useEditWar(
         contestantErrors: {},
         imageErrors: {},
         toast: null,
-        activating: false,
-        activateDetails: null,
+        publishing: false,
+        publishDetails: null,
+        clearingVotes: false,
       })
     } catch (error) {
       setState({ status: 'error', message: toUserMessage(error) })
@@ -189,6 +186,12 @@ export function useEditWar(
     }
   }
 
+  // Removing a contestant that carries votes clears them as part of the
+  // removal (spec §6.1) -- the API does this unconditionally, so there is
+  // nothing more for the client to do here than reload once it's done; the
+  // "ask first, naming what will be lost" confirmation for that case lives
+  // in EditWar.tsx, the one place that already knows a contestant's
+  // appearance_count.
   async function removeContestant(contestantId: string): Promise<void> {
     if (!warId || state.status !== 'loaded') return
     await deleteContestantApi(warId, contestantId)
@@ -266,14 +269,37 @@ export function useEditWar(
     await load()
   }
 
-  async function activate(): Promise<void> {
+  async function publish(): Promise<void> {
     if (!warId || state.status !== 'loaded') return
-    setLoaded((prev) => ({ ...prev, activating: true, activateDetails: null }))
+    setLoaded((prev) => ({ ...prev, publishing: true, publishDetails: null }))
     try {
-      const activated = await activateWar(warId)
-      onActivated?.(activated)
+      const published = await publishWar(warId)
+      onPublished?.(published)
     } catch (error) {
-      setLoaded((prev) => ({ ...prev, activating: false, activateDetails: detailsFromActivateError(error) }))
+      setLoaded((prev) => ({ ...prev, publishing: false, publishDetails: detailsFromPublishError(error) }))
+    }
+  }
+
+  async function unpublish(): Promise<void> {
+    if (!warId || state.status !== 'loaded') return
+    setLoaded((prev) => ({ ...prev, publishing: true, publishDetails: null }))
+    try {
+      const unpublished = await unpublishWar(warId)
+      setLoaded((prev) => ({ ...prev, war: { ...prev.war, ...unpublished }, publishing: false }))
+    } catch (error) {
+      setLoaded((prev) => ({ ...prev, publishing: false, publishDetails: detailsFromPublishError(error) }))
+    }
+  }
+
+  async function clearVotes(): Promise<void> {
+    if (!warId || state.status !== 'loaded') return
+    setLoaded((prev) => ({ ...prev, clearingVotes: true }))
+    try {
+      await clearVotesApi(warId)
+      await load()
+      setLoaded((prev) => ({ ...prev, toast: 'Votes cleared' }))
+    } catch (error) {
+      setLoaded((prev) => ({ ...prev, clearingVotes: false, metadataError: toUserMessage(error) }))
     }
   }
 
@@ -287,6 +313,8 @@ export function useEditWar(
     addImages,
     removeImage,
     moveImageUp,
-    activate,
+    publish,
+    unpublish,
+    clearVotes,
   }
 }

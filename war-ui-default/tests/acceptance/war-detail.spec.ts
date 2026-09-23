@@ -467,7 +467,7 @@ test('A contestant with multiple images is browsable in place', async ({ page })
 })
 
 test('A contestant with no media shows no image at all', async ({ page }) => {
-  // Arrange — media is optional (a contestant can activate without any),
+  // Arrange — media is optional (a contestant can publish without any),
   // so a bare result row must never invent a placeholder image.
   const detail = buildWarDetail({
     id: 'war-no-media',
@@ -499,7 +499,7 @@ test('The detail page shows results with rank, image, wins, appearances, and a w
   // Arrange
   const rankings = buildRankingsResponse({
     war_id: RESULTS_WAR_ID,
-    status: 'active',
+    status: 'published',
     rankings: [
       buildRankingEntry({ rank: 1, contestant: { id: 'c1', name: 'Contestant One' }, wins: 10, appearances: 12 }),
       buildRankingEntry({ rank: 2, contestant: { id: 'c2', name: 'Contestant Two' }, wins: 8, appearances: 12 }),
@@ -587,16 +587,16 @@ test('Unranked contestants are shown at the bottom of results', async ({ page })
   await expect(rows.nth(1).getByTestId('ranking-rank')).toHaveText('—')
 })
 
-test('Results poll while the War is active', async ({ page }) => {
+test('Results poll while the War is published', async ({ page }) => {
   // Arrange
   const first = buildRankingsResponse({
     war_id: RESULTS_WAR_ID,
-    status: 'active',
+    status: 'published',
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 5, appearances: 6 })],
   })
   const second = buildRankingsResponse({
     war_id: RESULTS_WAR_ID,
-    status: 'active',
+    status: 'published',
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 6, appearances: 7 })],
   })
   await page.clock.install()
@@ -619,12 +619,12 @@ test('A failed results poll keeps the last loaded leaderboard on screen', async 
   // Arrange
   const first = buildRankingsResponse({
     war_id: RESULTS_WAR_ID,
-    status: 'active',
+    status: 'published',
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 5, appearances: 6 })],
   })
   const third = buildRankingsResponse({
     war_id: RESULTS_WAR_ID,
-    status: 'active',
+    status: 'published',
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 9, appearances: 10 })],
   })
   await page.clock.install()
@@ -664,12 +664,12 @@ test('The leaderboard recovers once a later results poll succeeds', async ({ pag
   // Arrange
   const first = buildRankingsResponse({
     war_id: RESULTS_WAR_ID,
-    status: 'active',
+    status: 'published',
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 5, appearances: 6 })],
   })
   const third = buildRankingsResponse({
     war_id: RESULTS_WAR_ID,
-    status: 'active',
+    status: 'published',
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-a', name: 'Contestant A' }, wins: 9, appearances: 10 })],
   })
   await page.clock.install()
@@ -762,26 +762,26 @@ test("A completed vote flow links back to the War's results", async ({ page }) =
   await expect(page.getByTestId('ranking-row')).toHaveCount(rankings.rankings.length)
 })
 
-test("A War's creator sees Edit and Delete on its results page while it's a draft", async ({ page }) => {
-  // Arrange
-  const detail = buildWarDetail({ id: 'war-own-draft', status: 'draft', is_owner: true })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-own-draft`, responses: [{ status: 200, body: detail }] }])
+test("A War's creator sees Edit and Delete on its results page, in any status", async ({ page }) => {
+  // Arrange — editing is never status-gated (spec §6.1)
+  const detail = buildWarDetail({ id: 'war-own-published', status: 'published', is_owner: true })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-own-published`, responses: [{ status: 200, body: detail }] }])
 
   // Act
-  await page.goto('/wars/war-own-draft')
+  await page.goto('/wars/war-own-published')
 
   // Assert
   await expect(page.getByTestId('war-detail-edit-link')).toBeVisible()
   await expect(page.getByTestId('war-detail-delete-button')).toBeVisible()
 })
 
-test('A non-creator sees no Edit or Delete on a draft War\'s results page', async ({ page }) => {
+test('A non-creator sees no Edit or Delete on a War\'s results page', async ({ page }) => {
   // Arrange
-  const detail = buildWarDetail({ id: 'war-other-draft', status: 'draft', is_owner: false })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-other-draft`, responses: [{ status: 200, body: detail }] }])
+  const detail = buildWarDetail({ id: 'war-other-published', status: 'published', is_owner: false })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-other-published`, responses: [{ status: 200, body: detail }] }])
 
   // Act
-  await page.goto('/wars/war-other-draft')
+  await page.goto('/wars/war-other-published')
 
   // Assert
   await expect(page.getByTestId('war-detail-edit-link')).toHaveCount(0)
@@ -844,7 +844,7 @@ test('Cancelling delete leaves the War untouched', async ({ page }) => {
 
 test("An authenticated voter who hasn't finished voting sees a Vote entry point", async ({ page }) => {
   // Arrange
-  const detail = buildWarDetail({ id: 'war-partial', status: 'active', is_owner: false })
+  const detail = buildWarDetail({ id: 'war-partial', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-partial' })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/war-partial`, responses: [{ status: 200, body: detail }] },
@@ -863,7 +863,7 @@ test("An authenticated voter who hasn't finished voting sees a Vote entry point"
 
 test('A voter who has finished voting sees no Vote entry point', async ({ page }) => {
   // Arrange
-  const detail = buildWarDetail({ id: 'war-complete', status: 'active', is_owner: false })
+  const detail = buildWarDetail({ id: 'war-complete', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-complete' })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/war-complete`, responses: [{ status: 200, body: detail }] },
@@ -915,7 +915,7 @@ test('Clicking Export downloads a zip of the War definition', async ({ page }) =
 
 test('A non-creator sees no Export button', async ({ page }) => {
   // Arrange
-  const detail = buildWarDetail({ id: 'war-other', status: 'active', is_owner: false })
+  const detail = buildWarDetail({ id: 'war-other', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-other' })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/war-other`, responses: [{ status: 200, body: detail }] },
@@ -962,7 +962,7 @@ test('The results-page action row lays out horizontally, shares consistent butto
 
 test('An anonymous visitor sees no Vote entry point', async ({ page }) => {
   // Arrange
-  const detail = buildWarDetail({ id: 'war-anon', status: 'active', is_owner: false })
+  const detail = buildWarDetail({ id: 'war-anon', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-anon' })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/war-anon`, responses: [{ status: 200, body: detail }] },

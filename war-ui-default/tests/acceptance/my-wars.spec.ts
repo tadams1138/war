@@ -7,7 +7,7 @@ test('A voter sees every War they created, across every status', async ({ page }
   // Arrange
   const wars = [
     buildWarSummary({ id: 'war-draft', title: 'My Draft War', status: 'draft' }),
-    buildWarSummary({ id: 'war-active', title: 'My Active War', status: 'active' }),
+    buildWarSummary({ id: 'war-published', title: 'My Published War', status: 'published' }),
     buildWarSummary({ id: 'war-closed', title: 'My Closed War', status: 'closed' }),
   ]
   await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars } }] }])
@@ -21,7 +21,7 @@ test('A voter sees every War they created, across every status', async ({ page }
   const cards = page.getByTestId('war-card')
   await expect(cards).toHaveCount(3)
   await expect(cards.filter({ hasText: 'My Draft War' }).getByTestId('war-status-badge')).toHaveText('draft')
-  await expect(cards.filter({ hasText: 'My Active War' }).getByTestId('war-status-badge')).toHaveText('active')
+  await expect(cards.filter({ hasText: 'My Published War' }).getByTestId('war-status-badge')).toHaveText('published')
   await expect(cards.filter({ hasText: 'My Closed War' }).getByTestId('war-status-badge')).toHaveText('closed')
 })
 
@@ -109,9 +109,9 @@ test("A draft War card's Edit link is styled as a themed button, not plain text"
   expect(bg).not.toBe('rgba(0, 0, 0, 0)')
 })
 
-test('An active War card shows no Edit link', async ({ page }) => {
+test('A published War card also shows an Edit link — editing is never status-gated', async ({ page }) => {
   // Arrange
-  const war = buildWarSummary({ id: 'war-active-1', title: 'My Active War', status: 'active' })
+  const war = buildWarSummary({ id: 'war-published-1', title: 'My Published War', status: 'published' })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -120,7 +120,7 @@ test('An active War card shows no Edit link', async ({ page }) => {
   await navigateAuthenticated(page, '/my-wars')
 
   // Assert
-  await expect(page.getByTestId('war-card').getByTestId('edit-war-link')).toHaveCount(0)
+  await expect(page.getByTestId('war-card').getByTestId('edit-war-link')).toBeVisible()
 })
 
 test('My Wars requires authentication', async ({ page }) => {

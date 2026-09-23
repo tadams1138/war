@@ -6,13 +6,13 @@ Feature: War Detail
   "Results" section — one merged list is the whole page.
 
   Scenario: War overview loads with its results
-    Given an active public War with 3 contestants
+    Given a published public War with 3 contestants
     When a visitor navigates to that War's detail page
     Then the War's title and category are shown
     And every contestant is shown with its primary image and name
 
   Scenario: The War detail page requires no authentication
-    Given an active public War
+    Given a published public War
     When an unauthenticated visitor navigates to its detail page
     Then the War overview and its results list are shown
 
@@ -40,7 +40,7 @@ Feature: War Detail
     Then that contestant's result row shows no image and no placeholder
 
   Scenario: The detail page shows results with rank, image, wins, and appearances
-    Given a public active War with votes recorded
+    Given a public published War with votes recorded
     When an unauthenticated visitor navigates to that War's detail page
     Then the leaderboard is shown with rank, image, name, wins, and appearances for each contestant
     And no win percentage is displayed anywhere
@@ -56,21 +56,21 @@ Feature: War Detail
     When the War detail page loads
     Then that contestant appears at the bottom of the results with rank "—"
 
-  Scenario: Results poll while the War is active
-    Given a visitor viewing the detail page of an active War
+  Scenario: Results poll while the War is published
+    Given a visitor viewing the detail page of a published War
     When 30 seconds elapse
     Then the detail page re-fetches results from the API
     And the leaderboard updates if the results changed
 
   Scenario: A failed results poll keeps the last loaded leaderboard on screen
-    Given a visitor viewing the detail page of an active War with results already loaded
+    Given a visitor viewing the detail page of a published War with results already loaded
     When a poll to re-fetch results fails
     Then the previously loaded leaderboard remains displayed
     And no error state replaces it
     And the detail page continues polling every 30 seconds
 
   Scenario: The leaderboard recovers once a later results poll succeeds
-    Given a visitor viewing the detail page of an active War whose last results poll failed
+    Given a visitor viewing the detail page of a published War whose last results poll failed
     When the next poll succeeds
     Then the leaderboard updates to reflect that response
 
@@ -91,13 +91,13 @@ Feature: War Detail
     And they select the results link
     Then that War's detail page is shown with results
 
-  Scenario: A War's creator sees Edit and Delete on its results page while it's a draft
-    Given a draft War created by the viewing voter
+  Scenario: A War's creator sees Edit and Delete on its results page, in any status
+    Given a published War created by the viewing voter
     When they navigate to that War's detail page
     Then an Edit link and a Delete button are shown
 
-  Scenario: A non-creator sees no Edit or Delete on a draft War's results page
-    Given a draft War created by someone else
+  Scenario: A non-creator sees no Edit or Delete on a War's results page
+    Given a published War created by someone else
     When the viewer navigates to that War's detail page
     Then no Edit link and no Delete button are shown
 
@@ -120,16 +120,16 @@ Feature: War Detail
     And they remain on the results page
 
   Scenario: An authenticated voter who hasn't finished voting sees a Vote entry point
-    Given an active War the voter has joined and partially voted in
+    Given a published War the voter has joined and partially voted in
     When they navigate to that War's detail page
     Then a Vote link is shown
 
   Scenario: A voter who has finished voting sees no Vote entry point
-    Given an active War the voter has fully voted in
+    Given a published War the voter has fully voted in
     When they navigate to that War's detail page
     Then no Vote link is shown
 
   Scenario: An anonymous visitor sees no Vote entry point
-    Given an active War
+    Given a published War
     When an unauthenticated visitor navigates to its detail page
     Then no Vote link is shown

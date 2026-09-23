@@ -5,7 +5,7 @@ Feature: Unbound UI scenarios
   wording variants of scenarios that do run under different names.
 
   Scenario: Voter is served a matchup
-    Given an authenticated voter who has joined an active War
+    Given an authenticated voter who has joined a published War
     When they navigate to /wars/:id/vote
     Then two contestant cards are displayed
     And a progress bar shows "0 of N matchups"
@@ -64,13 +64,13 @@ Feature: Contestant Attributes
 Feature: Rankings
 
   Scenario: Rankings page loads for anonymous user
-    Given a public active War with votes
+    Given a public published War with votes
     When an anonymous user navigates to that War's detail page
     Then the leaderboard is displayed with rank, name, wins, and appearances
     And no win percentage is displayed anywhere
 
-  Scenario: Rankings poll while War is active
-    Given a user viewing the detail page of an active War
+  Scenario: Rankings poll while War is published
+    Given a user viewing the detail page of a published War
     When 30 seconds elapse
     Then the UI re-fetches results from the API
     And the leaderboard updates if results changed

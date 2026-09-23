@@ -41,7 +41,7 @@ test('Session expiry sends the voter to log in again', async ({ page }) => {
 
 test('Voting is blocked with a closed-War message', async ({ page }) => {
   // Arrange
-  await gotoVotePageWithMatchup(page, { status: 403, body: { error: 'War is not active', reason: 'war_not_active' } })
+  await gotoVotePageWithMatchup(page, { status: 403, body: { error: 'War is not published', reason: 'war_not_published' } })
 
   // Act
   await page.getByTestId('contestant-card').filter({ hasText: 'A' }).click()

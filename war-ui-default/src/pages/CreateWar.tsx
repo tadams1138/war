@@ -1,6 +1,6 @@
 // Immediately creates an empty draft War and forwards to its Edit page —
 // there is no creation wizard (the spec, "Create War"): every field a
-// draft needs, including Activate, lives on the one Edit page.
+// draft needs, including Publish/Unpublish, lives on the one Edit page.
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createWar } from '../api/client'

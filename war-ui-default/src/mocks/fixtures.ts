@@ -55,7 +55,7 @@ export function buildWarSummary(overrides: Partial<WarSummary> = {}): WarSummary
     id: overrides.id ?? 'war-1',
     title: 'Miss Universe 2026',
     category: 'Pageant',
-    status: 'active',
+    status: 'published',
     visibility: 'public',
     media_mode: 'image',
     theme: 'arcade',
@@ -112,7 +112,7 @@ export function buildRankingEntry(overrides: RankingEntryOverrides): RankingEntr
 export function buildRankingsResponse(overrides: Partial<RankingsResponse> = {}): RankingsResponse {
   return {
     war_id: 'war-1',
-    status: 'active',
+    status: 'published',
     theme: 'arcade',
     updated_at: '2026-04-28T12:00:00.000Z',
     rankings: [

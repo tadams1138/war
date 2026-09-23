@@ -56,16 +56,17 @@ export function WarDetail() {
   )
 }
 
-// Whether an authenticated voter still has unvoted matchups in this active
-// War (spec 10.4: the results page's own Vote entry point) -- skips the
-// my-progress request entirely for an anonymous visitor or a War that
-// isn't active, rather than firing a request the API would 401 anyway.
+// Whether an authenticated voter still has unvoted matchups in this
+// published War (spec 10.4: the results page's own Vote entry point) --
+// skips the my-progress request entirely for an anonymous visitor or a War
+// that isn't published, rather than firing a request the API would 401
+// anyway.
 function useVoteEligibility(warId: string, status: string): boolean {
   const [eligible, setEligible] = useState(false)
 
   useEffect(() => {
     setEligible(false)
-    if (status !== 'active' || !getToken()) return
+    if (status !== 'published' || !getToken()) return
     let cancelled = false
     void getMyProgress(warId).then(
       (progress) => {
@@ -84,7 +85,9 @@ function useVoteEligibility(warId: string, status: string): boolean {
   return eligible
 }
 
-function OwnerDraftActions({ warId, onDeleteClick }: { warId: string; onDeleteClick: () => void }) {
+// Edit and Delete are never status-gated (spec §6.1) -- shown to the
+// creator regardless of the War's current status.
+function OwnerActions({ warId, onDeleteClick }: { warId: string; onDeleteClick: () => void }) {
   return (
     <>
       <Link to={`/wars/${warId}/edit`} className="button" data-testid="war-detail-edit-link">
@@ -100,12 +103,10 @@ function ResultsActions({ war }: { war: WarDetailResponse }) {
   const showVote = useVoteEligibility(war.id, war.status)
   const deleteFlow = useDeleteWarFlow(war.id, () => navigate('/my-wars'))
   const exportFlow = useWarExportDownload(war)
-  const showOwnerActions = war.is_owner && war.status === 'draft'
-
   return (
     <>
       <div className="action-bar">
-        {showOwnerActions && <OwnerDraftActions warId={war.id} onDeleteClick={deleteFlow.open} />}
+        {war.is_owner && <OwnerActions warId={war.id} onDeleteClick={deleteFlow.open} />}
         <ExportButton show={war.is_owner} testId="war-detail-export-button" onClick={exportFlow.trigger} />
         {showVote && (
           <Link to={`/wars/${war.id}/vote`} className="button" data-testid="war-detail-vote-link">
