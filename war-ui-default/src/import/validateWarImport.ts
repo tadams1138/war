@@ -13,7 +13,6 @@ export interface ValidatedMedia {
 export interface ValidatedContestant {
   name: string
   bio: string | null
-  attributes: unknown[]
   media: ValidatedMedia[]
 }
 
@@ -23,8 +22,8 @@ export interface ValidatedWarImport {
     category: string | null
     visibility: string
     theme: string
-    contestant_schema: unknown
     ends_at: string | null
+    share_image: string | null
   }
   contestants: ValidatedContestant[]
 }
@@ -55,7 +54,6 @@ function isValidContestant(value: unknown): value is ValidatedContestant {
   const checks = [
     typeof contestant.name === 'string',
     isNullableString(contestant.bio),
-    Array.isArray(contestant.attributes),
     Array.isArray(contestant.media) && contestant.media.every(isValidMedia),
   ]
   return checks.every(Boolean)
@@ -70,6 +68,8 @@ function isValidMetadata(value: unknown): value is ValidatedWarImport['metadata'
     typeof metadata.visibility === 'string',
     typeof metadata.theme === 'string',
     isNullableString(metadata.ends_at),
+    // Absent (older exports predating this field) is treated as null below.
+    metadata.share_image === undefined || isNullableString(metadata.share_image),
   ]
   return checks.every(Boolean)
 }
@@ -88,7 +88,7 @@ function parseWarJson(raw: string): ParsedWarJson {
   if (!contestants.every(isValidContestant)) {
     return fail("This file isn't a valid War export — it's missing required data.")
   }
-  const metadata = parsed as ValidatedWarImport['metadata']
+  const metadata: ValidatedWarImport['metadata'] = { ...parsed, share_image: defaultShareImage(parsed.share_image) }
   return {
     ok: true,
     data: { metadata, contestants: contestants as ValidatedContestant[] },
@@ -102,6 +102,18 @@ function missingMediaPath(contestants: ValidatedContestant[], files: Record<stri
     }
   }
   return null
+}
+
+function missingShareImagePath(shareImage: string | null, files: Record<string, Uint8Array>): boolean {
+  return shareImage !== null && !(shareImage in files)
+}
+
+function isMissingReferencedImage(data: ValidatedWarImport, files: Record<string, Uint8Array>): boolean {
+  return missingMediaPath(data.contestants, files) !== null || missingShareImagePath(data.metadata.share_image, files)
+}
+
+function defaultShareImage(value: string | null | undefined): string | null {
+  return value ?? null
 }
 
 export function validateWarImport(zipBytes: Uint8Array): WarImportValidation {
@@ -120,8 +132,7 @@ export function validateWarImport(zipBytes: Uint8Array): WarImportValidation {
   const parsed = parseWarJson(strFromU8(warJson))
   if (!parsed.ok) return parsed
 
-  const missingPath = missingMediaPath(parsed.data.contestants, files)
-  if (missingPath) {
+  if (isMissingReferencedImage(parsed.data, files)) {
     return fail("This file isn't a valid War export — it's missing an image it references.")
   }
 

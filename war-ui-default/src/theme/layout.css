@@ -470,6 +470,23 @@ label {
   min-height: 0;
 }
 
+/* Narrow layout: wraps the two .matchup-row rows (and the vs-divider
+   between them), filling the remainder of .vote-viewport -- the flex-column
+   counterpart of .matchup-cards above. Without this, .matchup-view falls
+   back to `display: block` with an auto height, so .matchup-row's own
+   `flex: 1 1 0%` (below) has no flex container to divide space within and
+   does nothing: each row's height becomes whatever its tallest child needs,
+   which for a long bio is its full unclipped text -- .matchup-bio's
+   `overflow-y: auto` never has a constrained height to overflow against, so
+   it grows instead of scrolling, pushing everything after it (the other
+   contestant's row) past the viewport. */
+.matchup-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
 /* Narrow layout: one row per contestant (card beside its own bio),
    filling the remainder of .vote-viewport between them. */
 .matchup-row {

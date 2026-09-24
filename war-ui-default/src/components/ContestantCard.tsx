@@ -1,6 +1,5 @@
 // The core voting UI's per-contestant card (war-spec.md §10.3).
-// Shows image and name only — contestant attributes appear on the War
-// detail page, never here (voting is a fast binary choice).
+// Shows image and name only — voting is a fast binary choice.
 import type { MediaItem } from '../api/client'
 import { ImageCarousel } from './ImageCarousel'
 

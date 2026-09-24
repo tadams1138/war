@@ -88,7 +88,6 @@ A named voting campaign, owned by its creator.
 | Status | `draft` → `published` → `closed` |
 | Visibility | `public` or `invite_only` |
 | Media mode | `image` or `video`; fixed for the War's lifetime |
-| Contestant schema | Ordered field definitions (below) |
 | End date | Optional; closes the War when reached |
 | Custom UI slug | Optional; selects a registered custom UI |
 | Theme | `arcade`, `fight_card`, or `scrapbook` (below); set by the creator, overridable per voter |
@@ -108,43 +107,16 @@ freshness only.
 
 ### Contestant
 
-A participant in a War: a name, an optional bio, media appropriate to the War's media mode,
-and values for the fields the War's schema declares.
+A participant in a War: a name, an optional bio, and media appropriate to the War's media
+mode.
 
 A bio supports a constrained set of formatting — emphasis, lists, links, and headings —
 entered as plain text and rendered accordingly wherever a bio is shown; nothing else survives
 rendering, so no other markup a bio contains can affect the page around it. It renders on the
 vote page (10.3) as well as the War's detail page, but never inside the tap-to-vote media
-itself — reading it is never one gesture away from accidentally casting a vote.
-
-### Contestant Schema
-
-Different campaigns describe contestants with entirely different facts. A pageant needs
-country, age and height; a presidential primary needs party, state and office. These are not
-two layouts of the same data — they are different fields.
-
-A War therefore declares an **ordered list of typed fields** at creation, and each contestant
-supplies values for them. The same rendering code serves every campaign; there are no
-per-campaign templates, layout variants, or branching.
-
-| Rule | Value |
-|---|---|
-| Maximum fields per War | 12 |
-| Field key | Lowercase identifier, starting with a letter, ≤ 32 characters |
-| Field label | ≤ 64 characters |
-| Field type | string · number · text · url · date |
-| Editable | Draft only |
-
-Every field is optional; a contestant may omit any of them. Order comes from the schema,
-never from the contestant. Values are rejected at write time if a key is not in the schema
-or a value's type does not match its declaration; length limits apply per type.
-
-**All values render as text and are never interpreted as markup.** `url` is the sole
-exception: it renders as a link, and any value whose scheme is not `http` or `https` is
-rejected at write time, so a script-scheme URL never reaches storage.
-
-This changes what data a contestant carries, not how it looks. Radically different
-presentation is what custom UIs are for.
+itself — reading it is never one gesture away from accidentally casting a vote. It is the
+only per-contestant free text the platform carries — different campaigns describe contestants
+in whatever prose fits, rather than filling in per-campaign structured fields.
 
 ### Media Mode
 
@@ -319,7 +291,7 @@ point can bypass it by forgetting to apply it.
 This requires authentication and is the only thing that widens visibility.
 
 **Creation** requires nothing but an authenticated voter — title, category, visibility, media
-mode, contestant schema, theme, and end date are all optional, with documented defaults. The
+mode, theme, and end date are all optional, with documented defaults. The
 War is created as a draft owned by the authenticated voter and can be filled in afterward.
 
 **Publishing is visibility, not a one-time step.** Only the creator may toggle it — **Publish**
@@ -367,9 +339,6 @@ deliberate reset of their own War.
 Contestants may be added, updated and removed at any time, by its creator only, in any status
 (§6.1) — adding and updating are always unconditional; removing a contestant with votes on its
 matchups clears those votes as part of removing it (§6.1).
-Attribute values are validated against the War's schema (§4). Responses carry attributes
-already resolved against that schema — label, type and value together, in schema order — so
-clients need not fetch the schema separately and cannot render fields out of order.
 
 **Images.** Up to ten per contestant, ordered, the first being primary. Uploads are rejected
 if the War is in video mode, if no file is present, if the limit is exceeded, or if the bytes
@@ -724,10 +693,10 @@ an action rather than navigating.
 
 Two contestant cards side by side.
 
-- Cards show image and name **only** — attributes belong on the detail page, a fast binary
-  choice has no room for them. A contestant's bio, when it has one, renders in its own area
-  outside the tap-to-vote media (below) — never inside it, so reading it is never one gesture
-  away from a vote
+- Cards show image and name **only** — a bio belongs beside the card, a fast binary choice has
+  no room for it there. A contestant's bio, when it has one, renders in its own area outside
+  the tap-to-vote media (below) — never inside it, so reading it is never one gesture away
+  from a vote
 - Images use the width set the API supplies, sized for two cards sharing the viewport, so a
   phone downloads a small variant rather than a large one
 - Card media, the two names, and the progress bar are capped to fit one viewport on a typical
@@ -797,9 +766,9 @@ list *is* the page. Results render exactly as returned, with no percentages comp
 Needs no authentication for a public War (§6.4).
 
 Each row stacks its parts top to bottom on a narrow, portrait-oriented viewport — media, then
-bio and attributes, then the wins/appearances/win-share group. At laptop width and above, or on
+bio, then the wins/appearances/win-share group. At laptop width and above, or on
 any viewport wider than it is tall (a phone rotated to landscape, short on vertical room
-regardless of its width), media moves beside the bio and attributes instead of above them; the
+regardless of its width), media moves beside the bio instead of above it; the
 wins/appearances/win-share group stays underneath the bio either way, never beside it. Media
 stays large regardless of width, never shrinking to a sliver. A
 contestant's rank is shown directly on its media (a marker on the image itself, "—" for
@@ -835,9 +804,9 @@ cast every vote. In its place, at the top of the page, that voter sees a one-lin
 
 **Export**, available to a War's creator on both its results page and its edit page regardless
 of status, downloads a personal backup of the War's definition — title, category, visibility,
-theme, contestant schema, and each contestant's name, bio, attributes, and images — as a single
-file the creator can keep. It carries no votes, rankings, or win counts; it exists to let a
-creator recreate a War, not to report on one.
+theme, and each contestant's name, bio, and images — as a single file the creator can keep. It
+carries no votes, rankings, or win counts; it exists to let a creator recreate a War, not to
+report on one.
 
 **Import** reverses Export. Given a previously exported file, it creates a brand-new draft
 War — metadata, contestants, and their images — owned by the importing voter, entirely
@@ -994,7 +963,6 @@ Most campaign-to-campaign variation does not need one.
 
 | The difference is… | Solved by |
 |---|---|
-| Different contestant facts | The War's contestant schema |
 | Video instead of photographs | The War's media mode |
 | Different title, category, end date, visibility | Ordinary War configuration |
 | **Radically different branding, layout and styling** | **A custom UI** |
@@ -1029,9 +997,6 @@ Regardless of styling, each must satisfy the behaviour its data implies:
   with few appearances
 - **War detail** does not present a vote entry point when the runtime says the viewer cannot
   vote
-- **War detail** iterates the contestant's attributes rather than naming fields. A template
-  hard-coding one campaign's field works for that campaign and silently renders nothing for
-  the next
 
 ### 11.3 Shared runtime
 

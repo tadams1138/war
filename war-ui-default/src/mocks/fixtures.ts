@@ -9,7 +9,6 @@ import type { components, paths } from '../api/generated/schema'
 export type WarSummary = components['schemas']['WarSummary']
 export type ContestantDetail = components['schemas']['ContestantDetail']
 export type MediaItem = components['schemas']['MediaItem']
-export type ResolvedAttribute = components['schemas']['ResolvedAttribute']
 export type NextMatchupResponse =
   paths['/wars/{id}/matchups/next']['get']['responses'][200]['content']['application/json']
 export type WarDetailResponse = paths['/wars/{id}']['get']['responses'][200]['content']['application/json']
@@ -42,7 +41,6 @@ export function buildContestant(overrides: Partial<ContestantDetail> = {}): Cont
     id: overrides.id ?? 'contestant-1',
     name: overrides.name ?? 'Contestant One',
     bio: null,
-    attributes: [],
     media: [buildMediaItem({ id: `${overrides.id ?? 'contestant-1'}-media-0`, display_order: 0 })],
     win_count: 0,
     appearance_count: 0,
@@ -59,7 +57,6 @@ export function buildWarSummary(overrides: Partial<WarSummary> = {}): WarSummary
     visibility: 'public',
     media_mode: 'image',
     theme: 'arcade',
-    contestant_schema: [],
     ends_at: null,
     contestant_count: 0,
     share_image_url: null,

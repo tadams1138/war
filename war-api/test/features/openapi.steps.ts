@@ -493,9 +493,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       ({ response, document } = await fetchDocument(harness));
     });
 
-    Then('the POST /api/v1/wars/{id}/contestants 201 response schema requires "id", "name", "media", and "attributes"', () => {
+    Then('the POST /api/v1/wars/{id}/contestants 201 response schema requires "id", "name", "bio", and "media"', () => {
       const schema = responseSchema(document, '/wars/{id}/contestants', 'post', '201');
-      expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'name', 'media', 'attributes']));
+      expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'name', 'bio', 'media']));
+      expect(schema.required ?? []).not.toContain('attributes');
+      expect(Object.keys(schema.properties ?? {})).not.toContain('attributes');
     });
   });
 

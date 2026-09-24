@@ -18,7 +18,6 @@ interface ExportedMedia {
 interface ExportedContestant {
   name: string
   bio: string | null
-  attributes: ContestantDetail['attributes']
   media: ExportedMedia[]
 }
 
@@ -27,8 +26,8 @@ interface WarExport {
   category: string | null
   visibility: string
   theme: string
-  contestant_schema: unknown
   ends_at: string | null
+  share_image: string | null
   contestants: ExportedContestant[]
 }
 
@@ -56,13 +55,24 @@ async function exportContestantMedia(
   return media
 }
 
+async function exportShareImage(
+  shareImageUrl: string | null,
+  fetchBinary: FetchBinary,
+  files: Record<string, Uint8Array>,
+): Promise<string | null> {
+  if (!shareImageUrl) return null
+  const path = `share-image.${extensionFromUrl(shareImageUrl)}`
+  files[path] = await fetchBinary(shareImageUrl)
+  return path
+}
+
 export async function buildWarExportZip(war: WarDetailResponse, fetchBinary: FetchBinary): Promise<Uint8Array> {
   const files: Record<string, Uint8Array> = {}
   const contestants: ExportedContestant[] = []
 
   for (const contestant of war.contestants) {
     const media = await exportContestantMedia(contestant, fetchBinary, files)
-    contestants.push({ name: contestant.name, bio: contestant.bio, attributes: contestant.attributes, media })
+    contestants.push({ name: contestant.name, bio: contestant.bio, media })
   }
 
   const warExport: WarExport = {
@@ -70,8 +80,8 @@ export async function buildWarExportZip(war: WarDetailResponse, fetchBinary: Fet
     category: war.category,
     visibility: war.visibility,
     theme: war.theme,
-    contestant_schema: war.contestant_schema,
     ends_at: war.ends_at,
+    share_image: await exportShareImage(war.share_image_url, fetchBinary, files),
     contestants,
   }
 

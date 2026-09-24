@@ -22,10 +22,10 @@ export interface ImportApi {
     visibility: string
     theme: string
     ends_at: string | null
-    contestant_schema: unknown
   }) => Promise<CreatedWar>
-  addContestant: (warId: string, payload: { name: string; bio: string | null; attributes: unknown[] }) => Promise<CreatedContestant>
+  addContestant: (warId: string, payload: { name: string; bio: string | null }) => Promise<CreatedContestant>
   uploadImage: (warId: string, contestantId: string, file: File) => Promise<void>
+  uploadShareImage: (warId: string, file: File) => Promise<void>
 }
 
 export interface ImportResult {
@@ -52,30 +52,37 @@ function mimeTypeFor(path: string): string | undefined {
   return ext ? MIME_TYPE_BY_EXTENSION[ext] : undefined
 }
 
+function fileFromZip(path: string, files: Record<string, Uint8Array>): File {
+  const bytes = files[path]
+  return new File([bytes as Uint8Array<ArrayBuffer>], fileNameFor(path), { type: mimeTypeFor(path) })
+}
+
 async function importContestant(
   warId: string,
   contestant: ValidatedContestant,
   files: Record<string, Uint8Array>,
   api: ImportApi,
 ): Promise<void> {
-  const created = await api.addContestant(warId, { name: contestant.name, bio: contestant.bio, attributes: contestant.attributes })
+  const created = await api.addContestant(warId, { name: contestant.name, bio: contestant.bio })
   for (const media of contestant.media) {
-    const bytes = files[media.path]
-    const file = new File([bytes as Uint8Array<ArrayBuffer>], fileNameFor(media.path), { type: mimeTypeFor(media.path) })
-    await api.uploadImage(warId, created.id, file)
+    await api.uploadImage(warId, created.id, fileFromZip(media.path, files))
   }
 }
 
 export async function importWar(validated: ValidatedWarImport, files: Record<string, Uint8Array>, api: ImportApi): Promise<ImportResult> {
+  const { share_image, ...createWarPayload } = validated.metadata
   let warId: string
   try {
-    const war = await api.createWar(validated.metadata)
+    const war = await api.createWar(createWarPayload)
     warId = war.id
   } catch (error) {
     return { warId: null, error: toUserMessage(error) }
   }
 
   try {
+    if (share_image) {
+      await api.uploadShareImage(warId, fileFromZip(share_image, files))
+    }
     for (const contestant of validated.contestants) {
       await importContestant(warId, contestant, files, api)
     }

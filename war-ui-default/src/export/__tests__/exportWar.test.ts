@@ -37,13 +37,12 @@ describe('buildWarExportZip', () => {
     })
   })
 
-  it("includes each contestant's name, bio, and attributes, but no votes, win_count, or appearance_count", async () => {
+  it("includes each contestant's name and bio, but no attributes, votes, win_count, or appearance_count", async () => {
     // Arrange
     const contestant = buildContestant({
       id: 'c-1',
       name: 'Ada',
       bio: 'A brilliant mathematician.',
-      attributes: [{ key: 'height', label: 'Height', type: 'number', value: 170 }],
       media: [],
       win_count: 7,
       appearance_count: 9,
@@ -59,10 +58,11 @@ describe('buildWarExportZip', () => {
     expect(exported).toMatchObject({
       name: 'Ada',
       bio: 'A brilliant mathematician.',
-      attributes: [{ key: 'height', label: 'Height', type: 'number', value: 170 }],
     })
+    expect(exported).not.toHaveProperty('attributes')
     expect(exported).not.toHaveProperty('win_count')
     expect(exported).not.toHaveProperty('appearance_count')
+    expect(json).not.toHaveProperty('contestant_schema')
   })
 
   it('fetches and includes the largest-width media variant, referenced by its path in war.json', async () => {
@@ -106,6 +106,40 @@ describe('buildWarExportZip', () => {
 
     // Assert
     expect(files['media/c-2/m-2.png']).toBeDefined()
+  })
+
+  it("fetches and includes the War's share image, referenced by its path in war.json", async () => {
+    // Arrange
+    const fetchedUrls: string[] = []
+    async function trackingFetch(url: string): Promise<Uint8Array> {
+      fetchedUrls.push(url)
+      return fakeFetchBinary()
+    }
+    const war = buildWarDetail({ share_image_url: 'https://cdn.example.test/share/war-1.jpg', contestants: [] })
+
+    // Act
+    const zip = await buildWarExportZip(war, trackingFetch)
+    const files = unzipSync(zip)
+    const json = readJson(files)
+
+    // Assert
+    expect(fetchedUrls).toEqual(['https://cdn.example.test/share/war-1.jpg'])
+    expect(json.share_image).toBe('share-image.jpg')
+    expect(files['share-image.jpg']).toBeDefined()
+  })
+
+  it('has a null share_image and no share-image file when the War has none', async () => {
+    // Arrange
+    const war = buildWarDetail({ share_image_url: null, contestants: [] })
+
+    // Act
+    const zip = await buildWarExportZip(war, fakeFetchBinary)
+    const files = unzipSync(zip)
+    const json = readJson(files)
+
+    // Assert
+    expect(json.share_image).toBeNull()
+    expect(Object.keys(files).some((path) => path.startsWith('share-image'))).toBe(false)
   })
 
   it('omits media entirely for a contestant with no images', async () => {

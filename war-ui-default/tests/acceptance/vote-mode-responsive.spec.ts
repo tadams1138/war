@@ -7,12 +7,20 @@ import { expect, test } from '@playwright/test'
 import { buildMatchupResponse, buildMediaItem } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
 
+// .matchup-view distributes its exact pixel budget between two flex-grow
+// rows and a fixed (negative-margined) vs-divider -- Chromium's internal
+// 1/64px layout snapping can overrun that budget by a sub-pixel amount
+// (observed: 0.015625px) with no visible effect (no scrollbar, nothing
+// clipped). A viewport-fit assertion tolerates that, not a whole extra
+// row of content.
+const SUBPIXEL_ROUNDING_TOLERANCE_PX = 0.5
+
 async function mockVotePage(page: import('@playwright/test').Page, matchupOverrides: Parameters<typeof buildMatchupResponse>[0] = {}) {
   const matchup = buildMatchupResponse(matchupOverrides)
   await useScenario(page, [
     { method: 'POST', path: `${API}/wars/war-1/join`, responses: [{ status: 204 }] },
     { method: 'GET', path: `${API}/wars/war-1/matchups/next`, responses: [{ status: 200, body: matchup }] },
-    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: { id: 'war-1', title: 'Miss Universe 2026', category: null, status: 'published', visibility: 'public', media_mode: 'image', theme: 'arcade', contestant_schema: [], ends_at: null, contestant_count: 2, contestants: [] } }] },
+    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: { id: 'war-1', title: 'Miss Universe 2026', category: null, status: 'published', visibility: 'public', media_mode: 'image', theme: 'arcade', ends_at: null, contestant_count: 2, contestants: [] } }] },
   ])
 }
 
@@ -48,9 +56,9 @@ test('Both contestant cards stay visible without scrolling on a phone, and the p
   expect(left).not.toBeNull()
   expect(right).not.toBeNull()
   expect(left!.y).toBeGreaterThanOrEqual(0)
-  expect(left!.y + left!.height).toBeLessThanOrEqual(844)
+  expect(left!.y + left!.height).toBeLessThanOrEqual(844 + SUBPIXEL_ROUNDING_TOLERANCE_PX)
   expect(right!.y).toBeGreaterThanOrEqual(0)
-  expect(right!.y + right!.height).toBeLessThanOrEqual(844)
+  expect(right!.y + right!.height).toBeLessThanOrEqual(844 + SUBPIXEL_ROUNDING_TOLERANCE_PX)
 
   // Assert — no horizontal scroll.
   const [scrollWidth, clientWidth] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])
@@ -82,6 +90,33 @@ test('On a narrow viewport, each bio sits beside its own card, not below the fol
   expect(card).not.toBeNull()
   expect(bio).not.toBeNull()
   expect(bio!.x).toBeGreaterThan(card!.x)
+})
+
+test("On a narrow viewport, a long bio scrolls within its own space instead of pushing the other contestant's card off screen", async ({ page }) => {
+  // Arrange
+  await page.setViewportSize({ width: 390, height: 844 })
+  const longBio = Array.from({ length: 40 }, (_, i) => `Paragraph ${i} of a very long bio.`).join('\n\n')
+  await mockVotePage(page, {
+    matchup: {
+      id: 'matchup-1',
+      left: { id: 'contestant-left', name: 'Left Contestant', bio: longBio, media: [] },
+      right: { id: 'contestant-right', name: 'Right Contestant', bio: 'Right bio.', media: [] },
+    },
+  })
+
+  // Act
+  await gotoVotePage(page)
+
+  // Assert — the right contestant's card stays fully on screen; the left
+  // bio's own overflow scrolls internally rather than growing its row (and
+  // everything after it) past the viewport.
+  const right = await page.getByTestId('matchup-card-right').boundingBox()
+  expect(right).not.toBeNull()
+  expect(right!.y + right!.height).toBeLessThanOrEqual(844 + SUBPIXEL_ROUNDING_TOLERANCE_PX)
+  const [scrollHeight, clientHeight] = await page
+    .getByTestId('matchup-bio-left')
+    .evaluate((el) => [el.scrollHeight, el.clientHeight])
+  expect(scrollHeight).toBeGreaterThan(clientHeight)
 })
 
 test('Clicking a bio never casts a vote', async ({ page }) => {

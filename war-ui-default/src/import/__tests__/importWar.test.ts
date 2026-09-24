@@ -9,14 +9,13 @@ function validatedImport(overrides: Partial<ValidatedWarImport> = {}): Validated
       category: 'Pageant',
       visibility: 'public',
       theme: 'arcade',
-      contestant_schema: [],
       ends_at: null,
+      share_image: null,
     },
     contestants: [
       {
         name: 'Ada',
         bio: 'A brilliant mathematician.',
-        attributes: [],
         media: [{ display_order: 0, aspect_ratio: 0.75, path: 'media/c-1/m-1.jpg' }],
       },
     ],
@@ -29,6 +28,7 @@ function fakeApi(overrides: Partial<ImportApi> = {}): ImportApi {
     createWar: vi.fn().mockResolvedValue({ id: 'war-new' }),
     addContestant: vi.fn().mockResolvedValue({ id: 'contestant-new' }),
     uploadImage: vi.fn().mockResolvedValue(undefined),
+    uploadShareImage: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
 }
@@ -49,10 +49,9 @@ describe('importWar', () => {
       category: 'Pageant',
       visibility: 'public',
       theme: 'arcade',
-      contestant_schema: [],
       ends_at: null,
     })
-    expect(api.addContestant).toHaveBeenCalledWith('war-new', { name: 'Ada', bio: 'A brilliant mathematician.', attributes: [] })
+    expect(api.addContestant).toHaveBeenCalledWith('war-new', { name: 'Ada', bio: 'A brilliant mathematician.' })
     expect(api.uploadImage).toHaveBeenCalledWith('war-new', 'contestant-new', expect.any(File))
     const uploadedFile = (api.uploadImage as ReturnType<typeof vi.fn>).mock.calls[0][2] as File
     expect(uploadedFile.type).toBe('image/jpeg')
@@ -66,9 +65,7 @@ describe('importWar', () => {
   it("sets each uploaded File's type from its path extension, so the server's MIME-type validation accepts it", async () => {
     // Arrange
     const data = validatedImport({
-      contestants: [
-        { name: 'Ada', bio: null, attributes: [], media: [{ display_order: 0, aspect_ratio: 0.75, path: 'media/c-1/m-1.webp' }] },
-      ],
+      contestants: [{ name: 'Ada', bio: null, media: [{ display_order: 0, aspect_ratio: 0.75, path: 'media/c-1/m-1.webp' }] }],
     })
     const files = { 'media/c-1/m-1.webp': new Uint8Array([1, 2, 3]) }
     const api = fakeApi()
@@ -98,8 +95,8 @@ describe('importWar', () => {
     // Arrange
     const data = validatedImport({
       contestants: [
-        { name: 'Ada', bio: null, attributes: [], media: [] },
-        { name: 'Grace', bio: null, attributes: [], media: [] },
+        { name: 'Ada', bio: null, media: [] },
+        { name: 'Grace', bio: null, media: [] },
       ],
     })
     const api = fakeApi({
@@ -115,6 +112,34 @@ describe('importWar', () => {
     // Assert
     expect(result.warId).toBe('war-new')
     expect(result.error).not.toBeNull()
+  })
+
+  it('uploads the share image after creating the War, when the import has one', async () => {
+    // Arrange
+    const data = validatedImport({ metadata: { ...validatedImport().metadata, share_image: 'share-image.jpg' }, contestants: [] })
+    const files = { 'share-image.jpg': new Uint8Array([9, 9, 9]) }
+    const api = fakeApi()
+
+    // Act
+    await importWar(data, files, api)
+
+    // Assert
+    expect(api.uploadShareImage).toHaveBeenCalledWith('war-new', expect.any(File))
+    const createOrder = (api.createWar as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+    const shareOrder = (api.uploadShareImage as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+    expect(createOrder).toBeLessThan(shareOrder)
+  })
+
+  it('does not upload a share image when the import has none', async () => {
+    // Arrange
+    const data = validatedImport({ contestants: [] })
+    const api = fakeApi()
+
+    // Act
+    await importWar(data, {}, api)
+
+    // Assert
+    expect(api.uploadShareImage).not.toHaveBeenCalled()
   })
 
   it('returns a null War id and an error when creating the War itself fails', async () => {

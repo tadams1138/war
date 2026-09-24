@@ -4,13 +4,12 @@ Feature: Browse Wars
     Given published public Wars exist
     When an unauthenticated visitor loads the home page
     Then a War card is displayed for each War, showing its title, category, and contestant count
-    And a "Login to Vote" call to action is shown
+    And no "Login to Vote" call to action or "War" heading is shown, since the persistent header already covers both
 
   Scenario: Authenticated user browses public Wars
     Given published public Wars exist
     When an authenticated voter loads the home page
     Then a War card is displayed for each War, showing its title, category, and contestant count
-    And no "Login to Vote" call to action is shown
 
   Scenario: No published Wars for an anonymous visitor
     Given no published public Wars exist
