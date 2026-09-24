@@ -1,5 +1,5 @@
 // Unauthenticated users visiting a protected route are redirected to
-// /login with a returnTo query param (the spec).
+// /login with a returnTo query param.
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/context'

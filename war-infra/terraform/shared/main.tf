@@ -96,11 +96,10 @@ resource "cloudflare_zone_settings_override" "war" {
 # ── WAF, rate limiting, and cache ─────────────────────────────────────────────
 # Zone-wide, applied once. Cloudflare permits exactly one custom ruleset per
 # phase per zone — staging and production are both subdomains of this one
-# zone (one CLOUDFLARE_ZONE_ID between them), so these used to live in
-# modules/edge and be instantiated once per environment, which fails outright
-# on the second environment's apply ("A similar configuration with rules
-# already exists"). None of the rules below key off a specific env or domain
-# — every match is path-only — so one zone-wide copy covers both
+# zone (one CLOUDFLARE_ZONE_ID between them), so a per-environment copy in
+# modules/edge fails outright on the second environment's apply ("A similar
+# configuration with rules already exists"). None of the rules below key off
+# a specific env or domain — every match is path-only — so one zone-wide copy covers both
 # environments exactly as intended; only the number of copies changed.
 #
 # Rule ordering matters and is not alphabetical: within a ruleset phase,

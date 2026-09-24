@@ -8,8 +8,8 @@ type Timestamp = ColumnType<Date, Date | string, Date | string>;
  * string` on update. Spelled out directly rather than as `Generated<Timestamp>`
  * — `Generated<S>` assumes `S` is a plain type, so wrapping the `Timestamp`
  * `ColumnType` in another `ColumnType` would double-wrap it and fail to
- * flatten to `Date` under Kysely's `Selectable<>` (used throughout the
- * repositories, design review finding 12).
+ * flatten to `Date` under Kysely's `Selectable<>`, used throughout the
+ * repositories.
  */
 type GeneratedTimestamp = ColumnType<Date, Date | string | undefined, Date | string>;
 

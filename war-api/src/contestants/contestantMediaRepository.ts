@@ -71,10 +71,10 @@ export async function listMediaByContestant(db: Kysely<Database>, contestantId: 
 }
 
 /**
- * Batches the media lookup for many contestants into one query (design
- * review finding 9) — the N+1 alternative of calling `listMediaByContestant`
- * once per contestant is what War detail, rankings, and `/matchups/next`
- * used to pay on every request.
+ * Batches the media lookup for many contestants into one query — the N+1
+ * alternative of calling `listMediaByContestant` once per contestant costs
+ * War detail, rankings, and `/matchups/next` one query per contestant on
+ * every request.
  */
 export async function listMediaByContestants(
   db: Kysely<Database>,

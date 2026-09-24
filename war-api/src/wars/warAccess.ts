@@ -29,11 +29,11 @@ export async function loadWarOwnedBy(
 export type OwnedWarOutcome = { kind: 'ok'; war: War } | { kind: 'notFound' } | { kind: 'forbidden' };
 
 /**
- * Ownership-only, no status requirement (spec §6.1: "A War is always
+ * Ownership-only, no status requirement (war-spec.md §6.1: "A War is always
  * editable by its creator, in any status"). The common guard for every
- * mutation that used to be draft-only gated -- Publish/Unpublish, patching
+ * mutation none of which is status-gated -- Publish/Unpublish, patching
  * metadata, adding/removing contestants, setting the share image, deleting,
- * and clearing votes -- now that none of those are status-gated.
+ * and clearing votes.
  */
 export async function loadOwnedWar(db: Kysely<Database>, warId: string, voterId: string, _now: Date): Promise<OwnedWarOutcome> {
   const war = await findWarById(db, warId);

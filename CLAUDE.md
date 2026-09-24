@@ -112,7 +112,9 @@ implementation detail out of it: that belongs here.
 questions. Update it when something ships.
 
 Executable Gherkin lives with the code that implements it — `war-api/specs/features/`,
-`war-ui-default/features/`, `war-infra/specs/features/`, `war-ui-custom/specs/features/`.
-Each has a `pending/` subdirectory for scenarios with no binding yet. These are test
-fixture, not a second copy of the spec.
+`war-ui-default/features/`, `war-infra/specs/features/`. Each has a `pending/` subdirectory
+for scenarios with no binding yet. These are test fixture, not a second copy of the spec. A
+custom UI (war-spec.md §11) is its own separate repository, not a directory here, so it
+keeps its own Gherkin — `.github/workflows/ui-custom.yml` is the reusable pipeline each one
+calls.
 

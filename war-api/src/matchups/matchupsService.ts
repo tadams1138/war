@@ -104,13 +104,13 @@ function buildPrefetch(
 }
 
 /**
- * Builds the `/matchups/next` response: the voter's next matchup (side
- * decided by the API), progress, and an advisory prefetch block
- * naming the following matchup's media. Fetches both contestants and all
- * four media sets (current pair plus prefetch pair) with two batched
- * queries rather than one per contestant (design review finding 9) — this
- * is the endpoint the spec's 500ms prefetch budget makes most
- * latency-sensitive.
+ * Builds the `/matchups/next` response (war-spec.md §6.3): the voter's next
+ * matchup (side decided by the API), progress, and an advisory prefetch
+ * block naming the following matchup's media. Fetches both contestants and
+ * all four media sets (current pair plus prefetch pair) with two batched
+ * queries rather than one per contestant — this is the most
+ * latency-sensitive endpoint in the slice, since a slow response stalls the
+ * prefetch that is supposed to be warming the *next* matchup's media.
  */
 export async function nextMatchupForVoter(
   db: Kysely<Database>,

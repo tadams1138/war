@@ -11,9 +11,8 @@
 
 /* One action row, reused everywhere a group of buttons/links needs to sit
    side by side with consistent spacing (My Wars/Home cards, the results
-   page, the edit page, every confirmation dialog) -- this used to be a
-   different, unstyled div per page, which is how Edit/Delete/Export ended
-   up inconsistently laid out and inconsistently styled in the first place
+   page, the edit page, every confirmation dialog) -- one shared class keeps
+   Edit/Delete/Export from drifting into inconsistent per-page layouts
    (PROGRESS.md). Flex items here are auto-blockified (CSS Display Module
    3 §2.7), so a plain `.button`-class <a> sizes and pads correctly as a
    flex child with no display override needed on the class itself. */
@@ -425,7 +424,7 @@ label {
   margin-bottom: 0.75rem;
 }
 
-/* The vote page's own layout (war-spec.md 10.3): the tap-to-vote block
+/* The vote page's own layout (war-spec.md §10.3): the tap-to-vote block
    (progress + both cards) fills the viewport with no scroll needed to
    vote, via a definite `height: 100vh` flex column -- not `min-height`,
    which leaves how much of that height a `flex: 1`/`1fr` row actually
@@ -532,7 +531,7 @@ label {
 /* Narrow mode's bio, sharing a .matchup-row with its own card -- capped to
    that row's height, so a long bio scrolls within its own area rather than
    growing the row past the viewport (both contestants must stay fully
-   visible without scrolling the page itself, war-spec.md 10.3). */
+   visible without scrolling the page itself, war-spec.md §10.3). */
 .matchup-row .matchup-bio {
   flex: 1 1 0%;
   min-width: 0;

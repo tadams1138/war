@@ -1,7 +1,7 @@
 import { buildAppWithoutDb } from '../test/setup/testAppNoDb.js';
 
 /**
- * Dev tool for war-ui-default's `generate:api` (the spec): prints this
+ * Dev tool for war-ui-default's `generate:api`: prints this
  * API's OpenAPI document to stdout, built straight from
  * the routes' own JSON Schemas rather than fetched from a deployed
  * environment. `buildAppWithoutDb()` is the right harness for this --

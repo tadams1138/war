@@ -142,8 +142,8 @@ function validateDateValue(field: ContestantSchemaField, value: unknown): string
  * `Record` requires every key present, so a type added to the union
  * without an entry here is a compile error, without one `case` per type
  * driving `validateValueForType`'s own branch count up. `string` and
- * `text` share the same rule at different length caps, previously
- * duplicated per `switch` case.
+ * `text` share the same rule at different length caps, rather than
+ * duplicating it per `switch` case.
  */
 const VALUE_VALIDATORS: Record<ContestantFieldType, FieldValidator> = {
   string: validateStringLength(MAX_STRING_LENGTH),

@@ -96,10 +96,10 @@ export const contestantDetailSchema = {
 
 /**
  * Builds a contestant's detail view from media the caller already fetched,
- * rather than fetching it itself — the N+1 alternative (one query per
- * contestant) is what War detail used to pay on every request (design
- * review finding 9). `presentWarDetail` batches the fetch for all of a
- * War's contestants; single-contestant callers pass a one-element result.
+ * rather than fetching it itself — the N+1 alternative is one query per
+ * contestant on every request. `presentWarDetail` batches the fetch for all
+ * of a War's contestants; single-contestant callers pass a one-element
+ * result.
  */
 export function presentContestant(
   contestant: Contestant,

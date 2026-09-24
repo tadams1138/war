@@ -27,7 +27,7 @@ const MOSAIC_BLOCK_HEIGHT = 10.4
 
 interface LogoProps {
   // Drop the hard shadow at small sizes -- it reads as fuzz, not a shadow,
-  // by the time the mark is app-icon/favicon small (design review).
+  // by the time the mark is app-icon/favicon small.
   shadow?: boolean
 }
 

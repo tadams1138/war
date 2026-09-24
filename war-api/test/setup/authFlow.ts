@@ -16,7 +16,7 @@ export interface BegunLogin {
   pkceCookie: string;
   /** `oauth_state` and `oauth_pkce` together, ready for a single `.set('Cookie', ...)` call. */
   cookieHeader: string;
-  /** The `redirect_uri` this login leg actually advertised to the provider (design review finding 7). */
+  /** The `redirect_uri` this login leg actually advertised to the provider. */
   advertisedRedirectUri: string;
 }
 
@@ -25,10 +25,9 @@ function extractAdvertisedRedirectUri(location: string | undefined): string | nu
 }
 
 /**
- * Drives the login leg only (the spec's step 1) and stops before the
+ * Drives the login leg only (war-spec.md §5.1) and stops before the
  * callback -- the shared setup every "begin a login, then do something
- * callback-shaped" test needs (design review finding 7: this used to be
- * three near-identical local copies).
+ * callback-shaped" test needs, instead of duplicating it per test.
  */
 export async function beginLogin(harness: TestHarness, provider = 'google'): Promise<BegunLogin> {
   await harness.app.ready();

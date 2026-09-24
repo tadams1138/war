@@ -11,9 +11,9 @@ import { truncateAll } from '../setup/testDb.js';
 
 /**
  * Route-level security checks that no scenario in auth.feature exercises
- * directly (design review findings 6 and 14). Not bound to a .feature file —
- * these are implementation-owned regression tests of behaviour the spec
- * requires but the Gherkin does not pin at this granularity.
+ * directly. Not bound to a .feature file — these are implementation-owned
+ * regression tests of behaviour war-spec.md §5.1 requires but the Gherkin
+ * does not pin at this granularity.
  */
 describe('Login sets PKCE state alongside the OAuth state cookie', () => {
   let harness: TestHarness;
@@ -168,14 +168,13 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
 });
 
 /**
- * The `502` boundary of spec -- deliberately not a Gherkin scenario
- * (stage 1's design review reasoning: a wire-level robustness property, the
- * same category as the redirect-URI-pinning tests above). Both the
- * exchange-failure mapping and the downstream-failure exclusion are
- * asserted here so the boundary's scope is pinned exactly, not just its
- * existence.
+ * The `502` boundary of war-spec.md §5.1 -- deliberately not a Gherkin
+ * scenario: a wire-level robustness property, the same category as the
+ * redirect-URI-pinning tests above. Both the exchange-failure mapping and
+ * the downstream-failure exclusion are asserted here so the boundary's
+ * scope is pinned exactly, not just its existence.
  */
-describe('Callback exchange failures (spec)', () => {
+describe('Callback exchange failures (war-spec.md §5.1)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {
@@ -238,21 +237,20 @@ describe('Callback exchange failures (spec)', () => {
     const response = await agent.get('/api/v1/auth/google/callback').query({ code, state: stateCookie }).set('Cookie', cookieHeader);
 
     // Assert: a 500 alone doesn't prove it happened *downstream* of a
-    // successful exchange -- pin that the exchange itself actually ran
-    // (design review finding 5), not just that some 500 occurred.
+    // successful exchange -- pin that the exchange itself actually ran,
+    // not just that some 500 occurred.
     expect(response.status).toBe(500);
     expect(harness.google.lastExchangeCallbackUrl).toBeDefined();
   });
 });
 
 /**
- * The `error`-first precedence and independence spec requires --
- * checked before, and regardless of, the state-cookie check (design review
- * finding 1: the acceptance scenario's one existing test happens to send a
- * matching cookie, which would pass even a subtly wrong
- * `if (error && expectedState)`).
+ * The `error`-first precedence and independence war-spec.md §5.1 requires
+ * -- checked before, and regardless of, the state-cookie check. The
+ * acceptance scenario's one existing test happens to send a matching
+ * cookie, which would pass even a subtly wrong `if (error && expectedState)`.
  */
-describe('OAuth error parameter precedence and independence (spec)', () => {
+describe('OAuth error parameter precedence and independence (war-spec.md §5.1)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

@@ -79,8 +79,8 @@ export interface ListWarsFilter {
   limit: number;
   /**
    * Scopes the list to Wars created by this voter, across every status --
-   * including their own drafts and invite-only Wars (spec,
-   * "Addendum (2026-09-01)"). Composes with `status`/`category` exactly as
+   * including their own drafts and invite-only Wars (war-spec.md §6.1).
+   * Composes with `status`/`category` exactly as
    * those two already compose with each other. Only ever set from the
    * authenticated requester's own id -- never from a client-supplied one --
    * so this is the one filter here that can surface a voter's private Wars.

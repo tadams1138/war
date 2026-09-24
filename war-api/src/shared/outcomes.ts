@@ -1,7 +1,6 @@
 /** The individual failure variants domain services can return, exported
  * separately so a service needing only some of them can compose exactly the
- * set it owns rather than importing a type naming states it does not have
- * (design review finding 13). */
+ * set it owns rather than importing a type naming states it does not have. */
 export interface NotFound {
   kind: 'notFound';
 }

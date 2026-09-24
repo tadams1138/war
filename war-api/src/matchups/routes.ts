@@ -47,10 +47,10 @@ export interface VoteForbiddenView {
 /**
  * This route's `403` -- unlike its other `{ error }`-only 4xx responses --
  * also carries a `reason` discriminator so a client can branch on which of
- * the two forbidden causes occurred without matching `error`'s message text
- * (spec, addendum, 2026-08-30). Scoped to this route only: `POST
- * /wars/:id/join`'s `403` has a single cause and stays on the shared
- * `errorResponseSchema`.
+ * the two forbidden causes war-spec.md §6.3 defines (War not published,
+ * voter not joined) without matching `error`'s message text. Scoped to
+ * this route only: `POST /wars/:id/join`'s `403` has a single cause and
+ * stays on the shared `errorResponseSchema`.
  */
 export const voteForbiddenResponseSchema = {
   type: 'object',

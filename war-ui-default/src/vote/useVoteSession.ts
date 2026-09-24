@@ -1,4 +1,4 @@
-// The vote-session state machine for VoteMode (the spec): join
+// The vote-session state machine for VoteMode (war-spec.md §10.3): join
 // orchestration, matchup fetching, vote submission, error
 // classification, and the rate-limit wait. Extracted out of VoteMode so
 // that component is rendering only — the transitions here (409 advances

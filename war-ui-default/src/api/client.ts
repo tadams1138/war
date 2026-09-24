@@ -1,4 +1,4 @@
-// Typed API wrapper — the spec. Pages and components never
+// Typed API wrapper. Pages and components never
 // call fetch() directly; every request this slice needs goes through one of
 // the functions below. Request/response body types come from
 // src/api/generated/schema.d.ts, generated from war-api's live OpenAPI
@@ -25,7 +25,7 @@ export type ResolvedAttribute = components['schemas']['ResolvedAttribute']
 type VoteForbiddenBody =
   paths['/wars/{id}/matchups/{mId}/vote']['post']['responses'][403]['content']['application/json']
 // war-api's Fastify routes validate CreateWar-slice request bodies by hand,
-// not through a `schema.body` option (the spec) — so, unlike
+// not through a `schema.body` option — so, unlike
 // the response types above, there is nothing in the generated document to
 // derive these from. Hand-written to match the documented body shapes
 // exactly, same fields Edit War's metadata form (EditWarMetadataForm.tsx)
@@ -152,7 +152,7 @@ function retryAfterFor(reason: ApiErrorReason, response: Response): number | und
   return reason === 'rate-limited' ? parseRetryAfter(response.headers.get('Retry-After')) : undefined
 }
 
-// The `{ error, details }` shape's `details` array (the spec), when the
+// The `{ error, details }` shape's `details` array, when the
 // body actually has one — `POST
 // /wars/:id/contestants/:cId/images`'s 422 never does (a plain `{ error }`
 // shape, deliberately), so this simply returns undefined there rather than
@@ -285,7 +285,7 @@ export async function addContestant(warId: string, payload: AddContestantPayload
   return response.json() as Promise<ContestantDetail>
 }
 
-// One multipart request per file (the spec) — sequential,
+// One multipart request per file — sequential,
 // not parallel, so each upload's assigned display_order is deterministic
 // (the API appends at "the next display_order" per request it handles).
 export async function uploadContestantImages(warId: string, contestantId: string, files: File[]): Promise<UploadedImage[]> {

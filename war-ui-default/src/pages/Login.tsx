@@ -1,4 +1,4 @@
-// OAuth provider selection (the spec). Apple is left off this list --
+// OAuth provider selection (war-spec.md §5.1). Apple is left off this list --
 // designed for but not built (PROGRESS.md "To revisit") -- rather than
 // shown as a button that 404s.
 import { useSearchParams } from 'react-router-dom'

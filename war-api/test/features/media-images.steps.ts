@@ -127,10 +127,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     // The API registers no /media/* route at all, so asserting a 404 from
-    // one would pass whether or not originals were actually protected
-    // (design review finding 3). The real guard is that nothing under the
-    // private "originals/" prefix ever appears in the public object store,
-    // and that no endpoint's response ever advertises such a URL.
+    // one would pass whether or not originals were actually protected. The
+    // real guard is that nothing under the private "originals/" prefix ever
+    // appears in the public object store, and that no endpoint's response
+    // ever advertises such a URL.
     When('it is requested through the public media path', async () => {
       const jwt = await harness.jwtFor(creatorId);
       warResponse = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);

@@ -1,4 +1,4 @@
-// Binary matchup voting, image mode only (the spec). Navigating here
+// Binary matchup voting, image mode only (war-spec.md §10.3). Navigating here
 // silently joins the War before the first matchup is
 // requested — there is no visible Join control. Rendering only; the vote
 // session's state machine lives in useVoteSession.

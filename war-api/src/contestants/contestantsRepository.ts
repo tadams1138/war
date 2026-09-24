@@ -54,9 +54,10 @@ export async function findContestantById(db: Kysely<Database>, id: string): Prom
 }
 
 /**
- * Batches a lookup of many contestants by id into one query (design review
- * finding 9) — the alternative of one `findContestantById` call per id is
- * what `/matchups/next` used to pay for its current pair and prefetch pair.
+ * Batches a lookup of many contestants by id into one query — the
+ * alternative of one `findContestantById` call per id is what
+ * `/matchups/next` would otherwise pay for its current pair and prefetch
+ * pair.
  */
 export async function findContestantsByIds(db: Kysely<Database>, ids: string[]): Promise<Map<string, Contestant>> {
   const byId = new Map<string, Contestant>();

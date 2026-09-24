@@ -347,8 +347,6 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   variants of scenarios that already run under other names.
 - `war-infra/specs/features/pending/` holds 27 routing and edge scenarios with no runner,
   since that project has no test harness.
-- `war-ui-custom/specs/features/pending/` holds the 11-scenario template contract; that
-  project does not exist yet.
 
 ---
 
@@ -366,9 +364,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 ## To revisit
 
-**Apple sign-in.** Deferred — needs a paid Apple Developer Program membership ($99/yr),
-which we don't have yet. Design is otherwise settled, so this is a cost decision, not an open
-question: the client secret is an ES256-signed JWT (`iss` the team id, `sub` the client id,
+**Apple sign-in.** Out of scope for now — it requires a paid Apple Developer Program
+membership ($99/yr) not yet purchased for this project. Design is otherwise settled, so this
+is a cost decision, not an open question: the client secret is an ES256-signed JWT (`iss` the team id, `sub` the client id,
 signed with a `.p8` private key, re-signed per exchange since Apple caps its lifetime at six
 months); there is no userinfo endpoint, so identity is `sub`-only from the id token; and
 `openid` scope alone (skipping `name`/`email`) keeps the callback an ordinary GET rather than

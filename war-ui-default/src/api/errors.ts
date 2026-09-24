@@ -1,6 +1,6 @@
-// Typed errors thrown by api/client.ts and the user-facing copy they map to.
-// Per the spec, filtered to the endpoints this slice calls
-// (wars list, war detail, next-matchup, cast-vote, join, auth).
+// Typed errors thrown by api/client.ts and the user-facing copy they map to,
+// filtered to the endpoints this slice calls (wars list, war detail,
+// next-matchup, cast-vote, join, auth).
 
 export type ApiErrorReason =
   | 'unauthorized' // 401
@@ -18,12 +18,12 @@ export class ApiError extends Error {
   readonly reason: ApiErrorReason
   readonly status: number
   readonly retryAfterSeconds?: number
-  // The `{ error, details }` shape's `details` array (the spec), when the
-  // failing response carried one. Populated only for a
-  // 'validation' reason whose body actually has it — most callers ignore
-  // this and use `message` instead (the spec's generic 422 copy); Edit War's
-  // Publish action (src/editWar/useEditWar.ts) is the one deliberate
-  // exception that surfaces it verbatim (the spec).
+  // The `{ error, details }` shape's `details` array, when the failing
+  // response carried one. Populated only for a 'validation' reason whose
+  // body actually has it — most callers ignore this and use `message`
+  // instead (the generic 422 copy); Edit War's Publish action
+  // (src/editWar/useEditWar.ts) is the one deliberate exception that
+  // surfaces it verbatim.
   readonly details?: string[]
 
   constructor(reason: ApiErrorReason, status: number, message: string, retryAfterSeconds?: number, details?: string[]) {

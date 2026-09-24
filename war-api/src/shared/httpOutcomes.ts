@@ -39,8 +39,8 @@ export const validationErrorResponseSchema = {
  * Status and message per outcome kind, keyed by `HttpFailure['kind']` --
  * `Record` requires every key present, so an outcome kind added to the
  * union without an entry here is a compile error, the same exhaustiveness
- * guarantee a `never`-typed switch default gave (design review finding 7),
- * without one `case` per kind driving this function's own branch count up.
+ * guarantee a `never`-typed switch default gave, without one `case` per
+ * kind driving this function's own branch count up.
  */
 const STATUS_BY_KIND: Record<HttpFailure['kind'], number> = {
   notFound: 404,

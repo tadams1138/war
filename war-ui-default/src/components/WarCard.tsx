@@ -56,10 +56,10 @@ function HomeWarCard({ war }: { war: WarSummary }) {
 }
 
 function MyWarsWarCard({ war, showEditLink }: { war: WarSummary; showEditLink: boolean }) {
-  // A div, not the outer <Link> this used to be: an <a> cannot validly
-  // contain another interactive element (HTML's content model), and the
-  // Edit link below needs to be clickable independently of the
-  // card-to-detail-page link, not nested inside it.
+  // A div, not an outer <Link>: an <a> cannot validly contain another
+  // interactive element (HTML's content model), and the Edit link below
+  // needs to be clickable independently of the card-to-detail-page link,
+  // not nested inside it.
   return (
     <div data-testid="war-card" className="war-card">
       <Link to={`/wars/${war.id}`} className="war-card-link">
