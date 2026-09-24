@@ -2,7 +2,6 @@ import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { registerSharedSchemas } from '../../src/openapi/schemas.js';
 import { mediaItemSchema, type MediaItemView } from '../../src/contestants/mediaPresenter.js';
-import { resolvedAttributeSchema, type ResolvedAttribute } from '../../src/contestants/schemaValidation.js';
 import { contestantDetailSchema, type ContestantDetailView } from '../../src/contestants/contestantPresenter.js';
 import { warSummarySchema, type WarSummaryView } from '../../src/wars/warPresenter.js';
 import { nextMatchupResponseSchema, type NextMatchupView } from '../../src/matchups/matchupsService.js';
@@ -66,18 +65,6 @@ describe('response body schemas serialize every field (spec)', () => {
     expect(response.body).toBe(JSON.stringify(fixture));
   });
 
-  it('ResolvedAttribute: every field intact', async () => {
-    // Arrange
-    const fixture: ResolvedAttribute = { key: 'height', label: 'Height', type: 'number', value: 72 };
-    const app = buildProbeApp(resolvedAttributeSchema, fixture);
-
-    // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
-
-    // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
-  });
-
   it('WarSummary: every field, non-null category/ends_at', async () => {
     // Arrange
     const fixture: WarSummaryView = {
@@ -88,7 +75,6 @@ describe('response body schemas serialize every field (spec)', () => {
       visibility: 'public',
       media_mode: 'image',
       theme: 'arcade',
-      contestant_schema: [{ key: 'height', label: 'Height', type: 'number' }],
       ends_at: '2026-01-01T00:00:00.000Z',
       contestant_count: 4,
       share_image_url: 'https://cdn.test/share-images/a5b1e2c4-2222-4a11-8a11-000000000001.jpg',
@@ -102,7 +88,7 @@ describe('response body schemas serialize every field (spec)', () => {
     expect(response.body).toBe(JSON.stringify(fixture));
   });
 
-  it('WarSummary: null category/ends_at and empty contestant_schema survive', async () => {
+  it('WarSummary: null category/ends_at survive', async () => {
     // Arrange
     const fixture: WarSummaryView = {
       id: 'a5b1e2c4-2222-4a11-8a11-000000000002',
@@ -112,7 +98,6 @@ describe('response body schemas serialize every field (spec)', () => {
       visibility: 'invite_only',
       media_mode: 'image',
       theme: 'arcade',
-      contestant_schema: [],
       ends_at: null,
       contestant_count: 0,
       share_image_url: null,
@@ -126,13 +111,12 @@ describe('response body schemas serialize every field (spec)', () => {
     expect(response.body).toBe(JSON.stringify(fixture));
   });
 
-  it('ContestantDetail: every field, non-null bio, nested attributes/media', async () => {
+  it('ContestantDetail: every field, non-null bio, nested media', async () => {
     // Arrange
     const fixture: ContestantDetailView = {
       id: 'a5b1e2c4-3333-4a11-8a11-000000000001',
       name: 'Contestant A',
       bio: 'A short bio',
-      attributes: [{ key: 'height', label: 'Height', type: 'number', value: 72 }],
       media: [
         {
           kind: 'image',
@@ -154,13 +138,12 @@ describe('response body schemas serialize every field (spec)', () => {
     expect(response.body).toBe(JSON.stringify(fixture));
   });
 
-  it('ContestantDetail: null bio and empty attributes/media survive', async () => {
+  it('ContestantDetail: null bio and empty media survive', async () => {
     // Arrange
     const fixture: ContestantDetailView = {
       id: 'a5b1e2c4-3333-4a11-8a11-000000000003',
       name: 'Contestant B',
       bio: null,
-      attributes: [],
       media: [],
       win_count: 0,
       appearance_count: 0,

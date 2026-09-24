@@ -133,7 +133,6 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         visibility: body.visibility as string | undefined,
         mediaMode: body.media_mode as string | undefined,
         theme: body.theme as string | undefined,
-        contestantSchema: body.contestant_schema,
         endsAt: body.ends_at as string | null | undefined,
       });
 
@@ -190,7 +189,6 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
           category: warSummaryProperties.category,
           visibility: warSummaryProperties.visibility,
           theme: warSummaryProperties.theme,
-          contestant_schema: warSummaryProperties.contestant_schema,
           ends_at: warSummaryProperties.ends_at,
         },
       },
@@ -212,7 +210,6 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
           category: body.category as string | null | undefined,
           visibility: body.visibility as string | undefined,
           theme: body.theme as string | undefined,
-          contestantSchema: body.contestant_schema,
           endsAt: body.ends_at as string | null | undefined,
         },
         new Date(),

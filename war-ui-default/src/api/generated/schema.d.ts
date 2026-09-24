@@ -406,12 +406,6 @@ export interface paths {
                             media_mode: "image";
                             /** @enum {string} */
                             theme: "arcade" | "fight_card" | "scrapbook";
-                            contestant_schema: {
-                                key: string;
-                                label: string;
-                                /** @enum {string} */
-                                type: "string" | "number" | "text" | "url" | "date";
-                            }[];
                             /** Format: date-time */
                             ends_at: null | string;
                             contestant_count: number;
@@ -501,12 +495,6 @@ export interface paths {
                         visibility?: "public" | "invite_only";
                         /** @enum {string} */
                         theme?: "arcade" | "fight_card" | "scrapbook";
-                        contestant_schema?: {
-                            key: string;
-                            label: string;
-                            /** @enum {string} */
-                            type: "string" | "number" | "text" | "url" | "date";
-                        }[];
                         /** Format: date-time */
                         ends_at?: null | string;
                     };
@@ -1659,13 +1647,6 @@ export interface components {
                 url: string;
             }[];
         };
-        ResolvedAttribute: {
-            key: string;
-            label: string;
-            /** @enum {string} */
-            type: "string" | "number" | "text" | "url" | "date";
-            value: string | number;
-        };
         WarSummary: {
             /** Format: uuid */
             id: string;
@@ -1679,12 +1660,6 @@ export interface components {
             media_mode: "image";
             /** @enum {string} */
             theme: "arcade" | "fight_card" | "scrapbook";
-            contestant_schema: {
-                key: string;
-                label: string;
-                /** @enum {string} */
-                type: "string" | "number" | "text" | "url" | "date";
-            }[];
             /** Format: date-time */
             ends_at: null | string;
             contestant_count: number;
@@ -1696,7 +1671,6 @@ export interface components {
             id: string;
             name: string;
             bio: null | string;
-            attributes: components["schemas"]["ResolvedAttribute"][];
             media: components["schemas"]["MediaItem"][];
             win_count: number;
             appearance_count: number;

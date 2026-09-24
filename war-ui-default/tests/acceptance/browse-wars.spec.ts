@@ -25,7 +25,8 @@ test('Anonymous user browses public Wars', async ({ page }) => {
   const senateRace = cards.filter({ hasText: '2026 Senate Race' })
   await expect(senateRace).toContainText('Politics')
   await expect(senateRace).toContainText('1 contestant')
-  await expect(page.getByTestId('login-cta')).toBeVisible()
+  await expect(page.getByTestId('login-cta')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'War', exact: true })).toHaveCount(0)
 })
 
 test('Authenticated user browses public Wars', async ({ page }) => {
@@ -48,6 +49,7 @@ test('Authenticated user browses public Wars', async ({ page }) => {
   await expect(card).toContainText('Pageant')
   await expect(card).toContainText('12 contestants')
   await expect(page.getByTestId('login-cta')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'War', exact: true })).toHaveCount(0)
 })
 
 test('No published Wars for an anonymous visitor', async ({ page }) => {

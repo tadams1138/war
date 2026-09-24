@@ -1,11 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { mediaItemSchema } from '../contestants/mediaPresenter.js';
-import { resolvedAttributeSchema } from '../contestants/schemaValidation.js';
 import { contestantDetailSchema } from '../contestants/contestantPresenter.js';
 import { warSummarySchema } from '../wars/warPresenter.js';
 
 /**
- * Registers the four `$id`-bearing response body schemas the Core Voting
+ * Registers the three `$id`-bearing response body schemas the Core Voting
  * Loop slice shares across routes (spec) so route schemas can
  * `$ref` them by name. Must run before any route registration that
  * references them (mirrors `registerOpenApiPlugin`'s own ordering
@@ -18,7 +17,6 @@ import { warSummarySchema } from '../wars/warPresenter.js';
  */
 export function registerSharedSchemas(app: FastifyInstance): void {
   app.addSchema(mediaItemSchema);
-  app.addSchema(resolvedAttributeSchema);
   app.addSchema(warSummarySchema);
   app.addSchema(contestantDetailSchema);
 }

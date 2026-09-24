@@ -68,7 +68,7 @@ async function tagsForWar(warId, pageUrl) {
     const war = await response.json()
     return buildTags({
       title: war.title || 'War',
-      description: war.category ? `${war.category} — vote now on War` : 'Vote now on War',
+      description: 'Vote now!',
       image: war.share_image_url,
       url: pageUrl.toString(),
     })
@@ -78,7 +78,7 @@ async function tagsForWar(warId, pageUrl) {
     // not-found state) exactly as it would without this Worker; only the
     // crawler-facing tags fall back to something generic instead of
     // per-War.
-    return buildTags({ title: 'War', description: 'Vote now on War', image: null, url: pageUrl.toString() })
+    return buildTags({ title: 'War', description: 'Vote now!', image: null, url: pageUrl.toString() })
   }
 }
 
