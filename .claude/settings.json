@@ -37,9 +37,5 @@
       "Bash(cat*)"
     ],
     "disableBypassPermissionsMode": "disable"
-  },
-  "attribution": {
-    "commits": false,
-    "pullRequests": false
   }
 }
