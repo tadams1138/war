@@ -1,7 +1,6 @@
 {
   "permissions": {
     "deny": [
-      "Bash(git push*)",
       "Bash(sudo:*)",
       "Bash(su:*)",
       "Bash(rm -rf*)",
@@ -13,6 +12,7 @@
       "Read(**/*.pem)"
     ],
     "ask": [
+      "Bash(git push*)",
       "Bash(git commit*)",
       "Bash(npm install*)",
       "Bash(apt*)"
