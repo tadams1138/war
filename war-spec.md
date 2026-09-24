@@ -745,6 +745,9 @@ Two contestant cards side by side.
   one. A conflict — reachable only from a stale tab or double submit — advances rather than
   showing an error, because the vote it conflicts with is the voter's own
 - There is no skip or abstain control
+- Once every matchup is voted, the voter is redirected straight to the War's results page
+  (§10.4) — whether that happens because they just cast the final vote, or because they
+  arrive at the vote page (fresh, or back from signing in) having already finished it
 
 **Bios sit outside the tap-to-vote block**, and clicking anywhere in one never casts a vote.
 On a wide viewport, both contestants' bios render side by side below that block, reachable by
@@ -827,7 +830,8 @@ it sends them to sign in and back, the same as Home's own Vote link, §10.4 "Hom
 authenticated voter who hasn't yet cast every vote — returning them to where they left off.
 Neither the Edit nor Delete affordance appears for a War that isn't the viewer's own; Vote
 additionally requires the War to be published, and disappears once an authenticated voter has
-cast every vote.
+cast every vote. In its place, at the top of the page, that voter sees a one-line notice —
+"You've voted on every matchup — thank you!" — confirming there's nothing left to do here.
 
 **Export**, available to a War's creator on both its results page and its edit page regardless
 of status, downloads a personal backup of the War's definition — title, category, visibility,

@@ -48,13 +48,6 @@ Feature: Contestant Attributes
     When the War detail page loads
     Then each contestant shows those labels with its values
 
-  Scenario: Voter completes all matchups
-    Given a voter who has voted on all but one matchup
-    When they cast the final vote
-    And the API returns 204 for /matchups/next
-    Then a completion screen is shown
-    And a link to the War's results is displayed
-
   Scenario: Unauthenticated user visits vote page
     Given a user is not logged in
     When they navigate to /wars/:id/vote

@@ -3,7 +3,7 @@
 // requested — there is no visible Join control. Rendering only; the vote
 // session's state machine lives in useVoteSession.
 import { useEffect, useRef } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { getWar, type WarDetailResponse } from '../api/client'
 import { MatchupView } from '../components/MatchupView'
 import { ProgressBar } from '../components/ProgressBar'
@@ -44,6 +44,18 @@ function initialTheme(warState: AsyncResourceState<WarDetailResponse>): Theme {
   return warState.status === 'loaded' ? warState.value.theme : 'arcade'
 }
 
+// Finishing every matchup -- whether by just casting the last vote, or by
+// arriving at the vote page (fresh, or back from signing in) having already
+// done so -- sends the voter straight to the War's results page (war-spec.md
+// §10.3), which carries its own completion notice (WarDetail's
+// useVoteProgress) instead of a dedicated screen here.
+function useRedirectWhenCompleted(warId: string | undefined, completed: boolean) {
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (completed && warId) navigate(`/wars/${warId}`, { replace: true })
+  }, [completed, warId, navigate])
+}
+
 export function VoteMode() {
   const { id: warId } = useParams<{ id: string }>()
   const safeWarId = orEmpty(warId)
@@ -52,19 +64,11 @@ export function VoteMode() {
   const [theme, setTheme] = useTheme(safeWarId, initialTheme(warState))
   usePublishTheme(safeWarId, theme, setTheme)
   useScrollToVoteViewportOnce(state.phase === 'active')
+  useRedirectWhenCompleted(warId, state.phase === 'completed')
 
   if (state.phase === 'loading') return <p>Loading…</p>
   if (state.phase === 'error') return <p role="alert">{state.message}</p>
-  if (state.phase === 'completed') {
-    return (
-      <div data-testid="vote-complete">
-        <h2>You&rsquo;ve voted on every matchup — thank you!</h2>
-        <Link to={`/wars/${warId}`} data-testid="view-results-link">
-          See the results
-        </Link>
-      </div>
-    )
-  }
+  if (state.phase === 'completed') return null
 
   return (
     <main data-theme={theme}>

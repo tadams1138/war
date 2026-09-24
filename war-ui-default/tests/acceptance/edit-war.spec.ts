@@ -4,7 +4,7 @@
 // list (Metadata, each contestant, Add contestant) selects what the right
 // pane shows — only one section renders at a time, Metadata by default.
 import { expect, test } from '@playwright/test'
-import { buildContestant, buildMediaItem, buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
+import { buildContestant, buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
 
 const WAR_ID = 'war-edit-1'
@@ -848,9 +848,12 @@ test("Confirming Publish War publishes and navigates to the War's vote page", as
     { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
     { method: 'POST', path: `${API}/wars/${WAR_ID}/publish`, responses: [{ status: 200, body: published }] },
     // The post-publish redirect lands on VoteMode, which joins and
-    // requests the next matchup.
+    // requests the next matchup -- a real one, since a 204 here (no
+    // matchups left) now redirects straight on to the results page
+    // (VoteMode's useRedirectWhenCompleted), which isn't what this test is
+    // checking.
     { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 204 }] },
+    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: buildMatchupResponse() }] },
   ])
   await gotoEditPage(page)
 

@@ -300,11 +300,21 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   `.matchup-row` (both contestants' rows together fill the column, so both stay visible with
   no scroll to vote) and scrolls internally if long (`overflow-y: auto`). Either way, clicking
   a bio is outside `ContestantCard`'s own gesture-handling element, so it never registers as a
-  vote. `ContestantCard`'s media itself now fills its box via `object-fit: cover`
+  vote. `ContestantCard`'s media itself now fills its box via `object-fit: contain`
   (`ImageCarousel`'s new `fillHeight` prop) instead of sizing from the image's own aspect
-  ratio — the aspect-ratio-reserved sizing stays the default for every other caller (the
-  results-page gallery). `VoteMode.tsx` scrolls to `.vote-viewport` once per page visit, past
-  the persistent header, the first time a matchup is ready.
+  ratio — `contain` rather than `cover` so a poster never crops top/bottom against a box whose
+  aspect ratio doesn't match its own; the aspect-ratio-reserved sizing stays the default for
+  every other caller (the results-page gallery). `VoteMode.tsx` scrolls to `.vote-viewport`
+  once per page visit, past the persistent header, the first time a matchup is ready.
+- **Finishing every matchup redirects straight to the results page** (spec §10.3/§10.4),
+  replacing the old dedicated "You've voted on every matchup" screen. `useVoteSession`'s
+  `completed` phase already covered both ways of getting there (casting the final vote, or
+  landing on the vote page already finished — e.g. back from a login redirect); `VoteMode.tsx`
+  now just navigates to `/wars/:id` on that phase instead of rendering its own screen.
+  `WarDetail.tsx`'s `useVoteEligibility` became `useVoteProgress`, returning the fetched
+  `{voted, total}` (or `'anonymous'`/`null`) so both `VoteCallout` and the new
+  `CompletionNotice` — the same "You've voted on every matchup — thank you!" copy, now shown
+  at the top of the results page instead of its own screen — derive from one fetch.
 - **A big, centered Vote callout on the results page, including for anonymous visitors**
   (spec §10.4). `WarDetail.tsx`'s `VoteCallout` sits above the ordinary Export/Edit/Delete
   action row, not inside it — replaces the old small action-row Vote link entirely rather than
