@@ -10,6 +10,7 @@ function validatedImport(overrides: Partial<ValidatedWarImport> = {}): Validated
       visibility: 'public',
       theme: 'arcade',
       ends_at: null,
+      share_image: null,
     },
     contestants: [
       {
@@ -27,6 +28,7 @@ function fakeApi(overrides: Partial<ImportApi> = {}): ImportApi {
     createWar: vi.fn().mockResolvedValue({ id: 'war-new' }),
     addContestant: vi.fn().mockResolvedValue({ id: 'contestant-new' }),
     uploadImage: vi.fn().mockResolvedValue(undefined),
+    uploadShareImage: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
 }
@@ -110,6 +112,34 @@ describe('importWar', () => {
     // Assert
     expect(result.warId).toBe('war-new')
     expect(result.error).not.toBeNull()
+  })
+
+  it('uploads the share image after creating the War, when the import has one', async () => {
+    // Arrange
+    const data = validatedImport({ metadata: { ...validatedImport().metadata, share_image: 'share-image.jpg' }, contestants: [] })
+    const files = { 'share-image.jpg': new Uint8Array([9, 9, 9]) }
+    const api = fakeApi()
+
+    // Act
+    await importWar(data, files, api)
+
+    // Assert
+    expect(api.uploadShareImage).toHaveBeenCalledWith('war-new', expect.any(File))
+    const createOrder = (api.createWar as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+    const shareOrder = (api.uploadShareImage as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+    expect(createOrder).toBeLessThan(shareOrder)
+  })
+
+  it('does not upload a share image when the import has none', async () => {
+    // Arrange
+    const data = validatedImport({ contestants: [] })
+    const api = fakeApi()
+
+    // Act
+    await importWar(data, {}, api)
+
+    // Assert
+    expect(api.uploadShareImage).not.toHaveBeenCalled()
   })
 
   it('returns a null War id and an error when creating the War itself fails', async () => {

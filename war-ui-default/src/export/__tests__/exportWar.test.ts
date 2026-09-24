@@ -108,6 +108,40 @@ describe('buildWarExportZip', () => {
     expect(files['media/c-2/m-2.png']).toBeDefined()
   })
 
+  it("fetches and includes the War's share image, referenced by its path in war.json", async () => {
+    // Arrange
+    const fetchedUrls: string[] = []
+    async function trackingFetch(url: string): Promise<Uint8Array> {
+      fetchedUrls.push(url)
+      return fakeFetchBinary()
+    }
+    const war = buildWarDetail({ share_image_url: 'https://cdn.example.test/share/war-1.jpg', contestants: [] })
+
+    // Act
+    const zip = await buildWarExportZip(war, trackingFetch)
+    const files = unzipSync(zip)
+    const json = readJson(files)
+
+    // Assert
+    expect(fetchedUrls).toEqual(['https://cdn.example.test/share/war-1.jpg'])
+    expect(json.share_image).toBe('share-image.jpg')
+    expect(files['share-image.jpg']).toBeDefined()
+  })
+
+  it('has a null share_image and no share-image file when the War has none', async () => {
+    // Arrange
+    const war = buildWarDetail({ share_image_url: null, contestants: [] })
+
+    // Act
+    const zip = await buildWarExportZip(war, fakeFetchBinary)
+    const files = unzipSync(zip)
+    const json = readJson(files)
+
+    // Assert
+    expect(json.share_image).toBeNull()
+    expect(Object.keys(files).some((path) => path.startsWith('share-image'))).toBe(false)
+  })
+
   it('omits media entirely for a contestant with no images', async () => {
     // Arrange
     const contestant = buildContestant({ id: 'c-3', media: [] })

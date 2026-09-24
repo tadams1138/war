@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import { addContestant, createWar, uploadContestantImages, type CreateWarPayload } from '../api/client'
+import {
+  addContestant,
+  createWar,
+  uploadContestantImages,
+  uploadShareImage as apiUploadShareImage,
+  type CreateWarPayload,
+} from '../api/client'
 import { importWar, type ImportApi } from './importWar'
 import { validateWarImport } from './validateWarImport'
 
@@ -28,6 +34,9 @@ const realImportApi: ImportApi = {
   addContestant: (warId, payload) => addContestant(warId, { name: payload.name, bio: payload.bio }),
   uploadImage: async (warId, contestantId, file) => {
     await uploadContestantImages(warId, contestantId, [file])
+  },
+  uploadShareImage: async (warId, file) => {
+    await apiUploadShareImage(warId, file)
   },
 }
 

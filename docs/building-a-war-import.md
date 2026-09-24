@@ -29,6 +29,9 @@ Get this from the user, or reasonably infer it from what they've already told yo
   separate structured-field mechanism.
 - **Photos** — one to ten per contestant. If the user hasn't supplied any and asks you to find
   or generate some, do that first and have the image files ready on disk before moving on.
+- **Share image** — optional; a single 1200×630 image shown on the War's card and used as its
+  link-preview thumbnail. Only include one if the user actually supplies or asks for one —
+  don't invent a placeholder.
 
 If the user's request is thin ("make a War for these 8 wrestlers"), it's fine to fill in
 sensible defaults (public visibility, arcade theme, no end date) rather than interrogating them
@@ -41,6 +44,8 @@ A `.zip` file containing:
 - `war.json` at the root — the War's metadata and every contestant's data
 - `media/<contestantId>/<mediaId>.<ext>` — one file per contestant photo, referenced by that
   exact path from `war.json`
+- `share-image.<ext>` at the root — the War's share image, if there is one, referenced by
+  `war.json`'s `share_image` field
 
 `<contestantId>` and `<mediaId>` can be anything unique *within this file* — `c1`/`m1`, a
 slugified name, whatever's convenient. They are not real database ids; the app assigns its own
@@ -72,6 +77,7 @@ building the zip.
   "visibility": "public",
   "theme": "arcade",
   "ends_at": null,
+  "share_image": "share-image.jpg",
   "contestants": [
     {
       "name": "Ada",
@@ -89,24 +95,28 @@ Field notes:
 - `title`, `category`, `ends_at` may be `null`.
 - `visibility` must be exactly `"public"` or `"invite_only"`. `theme` must be exactly
   `"arcade"`, `"fight_card"`, or `"scrapbook"`. Don't invent other values.
+- `share_image` is the path to the share image inside the zip, or `null`/omitted if there
+  isn't one.
 - Each contestant's `media` array lists its photos in display order, `display_order` starting
   at `0`. `aspect_ratio` can be `null` if you don't know it — it's not required. `path` must be
   the exact path you're using for that file inside the zip.
-- Every `path` referenced anywhere in `war.json` must exist as a real file in the zip at that
-  path, or the whole file is rejected.
+- Every `path` referenced anywhere in `war.json` (including `share_image`) must exist as a real
+  file in the zip at that path, or the whole file is rejected.
 
 ### 3. Assemble the zip
 
-Put `war.json` at the zip's root and every photo under `media/<contestantId>/<mediaId>.<ext>`,
-matching the paths you wrote into `war.json`. In practice you'll do this with a short one-off
-script (Node's `fflate`/`archiver`, Python's `zipfile`, or equivalent) that reads the prepared
-images and writes the archive — that script is disposable tooling for this one task, not
-something to hand back as a feature.
+Put `war.json` at the zip's root, every photo under `media/<contestantId>/<mediaId>.<ext>`,
+and the share image (if there is one) at `share-image.<ext>` at the root, matching the paths
+you wrote into `war.json`. In practice you'll do this with a short one-off script (Node's
+`fflate`/`archiver`, Python's `zipfile`, or equivalent) that reads the prepared images and
+writes the archive — that script is disposable tooling for this one task, not something to
+hand back as a feature.
 
 ### 4. Check your own work before handing it over
 
 - `war.json` is valid JSON.
 - Every `contestants[].media[].path` exists as a real entry in the zip.
+- If `share_image` is set, it exists as a real entry in the zip.
 - `visibility` and `theme` are one of the exact allowed values above.
 - No contestant has more than 10 images.
 - Every image file is actually a JPEG, PNG, or WebP, and its extension matches.
