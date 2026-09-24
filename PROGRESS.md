@@ -336,9 +336,16 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   `attributes` are also gone from `client.ts`'s payload types, `exportWar.ts`'s export shape,
   and `validateWarImport.ts`/`importWar.ts`/`useWarImport.ts`'s import path. The generated
   `src/api/generated/schema.d.ts` was regenerated against war-api's updated contract.
-- **Home's redundant heading and login link removed** (backlog items 4/6). `Home.tsx` no
+- **Home's redundant heading and login link removed** (backlog item 6). `Home.tsx` no
   longer renders an `<h1>War</h1>` or a "Login to Vote" link — the persistent nav header's
   logo/title and Login control already cover both for every visitor, logged in or not.
+- **Narrow-viewport bio scrolling fixed** (backlog item 1). `.matchup-view` (the narrow-mode
+  wrapper around the two `.matchup-row`s and the vs-divider, `layout.css`) had no CSS rule at
+  all, so `.matchup-row`'s `flex: 1 1 0%` had no flex container to divide space within — each
+  row sized to its tallest child's natural content, and a long bio just grew instead of
+  scrolling within `.matchup-bio`'s existing `overflow-y: auto`, pushing the other
+  contestant's row past the viewport. Added the missing flex-column rule (the counterpart
+  `.matchup-cards` already had in wide mode).
 - **Export/import carries the share image** (backlog item 7). `exportWar.ts` embeds it in the
   zip as `share-image.<ext>` (same never-base64 pattern contestant media uses) with a
   `share_image` path field in `war.json`; import uploads it via a new
@@ -433,10 +440,8 @@ this would reverse.
 
 Requested 2026-09-24, to work through one at a time.
 
-1. **Narrow-viewport vote page: make each bio independently scrollable.** Right now a long
-   bio pushes the second contestant's card far down the screen instead of scrolling within
-   its own space — `.matchup-row .matchup-bio` (layout.css) already sets `overflow-y: auto`,
-   so this needs investigation into why it isn't containing the bio's height, not a redesign.
+1. ~~Narrow-viewport vote page: make each bio independently scrollable.~~ **Done** — see
+   the war-ui-default "Narrow-viewport bio scrolling fixed" entry above.
 2. **My Wars / Home cards: pagination, sorting, and a filter bar.** 10 cards per page;
    sortable by newest, oldest, expiring soonest, and alphabetical; a type-ahead filter bar
    matching anywhere in the title or creator's name; each card gains the creator's name and
