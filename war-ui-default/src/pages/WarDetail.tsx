@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getToken } from '../api/authState'
-import { getMyProgress, getWar, type ContestantDetail, type WarDetailResponse } from '../api/client'
+import { getMyProgress, getWar, type ContestantDetail, type VoteProgress, type WarDetailResponse } from '../api/client'
 import { DeleteButton } from '../components/DeleteButton'
 import { DeleteWarConfirmDialog } from '../components/DeleteWarConfirmDialog'
 import { ErrorMessage } from '../components/ErrorMessage'
@@ -41,6 +41,11 @@ export function WarDetail() {
   const rankingsState = useRankings(id)
   const [theme, setTheme] = useTheme(safeId, initialTheme(state))
   usePublishTheme(safeId, theme, setTheme)
+  // Called unconditionally, ahead of the loading/error returns below (rules
+  // of hooks) -- '' as a status before the War has loaded never matches
+  // 'published', so the hook itself no-ops until there's a real War to ask
+  // my-progress about.
+  const progress = useVoteProgress(safeId, state.status === 'loaded' ? state.value.status : '')
 
   if (state.status === 'loading') return <p>Loading…</p>
   if (state.status === 'error') return <p role="alert">{state.message}</p>
@@ -48,9 +53,10 @@ export function WarDetail() {
   const war = state.value
   return (
     <main data-theme={theme}>
+      <CompletionNotice progress={progress} />
       <h1>{warTitle(war.title)}</h1>
       {war.category && <p>{war.category}</p>}
-      <VoteCallout war={war} />
+      <VoteCallout war={war} progress={progress} />
       <ResultsActions war={war} />
       <ResultsSection state={rankingsState} contestants={war.contestants} />
     </main>
@@ -62,9 +68,12 @@ export function WarDetail() {
 // most wants a visitor to do. Shown to an anonymous visitor too (tapping it
 // sends them to sign in and back, RequireAuth's existing behavior on the
 // vote route), so results pages get the same "come vote" pull Home's own
-// cards already have.
-function VoteCallout({ war }: { war: WarDetailResponse }) {
-  const showVote = useVoteEligibility(war.id, war.status)
+// cards already have. An anonymous visitor always sees it for a published
+// War -- there's no progress to check without a token. An authenticated
+// voter sees it only while they still have unvoted matchups.
+function VoteCallout({ war, progress }: { war: WarDetailResponse; progress: VoteProgress | 'anonymous' | null }) {
+  const voted = asVoteProgress(progress)
+  const showVote = war.status === 'published' && (progress === 'anonymous' || (voted !== null && voted.voted < voted.total))
   if (!showVote) return null
   return (
     <div className="vote-callout">
@@ -75,34 +84,52 @@ function VoteCallout({ war }: { war: WarDetailResponse }) {
   )
 }
 
-// Whether the results page's Vote entry point should show. An anonymous
-// visitor always sees it for a published War -- there's no progress to
-// check without a token, and the route itself (RequireAuth) sends them to
-// sign in and back, the same pattern Home's own Vote link already uses.
-// An authenticated voter sees it only while they still have unvoted
-// matchups -- skips the my-progress request entirely for a War that isn't
-// published, rather than firing a request the API would 401 anyway.
-function useVoteEligibility(warId: string, status: string): boolean {
-  const [eligible, setEligible] = useState(false)
+// Narrows away the 'anonymous' sentinel -- shared by CompletionNotice and
+// VoteCallout, and keeps each of their own boolean expressions to two
+// operators instead of three (CLAUDE.md's cyclomatic-complexity rule).
+function asVoteProgress(progress: VoteProgress | 'anonymous' | null): VoteProgress | null {
+  return progress !== null && progress !== 'anonymous' ? progress : null
+}
+
+// Replaces the Vote entry point once an authenticated voter has cast every
+// vote (war-spec.md §10.4) -- also what a voter who just cast their final
+// vote on the vote page sees, since finishing there redirects here
+// (VoteMode's useRedirectWhenCompleted) rather than showing its own screen.
+function CompletionNotice({ progress }: { progress: VoteProgress | 'anonymous' | null }) {
+  const voted = asVoteProgress(progress)
+  const completed = voted !== null && voted.total > 0 && voted.voted === voted.total
+  if (!completed) return null
+  return <p data-testid="vote-completion-notice">You&rsquo;ve voted on every matchup — thank you!</p>
+}
+
+// The results page's own copy of the voter's progress in this War --
+// 'anonymous' for a visitor with no token (VoteCallout still shows for
+// them, CompletionNotice never does), null while not applicable (the War
+// isn't published) or not yet loaded. Skips the my-progress request
+// entirely for a War that isn't published, rather than firing a request
+// the API would 401 anyway.
+function useVoteProgress(warId: string, status: string): VoteProgress | 'anonymous' | null {
+  const [progress, setProgress] = useState<VoteProgress | 'anonymous' | null>(null)
 
   useEffect(() => {
     if (status !== 'published') {
-      setEligible(false)
+      setProgress(null)
       return
     }
     if (!getToken()) {
-      setEligible(true)
+      setProgress('anonymous')
       return
     }
-    setEligible(false)
+    setProgress(null)
     let cancelled = false
     void getMyProgress(warId).then(
-      (progress) => {
-        if (!cancelled) setEligible(progress.voted < progress.total)
+      (next) => {
+        if (!cancelled) setProgress(next)
       },
       () => {
-        // No vote entry point on a failed check; the results page itself
-        // still rendered fine, so this stays silent rather than alerting.
+        // Neither the Vote link nor the completion notice show on a failed
+        // check; the results page itself still rendered fine, so this
+        // stays silent rather than alerting.
       },
     )
     return () => {
@@ -110,7 +137,7 @@ function useVoteEligibility(warId: string, status: string): boolean {
     }
   }, [warId, status])
 
-  return eligible
+  return progress
 }
 
 // Edit and Delete are never status-gated (spec §6.1) -- shown to the

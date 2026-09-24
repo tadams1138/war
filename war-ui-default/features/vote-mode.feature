@@ -55,6 +55,9 @@ Feature: Vote Mode
     Given a voter who has voted on every pair but one
     When they cast the final vote
     And the next-matchup request then returns 204
-    Then a completion screen is shown in place of a matchup
-    And no further vote request is possible from that screen
-    And a link to that War's results is shown
+    Then they are redirected to that War's results page
+
+  Scenario: Visiting the vote page after already voting on everything redirects to results
+    Given an authenticated voter who has already voted on every matchup in a War
+    When they navigate to that War's vote page
+    Then they are redirected to that War's results page

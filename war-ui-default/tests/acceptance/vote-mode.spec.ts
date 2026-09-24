@@ -244,6 +244,7 @@ test('Voter completes every matchup', async ({ page }) => {
     { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: lastMatchup }, { status: 204 }] },
     { method: 'POST', path: `${API}/wars/${WAR_ID}/matchups/matchup-last/vote`, responses: [{ status: 201, body: { vote_id: 'v1' } }] },
+    { method: 'GET', path: `${API}/wars/${WAR_ID}/my-progress`, responses: [{ status: 200, body: { voted: 5, total: 5 } }] },
   ])
   await gotoVotePage(page)
 
@@ -251,8 +252,20 @@ test('Voter completes every matchup', async ({ page }) => {
   await page.getByTestId('contestant-card').filter({ hasText: 'A' }).click()
 
   // Assert
-  await expect(page.getByTestId('vote-complete')).toBeVisible()
-  await expect(page.getByTestId('matchup-view')).toHaveCount(0)
-  await expect(page.getByTestId('contestant-card')).toHaveCount(0)
-  await expect(page.getByTestId('view-results-link')).toHaveAttribute('href', `/wars/${WAR_ID}`)
+  await expect(page).toHaveURL(`/wars/${WAR_ID}`)
+})
+
+test('Visiting the vote page after already voting on everything redirects to results', async ({ page }) => {
+  // Arrange
+  await useScenario(page, [
+    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
+    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 204 }] },
+    { method: 'GET', path: `${API}/wars/${WAR_ID}/my-progress`, responses: [{ status: 200, body: { voted: 5, total: 5 } }] },
+  ])
+
+  // Act
+  await gotoVotePage(page)
+
+  // Assert
+  await expect(page).toHaveURL(`/wars/${WAR_ID}`)
 })

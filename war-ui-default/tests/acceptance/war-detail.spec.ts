@@ -735,7 +735,7 @@ test("An invite-only War's results require sign-in", async ({ page }) => {
   await expect(page.getByText('Please log in to continue')).toBeVisible()
 })
 
-test("A completed vote flow links back to the War's results", async ({ page }) => {
+test("A completed vote flow redirects to the War's results", async ({ page }) => {
   // Arrange
   const lastMatchup = buildMatchupResponse({
     matchup: { id: 'matchup-last', left: { id: 'a', name: 'A', media: [] }, right: { id: 'b', name: 'B', media: [] } },
@@ -747,19 +747,73 @@ test("A completed vote flow links back to the War's results", async ({ page }) =
     { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/matchups/next`, responses: [{ status: 200, body: lastMatchup }, { status: 204 }] },
     { method: 'POST', path: `${API}/wars/${RESULTS_WAR_ID}/matchups/matchup-last/vote`, responses: [{ status: 201, body: { vote_id: 'v1' } }] },
     { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/rankings`, responses: [{ status: 200, body: rankings }] },
+    { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/my-progress`, responses: [{ status: 200, body: { voted: 5, total: 5 } }] },
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, `/wars/${RESULTS_WAR_ID}/vote`)
-  await page.getByTestId('contestant-card').filter({ hasText: 'A' }).click()
-  await expect(page.getByTestId('vote-complete')).toBeVisible()
 
   // Act
-  await page.getByTestId('view-results-link').click()
+  await page.getByTestId('contestant-card').filter({ hasText: 'A' }).click()
 
   // Assert
   await expect(page).toHaveURL(`/wars/${RESULTS_WAR_ID}`)
+  await expect(page.getByTestId('vote-completion-notice')).toBeVisible()
   await expect(page.getByTestId('ranking-row')).toHaveCount(rankings.rankings.length)
+})
+
+test('The completion notice is shown to a voter who has finished voting', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-notice-done', status: 'published', is_owner: false })
+  const rankings = buildRankingsResponse({ war_id: 'war-notice-done' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-notice-done`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-notice-done/rankings`, responses: [{ status: 200, body: rankings }] },
+    { method: 'GET', path: `${API}/wars/war-notice-done/my-progress`, responses: [{ status: 200, body: { voted: 3, total: 3 } }] },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/wars/war-notice-done')
+
+  // Assert
+  await expect(page.getByTestId('vote-completion-notice')).toBeVisible()
+  await expect(page.getByTestId('vote-completion-notice')).toHaveText('You’ve voted on every matchup — thank you!')
+})
+
+test("The completion notice is not shown to a voter who hasn't finished voting", async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-notice-partial', status: 'published', is_owner: false })
+  const rankings = buildRankingsResponse({ war_id: 'war-notice-partial' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-notice-partial`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-notice-partial/rankings`, responses: [{ status: 200, body: rankings }] },
+    { method: 'GET', path: `${API}/wars/war-notice-partial/my-progress`, responses: [{ status: 200, body: { voted: 1, total: 3 } }] },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/wars/war-notice-partial')
+  await waitForCallLog(page, (log) => log.some((entry) => entry.url.includes('/my-progress')))
+
+  // Assert
+  await expect(page.getByTestId('vote-completion-notice')).toHaveCount(0)
+})
+
+test('The completion notice is not shown to an anonymous visitor', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-notice-anon', status: 'published', is_owner: false })
+  const rankings = buildRankingsResponse({ war_id: 'war-notice-anon' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-notice-anon`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-notice-anon/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-notice-anon')
+
+  // Assert
+  await expect(page.getByTestId('vote-completion-notice')).toHaveCount(0)
 })
 
 test("A War's creator sees Edit and Delete on its results page, in any status", async ({ page }) => {

@@ -85,11 +85,24 @@ Feature: War Detail
     Then the message "Please log in to continue" is shown
     And they are redirected to /login
 
-  Scenario: A completed vote flow links back to the War's results
+  Scenario: A completed vote flow redirects to the War's results
     Given a voter who has just cast their final vote in a War
-    When the completion screen is shown
-    And they select the results link
-    Then that War's detail page is shown with results
+    Then they are redirected to that War's detail page
+    And the completion notice is shown
+
+  Scenario: The completion notice is shown to a voter who has finished voting
+    Given an authenticated voter who has voted on every matchup in a published War
+    When they navigate to that War's detail page
+    Then the message "You've voted on every matchup — thank you!" is shown
+
+  Scenario: The completion notice is not shown to a voter who hasn't finished voting
+    Given an authenticated voter who hasn't finished voting in a published War
+    When they navigate to that War's detail page
+    Then the completion notice is not shown
+
+  Scenario: The completion notice is not shown to an anonymous visitor
+    Given an anonymous visitor viewing a published War's detail page
+    Then the completion notice is not shown
 
   Scenario: A War's creator sees Edit and Delete on its results page, in any status
     Given a published War created by the viewing voter
