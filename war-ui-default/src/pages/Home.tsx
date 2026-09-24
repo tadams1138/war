@@ -15,12 +15,6 @@ export function Home() {
 
   return (
     <main data-theme={theme}>
-      <h1>War</h1>
-      {!isAuthenticated && (
-        <Link to="/login" data-testid="login-cta">
-          Login to Vote
-        </Link>
-      )}
       {state.status === 'loading' && <p>Loading…</p>}
       {state.status === 'error' && <p role="alert">{state.message}</p>}
       {state.status === 'loaded' && <HomeWarList wars={state.value.wars} isAuthenticated={isAuthenticated} />}
