@@ -8,7 +8,6 @@ import { publishWar, closeWar } from '../../src/wars/warsService.js';
 import { createContestant, type Contestant } from '../../src/contestants/contestantsRepository.js';
 import { uploadContestantImage } from '../../src/contestants/imageUploadService.js';
 import { generateMatchupsForNewContestant } from '../../src/matchups/matchupsRepository.js';
-import type { ContestantSchemaField } from '../../src/contestants/schemaValidation.js';
 import type { ObjectStorage } from '../../src/contestants/storage.js';
 import { createMembership } from '../../src/wars/warsRepository.js';
 
@@ -25,7 +24,6 @@ export interface DraftWarOptions {
   title?: string;
   visibility?: string;
   theme?: string;
-  contestantSchema?: ContestantSchemaField[];
   endsAt?: Date | null;
 }
 
@@ -41,18 +39,12 @@ export async function makeDraftWar(db: Kysely<Database>, creatorId: string, opti
     visibility: withDefault(options.visibility, 'public'),
     mediaMode: 'image',
     theme: withDefault(options.theme, 'arcade'),
-    contestantSchema: withDefault(options.contestantSchema, []),
     endsAt: withDefault(options.endsAt, null),
   });
 }
 
-export async function makeContestant(
-  db: Kysely<Database>,
-  warId: string,
-  name: string,
-  attributes: Record<string, unknown> = {},
-): Promise<Contestant> {
-  return createContestant(db, { warId, name, bio: null, attributes });
+export async function makeContestant(db: Kysely<Database>, warId: string, name: string): Promise<Contestant> {
+  return createContestant(db, { warId, name, bio: null });
 }
 
 async function syntheticJpeg(width = 1200, height = 900): Promise<Buffer> {

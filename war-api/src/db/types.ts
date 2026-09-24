@@ -31,7 +31,6 @@ export interface WarsTable {
   visibility: Generated<string>;
   media_mode: Generated<string>;
   theme: Generated<string>;
-  contestant_schema: Generated<unknown>;
   ends_at: Timestamp | null;
   ui_slug: string | null;
   share_image_key: string | null;
@@ -43,7 +42,6 @@ export interface ContestantsTable {
   war_id: string;
   name: string;
   bio: string | null;
-  attributes: Generated<unknown>;
   win_count: Generated<number>;
   appearance_count: Generated<number>;
   created_at: GeneratedTimestamp;

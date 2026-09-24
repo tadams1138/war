@@ -65,11 +65,6 @@ Feature: War Lifecycle
     Then the response status is 200
     And the War's theme is "fight_card"
 
-  Scenario: The contestant schema can only be changed while the War is a draft
-    Given a published War
-    When the creator PATCHes the contestant schema
-    Then the response status is 422
-
   Scenario: A voter joins a published War
     Given a published War
     And an authenticated voter who has not joined

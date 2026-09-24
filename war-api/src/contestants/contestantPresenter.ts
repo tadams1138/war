@@ -2,13 +2,11 @@ import type { War } from '../wars/warsRepository.js';
 import type { ContestantMedia } from './contestantMediaRepository.js';
 import type { Contestant } from './contestantsRepository.js';
 import { presentMedia, type MediaItemView } from './mediaPresenter.js';
-import { resolveAttributes, type ResolvedAttribute } from './schemaValidation.js';
 
 export interface ContestantDetailView {
   id: string;
   name: string;
   bio: string | null;
-  attributes: ResolvedAttribute[];
   media: MediaItemView[];
   win_count: number;
   appearance_count: number;
@@ -73,21 +71,19 @@ export const matchupContestantViewSchema = {
  * The response body JSON Schema for {@link ContestantDetailView} (spec).
  * Registered under `$id: "ContestantDetail"`
  * (`registerSharedSchemas`, `src/openapi/schemas.ts`) and `$ref`s the
- * `ResolvedAttribute`/`MediaItem` schemas by name rather than importing
- * their JS objects, so this module needs no new dependency on
- * `mediaPresenter.ts`/`schemaValidation.ts` beyond the ones it already has
- * for the types themselves. Kept beside the interface it mirrors -- see
- * `mediaItemSchema` (`mediaPresenter.ts`) for why.
+ * `MediaItem` schema by name rather than importing its JS object, so this
+ * module needs no new dependency on `mediaPresenter.ts` beyond the one it
+ * already has for the type itself. Kept beside the interface it mirrors --
+ * see `mediaItemSchema` (`mediaPresenter.ts`) for why.
  */
 export const contestantDetailSchema = {
   $id: 'ContestantDetail',
   type: 'object',
-  required: ['id', 'name', 'bio', 'attributes', 'media', 'win_count', 'appearance_count'],
+  required: ['id', 'name', 'bio', 'media', 'win_count', 'appearance_count'],
   properties: {
     id: { type: 'string', format: 'uuid' },
     name: { type: 'string' },
     bio: { type: ['string', 'null'] },
-    attributes: { type: 'array', items: { $ref: 'ResolvedAttribute#' } },
     media: { type: 'array', items: { $ref: 'MediaItem#' } },
     win_count: { type: 'integer' },
     appearance_count: { type: 'integer' },
@@ -111,7 +107,6 @@ export function presentContestant(
     id: contestant.id,
     name: contestant.name,
     bio: contestant.bio,
-    attributes: resolveAttributes(war.contestantSchema, contestant.attributes),
     media: presentMedia(media, publicBaseUrl),
     win_count: contestant.winCount,
     appearance_count: contestant.appearanceCount,

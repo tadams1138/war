@@ -1,8 +1,6 @@
 import type { Kysely, Selectable } from 'kysely';
 import type { Database, WarsTable } from '../db/types.js';
-import { toJsonb } from '../db/jsonb.js';
 import { newId } from '../db/uuid.js';
-import type { ContestantSchemaField } from '../contestants/schemaValidation.js';
 
 export interface War {
   id: string;
@@ -13,7 +11,6 @@ export interface War {
   visibility: string;
   mediaMode: string;
   theme: string;
-  contestantSchema: ContestantSchemaField[];
   endsAt: Date | null;
   shareImageKey: string | null;
   createdAt: Date;
@@ -29,7 +26,6 @@ function toWar(row: Selectable<WarsTable>): War {
     visibility: row.visibility,
     mediaMode: row.media_mode,
     theme: row.theme,
-    contestantSchema: (row.contestant_schema ?? []) as ContestantSchemaField[],
     endsAt: row.ends_at ? new Date(row.ends_at) : null,
     shareImageKey: row.share_image_key,
     createdAt: new Date(row.created_at),
@@ -43,7 +39,6 @@ export interface CreateWarInput {
   visibility: string;
   mediaMode: string;
   theme: string;
-  contestantSchema: ContestantSchemaField[];
   endsAt: Date | null;
 }
 
@@ -59,7 +54,6 @@ export async function createWar(db: Kysely<Database>, input: CreateWarInput): Pr
       visibility: input.visibility,
       media_mode: input.mediaMode,
       theme: input.theme,
-      contestant_schema: toJsonb(input.contestantSchema),
       ends_at: input.endsAt,
     })
     .returningAll()
@@ -138,7 +132,6 @@ export interface WarPatch {
   visibility?: string;
   mediaMode?: string;
   theme?: string;
-  contestantSchema?: ContestantSchemaField[];
   endsAt?: Date | null;
 }
 
@@ -156,7 +149,6 @@ const WAR_PATCH_COLUMNS: {
   visibility: { column: 'visibility', transform: (value) => value },
   mediaMode: { column: 'media_mode', transform: (value) => value },
   theme: { column: 'theme', transform: (value) => value },
-  contestantSchema: { column: 'contestant_schema', transform: (value) => toJsonb(value) },
   endsAt: { column: 'ends_at', transform: (value) => value },
 };
 

@@ -405,33 +405,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('The contestant schema can only be changed while the War is a draft', ({ Given, When, Then }) => {
-    let warId: string;
-    let creatorId: string;
-    let response: request.Response;
-
-    Given('a published War', async () => {
-      const creator = await makeVoter(harness.db, 'creator');
-      creatorId = creator.id;
-      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
-      await publishWarForTest(harness.db, war);
-      warId = war.id;
-    });
-
-    When('the creator PATCHes the contestant schema', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .patch(`/api/v1/wars/${warId}`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ contestant_schema: [{ key: 'country', label: 'Country', type: 'string' }] });
-    });
-
-    Then('the response status is 422', () => {
-      expect(response.status).toBe(422);
-    });
-  });
-
   Scenario('A voter joins a published War', ({ Given, And, When, Then }) => {
     let warId: string;
     let voterId: string;

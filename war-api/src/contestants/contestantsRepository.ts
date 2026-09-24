@@ -1,7 +1,6 @@
 import type { Kysely, Selectable } from 'kysely';
 import { sql } from 'kysely';
 import type { ContestantsTable, Database } from '../db/types.js';
-import { toJsonb } from '../db/jsonb.js';
 import { newId } from '../db/uuid.js';
 
 export interface Contestant {
@@ -9,7 +8,6 @@ export interface Contestant {
   warId: string;
   name: string;
   bio: string | null;
-  attributes: Record<string, unknown>;
   winCount: number;
   appearanceCount: number;
 }
@@ -20,7 +18,6 @@ function toContestant(row: Selectable<ContestantsTable>): Contestant {
     warId: row.war_id,
     name: row.name,
     bio: row.bio,
-    attributes: (row.attributes ?? {}) as Record<string, unknown>,
     winCount: row.win_count,
     appearanceCount: row.appearance_count,
   };
@@ -30,7 +27,6 @@ export interface CreateContestantInput {
   warId: string;
   name: string;
   bio: string | null;
-  attributes: Record<string, unknown>;
 }
 
 export async function createContestant(db: Kysely<Database>, input: CreateContestantInput): Promise<Contestant> {
@@ -41,7 +37,6 @@ export async function createContestant(db: Kysely<Database>, input: CreateContes
       war_id: input.warId,
       name: input.name,
       bio: input.bio,
-      attributes: toJsonb(input.attributes),
     })
     .returningAll()
     .executeTakeFirstOrThrow();
@@ -115,14 +110,12 @@ export async function countContestantsForWar(db: Kysely<Database>, warId: string
 export interface ContestantPatch {
   name?: string;
   bio?: string | null;
-  attributes?: Record<string, unknown>;
 }
 
 export async function updateContestant(db: Kysely<Database>, id: string, patch: ContestantPatch): Promise<Contestant> {
   const values: Record<string, unknown> = {};
   if (patch.name !== undefined) values.name = patch.name;
   if (patch.bio !== undefined) values.bio = patch.bio;
-  if (patch.attributes !== undefined) values.attributes = toJsonb(patch.attributes);
 
   const row = await db
     .updateTable('contestants')

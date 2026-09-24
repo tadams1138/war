@@ -62,3 +62,9 @@ Feature: War Creation
     Given a published War
     When its creator POSTs a new contestant
     Then the contestant is created
+
+  Scenario: contestant_schema and attributes are no longer recognized fields
+    Given an authenticated voter
+    When they create a War with a contestant_schema and add a contestant with attributes
+    Then the created War has no contestant_schema field
+    And the created contestant has no attributes field
