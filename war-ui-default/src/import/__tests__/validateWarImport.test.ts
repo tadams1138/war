@@ -107,4 +107,52 @@ describe('validateWarImport', () => {
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toMatch(/image|media/i)
   })
+
+  it('accepts a share_image path and returns it', () => {
+    // Arrange
+    const zip = zipFrom({
+      'war.json': JSON.stringify(validWarJson({ share_image: 'share-image.jpg' })),
+      'media/c-1/m-1.jpg': new Uint8Array([1, 2, 3]),
+      'share-image.jpg': new Uint8Array([4, 5, 6]),
+    })
+
+    // Act
+    const result = validateWarImport(zip)
+
+    // Assert
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok')
+    expect(result.data.metadata.share_image).toBe('share-image.jpg')
+  })
+
+  it('defaults share_image to null for an older export that never had the field', () => {
+    // Arrange — validWarJson() has no share_image key at all
+    const zip = zipFrom({
+      'war.json': JSON.stringify(validWarJson()),
+      'media/c-1/m-1.jpg': new Uint8Array([1, 2, 3]),
+    })
+
+    // Act
+    const result = validateWarImport(zip)
+
+    // Assert
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok')
+    expect(result.data.metadata.share_image).toBeNull()
+  })
+
+  it('rejects a share_image path that is not present in the zip', () => {
+    // Arrange
+    const zip = zipFrom({
+      'war.json': JSON.stringify(validWarJson({ share_image: 'share-image.jpg' })),
+      'media/c-1/m-1.jpg': new Uint8Array([1, 2, 3]),
+    })
+
+    // Act
+    const result = validateWarImport(zip)
+
+    // Assert
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/image|media/i)
+  })
 })
