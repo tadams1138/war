@@ -472,11 +472,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('a War with 3 contestants', async () => {
       const creator = await makeVoter(harness.db, 'creator');
       // Published (not left in "draft"): an anonymous, unfiltered GET /wars
-      // excludes draft Wars by default (spec, "Default scoping"), and this
+      // excludes draft Wars by default (war-spec.md §6.1), and this
       // scenario is about contestant_count, not visibility -- so the fixture
       // needs a War the anonymous request can actually see. contestant_count
       // must still reflect the contestants rows regardless of the War's
-      // status (spec, addendum).
+      // status.
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 3);
       const published = await publishWarForTest(harness.db, war);
       warId = published.id;

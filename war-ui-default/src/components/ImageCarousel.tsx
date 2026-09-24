@@ -1,5 +1,5 @@
 // Shown within a ContestantCard when a contestant has more than one image
-// (the spec). Horizontal swipe browses images; tap votes.
+// (war-spec.md §10.3). Horizontal swipe browses images; tap votes.
 // These must never be confused — ambiguity always resolves toward "swipe",
 // since a mis-fired vote is unrecoverable (votes are final).
 import { useRef, useState } from 'react'
@@ -8,11 +8,11 @@ import type { MediaItem } from '../api/client'
 import { byDisplayOrder, srcSetFor } from '../utils/media'
 import { exceedsSwipeThreshold, swipeDirection } from '../utils/swipe'
 
-// `fillHeight` (the vote page's own cards, war-spec.md 10.3: media fills
+// `fillHeight` (the vote page's own cards, war-spec.md §10.3: media fills
 // whatever vertical space the layout gives it) sizes each frame to its
-// parent's full height instead of the image's own aspect ratio -- the img
-// itself already `object-fit: cover`s that box (CarouselFrameImage), so
-// nothing crops oddly. Every other caller (the results-page gallery) keeps
+// parent's full height instead of the image's own aspect ratio; see
+// CarouselFrameImage below for how the `<img>` itself then fits that box
+// without cropping. Every other caller (the results-page gallery) keeps
 // the aspect-ratio-reserved sizing, which is what stops that list from
 // reflowing as images load. Split into one function per mode (rather than
 // branching inline) to keep each at a low complexity -- CLAUDE.md's <=5 rule.
@@ -109,13 +109,13 @@ interface ImageCarouselProps {
   onTap: () => void
   // Extra content (the contestant's name) rendered inside the same
   // gesture-handling element — the whole card is one tap/swipe target and
-  // a single tab stop (the spec), not just the image.
+  // a single tab stop (war-spec.md §10.3), not just the image.
   children?: ReactNode
   // War detail's gallery reuses this carousel purely for browsing (no vote
-  // to describe) — war-spec.md 10.4's "same page-through affordance the
+  // to describe) — war-spec.md §10.4's "same page-through affordance the
   // vote card's own multi-image browsing already uses".
   ariaLabel?: string
-  // The vote page's own cards (war-spec.md 10.3): media fills whatever
+  // The vote page's own cards (war-spec.md §10.3): media fills whatever
   // vertical space the layout gives it rather than sizing from the image's
   // own aspect ratio. Off by default so every other caller is unaffected.
   fillHeight?: boolean
@@ -125,9 +125,8 @@ function isActivationKey(key: string): boolean {
   return key === 'Enter' || key === ' '
 }
 
-// Extracted purely to keep ImageCarousel's own complexity down (the
-// fillHeight branching pushed it over CLAUDE.md's <=5 rule) -- these two
-// mirror the conditional spreads that used to live inline in its JSX.
+// Extracted purely to keep ImageCarousel's own complexity down -- the
+// fillHeight branching pushed it over CLAUDE.md's <=5 rule.
 function carouselRootStyle(disabled: boolean, fillHeight: boolean): CSSProperties {
   return {
     touchAction: 'pan-y',

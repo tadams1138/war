@@ -28,7 +28,7 @@ export function requireAuth(deps: AuthDependencies) {
  * and otherwise lets the request through unauthenticated (`request.voterId`
  * stays `undefined`). For an endpoint that is public in general but
  * requires identity for one particular query combination -- `GET
- * /wars?creator=me` (spec, "Addendum (2026-09-01)") is the one
+ * /wars?creator=me` (war-spec.md §6.1) is the one
  * caller today -- rather than gating the whole route behind
  * {@link bearerAuthRoute}, which would also mark it `security:
  * [{bearerAuth: []}]` in the OpenAPI document and misdescribe every other

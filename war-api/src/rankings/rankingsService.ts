@@ -26,11 +26,11 @@ export interface RankingsView {
 }
 
 /**
- * The response body JSON Schema for {@link RankingsView} (spec,
- * "Addendum (2026-08-31)"). Kept beside the interface it mirrors -- see
- * `mediaItemSchema` (`../contestants/mediaPresenter.ts`) for why. `rank` is
+ * The response body JSON Schema for {@link RankingsView}. Kept beside the
+ * interface it mirrors -- see `mediaItemSchema`
+ * (`../contestants/mediaPresenter.ts`) for why. `rank` is
  * `["integer", "null"]` since an unranked (zero-appearance) contestant is
- * listed with `rank: null` (spec).
+ * listed with `rank: null` (war-spec.md §7).
  */
 export const rankingsResponseSchema = {
   type: 'object',
@@ -73,12 +73,11 @@ async function isUnauthorizedForRankings(
 }
 
 /**
- * Assembles a War's rankings response (spec): the invite-only membership
- * check, scoring, and view assembly all live here rather than in the route
- * handler, matching the routes → service → repository → presenter layering
- * every other domain in this slice follows (design review finding 8).
- * `viewerId` is `null` for an anonymous request — JWT extraction stays a
- * route concern.
+ * Assembles a War's rankings response (war-spec.md §6.4): the invite-only
+ * membership check, scoring, and view assembly all live here rather than in
+ * the route handler, matching the routes → service → repository → presenter
+ * layering every other domain in this slice follows. `viewerId` is `null`
+ * for an anonymous request — JWT extraction stays a route concern.
  */
 export async function rankingsFor(
   db: Kysely<Database>,

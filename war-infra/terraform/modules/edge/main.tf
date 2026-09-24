@@ -143,17 +143,16 @@ resource "cloudflare_workers_route" "og_tags_router" {
   script_name = cloudflare_workers_script.og_tags_router.name
 }
 
-# WAF, rate limiting, and cache rules used to live here, one copy per
-# environment. They moved to terraform/shared: staging and production are
+# WAF, rate limiting, and cache rules live in terraform/shared, not here, one
+# zone-wide copy rather than one per environment: staging and production are
 # both subdomains of the same Cloudflare zone (one CLOUDFLARE_ZONE_ID, not
 # one per env), and Cloudflare permits exactly one custom ruleset per phase
-# per zone — production's first-ever apply failed outright trying to create
-# a second copy of each ("A similar configuration with rules already
-# exists... overwriting will have unintended consequences"). None of the
-# three ever actually keyed off env or domain in their rule expressions
-# (path-only matches throughout), so moving them to a single zone-wide
-# instance changed nothing about what they do — only how many of them exist.
-# See terraform/shared/main.tf.
+# per zone — a per-environment copy here fails outright on the second
+# environment's apply ("A similar configuration with rules already exists...
+# overwriting will have unintended consequences"). None of the three key off
+# env or domain in their rule expressions (path-only matches throughout), so
+# one zone-wide instance changes nothing about what they do — only how many
+# of them exist. See terraform/shared/main.tf.
 
 output "worker_name" {
   value = cloudflare_workers_script.ui_router.name

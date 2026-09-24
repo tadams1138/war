@@ -55,7 +55,7 @@ async function resolveValidMatchup(
   return { matchup };
 }
 
-/** Inserts the vote, or reports the idempotent/conflicting outcome the repository's ON CONFLICT resolved (design review finding 2). */
+/** Inserts the vote, or reports the idempotent/conflicting outcome the repository's ON CONFLICT resolved. */
 async function insertOrIdempotentOutcome(
   db: Kysely<Database>,
   matchup: Matchup,
@@ -67,7 +67,7 @@ async function insertOrIdempotentOutcome(
   return { kind: 'created', vote: result.vote };
 }
 
-/** Casts a vote, enforcing the spec's rules: published War, joined voter, valid winner, final vote. */
+/** Casts a vote, enforcing war-spec.md §6.3's rules: published War, joined voter, valid winner, final vote. */
 export async function castVoteForVoter(
   db: Kysely<Database>,
   input: CastVoteInput,
@@ -80,8 +80,8 @@ export async function castVoteForVoter(
   if ('outcome' in matchupResolution) return matchupResolution.outcome;
 
   // Cheap fast path preserving the existing pre-check messages; the
-  // repository's ON CONFLICT is the real arbiter for a concurrent retry
-  // (design review finding 2), since two requests can both pass this check.
+  // repository's ON CONFLICT is the real arbiter for a concurrent retry,
+  // since two requests can both pass this check.
   const existing = await findVote(db, input.matchupId, input.voterId);
   if (existing) return outcomeForVote(existing.winnerId, input.winnerId);
 

@@ -12,8 +12,7 @@ export interface Matchup {
 
 /** The four matchup columns `findUnvotedMatchupsForVoter`'s joined query
  * selects explicitly, picked from `Selectable<MatchupsTable>` rather than
- * hand-declared, so the column list can't drift from `db/types.ts`
- * (design review finding 12). */
+ * hand-declared, so the column list can't drift from `db/types.ts`. */
 type MatchupColumns = Pick<Selectable<MatchupsTable>, 'id' | 'war_id' | 'contestant_a_id' | 'contestant_b_id'>;
 
 function toMatchup(row: MatchupColumns): Matchup {

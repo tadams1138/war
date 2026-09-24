@@ -15,8 +15,11 @@ an AI coding assistant to follow.
 | [`war-api/`](war-api) | Backend REST API |
 | [`war-ui-default/`](war-ui-default) | Default web frontend |
 | [`war-infra/`](war-infra) | Terraform, deploy scripts, and other infrastructure |
-| [`war-ui-custom/`](war-ui-custom) | Not built yet — holds only the pending custom-UI template-contract scenarios |
 | [`.github/workflows/`](.github/workflows) | CI/CD for every project |
+
+A brand-specific custom UI (war-spec.md §11) is its own separate repository, not a directory
+here — [`.github/workflows/ui-custom.yml`](.github/workflows/ui-custom.yml) is the reusable
+pipeline each one calls.
 
 See [`CLAUDE.md`](CLAUDE.md) for the tech stack each project uses. The platform specification,
 [`war-spec.md`](war-spec.md), lives at the repo root alongside this file — see below.
@@ -33,12 +36,29 @@ Live in staging and production: sign in with Google, Microsoft, Facebook, or Twi
 create, edit, delete, export, and import Wars; view a War and vote on image-mode matchups; and
 My Wars. Three selectable visual themes and a persistent nav ship across every page.
 
-Not yet built: video-mode matchups, the API's per-voter rate limiting, and custom UIs with
-their registry. Apple sign-in is fully designed but deliberately deferred (see PROGRESS.md,
-"To revisit").
+Not yet built: video-mode matchups and custom UIs with their registry. Apple sign-in is
+fully designed but deliberately deferred (see PROGRESS.md, "To revisit").
 
 [`PROGRESS.md`](PROGRESS.md) is the authoritative status board — a section of the spec
 describing the full design does not mean it has been built.
+
+## Stack
+
+Node.js/TypeScript throughout. `war-api` is Fastify + Kysely + PostgreSQL, with Vitest
+(`@amiceli/vitest-cucumber` for Gherkin) and Testcontainers for integration tests.
+`war-ui-default` is a React SPA on Vite, tested with Vitest (unit) and Playwright
+(acceptance, MSW-mocked). `war-infra` is Terraform, deployed as one DigitalOcean App
+Platform app behind Cloudflare, with object storage for media and custom-UI bundles.
+
+## Local development
+
+`scripts/local-dev-up.ps1` (PowerShell — Windows only today) stands up the full stack
+behind HTTPS on port 3000: Postgres and MinIO in Docker, `war-api`, and `war-ui-default`'s
+Vite dev server, unified by an nginx TLS proxy so real OAuth login works locally. Run it
+from the repository root; see the script's own header comment for the one-time OAuth
+redirect-URI setup it requires. There's no macOS/Linux equivalent yet — the same pieces
+(Postgres, MinIO, `npm --prefix war-api run dev`, `npm --prefix war-ui-default run dev`)
+can be run by hand, just without the unified HTTPS origin the script gives you.
 
 ## Environments
 
@@ -66,7 +86,6 @@ built:
 | API | `war-api/specs/features/` | `war-api/test/features/*.steps.ts` (`@amiceli/vitest-cucumber`) | `npm --prefix war-api test` |
 | Default UI | `war-ui-default/features/` | `war-ui-default/tests/acceptance/*.spec.ts` (Playwright, explicit) | `npm --prefix war-ui-default run test:acceptance` |
 | Infrastructure | `war-infra/specs/features/` | — no runner; `war-infra` has no test project | — |
-| Custom UI | `war-ui-custom/specs/features/` | — project does not exist yet | — |
 
 Each project has a `pending/` subdirectory holding scenarios with **no binding**, so nothing
 in it runs: behaviour not built, or built but not yet covered at the acceptance layer. See
@@ -75,3 +94,20 @@ breakdown — kept there, not duplicated here, so it can't drift out of sync as 
 bound.
 
 To bind a pending API scenario, move the file up one directory and write its `.steps.ts`.
+
+## How this was built
+
+I built this with [Claude Code](https://claude.com/product/claude-code) as an implementation
+partner, working test-first (Red-Green-Refactor; see [`CLAUDE.md`](CLAUDE.md)). I own the
+spec, the architecture, and every review — `war-spec.md` and the acceptance/unit test suites
+are the guardrails that keep an AI-assisted change honest, not a substitute for reading the
+diff. `.claude/settings.json` turns off Claude's commit attribution because I'm the one
+taking responsibility for what's in this repo, not to hide how it was made.
+
+## License
+
+Copyright © 2026 Tom Adams. All rights reserved.
+
+This repository is publicly available for viewing and evaluation purposes only. No
+permission is granted to copy, modify, distribute, sublicense, or use this software or its
+source code for commercial purposes without prior written permission.

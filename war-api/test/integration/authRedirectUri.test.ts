@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { buildAppWithoutDb } from '../setup/testAppNoDb.js';
 
 /**
- * Closes the observability gap that let the original PUBLIC_BASE_URL bug
- * (spec) reach every deployment undetected: nothing
- * in the suite previously inspected the `redirect_uri` that actually reaches
- * Google, only the computed `redirectUri` one layer above the wire. Runs
- * DB-free via `buildAppWithoutDb()` -- `beginLogin` never touches the
- * database, it only generates state and calls `google.authorizationUrl`.
+ * Closes an observability gap: nothing else in the suite inspects the
+ * `redirect_uri` that actually reaches Google (war-spec.md §5.1's exact-URL
+ * requirement applies to the callback exchange too), only the computed
+ * `redirectUri` one layer above the wire. Runs DB-free via
+ * `buildAppWithoutDb()` -- `beginLogin` never touches the database, it only
+ * generates state and calls `google.authorizationUrl`.
  */
 describe('GET /api/v1/auth/google/login redirect_uri', () => {
   it('redirects to an authorization URL carrying the configured PUBLIC_BASE_URL-derived redirect_uri', async () => {

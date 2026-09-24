@@ -5,12 +5,12 @@ import { makeVoter } from '../setup/fixtures.js';
 import { getTestDb, truncateAll } from '../setup/testDb.js';
 
 /**
- * Repository-level regression test for design review finding 1: two
- * concurrent presentations of the same refresh token must not both rotate.
- * The DB is the arbiter here, so this needs the real database rather than a
- * mock — a check-then-act race is invisible to a sequential test.
+ * Regression test: two concurrent presentations of the same refresh token
+ * must not both rotate. The DB is the arbiter here, so this needs the real
+ * database rather than a mock — a check-then-act race is invisible to a
+ * sequential test.
  */
-describe('rotateRefreshToken concurrency (spec, reuse detection)', () => {
+describe('rotateRefreshToken concurrency (war-spec.md §5.2, reuse detection)', () => {
   beforeEach(async () => {
     await truncateAll();
   });

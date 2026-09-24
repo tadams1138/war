@@ -1,5 +1,5 @@
 // Displays voted/total matchups as a percentage bar and text label
-// (the spec). `total` is every pair in the War, so
+// (war-spec.md §6.3). `total` is every pair in the War, so
 // finishing is not expected — copy frames this as contribution, never as
 // an unfinished task.
 interface ProgressBarProps {

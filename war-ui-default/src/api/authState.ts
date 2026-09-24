@@ -1,5 +1,5 @@
 // The JWT lives only as an in-memory module variable — never localStorage
-// or sessionStorage (the spec). AuthProvider
+// or sessionStorage. AuthProvider
 // (src/auth/context.tsx) is the only React-facing consumer; api/client.ts
 // reads and writes this module directly since it runs outside React.
 

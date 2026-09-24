@@ -23,7 +23,7 @@ function makeWar(overrides: Partial<War> = {}): War {
 describe('presentWarSummary', () => {
   // presentWarSummary is a pure pass-through of the count it is given -- it
   // never queries `contestants` itself, so it cannot verify (and this test
-  // does not claim) the addendum's "regardless of War status" requirement.
+  // does not claim) that the count is correct regardless of War status.
   // That guarantee actually lives in `countContestantsByWarIds`
   // (src/contestants/contestantsRepository.ts) having no status predicate,
   // and is exercised end-to-end by the DB-gated "The browse list reports

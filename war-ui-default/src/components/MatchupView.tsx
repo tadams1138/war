@@ -1,7 +1,7 @@
-// The core voting UI (the spec). The API decides which contestant is left
-// and which is right — this renders that order verbatim and must never
-// reorder the pair. A bio, when a contestant has one, renders in its own
-// area outside the tap-to-vote media (war-spec.md 10.3) — never inside
+// The core voting UI (war-spec.md §10.3). The API decides which contestant
+// is left and which is right — this renders that order verbatim and must
+// never reorder the pair. A bio, when a contestant has one, renders in its
+// own area outside the tap-to-vote media (§10.3) — never inside
 // ContestantCard's own gesture-handling element, so reading it can never
 // register as a vote.
 //

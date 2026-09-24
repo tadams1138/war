@@ -1,6 +1,6 @@
 // Single source of truth for the /login?returnTo=...&reason=... URL
 // contract and the sessionStorage key that carries returnTo across the
-// full-page OAuth round trip (the spec). Three modules
+// full-page OAuth round trip. Three modules
 // need to agree on this today (RequireAuth's redirect, AuthProvider's
 // unauthorized redirect, Login's persist-before-navigating-away, and
 // AuthCallback's read-back) — kept in one place so the next one doesn't

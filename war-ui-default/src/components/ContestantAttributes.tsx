@@ -1,5 +1,6 @@
 // Renders the resolved `attributes` array from the API as a simple
-// label/value list, in the order the array supplies (the spec). Used on the
+// label/value list, in the order the array supplies (war-spec.md §4,
+// "Contestant Schema"). Used on the
 // War detail page's results list only. It has no knowledge of what the
 // fields mean — a pageant's Country/Age/Height and a primary's
 // Party/State/Office render through the identical component.

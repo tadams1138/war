@@ -197,7 +197,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the reported reason is "access_denied"', () => {
-      // Pins both halves of the callback failure #1 body (design review finding 4):
+      // Pins both halves of the callback failure body:
       // "error" is the fixed contract string, "reason" is the provider's
       // code passed through verbatim.
       expect((response.body as { error?: string; reason?: string }).error).toBe('authorization declined');
@@ -306,8 +306,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(rotatedRows.every((row) => row.revoked_at !== null)).toBe(true);
 
       // "Must re-authenticate" means a client asking the API is turned away
-      // (design review finding 11) — not merely that a row is present in the
-      // table. Presenting the still-valid-looking successor token now fails.
+      // — not merely that a row is present in the table. Presenting the
+      // still-valid-looking successor token now fails.
       const successorRefreshAttempt = await postRefresh(harness, successorToken);
       expect(successorRefreshAttempt.status).toBe(401);
     });

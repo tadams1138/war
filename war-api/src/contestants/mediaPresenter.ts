@@ -46,13 +46,12 @@ export const mediaItemSchema = {
 };
 
 /**
- * Builds the response shape for a contestant's media array (spec, "Media
- * Representation"). Which variant widths exist prefers the widths actually
- * written at upload time (`variantWidths`, spec) so that changing
- * today's `VARIANT_WIDTHS` later cannot silently break URLs already
- * advertised for existing content (design review finding 15). Rows written
- * before that column existed fall back to filtering the stored source width
- * against today's config, exactly as before — no backfill required.
+ * Builds the response shape for a contestant's media array (war-spec.md
+ * §9.1). Which variant widths exist prefers the widths actually written at
+ * upload time (`variantWidths`) so that changing today's `VARIANT_WIDTHS`
+ * later cannot silently break URLs already advertised for existing content.
+ * Rows written before that column existed fall back to filtering the stored
+ * source width against today's config — no backfill required.
  */
 export function presentMedia(media: ContestantMedia[], publicBaseUrl: string): MediaItemView[] {
   return media.map((item) => {

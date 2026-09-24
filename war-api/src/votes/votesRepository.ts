@@ -59,13 +59,13 @@ export interface CastVoteResult {
 
 /**
  * Casts a vote and increments both denormalised counters in one transaction
- * (spec). The insert is `ON CONFLICT DO NOTHING` against the
+ * (war-spec.md §6.3). The insert is `ON CONFLICT DO NOTHING` against the
  * `UNIQUE (matchup_id, voter_id)` constraint, which is the real arbiter when
- * two requests for the same voter race (design review finding 2) — the
- * caller's pre-check (spec) is only a fast path, not the source of
- * truth. When the insert is skipped, the counters are **not** touched, so
- * the losing request never double-increments them; it returns the row the
- * winner (or an earlier vote) already wrote.
+ * two requests for the same voter race — the caller's pre-check is only a
+ * fast path, not the source of truth. When the insert is skipped, the
+ * counters are **not** touched, so the losing request never
+ * double-increments them; it returns the row the winner (or an earlier
+ * vote) already wrote.
  */
 export async function castVote(
   db: Kysely<Database>,

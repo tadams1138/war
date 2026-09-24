@@ -51,13 +51,13 @@ const shareImageErrorResponseSchema = {
 };
 
 /**
- * "Wants own-Wars scoping" was previously stated three times -- the ajv
- * enum, the preHandler predicate (with its own inline cast), and the
- * handler ternary -- so a future edit to one could silently diverge from
- * the other two. The handler's fallback when `creator` isn't `"me"` is an
- * unfiltered `creatorId` (the spec's default-scoping rule in
- * `warsRepository.ts` now closes what that would otherwise expose), so
- * this predicate is the one place that decision is made.
+ * "Wants own-Wars scoping" has three places it could be stated -- the ajv
+ * enum, this preHandler predicate, and the handler ternary -- and stating
+ * it in more than one risks a future edit to one silently diverging from
+ * the others. The handler's fallback when `creator` isn't `"me"` is an
+ * unfiltered `creatorId` (war-spec.md §6.1's default-scoping rule in
+ * `warsRepository.ts` closes what that would otherwise expose), so this
+ * predicate is the one place that decision is made.
  */
 function wantsOwnWars(query: { creator?: string }): boolean {
   return query.creator === 'me';
@@ -79,8 +79,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
             limit: { type: 'string' },
             // The only accepted value is the literal "me"; anything else
             // fails Fastify's own ajv validation and returns its standard
-            // envelope, never this API's `{ error }` shape (spec,
-            // "Addendum (2026-09-01)").
+            // envelope, never this API's `{ error }` shape.
             creator: { type: 'string', enum: ['me'] },
           },
         },

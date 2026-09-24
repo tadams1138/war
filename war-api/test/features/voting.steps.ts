@@ -291,8 +291,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(firstForA.body.matchup.id).toBe(orderForA[0]);
 
       // Drive voter B through the real endpoint too — comparing two locally
-      // computed hashes alone can never fail (design review finding 11);
-      // observing what the API actually serves each voter is the real test.
+      // computed hashes alone can never fail; observing what the API
+      // actually serves each voter is the real test.
       // (Not asserting the two voters' *first* pair differs here: with only
       // 10 pairs in this fixture, two independent hash orders coincide on
       // their first element about 1 time in 10 — a real but expected
@@ -353,9 +353,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('the response names which contestant is left and which is right', async () => {
-      // A response naming the same contestant on both sides would previously
-      // have passed this step (design review finding 11); assert the two
-      // sides are distinct and are exactly the matchup's real pair.
+      // A response naming the same contestant on both sides would otherwise
+      // pass this step; assert the two sides are distinct and are exactly
+      // the matchup's real pair.
       expect(leftId).not.toBe(rightId);
       const matchup = await harness.db.selectFrom('matchups').selectAll().where('id', '=', matchupId).executeTakeFirstOrThrow();
       expect(new Set([leftId, rightId])).toEqual(new Set([matchup.contestant_a_id, matchup.contestant_b_id]));

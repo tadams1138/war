@@ -6,13 +6,12 @@ import { truncateAll } from '../setup/testDb.js';
 import type { Matchup } from '../../src/matchups/matchupsRepository.js';
 
 /**
- * Repository-level regression test for design review finding 2: two
- * concurrent inserts for the same (matchup_id, voter_id) must not both
- * insert and must not double-increment the counters. This needs the real
- * UNIQUE constraint as arbiter, so it runs against the real database rather
- * than a mock.
+ * Regression test: two concurrent inserts for the same (matchup_id,
+ * voter_id) must not both insert and must not double-increment the
+ * counters. This needs the real UNIQUE constraint as arbiter, so it runs
+ * against the real database rather than a mock.
  */
-describe('castVote concurrency (spec, idempotent retry)', () => {
+describe('castVote concurrency (war-spec.md §6.3, idempotent retry)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

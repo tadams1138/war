@@ -13,15 +13,14 @@
   padding: 1rem 1rem 2rem;
 }
 
-/* Every native form control, everywhere a theme is active — not just the
-   nav's own select (a prior version of this rule was scoped to
-   `.nav-bar select`, but `.nav-bar` *is* the [data-theme] element, not
-   nested inside a separate one, so it never matched anything; confirmed by
-   screenshot, the dropdown's popup rendered white-on-pale-text). Native
-   controls ignore an inherited `background` and render their own (white,
-   on Windows/Chrome) — text color alone is never enough. `option` needs
-   its own rule too: Chromium's native popup list honors color/background
-   set directly on <option>, not just on the <select> that owns it. */
+/* Every native form control, everywhere a theme is active — scoped to
+   `[data-theme]` itself rather than `.nav-bar select`, since `.nav-bar` *is*
+   the [data-theme] element, not nested inside a separate one, so a selector
+   scoped to a descendant of it never matches. Native controls ignore an
+   inherited `background` and render their own (white, on Windows/Chrome) —
+   text color alone is never enough. `option` needs its own rule too:
+   Chromium's native popup list honors color/background set directly on
+   <option>, not just on the <select> that owns it. */
 [data-theme] input,
 [data-theme] select,
 [data-theme] textarea,
