@@ -22,9 +22,8 @@ export interface ImportApi {
     visibility: string
     theme: string
     ends_at: string | null
-    contestant_schema: unknown
   }) => Promise<CreatedWar>
-  addContestant: (warId: string, payload: { name: string; bio: string | null; attributes: unknown[] }) => Promise<CreatedContestant>
+  addContestant: (warId: string, payload: { name: string; bio: string | null }) => Promise<CreatedContestant>
   uploadImage: (warId: string, contestantId: string, file: File) => Promise<void>
 }
 
@@ -58,7 +57,7 @@ async function importContestant(
   files: Record<string, Uint8Array>,
   api: ImportApi,
 ): Promise<void> {
-  const created = await api.addContestant(warId, { name: contestant.name, bio: contestant.bio, attributes: contestant.attributes })
+  const created = await api.addContestant(warId, { name: contestant.name, bio: contestant.bio })
   for (const media of contestant.media) {
     const bytes = files[media.path]
     const file = new File([bytes as Uint8Array<ArrayBuffer>], fileNameFor(media.path), { type: mimeTypeFor(media.path) })

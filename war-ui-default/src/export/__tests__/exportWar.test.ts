@@ -37,13 +37,12 @@ describe('buildWarExportZip', () => {
     })
   })
 
-  it("includes each contestant's name, bio, and attributes, but no votes, win_count, or appearance_count", async () => {
+  it("includes each contestant's name and bio, but no attributes, votes, win_count, or appearance_count", async () => {
     // Arrange
     const contestant = buildContestant({
       id: 'c-1',
       name: 'Ada',
       bio: 'A brilliant mathematician.',
-      attributes: [{ key: 'height', label: 'Height', type: 'number', value: 170 }],
       media: [],
       win_count: 7,
       appearance_count: 9,
@@ -59,10 +58,11 @@ describe('buildWarExportZip', () => {
     expect(exported).toMatchObject({
       name: 'Ada',
       bio: 'A brilliant mathematician.',
-      attributes: [{ key: 'height', label: 'Height', type: 'number', value: 170 }],
     })
+    expect(exported).not.toHaveProperty('attributes')
     expect(exported).not.toHaveProperty('win_count')
     expect(exported).not.toHaveProperty('appearance_count')
+    expect(json).not.toHaveProperty('contestant_schema')
   })
 
   it('fetches and includes the largest-width media variant, referenced by its path in war.json', async () => {

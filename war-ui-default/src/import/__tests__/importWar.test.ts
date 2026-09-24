@@ -9,14 +9,12 @@ function validatedImport(overrides: Partial<ValidatedWarImport> = {}): Validated
       category: 'Pageant',
       visibility: 'public',
       theme: 'arcade',
-      contestant_schema: [],
       ends_at: null,
     },
     contestants: [
       {
         name: 'Ada',
         bio: 'A brilliant mathematician.',
-        attributes: [],
         media: [{ display_order: 0, aspect_ratio: 0.75, path: 'media/c-1/m-1.jpg' }],
       },
     ],
@@ -49,10 +47,9 @@ describe('importWar', () => {
       category: 'Pageant',
       visibility: 'public',
       theme: 'arcade',
-      contestant_schema: [],
       ends_at: null,
     })
-    expect(api.addContestant).toHaveBeenCalledWith('war-new', { name: 'Ada', bio: 'A brilliant mathematician.', attributes: [] })
+    expect(api.addContestant).toHaveBeenCalledWith('war-new', { name: 'Ada', bio: 'A brilliant mathematician.' })
     expect(api.uploadImage).toHaveBeenCalledWith('war-new', 'contestant-new', expect.any(File))
     const uploadedFile = (api.uploadImage as ReturnType<typeof vi.fn>).mock.calls[0][2] as File
     expect(uploadedFile.type).toBe('image/jpeg')
@@ -66,9 +63,7 @@ describe('importWar', () => {
   it("sets each uploaded File's type from its path extension, so the server's MIME-type validation accepts it", async () => {
     // Arrange
     const data = validatedImport({
-      contestants: [
-        { name: 'Ada', bio: null, attributes: [], media: [{ display_order: 0, aspect_ratio: 0.75, path: 'media/c-1/m-1.webp' }] },
-      ],
+      contestants: [{ name: 'Ada', bio: null, media: [{ display_order: 0, aspect_ratio: 0.75, path: 'media/c-1/m-1.webp' }] }],
     })
     const files = { 'media/c-1/m-1.webp': new Uint8Array([1, 2, 3]) }
     const api = fakeApi()
@@ -98,8 +93,8 @@ describe('importWar', () => {
     // Arrange
     const data = validatedImport({
       contestants: [
-        { name: 'Ada', bio: null, attributes: [], media: [] },
-        { name: 'Grace', bio: null, attributes: [], media: [] },
+        { name: 'Ada', bio: null, media: [] },
+        { name: 'Grace', bio: null, media: [] },
       ],
     })
     const api = fakeApi({

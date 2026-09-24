@@ -43,11 +43,6 @@ Feature: Unbound UI scenarios
 
 Feature: Contestant Attributes
 
-  Scenario: The same component renders a different campaign
-    Given a War declaring party, state, and office
-    When the War detail page loads
-    Then each contestant shows those labels with its values
-
   Scenario: Unauthenticated user visits vote page
     Given a user is not logged in
     When they navigate to /wars/:id/vote

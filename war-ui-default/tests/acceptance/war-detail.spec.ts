@@ -128,6 +128,55 @@ test("A contestant's formatted bio renders on the War detail page", async ({ pag
   await expect(bio.locator('a')).toHaveAttribute('href', 'https://example.test/ada')
 })
 
+test("A contestant's bio renders on the War detail page, but no attributes list -- even from a stale response that still carries a legacy attributes field", async ({ page }) => {
+  // Arrange -- war-api no longer sends per-contestant `attributes` (the
+  // contestant_schema/attributes feature was removed entirely), but this
+  // response body deliberately still carries one, as an unmigrated cached
+  // response would, to prove the UI never renders it regardless of what
+  // the API sends.
+  const detail = {
+    id: 'war-legacy-attrs',
+    title: 'Legacy War',
+    category: null,
+    status: 'published',
+    visibility: 'public',
+    media_mode: 'image',
+    theme: 'arcade',
+    ends_at: null,
+    contestant_count: 1,
+    share_image_url: null,
+    is_owner: false,
+    contestants: [
+      {
+        id: 'c-1',
+        name: 'Ada',
+        bio: 'A brilliant mathematician.',
+        media: [],
+        win_count: 0,
+        appearance_count: 0,
+        attributes: [{ key: 'height', label: 'Height', type: 'number', value: 170 }],
+      },
+    ],
+  }
+  const rankings = buildRankingsResponse({
+    war_id: 'war-legacy-attrs',
+    rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-legacy-attrs`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-legacy-attrs/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-legacy-attrs')
+
+  // Assert
+  const row = page.getByTestId('ranking-row').filter({ hasText: 'Ada' })
+  await expect(row.getByText('A brilliant mathematician.')).toBeVisible()
+  await expect(row.locator('dl')).toHaveCount(0)
+  await expect(row.getByText('Height')).toHaveCount(0)
+})
+
 test('Paragraphs in a bio separated by a blank line render with visible vertical space', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({

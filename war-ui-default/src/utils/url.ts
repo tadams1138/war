@@ -1,5 +1,4 @@
-// ContestantAttributes renders a url-typed value as a link only when it is
-// genuinely http(s) — the spec.
+// Used to render a value as a link only when it is genuinely http(s).
 export function isSafeHttpUrl(value: string): boolean {
   try {
     const url = new URL(value)

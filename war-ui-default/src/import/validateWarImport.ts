@@ -13,7 +13,6 @@ export interface ValidatedMedia {
 export interface ValidatedContestant {
   name: string
   bio: string | null
-  attributes: unknown[]
   media: ValidatedMedia[]
 }
 
@@ -23,7 +22,6 @@ export interface ValidatedWarImport {
     category: string | null
     visibility: string
     theme: string
-    contestant_schema: unknown
     ends_at: string | null
   }
   contestants: ValidatedContestant[]
@@ -55,7 +53,6 @@ function isValidContestant(value: unknown): value is ValidatedContestant {
   const checks = [
     typeof contestant.name === 'string',
     isNullableString(contestant.bio),
-    Array.isArray(contestant.attributes),
     Array.isArray(contestant.media) && contestant.media.every(isValidMedia),
   ]
   return checks.every(Boolean)

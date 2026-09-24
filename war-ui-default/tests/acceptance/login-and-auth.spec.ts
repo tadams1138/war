@@ -97,7 +97,7 @@ test('Concurrent 401s trigger exactly one refresh', async ({ page }) => {
       path: `${API}/wars/war-1`,
       responses: [
         { status: 401, body: { error: 'expired' } },
-        { status: 200, body: { id: 'war-1', title: 'W', category: null, status: 'published', visibility: 'public', media_mode: 'image', contestant_schema: [], ends_at: null, contestants: [] } },
+        { status: 200, body: { id: 'war-1', title: 'W', category: null, status: 'published', visibility: 'public', media_mode: 'image', ends_at: null, contestants: [] } },
       ],
     },
     { method: 'POST', path: `${API}/auth/refresh`, responses: [{ status: 200, body: { token: 'refreshed' } }] },
