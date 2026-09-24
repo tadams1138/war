@@ -336,6 +336,15 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   `attributes` are also gone from `client.ts`'s payload types, `exportWar.ts`'s export shape,
   and `validateWarImport.ts`/`importWar.ts`/`useWarImport.ts`'s import path. The generated
   `src/api/generated/schema.d.ts` was regenerated against war-api's updated contract.
+- **Home's redundant heading and login link removed** (backlog items 4/6). `Home.tsx` no
+  longer renders an `<h1>War</h1>` or a "Login to Vote" link — the persistent nav header's
+  logo/title and Login control already cover both for every visitor, logged in or not.
+- **Export/import carries the share image** (backlog item 7). `exportWar.ts` embeds it in the
+  zip as `share-image.<ext>` (same never-base64 pattern contestant media uses) with a
+  `share_image` path field in `war.json`; import uploads it via a new
+  `ImportApi.uploadShareImage`, right after creating the War. An older export with no
+  `share_image` field still imports fine — `validateWarImport.ts` defaults it to `null`.
+  `docs/building-a-war-import.md` updated to match.
 
 ### Not built
 
@@ -358,7 +367,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   routing), so this is the one place that would otherwise wrongly tag them too. No image tag
   when the War has none (no fallback banner exists to point a crawler at instead); a missing
   title falls back to a generic one, never a blank. `index.html` is never edge-cached, same
-  reasoning `ui-router.js`'s own shell already has.
+  reasoning `ui-router.js`'s own shell already has. The description is a fixed "Vote now!"
+  (backlog item 4, was category-prefixed, e.g. "Movies — vote now on War") — no automated test
+  covers this, since war-infra's edge workers have no test harness (see *Test coverage gaps*).
 
 ---
 
@@ -433,8 +444,8 @@ Requested 2026-09-24, to work through one at a time.
 3. ~~Remove the contestant custom-attribute schema entirely.~~ **Done** — see the
    "Contestant custom-attribute schema removed" entries under war-api and war-ui-default
    above, and `war-spec.md`'s §4 (no longer documents it).
-4. **Drop the category from the results page's meta description.** Currently something like
-   "Movies — vote now on War"; just "Vote now!".
+4. ~~Drop the category from the results page's meta description.~~ **Done** — see the
+   war-infra "Link-preview tags" entry above.
 5. **Spec an admin dashboard.** See "Designed but not specified" above for prior discussion
    (admin role, per-voter suspension, creation kill switch, soft/hard-delete split, append-only
    moderation log) — this backlog item is to actually turn that into a written spec. New here:
@@ -443,8 +454,7 @@ Requested 2026-09-24, to work through one at a time.
    or revoke admin rights on other logged-in users. Open question to resolve while specifying:
    how the first admin (the user) gets that role on a fresh deployment — a seed script, an
    env-var-designated voter id promoted on first login, or something else.
-6. **Home page: remove the "Login to vote" link and the redundant "War" heading above it** —
-   the logo and title in the header already say that.
-7. **Export/import should carry the share image.** Currently only title/category/visibility/
-   theme/contestant fields round-trip; the share image does not. Update
-   `docs/building-a-war-import.md` to match once this ships.
+6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
+   **Done** — see "Home's redundant heading and login link removed" above.
+7. ~~Export/import should carry the share image.~~ **Done** — see "Export/import carries the
+   share image" above.
