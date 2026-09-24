@@ -404,3 +404,36 @@ originals behind.
 
 `war-spec.md` section 2 still lists "Admin moderation dashboard" as a non-goal, which
 this would reverse.
+
+## Backlog
+
+Requested 2026-09-24, to work through one at a time. Nothing here has been started.
+
+1. **Narrow-viewport vote page: make each bio independently scrollable.** Right now a long
+   bio pushes the second contestant's card far down the screen instead of scrolling within
+   its own space — `.matchup-row .matchup-bio` (layout.css) already sets `overflow-y: auto`,
+   so this needs investigation into why it isn't containing the bio's height, not a redesign.
+2. **My Wars / Home cards: pagination, sorting, and a filter bar.** 10 cards per page;
+   sortable by newest, oldest, expiring soonest, and alphabetical; a type-ahead filter bar
+   matching anywhere in the title or creator's name; each card gains the creator's name and
+   end date (when set).
+3. **Remove the contestant custom-attribute schema entirely.** War-level `contestant_schema`
+   and per-contestant custom attribute values — unused, cut for complexity, not deprecated in
+   place. Bio (markdown) is the only per-contestant free text going forward. Touches the DB
+   schema, war-api, war-ui-default's contestant forms/detail rendering, and war-spec.md
+   (which currently documents this as a real feature).
+4. **Drop the category from the results page's meta description.** Currently something like
+   "Movies — vote now on War"; just "Vote now!".
+5. **Spec an admin dashboard.** See "Designed but not specified" above for prior discussion
+   (admin role, per-voter suspension, creation kill switch, soft/hard-delete split, append-only
+   moderation log) — this backlog item is to actually turn that into a written spec. New here:
+   view every War regardless of status; delete any War regardless of ownership; view every
+   voter and their full vote history; ban/block a voter, deleting their Wars and votes; grant
+   or revoke admin rights on other logged-in users. Open question to resolve while specifying:
+   how the first admin (the user) gets that role on a fresh deployment — a seed script, an
+   env-var-designated voter id promoted on first login, or something else.
+6. **Home page: remove the "Login to vote" link and the redundant "War" heading above it** —
+   the logo and title in the header already say that.
+7. **Export/import should carry the share image.** Currently only title/category/visibility/
+   theme/contestant schema/contestant fields round-trip; the share image does not. Update
+   `docs/building-a-war-import.md` to match once this ships.
