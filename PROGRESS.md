@@ -77,6 +77,11 @@ Staging and production both run as a single application per environment containi
   (`share-images/:warId.jpg`), so re-uploading replaces rather than accumulates. `WarSummary`
   carries `share_image_url` (nullable) — `presentWarSummary` gained a `publicBaseUrl`
   parameter to build it, threaded through every route that calls it.
+- **A contestant's bio on the vote page** (spec §4, §10.3). `GET /wars/:id/matchups/next`'s
+  `matchup.left`/`right` now carry `bio` alongside `id`/`name`/`media`. A new
+  `MatchupContestantView`/`matchupContestantViewSchema` (`contestants/contestantPresenter.ts`)
+  is used instead of the shared `ContestantView` `/rankings` also uses — that one stays
+  `{id, name, media}`, since rankings has no use for bio and the two call sites' needs diverged.
 
 ### Not built
 
@@ -284,6 +289,30 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   holds the pending file/Blob in local state and `submit()` uploads it (if present) before the
   ordinary metadata PATCH. `WarCard` shows `share_image_url` at the top of the card when a War
   has one, no placeholder when it doesn't.
+- **Vote page: bios beside the tap-to-vote block, which fills the viewport** (spec §10.3).
+  `MatchupView.tsx` reads the same 640px breakpoint `layout.css` uses
+  (`useNarrowViewport`/`hooks/useNarrowViewport.ts`, a `matchMedia` hook) in JS rather than
+  leaving it to a media query alone, because where a bio's *parent* is genuinely differs by
+  breakpoint, not just its styling: on a wide viewport it's `.matchup-bios`, a sibling
+  *after* `.vote-viewport` (`height: 100vh` flex column holding just the progress bar and
+  both cards) — reachable by scrolling down past it, never eating into that column's budget;
+  on a narrow one it's paired inside `.vote-viewport` itself, beside its own card in a
+  `.matchup-row` (both contestants' rows together fill the column, so both stay visible with
+  no scroll to vote) and scrolls internally if long (`overflow-y: auto`). Either way, clicking
+  a bio is outside `ContestantCard`'s own gesture-handling element, so it never registers as a
+  vote. `ContestantCard`'s media itself now fills its box via `object-fit: cover`
+  (`ImageCarousel`'s new `fillHeight` prop) instead of sizing from the image's own aspect
+  ratio — the aspect-ratio-reserved sizing stays the default for every other caller (the
+  results-page gallery). `VoteMode.tsx` scrolls to `.vote-viewport` once per page visit, past
+  the persistent header, the first time a matchup is ready.
+- **A big, centered Vote callout on the results page, including for anonymous visitors**
+  (spec §10.4). `WarDetail.tsx`'s `VoteCallout` sits above the ordinary Export/Edit/Delete
+  action row, not inside it — replaces the old small action-row Vote link entirely rather than
+  adding a second one. Shown to an anonymous visitor on a published War too now (previously
+  hidden entirely): tapping it hits the vote route's existing `RequireAuth`, which sends them
+  to sign in and back, the same pattern Home's own Vote link already used. Still hidden for an
+  authenticated voter who's already cast every vote, and for anyone on a War that isn't
+  published.
 
 ### Not built
 

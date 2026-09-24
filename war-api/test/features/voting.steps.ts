@@ -3,6 +3,7 @@ import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import type { Contestant } from '../../src/contestants/contestantsRepository.js';
+import { updateContestant } from '../../src/contestants/contestantsRepository.js';
 import { stableHash } from '../../src/matchups/stableHash.js';
 import type { War } from '../../src/wars/warsRepository.js';
 import {
@@ -186,6 +187,28 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
           })
           .execute(),
       ).rejects.toThrow();
+    });
+  });
+
+  Scenario("The next-matchup response includes each contestant's bio", ({ Given, When, Then }) => {
+    let setup: Setup;
+    let bioContestantId: string;
+    let response: request.Response;
+
+    Given('a published War with a contestant whose bio is set', async () => {
+      setup = await setupPublishedWarWithJoinedVoter(harness, 2);
+      bioContestantId = setup.contestants[0]!.id;
+      await updateContestant(harness.db, bioContestantId, { bio: 'A brilliant mathematician.' });
+    });
+
+    When('a joined voter requests /matchups/next', async () => {
+      response = await getNextMatchup(harness, setup.war.id, setup.voterId);
+    });
+
+    Then("that contestant's bio is present in the response", () => {
+      const side =
+        response.body.matchup.left.id === bioContestantId ? response.body.matchup.left : response.body.matchup.right;
+      expect(side.bio).toBe('A brilliant mathematician.');
     });
   });
 

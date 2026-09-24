@@ -129,7 +129,24 @@ Feature: War Detail
     When they navigate to that War's detail page
     Then no Vote link is shown
 
-  Scenario: An anonymous visitor sees no Vote entry point
+  Scenario: An anonymous visitor sees a prominent Vote entry point on a published War
     Given a published War
     When an unauthenticated visitor navigates to its detail page
+    Then a large, centered Vote entry point is shown
+
+  Scenario: Tapping Vote as an anonymous visitor redirects to sign in
+    Given a published War
+    And an unauthenticated visitor viewing its detail page
+    When they tap the Vote entry point
+    Then they are redirected to sign in
+
+  Scenario: An anonymous visitor sees no Vote entry point on a draft War
+    Given a draft War
+    When an unauthenticated visitor navigates to its detail page
     Then no Vote link is shown
+
+  Scenario: The Vote entry point sits above the ordinary action row
+    Given a published War the viewer created
+    When they navigate to its detail page
+    Then the Vote entry point is shown above Export, Edit, and Delete
+    And it is visually larger than those buttons

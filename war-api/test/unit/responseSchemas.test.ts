@@ -179,6 +179,7 @@ describe('response body schemas serialize every field (spec)', () => {
     const contestant = (suffix: string) => ({
       id: `a5b1e2c4-4444-4a11-8a11-00000000000${suffix}`,
       name: `Contestant ${suffix}`,
+      bio: null,
       media: [],
     });
     const fixture: NextMatchupView = {
@@ -200,6 +201,7 @@ describe('response body schemas serialize every field (spec)', () => {
     const contestant = (suffix: string) => ({
       id: `a5b1e2c4-5555-4a11-8a11-00000000000${suffix}`,
       name: `Contestant ${suffix}`,
+      bio: null,
       media: [],
     });
     const fixture: NextMatchupView = {

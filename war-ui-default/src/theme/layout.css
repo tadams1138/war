@@ -25,6 +25,19 @@
   margin: 1rem 0 1.5rem;
 }
 
+/* The results page's own big, centered call to action (WarDetail.tsx's
+   VoteCallout) -- deliberately not just another .action-bar item, since
+   it's the one thing the page most wants a visitor to do. */
+.vote-callout {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+.button--large {
+  padding: 1rem 2.5rem;
+  font-size: 1.15rem;
+}
+
 /* A native <dialog>'s backdrop (Modal.tsx) -- generic and theme-agnostic,
    unlike the dialog's own surface (themes.css's `.modal`), so it lives
    here. */
@@ -412,38 +425,127 @@ label {
   margin-bottom: 0.75rem;
 }
 
-.matchup-view {
+/* The vote page's own layout (war-spec.md 10.3): the tap-to-vote block
+   (progress + both cards) fills the viewport with no scroll needed to
+   vote, via a definite `height: 100vh` flex column -- not `min-height`,
+   which leaves how much of that height a `flex: 1`/`1fr` row actually
+   gets ambiguous once something else follows it, and a trailing bio
+   section does follow it here on a wide viewport. Bios sit outside this
+   block, never inside the gesture area: on a wide viewport as a sibling
+   *after* it (.matchup-bios, MatchupView's WideMatchup), reachable by
+   scrolling down past it; on a narrow one, where both contestants must
+   stay visible together, paired inside it beside its own card
+   (.matchup-row, NarrowMatchup) instead. That's a genuine difference in
+   which element is a bio's parent, decided in MatchupView via
+   useNarrowViewport (JS, not a media query) for exactly that reason. */
+.vote-viewport {
   display: flex;
-  align-items: center;
-  gap: 0;
+  flex-direction: column;
+  height: 100vh;
 }
-@media (max-width: 640px) {
-  .matchup-view {
-    flex-direction: column;
-  }
+
+.vote-progress {
+  flex: none;
+}
+
+/* Wide layout: both cards side by side, filling the remainder of
+   .vote-viewport under the progress bar. `align-items: stretch` (the flex
+   default, stated explicitly here as documentation) is load-bearing: each
+   .matchup-card's height comes from being stretched to this row's cross
+   size, not from its own content. Without it, a matchup-card's height goes
+   auto, which makes .contestant-card's `height: 100%` (and ImageCarousel's
+   fillHeight chain below it) resolve to auto too -- collapsing the whole
+   height contract and leaving each poster sized by its own aspect ratio
+   instead of the viewport, tall enough to overlap the header and bios. */
+/* Grid, not flex: a fixed 4.5rem middle column for the vs-divider plus two
+   equal flexible columns is exactly the track layout `.matchup-bios` below
+   also needs, so both rows can share the same `grid-template-columns` and
+   have their left/right edges land in the same place -- flex's `flex-basis`
+   percentages can't be shared like that across two different containers
+   with different children counts. */
+.matchup-cards {
+  display: grid;
+  grid-template-columns: 1fr 4.5rem 1fr;
+  gap: 1rem;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+/* Narrow layout: one row per contestant (card beside its own bio),
+   filling the remainder of .vote-viewport between them. */
+.matchup-row {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.matchup-card {
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .contestant-card {
-  flex: 1 1 0%;
+  height: 100%;
   min-width: 0;
   padding: 1rem;
 }
 @media (max-width: 640px) {
-  /* Stacked layout means this padding is paid twice (top and bottom of
-     each of the two stacked cards) rather than once each side -- trimmed
-     here for extra headroom under the vote page's "no scroll to vote"
+  /* Stacked layout means every px here matters more than in the wide
+     layout -- trimmed for headroom under the "no scroll to vote"
      guarantee (vote-mode-responsive spec), matching .nav-bar's own
-     narrow-viewport trim above. Second pass: the first trim (1rem ->
-     0.75rem) still left CI's renderer 2px over budget (846 vs. an 844px
-     viewport) despite passing locally both times -- trimming to 0.5rem
-     now for real margin instead of chasing an exact-fit number again. */
+     narrow-viewport trim below. */
   .contestant-card {
     padding: 0.5rem;
   }
 }
 
+/* Wide mode's bios, below .vote-viewport in normal flow -- reachable by
+   scrolling down past it, never part of its 100vh budget. Shares
+   .matchup-cards' exact `grid-template-columns` (1fr 4.5rem 1fr, same gap)
+   so each bio's left/right edge lands under its own card's edge instead of
+   under a separately-computed flex width -- only two children are placed
+   here (no vs-divider), so each is pinned to its column explicitly rather
+   than left to auto-placement, which would push the right bio into the
+   middle (vs-divider) column instead of skipping it. Horizontal padding is
+   deliberately left off -- the page's own `[data-theme]` padding already
+   insets this row exactly as far as it insets .matchup-cards above it;
+   adding more here would reopen the edge mismatch this rule exists to
+   avoid. */
+.matchup-bios {
+  display: grid;
+  grid-template-columns: 1fr 4.5rem 1fr;
+  gap: 1rem;
+  padding-block: 1rem;
+}
+.matchup-bios .matchup-bio {
+  min-width: 0;
+}
+.matchup-bios .matchup-bio:first-child {
+  grid-column: 1;
+}
+.matchup-bios .matchup-bio:last-child {
+  grid-column: 3;
+}
+
+/* Narrow mode's bio, sharing a .matchup-row with its own card -- capped to
+   that row's height, so a long bio scrolls within its own area rather than
+   growing the row past the viewport (both contestants must stay fully
+   visible without scrolling the page itself, war-spec.md 10.3). */
+.matchup-row .matchup-bio {
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .vs-divider {
   flex: none;
+  /* .matchup-cards now stretches its children (above); this badge keeps its
+     own fixed size instead of stretching, but needs align-self to stay
+     vertically centered rather than pinned to the row's start. */
+  align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -452,6 +554,8 @@ label {
 }
 @media (max-width: 640px) {
   .vs-divider {
+    width: 100%;
+    height: auto;
     margin-block: -0.5rem;
     position: relative;
     z-index: 1;

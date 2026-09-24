@@ -8,13 +8,29 @@ import type { MediaItem } from '../api/client'
 import { byDisplayOrder, srcSetFor } from '../utils/media'
 import { exceedsSwipeThreshold, swipeDirection } from '../utils/swipe'
 
-function frameStyle(item: MediaItem, index: number, currentIndex: number): CSSProperties {
+// `fillHeight` (the vote page's own cards, war-spec.md 10.3: media fills
+// whatever vertical space the layout gives it) sizes each frame to its
+// parent's full height instead of the image's own aspect ratio -- the img
+// itself already `object-fit: cover`s that box (CarouselFrameImage), so
+// nothing crops oddly. Every other caller (the results-page gallery) keeps
+// the aspect-ratio-reserved sizing, which is what stops that list from
+// reflowing as images load. Split into one function per mode (rather than
+// branching inline) to keep each at a low complexity -- CLAUDE.md's <=5 rule.
+function fillHeightFrameStyle(index: number, currentIndex: number): CSSProperties {
+  return { width: '100%', height: '100%', display: index === currentIndex ? 'block' : 'none' }
+}
+
+function aspectRatioFrameStyle(item: MediaItem, index: number, currentIndex: number): CSSProperties {
   return {
     aspectRatio: item.aspect_ratio ?? undefined,
     width: '100%',
     minHeight: item.aspect_ratio ? undefined : '12rem',
     display: index === currentIndex ? 'block' : 'none',
   }
+}
+
+function frameStyle(item: MediaItem, index: number, currentIndex: number, fillHeight: boolean): CSSProperties {
+  return fillHeight ? fillHeightFrameStyle(index, currentIndex) : aspectRatioFrameStyle(item, index, currentIndex)
 }
 
 // Overlaid on the image itself, not stacked below it -- every image in the
@@ -66,7 +82,15 @@ function dotStyle(active: boolean): CSSProperties {
   }
 }
 
-function CarouselFrameImage({ item }: { item: MediaItem }) {
+// `fillHeight`'s box is sized by the viewport, not by this image's own
+// aspect ratio (frameStyle above), so the two rarely match -- `cover` would
+// crop whichever dimension overflows, most often the top and bottom of a
+// tall poster. `contain` shows the whole image with letterboxing instead,
+// which is the point of this mode: never crop a contestant's media. Every
+// other caller reserves a box that already matches the image's own aspect
+// ratio (aspectRatioFrameStyle), where `cover` vs `contain` makes no visible
+// difference, so this only needs to branch for fillHeight.
+function CarouselFrameImage({ item, fillHeight }: { item: MediaItem; fillHeight: boolean }) {
   return (
     <img
       data-testid="carousel-image"
@@ -74,7 +98,7 @@ function CarouselFrameImage({ item }: { item: MediaItem }) {
       src={item.variants[0]?.url}
       srcSet={srcSetFor(item)}
       sizes="50vw"
-      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      style={{ width: '100%', height: '100%', objectFit: fillHeight ? 'contain' : 'cover', display: 'block' }}
     />
   )
 }
@@ -91,10 +115,30 @@ interface ImageCarouselProps {
   // to describe) — war-spec.md 10.4's "same page-through affordance the
   // vote card's own multi-image browsing already uses".
   ariaLabel?: string
+  // The vote page's own cards (war-spec.md 10.3): media fills whatever
+  // vertical space the layout gives it rather than sizing from the image's
+  // own aspect ratio. Off by default so every other caller is unaffected.
+  fillHeight?: boolean
 }
 
 function isActivationKey(key: string): boolean {
   return key === 'Enter' || key === ' '
+}
+
+// Extracted purely to keep ImageCarousel's own complexity down (the
+// fillHeight branching pushed it over CLAUDE.md's <=5 rule) -- these two
+// mirror the conditional spreads that used to live inline in its JSX.
+function carouselRootStyle(disabled: boolean, fillHeight: boolean): CSSProperties {
+  return {
+    touchAction: 'pan-y',
+    width: '100%',
+    cursor: disabled ? 'default' : 'pointer',
+    ...(fillHeight && { height: '100%', display: 'flex', flexDirection: 'column' }),
+  }
+}
+
+function carouselFramesWrapperStyle(fillHeight: boolean): CSSProperties {
+  return { position: 'relative', ...(fillHeight && { flex: '1 1 0%', minHeight: 0 }) }
 }
 
 export function ImageCarousel({
@@ -103,6 +147,7 @@ export function ImageCarousel({
   onTap,
   children,
   ariaLabel = 'Contestant photo — swipe to browse, tap to vote',
+  fillHeight = false,
 }: ImageCarouselProps) {
   const sorted = byDisplayOrder(media)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -171,12 +216,12 @@ export function ImageCarousel({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onKeyDown={handleKeyDown}
-      style={{ touchAction: 'pan-y', width: '100%', cursor: disabled ? 'default' : 'pointer' }}
+      style={carouselRootStyle(disabled, fillHeight)}
     >
-      <div style={{ position: 'relative' }}>
+      <div style={carouselFramesWrapperStyle(fillHeight)}>
         {sorted.map((item, index) => (
-          <div key={item.id} style={frameStyle(item, index, currentIndex)}>
-            {visited.has(index) && <CarouselFrameImage item={item} />}
+          <div key={item.id} style={frameStyle(item, index, currentIndex, fillHeight)}>
+            {visited.has(index) && <CarouselFrameImage item={item} fillHeight={fillHeight} />}
           </div>
         ))}
 

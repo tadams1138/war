@@ -1340,12 +1340,14 @@ export interface paths {
                                     /** Format: uuid */
                                     id: string;
                                     name: string;
+                                    bio: null | string;
                                     media: components["schemas"]["MediaItem"][];
                                 };
                                 right: {
                                     /** Format: uuid */
                                     id: string;
                                     name: string;
+                                    bio: null | string;
                                     media: components["schemas"]["MediaItem"][];
                                 };
                             };

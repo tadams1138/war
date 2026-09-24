@@ -50,23 +50,51 @@ export function WarDetail() {
     <main data-theme={theme}>
       <h1>{warTitle(war.title)}</h1>
       {war.category && <p>{war.category}</p>}
+      <VoteCallout war={war} />
       <ResultsActions war={war} />
       <ResultsSection state={rankingsState} contestants={war.contestants} />
     </main>
   )
 }
 
-// Whether an authenticated voter still has unvoted matchups in this
-// published War (spec 10.4: the results page's own Vote entry point) --
-// skips the my-progress request entirely for an anonymous visitor or a War
-// that isn't published, rather than firing a request the API would 401
-// anyway.
+// A big, centered call to action at the top of the page, not one action
+// among several in the action row below -- this is the one thing the page
+// most wants a visitor to do. Shown to an anonymous visitor too (tapping it
+// sends them to sign in and back, RequireAuth's existing behavior on the
+// vote route), so results pages get the same "come vote" pull Home's own
+// cards already have.
+function VoteCallout({ war }: { war: WarDetailResponse }) {
+  const showVote = useVoteEligibility(war.id, war.status)
+  if (!showVote) return null
+  return (
+    <div className="vote-callout">
+      <Link to={`/wars/${war.id}/vote`} className="button button--large" data-testid="war-detail-vote-link">
+        Vote
+      </Link>
+    </div>
+  )
+}
+
+// Whether the results page's Vote entry point should show. An anonymous
+// visitor always sees it for a published War -- there's no progress to
+// check without a token, and the route itself (RequireAuth) sends them to
+// sign in and back, the same pattern Home's own Vote link already uses.
+// An authenticated voter sees it only while they still have unvoted
+// matchups -- skips the my-progress request entirely for a War that isn't
+// published, rather than firing a request the API would 401 anyway.
 function useVoteEligibility(warId: string, status: string): boolean {
   const [eligible, setEligible] = useState(false)
 
   useEffect(() => {
+    if (status !== 'published') {
+      setEligible(false)
+      return
+    }
+    if (!getToken()) {
+      setEligible(true)
+      return
+    }
     setEligible(false)
-    if (status !== 'published' || !getToken()) return
     let cancelled = false
     void getMyProgress(warId).then(
       (progress) => {
@@ -100,7 +128,6 @@ function OwnerActions({ warId, onDeleteClick }: { warId: string; onDeleteClick: 
 
 function ResultsActions({ war }: { war: WarDetailResponse }) {
   const navigate = useNavigate()
-  const showVote = useVoteEligibility(war.id, war.status)
   const deleteFlow = useDeleteWarFlow(war.id, () => navigate('/my-wars'))
   const exportFlow = useWarExportDownload(war)
   return (
@@ -108,11 +135,6 @@ function ResultsActions({ war }: { war: WarDetailResponse }) {
       <div className="action-bar">
         {war.is_owner && <OwnerActions warId={war.id} onDeleteClick={deleteFlow.open} />}
         <ExportButton show={war.is_owner} testId="war-detail-export-button" onClick={exportFlow.trigger} />
-        {showVote && (
-          <Link to={`/wars/${war.id}/vote`} className="button" data-testid="war-detail-vote-link">
-            Vote
-          </Link>
-        )}
       </div>
       <ErrorMessage message={deleteFlow.error} />
       <ErrorMessage message={exportFlow.error} />

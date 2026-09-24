@@ -3,14 +3,14 @@ import type { Database } from '../db/types.js';
 import { findContestantsByIds } from '../contestants/contestantsRepository.js';
 import { listMediaByContestants } from '../contestants/contestantMediaRepository.js';
 import { presentMedia, type MediaItemView } from '../contestants/mediaPresenter.js';
-import { contestantViewSchema, type ContestantView } from '../contestants/contestantPresenter.js';
+import { matchupContestantViewSchema, type MatchupContestantView } from '../contestants/contestantPresenter.js';
 import type { ContestantMedia } from '../contestants/contestantMediaRepository.js';
 import type { Contestant } from '../contestants/contestantsRepository.js';
 import { countMatchupsForWar, countVotesByVoterInWar, findUnvotedMatchupsForVoter } from './matchupsRepository.js';
 import { isLeftSide } from './stableHash.js';
 
 export interface NextMatchupView {
-  matchup: { id: string; left: ContestantView; right: ContestantView };
+  matchup: { id: string; left: MatchupContestantView; right: MatchupContestantView };
   progress: { voted: number; total: number };
   prefetch?: { matchup_id: string; media: MediaItemView[] };
 }
@@ -32,8 +32,8 @@ export const nextMatchupResponseSchema = {
         // Written as its own copy of `left`'s schema rather than an
         // internal `$ref`, per the spec -- the two simply describe the
         // same shape.
-        left: contestantViewSchema,
-        right: contestantViewSchema,
+        left: matchupContestantViewSchema,
+        right: matchupContestantViewSchema,
       },
     },
     progress: {
@@ -60,7 +60,7 @@ function contestantView(
   contestantsById: Map<string, Contestant>,
   mediaByContestant: Map<string, ContestantMedia[]>,
   publicBaseUrl: string,
-): ContestantView {
+): MatchupContestantView {
   const contestant = contestantsById.get(contestantId);
   if (!contestant) {
     throw new Error(`contestant ${contestantId} not found`);
@@ -68,6 +68,7 @@ function contestantView(
   return {
     id: contestant.id,
     name: contestant.name,
+    bio: contestant.bio,
     media: presentMedia(mediaByContestant.get(contestantId) ?? [], publicBaseUrl),
   };
 }

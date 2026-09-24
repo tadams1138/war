@@ -113,9 +113,9 @@ and values for the fields the War's schema declares.
 
 A bio supports a constrained set of formatting — emphasis, lists, links, and headings —
 entered as plain text and rendered accordingly wherever a bio is shown; nothing else survives
-rendering, so no other markup a bio contains can affect the page around it. It is never shown
-on a vote card (10.3) — a fast binary choice has no room for it — only on the War's detail
-page.
+rendering, so no other markup a bio contains can affect the page around it. It renders on the
+vote page (10.3) as well as the War's detail page, but never inside the tap-to-vote media
+itself — reading it is never one gesture away from accidentally casting a vote.
 
 ### Contestant Schema
 
@@ -724,13 +724,16 @@ an action rather than navigating.
 
 Two contestant cards side by side.
 
-- Cards show image and name **only** — attributes belong on the detail page. Voting is a fast
-  binary choice and extra text slows it down
+- Cards show image and name **only** — attributes belong on the detail page, a fast binary
+  choice has no room for them. A contestant's bio, when it has one, renders in its own area
+  outside the tap-to-vote media (below) — never inside it, so reading it is never one gesture
+  away from a vote
 - Images use the width set the API supplies, sized for two cards sharing the viewport, so a
   phone downloads a small variant rather than a large one
-- Card media is capped to a size that keeps both cards, their names, and the tap targets
-  within one viewport on a typical screen — a card is never so tall that voting requires
-  scrolling first
+- Card media, the two names, and the progress bar are capped to fit one viewport on a typical
+  screen without scrolling — a card is never so tall that voting requires scrolling first. The
+  page opens scrolled to the top of this block, past the persistent header, so it's the first
+  thing a voter sees; the header remains reachable by scrolling back up
 - Space is reserved from the supplied aspect ratio so cards do not shift as images load —
   layout shift under the tap target causes mis-votes
 - The next pair's media is prefetched while the voter decides
@@ -742,6 +745,15 @@ Two contestant cards side by side.
   one. A conflict — reachable only from a stale tab or double submit — advances rather than
   showing an error, because the vote it conflicts with is the voter's own
 - There is no skip or abstain control
+
+**Bios sit outside the tap-to-vote block**, and clicking anywhere in one never casts a vote.
+On a wide viewport, both contestants' bios render side by side below that block, reachable by
+scrolling down past it. On a narrow (stacked) viewport, where the two cards are already
+stacked to keep both visible without scrolling, each contestant's bio instead renders beside
+its own card, in the width the stacked layout leaves spare; a long bio scrolls within its own
+area there rather than growing the card or forcing the page itself to scroll before both
+contestants are visible. Either way, the footer remains reachable by scrolling past everything
+above it.
 
 **Multiple images** are browsable within a card. Horizontal swipe browses; tap votes. **These
 must not be confusable**: a gesture becomes a swipe past a small threshold, and a swipe never
@@ -808,10 +820,14 @@ fall back on and the standard error state applies.
 **The results page carries its own entry points, each conditional.** Its creator sees an
 **Edit** entry point there too, in any status — editing is never status-gated (§6.1) — offered
 a second time from the page a creator is more likely to already be on, alongside the same
-**Delete** affordance the Edit page itself carries (below). Any authenticated voter who has
-joined a published War and not yet cast every vote sees a **Vote** entry point, returning them
-to where they left off. Neither the Edit nor Delete affordance appears for a War that isn't the
-viewer's own; Vote additionally requires the War to be published and not yet fully voted.
+**Delete** affordance the Edit page itself carries (below). A large, centered **Vote** call to
+action, set apart from the ordinary Edit/Delete/Export row rather than one item among them,
+appears for a published War whenever there's a reason to tap it: an anonymous visitor (tapping
+it sends them to sign in and back, the same as Home's own Vote link, §10.4 "Home"), or an
+authenticated voter who hasn't yet cast every vote — returning them to where they left off.
+Neither the Edit nor Delete affordance appears for a War that isn't the viewer's own; Vote
+additionally requires the War to be published, and disappears once an authenticated voter has
+cast every vote.
 
 **Export**, available to a War's creator on both its results page and its edit page regardless
 of status, downloads a personal backup of the War's definition — title, category, visibility,

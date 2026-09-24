@@ -83,8 +83,8 @@ export function buildMatchupResponse(overrides: Partial<NextMatchupResponse> = {
   return {
     matchup: {
       id: 'matchup-1',
-      left: { id: 'contestant-left', name: 'Left Contestant', media: [buildMediaItem({ id: 'left-media-0' })] },
-      right: { id: 'contestant-right', name: 'Right Contestant', media: [buildMediaItem({ id: 'right-media-0' })] },
+      left: { id: 'contestant-left', name: 'Left Contestant', bio: null, media: [buildMediaItem({ id: 'left-media-0' })] },
+      right: { id: 'contestant-right', name: 'Right Contestant', bio: null, media: [buildMediaItem({ id: 'right-media-0' })] },
     },
     progress: { voted: 0, total: 10 },
     ...overrides,

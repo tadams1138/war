@@ -27,6 +27,11 @@ Feature: Voting
     Then exactly one matchup exists for that pair
     And attempting to insert the mirrored pairing violates a constraint
 
+  Scenario: The next-matchup response includes each contestant's bio
+    Given a published War with a contestant whose bio is set
+    When a joined voter requests /matchups/next
+    Then that contestant's bio is present in the response
+
   Scenario: A voter is never served a pair they have voted on
     Given a voter who has voted on matchup M
     When they request /matchups/next repeatedly until 204

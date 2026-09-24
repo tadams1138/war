@@ -960,7 +960,37 @@ test('The results-page action row lays out horizontally, shares consistent butto
   expect(deleteBg).not.toBe(exportBg)
 })
 
-test('An anonymous visitor sees no Vote entry point', async ({ page }) => {
+test('The Vote entry point is a large, centered callout above the action row', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-vote-callout', status: 'published', is_owner: true })
+  const rankings = buildRankingsResponse({ war_id: 'war-vote-callout' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-vote-callout`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-vote-callout/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+
+  // Act
+  await page.goto('/wars/war-vote-callout')
+
+  // Assert — sits above the Export/Edit/Delete action row.
+  const voteBox = await page.getByTestId('war-detail-vote-link').boundingBox()
+  const exportBox = await page.getByTestId('war-detail-export-button').boundingBox()
+  expect(voteBox).not.toBeNull()
+  expect(exportBox).not.toBeNull()
+  expect(voteBox!.y).toBeLessThan(exportBox!.y)
+
+  // Assert — roughly centered within the page.
+  const bodyWidth = await page.evaluate(() => document.body.clientWidth)
+  const voteCenter = voteBox!.x + voteBox!.width / 2
+  expect(Math.abs(voteCenter - bodyWidth / 2)).toBeLessThan(bodyWidth * 0.1)
+
+  // Assert — visually bigger than an ordinary action-row button.
+  const voteFontSize = await page.getByTestId('war-detail-vote-link').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+  const exportFontSize = await page.getByTestId('war-detail-export-button').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+  expect(voteFontSize).toBeGreaterThan(exportFontSize)
+})
+
+test('An anonymous visitor sees a prominent Vote entry point on a published War', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-anon', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-anon' })
@@ -971,6 +1001,35 @@ test('An anonymous visitor sees no Vote entry point', async ({ page }) => {
 
   // Act
   await page.goto('/wars/war-anon')
+
+  // Assert
+  await expect(page.getByTestId('war-detail-vote-link')).toBeVisible()
+})
+
+test('An anonymous visitor tapping Vote on the results page is redirected to sign in', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-anon', status: 'published', is_owner: false })
+  const rankings = buildRankingsResponse({ war_id: 'war-anon' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/war-anon`, responses: [{ status: 200, body: detail }] },
+    { method: 'GET', path: `${API}/wars/war-anon/rankings`, responses: [{ status: 200, body: rankings }] },
+  ])
+  await page.goto('/wars/war-anon')
+
+  // Act
+  await page.getByTestId('war-detail-vote-link').click()
+
+  // Assert
+  await expect(page).toHaveURL(/\/login/)
+})
+
+test('An anonymous visitor sees no Vote entry point on a draft War', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: 'war-anon-draft', status: 'draft', is_owner: false })
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-anon-draft`, responses: [{ status: 200, body: detail }] }])
+
+  // Act
+  await page.goto('/wars/war-anon-draft')
 
   // Assert
   await expect(page.getByTestId('war-detail-vote-link')).toHaveCount(0)
