@@ -17,3 +17,10 @@ Feature: Vote Mode Responsive Layout
     Given an authenticated voter on a War's vote page, viewed at phone width
     When the first matchup has loaded
     Then both contestant cards fit within the viewport without scrolling
+
+  Scenario: A long bio scrolls within its own space instead of pushing the other contestant off screen
+    Given an authenticated voter on a War's vote page, viewed at phone width, where one
+      contestant has a very long bio
+    When the first matchup has loaded
+    Then the long bio scrolls within its own area
+    And the other contestant's card still fits within the viewport
