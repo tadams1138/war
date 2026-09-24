@@ -79,7 +79,6 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
           voterId: request.voterId!,
           name: body.name as string,
           bio: body.bio as string | null | undefined,
-          attributes: body.attributes as Record<string, unknown> | undefined,
         },
         new Date(),
       );
@@ -119,7 +118,6 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
         {
           name: body.name as string | undefined,
           bio: body.bio as string | null | undefined,
-          attributes: body.attributes as Record<string, unknown> | undefined,
         },
         new Date(),
       );

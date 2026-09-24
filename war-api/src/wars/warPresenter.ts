@@ -15,7 +15,6 @@ export interface WarSummaryView {
   visibility: string;
   media_mode: string;
   theme: string;
-  contestant_schema: unknown;
   ends_at: string | null;
   contestant_count: number;
   share_image_url: string | null;
@@ -37,18 +36,6 @@ export const warSummaryProperties = {
   visibility: { type: 'string', enum: ['public', 'invite_only'] },
   media_mode: { type: 'string', enum: ['image'] },
   theme: { type: 'string', enum: [...THEMES] },
-  contestant_schema: {
-    type: 'array',
-    items: {
-      type: 'object',
-      required: ['key', 'label', 'type'],
-      properties: {
-        key: { type: 'string' },
-        label: { type: 'string' },
-        type: { type: 'string', enum: ['string', 'number', 'text', 'url', 'date'] },
-      },
-    },
-  },
   ends_at: { type: ['string', 'null'], format: 'date-time' },
   contestant_count: { type: 'integer', minimum: 0 },
   share_image_url: { type: ['string', 'null'], format: 'uri' },
@@ -62,7 +49,6 @@ const warSummaryRequired = [
   'visibility',
   'media_mode',
   'theme',
-  'contestant_schema',
   'ends_at',
   'contestant_count',
   'share_image_url',
@@ -100,7 +86,6 @@ export function presentWarSummary(war: War, now: Date, contestantCount: number, 
     visibility: war.visibility,
     media_mode: war.mediaMode,
     theme: war.theme,
-    contestant_schema: war.contestantSchema,
     ends_at: war.endsAt ? war.endsAt.toISOString() : null,
     contestant_count: contestantCount,
     share_image_url: war.shareImageKey ? `${publicBaseUrl}/${war.shareImageKey}` : null,

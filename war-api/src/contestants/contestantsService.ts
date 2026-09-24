@@ -9,7 +9,6 @@ import {
   generateMatchupsForNewContestant,
 } from '../matchups/matchupsRepository.js';
 import { deleteVotesForMatchups } from '../votes/votesRepository.js';
-import { validateAttributes, type ContestantSchemaField } from './schemaValidation.js';
 import {
   createContestant,
   deleteContestant,
@@ -25,7 +24,6 @@ export interface CreateContestantInput {
   voterId: string;
   name: string;
   bio?: string | null;
-  attributes?: Record<string, unknown>;
 }
 
 /** A Contestant alongside the War it belongs to, so callers presenting the
@@ -51,25 +49,6 @@ function invalidNameOutcome(name: string | undefined): MutationOutcome<never> | 
   return { kind: 'validationError', errors: NAME_LENGTH_ERROR };
 }
 
-type AttributesResult = { ok: true; attributes: Record<string, unknown> } | { ok: false; errors: string[] };
-
-/** Defaults `attributes` to `{}` and validates it against the War's schema -- addContestant's own step. */
-function resolveAttributes(schema: ContestantSchemaField[], attributes: Record<string, unknown> | undefined): AttributesResult {
-  const resolved = attributes ?? {};
-  const validated = validateAttributes(schema, resolved);
-  return validated.ok ? { ok: true, attributes: resolved } : { ok: false, errors: validated.errors };
-}
-
-/** Validates `attributes` against the War's schema only when the patch actually supplies one. */
-function validateOptionalAttributes(
-  schema: ContestantSchemaField[],
-  attributes: Record<string, unknown> | undefined,
-): { ok: true } | { ok: false; errors: string[] } {
-  if (attributes === undefined) return { ok: true };
-  const validated = validateAttributes(schema, attributes);
-  return validated.ok ? { ok: true } : { ok: false, errors: validated.errors };
-}
-
 /** The contestant, only if it belongs to this War -- `null` covers both "doesn't exist" and "wrong War". */
 async function findContestantInWar(db: Kysely<Database>, warId: string, contestantId: string): Promise<Contestant | null> {
   const contestant = await findContestantById(db, contestantId);
@@ -86,11 +65,6 @@ export async function addContestant(
   if (guard.kind !== 'ok') return guard;
   const { war } = guard;
 
-  const attributesResult = resolveAttributes(war.contestantSchema, input.attributes);
-  if (!attributesResult.ok) {
-    return { kind: 'validationError', errors: attributesResult.errors };
-  }
-
   if (!isValidName(input.name)) {
     return { kind: 'validationError', errors: NAME_LENGTH_ERROR };
   }
@@ -100,7 +74,6 @@ export async function addContestant(
     warId: input.warId,
     name: input.name,
     bio: input.bio ?? null,
-    attributes: attributesResult.attributes,
   });
   // Matchups generate incrementally: this new contestant is paired against
   // every contestant already on the roster, not recomputed for the whole
@@ -117,7 +90,6 @@ export async function addContestant(
 export interface PatchContestantInput {
   name?: string;
   bio?: string | null;
-  attributes?: Record<string, unknown>;
 }
 
 export async function patchContestant(
@@ -135,18 +107,12 @@ export async function patchContestant(
   const contestant = await findContestantInWar(db, warId, contestantId);
   if (!contestant) return { kind: 'notFound' };
 
-  const attributesResult = validateOptionalAttributes(war.contestantSchema, input.attributes);
-  if (!attributesResult.ok) {
-    return { kind: 'validationError', errors: attributesResult.errors };
-  }
-
   const nameError = invalidNameOutcome(input.name);
   if (nameError) return nameError;
 
   const updated = await updateContestant(db, contestantId, {
     name: input.name,
     bio: input.bio,
-    attributes: input.attributes,
   });
   return { kind: 'ok', value: { contestant: updated, war } };
 }

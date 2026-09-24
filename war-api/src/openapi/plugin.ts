@@ -30,8 +30,8 @@ export async function registerOpenApiPlugin(app: FastifyInstance, apiPrefix: str
     },
     // @fastify/swagger otherwise names components.schemas entries
     // positionally ("def-0", "def-1", ...) by registration order, ignoring
-    // each schema's own `$id` -- so the shared MediaItem/ResolvedAttribute/
-    // WarSummary/ContestantDetail schemas (registerSharedSchemas,
+    // each schema's own `$id` -- so the shared MediaItem/WarSummary/
+    // ContestantDetail schemas (registerSharedSchemas,
     // src/openapi/schemas.ts) would publish as unnameable, order-dependent
     // keys. Preferring `$id` keeps the published component names stable and
     // meaningful; falls back to the positional name for any schema with no

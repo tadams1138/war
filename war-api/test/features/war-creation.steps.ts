@@ -275,4 +275,36 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(response.status).toBe(201);
     });
   });
+
+  Scenario('contestant_schema and attributes are no longer recognized fields', ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let warResponse: request.Response;
+    let contestantResponse: request.Response;
+
+    Given('an authenticated voter', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+    });
+
+    When('they create a War with a contestant_schema and add a contestant with attributes', async () => {
+      warResponse = await authedPost(creatorId, '/api/v1/wars', {
+        title: 'Miss Universe 2026',
+        contestant_schema: [{ key: 'country', label: 'Country', type: 'string' }],
+      });
+      contestantResponse = await authedPost(creatorId, `/api/v1/wars/${warResponse.body.id}/contestants`, {
+        name: 'Maria',
+        attributes: { country: 'Brazil' },
+      });
+    });
+
+    Then('the created War has no contestant_schema field', () => {
+      expect(warResponse.status).toBe(201);
+      expect(warResponse.body).not.toHaveProperty('contestant_schema');
+    });
+
+    And('the created contestant has no attributes field', () => {
+      expect(contestantResponse.status).toBe(201);
+      expect(contestantResponse.body).not.toHaveProperty('attributes');
+    });
+  });
 });

@@ -1,6 +1,5 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
-import { validateSchemaDefinition, type ContestantSchemaField } from '../contestants/schemaValidation.js';
 import { listContestantsByWar, recomputeContestantCounters } from '../contestants/contestantsRepository.js';
 import { validateImageUpload } from '../contestants/imageProcessing.js';
 import type { ObjectStorage } from '../contestants/storage.js';
@@ -30,7 +29,6 @@ export interface CreateWarInput {
   visibility?: string;
   mediaMode?: string;
   theme?: string;
-  contestantSchema?: unknown;
   endsAt?: string | null;
 }
 
@@ -83,12 +81,6 @@ function resolveCreateDefaults(input: CreateWarInput): { mediaMode: string; visi
   };
 }
 
-function resolveContestantSchema(raw: unknown): { value: ContestantSchemaField[]; errors: string[] } {
-  if (raw === undefined) return { value: [], errors: [] };
-  const validated = validateSchemaDefinition(raw);
-  return validated.ok ? { value: validated.value, errors: [] } : { value: [], errors: validated.errors };
-}
-
 function resolveEndsAt(raw: string | null | undefined): { value: Date | null; error: string | null } {
   if (!raw) return { value: null, error: null };
   const parsed = new Date(raw);
@@ -99,7 +91,6 @@ function resolveEndsAt(raw: string | null | undefined): { value: Date | null; er
 function buildCreateWarRecord(
   input: CreateWarInput,
   defaults: { mediaMode: string; visibility: string; theme: string },
-  contestantSchema: ContestantSchemaField[],
   endsAt: Date | null,
 ) {
   return {
@@ -109,14 +100,12 @@ function buildCreateWarRecord(
     visibility: defaults.visibility,
     mediaMode: defaults.mediaMode,
     theme: defaults.theme,
-    contestantSchema,
     endsAt,
   };
 }
 
 export async function createWarForVoter(db: Kysely<Database>, input: CreateWarInput): Promise<CreateWarOutcome> {
   const defaults = resolveCreateDefaults(input);
-  const schema = resolveContestantSchema(input.contestantSchema);
   const endsAt = resolveEndsAt(input.endsAt);
 
   const errors = collectErrors(
@@ -124,14 +113,13 @@ export async function createWarForVoter(db: Kysely<Database>, input: CreateWarIn
     mediaModeError(defaults.mediaMode),
     visibilityError(defaults.visibility),
     themeError(defaults.theme),
-    schema.errors,
     endsAt.error,
   );
   if (errors.length > 0) {
     return { kind: 'validationError', errors };
   }
 
-  const war = await createWar(db, buildCreateWarRecord(input, defaults, schema.value, endsAt.value));
+  const war = await createWar(db, buildCreateWarRecord(input, defaults, endsAt.value));
   return { kind: 'created', war };
 }
 
@@ -147,7 +135,6 @@ export interface PatchWarInput {
   category?: string | null;
   visibility?: string;
   theme?: string;
-  contestantSchema?: unknown;
   endsAt?: string | null;
 }
 
@@ -169,12 +156,6 @@ function resolvePatchTheme(theme: string | undefined): { value?: string; error: 
   return error ? { error } : { value: theme, error: null };
 }
 
-function resolvePatchContestantSchema(raw: unknown): { value?: ContestantSchemaField[]; errors: string[] } {
-  if (raw === undefined) return { errors: [] };
-  const validated = validateSchemaDefinition(raw);
-  return validated.ok ? { value: validated.value, errors: [] } : { errors: validated.errors };
-}
-
 function resolvePatchEndsAt(raw: string | null | undefined): { value?: Date | null; error: string | null } {
   if (raw === undefined) return { error: null };
   if (raw === null) return { value: null, error: null };
@@ -182,21 +163,6 @@ function resolvePatchEndsAt(raw: string | null | undefined): { value?: Date | nu
   return Number.isNaN(parsed.getTime())
     ? { error: 'ends_at must be a valid date-time' }
     : { value: parsed, error: null };
-}
-
-/**
- * The one field on War-patch still gated on status (spec §4 "Contestant
- * Schema": "Editable: Draft only") -- every other field is always editable
- * by the creator (spec §6.1). `undefined` when the patch doesn't touch the
- * schema at all, so an unrelated patch on a published War is never blocked
- * by this check.
- */
-function contestantSchemaStatusError(raw: unknown, war: War, now: Date): string | null {
-  if (raw === undefined) return null;
-  if (effectiveStatus(war, now) !== 'draft') {
-    return 'contestant schema can only be changed while the War is a draft';
-  }
-  return null;
 }
 
 export async function patchWar(
@@ -208,16 +174,13 @@ export async function patchWar(
 ): Promise<MutationOutcome<War>> {
   const guard = await loadOwnedWar(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
-  const { war } = guard;
 
   const title = resolvePatchTitle(input.title);
   const visibility = resolvePatchVisibility(input.visibility);
   const theme = resolvePatchTheme(input.theme);
-  const schema = resolvePatchContestantSchema(input.contestantSchema);
   const endsAt = resolvePatchEndsAt(input.endsAt);
-  const schemaStatusError = contestantSchemaStatusError(input.contestantSchema, war, now);
 
-  const errors = collectErrors(title.error, visibility.error, theme.error, schema.errors, endsAt.error, schemaStatusError);
+  const errors = collectErrors(title.error, visibility.error, theme.error, endsAt.error);
   if (errors.length > 0) {
     return { kind: 'validationError', errors };
   }
@@ -227,7 +190,6 @@ export async function patchWar(
     category: input.category,
     visibility: visibility.value,
     theme: theme.value,
-    contestantSchema: schema.value,
     endsAt: endsAt.value,
   };
 

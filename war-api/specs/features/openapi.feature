@@ -90,7 +90,7 @@ Feature: OpenAPI Contract
 
   Scenario: The add-contestant endpoint's response schema declares the contestant shape
     When a client fetches the OpenAPI document
-    Then the POST /api/v1/wars/{id}/contestants 201 response schema requires "id", "name", "media", and "attributes"
+    Then the POST /api/v1/wars/{id}/contestants 201 response schema requires "id", "name", "bio", and "media"
 
   Scenario: The image upload endpoint's response schema declares the stored media
     When a client fetches the OpenAPI document
