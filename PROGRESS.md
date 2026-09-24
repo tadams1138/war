@@ -21,8 +21,8 @@ Staging and production both run as a single application per environment containi
 - **Auth** — Google, Microsoft, Facebook, and Twitter/X. Apple returns not-found (see *To
   revisit*). All callback failure responses implemented. Sessions are a JWT plus a rotating
   refresh-token family with reuse detection, PKCE-protected on every provider.
-- **Domain** — Wars, contestants, contestant schema, matchups, voting, rankings, and the
-  internal close-expired-wars endpoint.
+- **Domain** — Wars, contestants, matchups, voting, rankings, and the internal
+  close-expired-wars endpoint.
 - **War listing** — the caller's-own-Wars filter, and default visibility scoping applied in
   the data-access layer so every caller inherits it.
 - **Visual theme** — each War carries a creator-chosen theme (`arcade`/`fight_card`/
@@ -36,9 +36,9 @@ Staging and production both run as a single application per environment containi
   `POST /wars/:id/publish` and `/unpublish`) the two directions of one reversible toggle —
   `closed` remains the sole terminal state, reachable only by end-date expiry, and rejects
   both directions. Publishing still requires only "at least 2 contestants," no per-contestant
-  image check. Every War-owning mutation (metadata PATCH except `contestant_schema`, which
-  stays draft-only; contestant add/patch/remove; contestant image add/reorder/remove; share
-  image) now uses ownership-only guards (`loadOwnedWar`, `warAccess.ts`) instead of
+  image check. Every War-owning mutation (metadata PATCH; contestant add/patch/remove;
+  contestant image add/reorder/remove; share image) now uses ownership-only guards
+  (`loadOwnedWar`, `warAccess.ts`) instead of
   draft-only ones — a creator can edit a War in any status. Matchups generate incrementally
   per contestant as it's added (`generateMatchupsForNewContestant`,
   `matchups/matchupsRepository.ts`) rather than as one batch at publish time, and are removed
@@ -82,6 +82,14 @@ Staging and production both run as a single application per environment containi
   `MatchupContestantView`/`matchupContestantViewSchema` (`contestants/contestantPresenter.ts`)
   is used instead of the shared `ContestantView` `/rankings` also uses — that one stays
   `{id, name, media}`, since rankings has no use for bio and the two call sites' needs diverged.
+- **Contestant custom-attribute schema removed** (backlog item 3). War-level
+  `contestant_schema` and per-contestant `attributes` are gone: dropped by migration
+  (`20260110000000_drop_contestant_schema_and_attributes.sql`), out of the DB types,
+  repositories, services, presenters, and routes on both War and Contestant, along with the
+  dedicated `schemaValidation.ts` module and the draft-only status gate that only applied to
+  this one field. A request body still containing either field is silently ignored, not
+  rejected. Bio (markdown) is now the only per-contestant free text — see the matching
+  war-ui-default entry below for the client-side half of this removal.
 
 ### Not built
 
@@ -123,8 +131,8 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 - **Editing a War, in any status.** `PATCH /wars/:id`, `PATCH /wars/:id/contestants/:cId`,
   and `DELETE /wars/:id/contestants/:cId` (creator-only server-side, never status-gated) have
   a UI route, `/wars/:id/edit`, reachable from any of a creator's own My Wars cards. Covers
-  title/category/visibility/end date (contestant schema stays draft-only), and each
-  contestant's name, bio, image gallery (add, remove, reorder, up to the ten-image cap), and
+  title/category/visibility/end date, and each contestant's name, bio, image gallery
+  (add, remove, reorder, up to the ten-image cap), and
   removal. Removing a contestant that carries votes asks for confirmation first, naming how
   many votes will be lost, then clears just that contestant's own votes as part of removing
   it (`RemoveContestantConfirmDialog`, `EditWar.tsx`).
@@ -186,9 +194,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   renders a single rank-ordered `<ol data-testid="rankings-list">` of
   `<li data-testid="ranking-row">` cards — rank is an ordering, not a column value, so a
   list gives each entry native "item N of M" semantics. Row order and identity come from
-  `GET /wars/:id/rankings` (never re-sorted, per spec); bio/attributes are joined in from
+  `GET /wars/:id/rankings` (never re-sorted, per spec); bio is joined in from
   `GET /wars/:id`'s `contestants` by id (absent when the two responses' ids don't line up
-  yet). Each row carries image, name, bio, and attributes together with wins/appearances and
+  yet). Each row carries image, name, and bio together with wins/appearances and
   a win-share bar (`.win-bar-track`/`.win-bar-fill`, themed like `.progress-fill`) sized to
   raw wins over the row's highest win count — never wins over appearances, the
   appearance-normalized percentage §7 rejects as a display value. Each row's media is an
@@ -248,9 +256,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   `Footer.tsx`'s own link label still reads "guide for AI implementers," left unchanged, and
   now describes the doc's purpose inaccurately.
 - **War export.** `src/export/exportWar.ts`'s `buildWarExportZip` builds a zip (via `fflate`)
-  containing `war.json` (title, category, visibility, theme, `contestant_schema`, `ends_at`,
-  and each contestant's name/bio/attributes — no votes, no `win_count`/`appearance_count`)
-  plus each contestant's largest-width media variant under
+  containing `war.json` (title, category, visibility, theme, `ends_at`, and each contestant's
+  name/bio — no votes, no `win_count`/`appearance_count`) plus each contestant's largest-width
+  media variant under
   `media/<contestantId>/<mediaId>.<ext>`, referenced by that path in the JSON. Built entirely
   client-side from the War detail already on the page (no backend endpoint); triggers a
   browser download named `war-<id>.zip` via a temporary `<a download>` (`downloadFile.ts`).
@@ -261,9 +269,8 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   every contestant's referenced media path actually in the zip — before anything is sent to
   the server; a malformed file is rejected with one message and creates nothing.
   `importWar.ts` recreates the War through the same endpoints EditWar's own UI uses:
-  `POST /wars` (accepts `contestant_schema`), then each contestant via
-  `POST /wars/:id/contestants` (accepts `attributes`), then each contestant's images,
-  sequentially. On full success the creator lands on the new draft's Edit page; if the War
+  `POST /wars`, then each contestant via `POST /wars/:id/contestants`, then each contestant's
+  images, sequentially. On full success the creator lands on the new draft's Edit page; if the War
   was created but a contestant or image failed, the partial draft is left in place with its
   error shown, findable via My Wars like any other draft. No dedicated backend endpoint —
   same client-side-orchestration approach export uses.
@@ -323,6 +330,12 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   to sign in and back, the same pattern Home's own Vote link already used. Still hidden for an
   authenticated voter who's already cast every vote, and for anyone on a War that isn't
   published.
+- **Contestant custom-attribute schema removed** (backlog item 3, client-side half; see the
+  matching war-api entry above). `ContestantAttributes.tsx` and its use in `ResultsTable` are
+  gone — a results row now shows only bio, no attributes list. `contestant_schema`/
+  `attributes` are also gone from `client.ts`'s payload types, `exportWar.ts`'s export shape,
+  and `validateWarImport.ts`/`importWar.ts`/`useWarImport.ts`'s import path. The generated
+  `src/api/generated/schema.d.ts` was regenerated against war-api's updated contract.
 
 ### Not built
 
@@ -407,7 +420,7 @@ this would reverse.
 
 ## Backlog
 
-Requested 2026-09-24, to work through one at a time. Nothing here has been started.
+Requested 2026-09-24, to work through one at a time.
 
 1. **Narrow-viewport vote page: make each bio independently scrollable.** Right now a long
    bio pushes the second contestant's card far down the screen instead of scrolling within
@@ -417,11 +430,9 @@ Requested 2026-09-24, to work through one at a time. Nothing here has been start
    sortable by newest, oldest, expiring soonest, and alphabetical; a type-ahead filter bar
    matching anywhere in the title or creator's name; each card gains the creator's name and
    end date (when set).
-3. **Remove the contestant custom-attribute schema entirely.** War-level `contestant_schema`
-   and per-contestant custom attribute values — unused, cut for complexity, not deprecated in
-   place. Bio (markdown) is the only per-contestant free text going forward. Touches the DB
-   schema, war-api, war-ui-default's contestant forms/detail rendering, and war-spec.md
-   (which currently documents this as a real feature).
+3. ~~Remove the contestant custom-attribute schema entirely.~~ **Done** — see the
+   "Contestant custom-attribute schema removed" entries under war-api and war-ui-default
+   above, and `war-spec.md`'s §4 (no longer documents it).
 4. **Drop the category from the results page's meta description.** Currently something like
    "Movies — vote now on War"; just "Vote now!".
 5. **Spec an admin dashboard.** See "Designed but not specified" above for prior discussion
@@ -435,5 +446,5 @@ Requested 2026-09-24, to work through one at a time. Nothing here has been start
 6. **Home page: remove the "Login to vote" link and the redundant "War" heading above it** —
    the logo and title in the header already say that.
 7. **Export/import should carry the share image.** Currently only title/category/visibility/
-   theme/contestant schema/contestant fields round-trip; the share image does not. Update
+   theme/contestant fields round-trip; the share image does not. Update
    `docs/building-a-war-import.md` to match once this ships.
