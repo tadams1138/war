@@ -21,7 +21,6 @@ export type VoterMe = paths['/auth/me']['get']['responses'][200]['content']['app
 export type WarSummary = components['schemas']['WarSummary']
 export type ContestantDetail = components['schemas']['ContestantDetail']
 export type MediaItem = components['schemas']['MediaItem']
-export type ResolvedAttribute = components['schemas']['ResolvedAttribute']
 type VoteForbiddenBody =
   paths['/wars/{id}/matchups/{mId}/vote']['post']['responses'][403]['content']['application/json']
 // war-api's Fastify routes validate CreateWar-slice request bodies by hand,
@@ -36,18 +35,10 @@ export interface CreateWarPayload {
   visibility?: 'public' | 'invite_only'
   theme?: 'arcade' | 'fight_card' | 'scrapbook'
   ends_at?: string | null
-  // Accepted by POST /wars (hand-validated, like the rest of this payload)
-  // even though it wasn't needed until War import (spec §10.4) started
-  // recreating a War's schema at creation instead of via a follow-up PATCH.
-  contestant_schema?: PatchWarPayload['contestant_schema']
 }
 export interface AddContestantPayload {
   name: string
   bio?: string | null
-  // Accepted by POST /wars/:id/contestants (hand-validated) even though no
-  // caller needed it before War import (spec §10.4), which recreates each
-  // contestant's attributes at creation instead of via a follow-up PATCH.
-  attributes?: Record<string, unknown>
 }
 // GET /wars/:id/my-progress carries no documented response schema either
 // (war-api registers the route with no `schema.response`) -- hand-written

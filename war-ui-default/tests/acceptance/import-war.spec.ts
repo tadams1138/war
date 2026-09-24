@@ -12,13 +12,11 @@ function validWarJson(): string {
     category: 'Pageant',
     visibility: 'public',
     theme: 'arcade',
-    contestant_schema: [],
     ends_at: null,
     contestants: [
       {
         name: 'Ada',
         bio: 'A brilliant mathematician.',
-        attributes: [],
         media: [{ display_order: 0, aspect_ratio: 0.75, path: 'media/c-1/m-1.jpg' }],
       },
     ],

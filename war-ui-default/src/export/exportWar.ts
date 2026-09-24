@@ -18,7 +18,6 @@ interface ExportedMedia {
 interface ExportedContestant {
   name: string
   bio: string | null
-  attributes: ContestantDetail['attributes']
   media: ExportedMedia[]
 }
 
@@ -27,7 +26,6 @@ interface WarExport {
   category: string | null
   visibility: string
   theme: string
-  contestant_schema: unknown
   ends_at: string | null
   contestants: ExportedContestant[]
 }
@@ -62,7 +60,7 @@ export async function buildWarExportZip(war: WarDetailResponse, fetchBinary: Fet
 
   for (const contestant of war.contestants) {
     const media = await exportContestantMedia(contestant, fetchBinary, files)
-    contestants.push({ name: contestant.name, bio: contestant.bio, attributes: contestant.attributes, media })
+    contestants.push({ name: contestant.name, bio: contestant.bio, media })
   }
 
   const warExport: WarExport = {
@@ -70,7 +68,6 @@ export async function buildWarExportZip(war: WarDetailResponse, fetchBinary: Fet
     category: war.category,
     visibility: war.visibility,
     theme: war.theme,
-    contestant_schema: war.contestant_schema,
     ends_at: war.ends_at,
     contestants,
   }

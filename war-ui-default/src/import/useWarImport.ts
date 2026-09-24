@@ -1,11 +1,5 @@
 import { useState } from 'react'
-import {
-  addContestant,
-  createWar,
-  uploadContestantImages,
-  type CreateWarPayload,
-  type ResolvedAttribute,
-} from '../api/client'
+import { addContestant, createWar, uploadContestantImages, type CreateWarPayload } from '../api/client'
 import { importWar, type ImportApi } from './importWar'
 import { validateWarImport } from './validateWarImport'
 
@@ -14,19 +8,8 @@ export interface WarImportState {
   importing: boolean
 }
 
-// The exported shape carries each contestant's attributes already resolved
-// (ResolvedAttribute[]: {key, label, type, value}) -- recreating a
-// contestant needs them back as the {key: value} map addContestant expects.
-function toAttributesRecord(attributes: unknown[]): Record<string, unknown> {
-  const record: Record<string, unknown> = {}
-  for (const attribute of attributes as ResolvedAttribute[]) {
-    record[attribute.key] = attribute.value
-  }
-  return record
-}
-
-// The exported metadata's `visibility`/`theme`/`contestant_schema` are only
-// structurally validated (spec §10.4: shape and completeness, not deep enum
+// The exported metadata's `visibility`/`theme` are only structurally
+// validated (spec §10.4: shape and completeness, not deep enum
 // membership) -- an invalid value here surfaces as an ordinary 422 from the
 // real `createWar` call below, handled the same as any other createWar
 // failure (importWar.ts's own createWar error path).
@@ -37,14 +20,12 @@ function toCreateWarPayload(metadata: Parameters<ImportApi['createWar']>[0]): Cr
     visibility: metadata.visibility as CreateWarPayload['visibility'],
     theme: metadata.theme as CreateWarPayload['theme'],
     ends_at: metadata.ends_at,
-    contestant_schema: metadata.contestant_schema as CreateWarPayload['contestant_schema'],
   }
 }
 
 const realImportApi: ImportApi = {
   createWar: (payload) => createWar(toCreateWarPayload(payload)),
-  addContestant: (warId, payload) =>
-    addContestant(warId, { name: payload.name, bio: payload.bio, attributes: toAttributesRecord(payload.attributes) }),
+  addContestant: (warId, payload) => addContestant(warId, { name: payload.name, bio: payload.bio }),
   uploadImage: async (warId, contestantId, file) => {
     await uploadContestantImages(warId, contestantId, [file])
   },

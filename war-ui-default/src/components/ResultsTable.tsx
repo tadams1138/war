@@ -1,9 +1,9 @@
 // The merged War detail results list (war-spec.md §10.1, §10.4): one entry
 // per contestant, ordered exactly as the rankings API returns it (never
-// re-sorted), each carrying that contestant's browsable media, name, bio,
-// and declared attributes alongside its rank/wins/appearances. One list
-// merging a contestant gallery (GET /wars/:id) and a leaderboard
-// (GET /wars/:id/rankings), rather than two separate sections.
+// re-sorted), each carrying that contestant's browsable media, name, and
+// bio alongside its rank/wins/appearances. One list merging a contestant
+// gallery (GET /wars/:id) and a leaderboard (GET /wars/:id/rankings),
+// rather than two separate sections.
 //
 // An <ol>, not a <table>: rank is an ordering, not a column value, so a
 // list gives every entry "item N of M" semantics for free, which neither a
@@ -16,15 +16,14 @@
 // full-bleed.
 import type { ContestantDetail, RankingsResponse } from '../api/client'
 import { BioContent } from '../bio/BioContent'
-import { ContestantAttributes } from './ContestantAttributes'
 import { ImageCarousel } from './ImageCarousel'
 
 type RankingEntry = RankingsResponse['rankings'][number]
 
 interface ResultsTableProps {
   rankings: RankingEntry[]
-  // Bio and attributes live only in the War-detail response, not the
-  // rankings one — joined in here by contestant id.
+  // Bio lives only in the War-detail response, not the rankings one —
+  // joined in here by contestant id.
   contestants: ContestantDetail[]
 }
 
@@ -79,7 +78,6 @@ function ResultCard({
       <div className="ranking-content">
         <span className="results-name">{entry.contestant.name}</span>
         {detail && <BioContent bio={detail.bio} />}
-        {detail && <ContestantAttributes attributes={detail.attributes} />}
       </div>
       <div className="ranking-stats">
         <div className="ranking-stat">

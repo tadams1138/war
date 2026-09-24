@@ -12,7 +12,7 @@ async function mockVotePage(page: import('@playwright/test').Page, matchupOverri
   await useScenario(page, [
     { method: 'POST', path: `${API}/wars/war-1/join`, responses: [{ status: 204 }] },
     { method: 'GET', path: `${API}/wars/war-1/matchups/next`, responses: [{ status: 200, body: matchup }] },
-    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: { id: 'war-1', title: 'Miss Universe 2026', category: null, status: 'published', visibility: 'public', media_mode: 'image', theme: 'arcade', contestant_schema: [], ends_at: null, contestant_count: 2, contestants: [] } }] },
+    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: { id: 'war-1', title: 'Miss Universe 2026', category: null, status: 'published', visibility: 'public', media_mode: 'image', theme: 'arcade', ends_at: null, contestant_count: 2, contestants: [] } }] },
   ])
 }
 
