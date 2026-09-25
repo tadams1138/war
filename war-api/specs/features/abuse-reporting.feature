@@ -1,0 +1,30 @@
+Feature: Abuse reporting
+
+  Scenario: Any authenticated Voter can report a War
+    Given an authenticated Voter and a War created by someone else
+    When they POST an explanation to that War's reports
+    Then the response status is 201
+    And the response carries the explanation and the reporter's id
+    And the report's addressed state is false
+
+  Scenario: A Voter may report the same War more than once
+    Given an authenticated Voter and a War
+    When they POST two different explanations to that War's reports
+    Then both requests succeed
+    And two separate reports exist against that War
+
+  Scenario: An empty explanation is rejected
+    Given an authenticated Voter and a War
+    When they POST an empty-string explanation to that War's reports
+    Then the response status is 422
+    And no report is created
+
+  Scenario: Reporting a nonexistent War 404s
+    Given an authenticated Voter
+    When they POST an explanation to a nonexistent War's reports
+    Then the response status is 404
+
+  Scenario: An unauthenticated request cannot file a report
+    Given a request with no Authorization header
+    When they POST an explanation to a War's reports
+    Then the response status is 401
