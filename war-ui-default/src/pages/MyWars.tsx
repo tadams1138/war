@@ -32,7 +32,7 @@ function MyWarsList({ wars, listPage }: { wars: WarSummary[]; listPage: UseWarLi
       <div data-testid="empty-state">
         <p>You haven&rsquo;t created any Wars yet.</p>
         <Link to="/wars/new" data-testid="my-wars-create-war-cta">
-          Create a War
+          Start a War
         </Link>
         <Link to="/wars/import" data-testid="my-wars-import-war-cta">
           Import a War

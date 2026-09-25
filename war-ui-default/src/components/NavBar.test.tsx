@@ -1,6 +1,6 @@
 // The spec's "NavBar" behaviour — the failure-path half of the
 // Identity bullet the acceptance suite cannot honestly cover: "NavBar
-// still renders full authenticated navigation — My Wars, Create War,
+// still renders full authenticated navigation — My Wars, Start a War,
 // and logout all remain" even when GET /auth/me fails. NavBar has real
 // branching (AuthenticatedNavLinks vs the anonymous link), so this is not
 // the "component that only renders API data" case CLAUDE.md excludes from
@@ -44,7 +44,7 @@ describe('NavBar', () => {
     vi.mocked(client.getMe).mockReset()
   })
 
-  it('still renders My Wars, Create War and Log out when GET /auth/me fails', async () => {
+  it('still renders My Wars, Start a War and Log out when GET /auth/me fails', async () => {
     // Arrange
     vi.mocked(client.getMe).mockRejectedValue(new Error('server error'))
     const user = userEvent.setup()
@@ -56,7 +56,7 @@ describe('NavBar', () => {
 
     // Assert — the identity slot falls back, but the menu is unaffected.
     expect(screen.getByRole('menuitem', { name: 'My Wars' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Create War' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Start a War' })).toBeInTheDocument()
     expect(screen.getByTestId('nav-logout')).toBeInTheDocument()
   })
 
