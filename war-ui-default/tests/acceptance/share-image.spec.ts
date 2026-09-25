@@ -112,7 +112,7 @@ test('Generate is disabled with an explanation when fewer than two contestants h
 test('A War card shows its share image when the War has one', async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-with-image', title: 'Has Image', status: 'draft', share_image_url: 'https://cdn.example.test/share.jpg' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
 
@@ -127,7 +127,7 @@ test('A War card shows its share image when the War has one', async ({ page }) =
 test('A War card shows no image slot when the War has none', async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-no-image', title: 'No Image', status: 'draft', share_image_url: null })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
 

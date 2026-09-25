@@ -1,39 +1,54 @@
 // Browse published public Wars (war-spec.md §10.4).
 import { Link } from 'react-router-dom'
-import { getWars, type WarSummary } from '../api/client'
+import type { WarSummary } from '../api/client'
 import { useAuth } from '../auth/context'
 import { WarCard } from '../components/WarCard'
-import { useAsyncResource } from '../hooks/useAsyncResource'
+import { WarListControls, WarListPagination } from '../components/WarListControls'
+import { useWarListPage, type UseWarListPageResult } from '../hooks/useWarListPage'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
 export function Home() {
   const { isAuthenticated } = useAuth()
-  const state = useAsyncResource(() => getWars(), [])
+  const listPage = useWarListPage()
   const [theme, setTheme] = useTheme('home', 'arcade')
   usePublishTheme('home', theme, setTheme)
 
   return (
     <main data-theme={theme}>
-      {state.status === 'loading' && <p>Loading…</p>}
-      {state.status === 'error' && <p role="alert">{state.message}</p>}
-      {state.status === 'loaded' && <HomeWarList wars={state.value.wars} isAuthenticated={isAuthenticated} />}
+      <WarListControls listPage={listPage} />
+      {listPage.state.status === 'loading' && <p>Loading…</p>}
+      {listPage.state.status === 'error' && <p role="alert">{listPage.state.message}</p>}
+      {listPage.state.status === 'loaded' && (
+        <HomeWarList wars={listPage.state.wars} isAuthenticated={isAuthenticated} listPage={listPage} />
+      )}
     </main>
   )
 }
 
-function HomeWarList({ wars, isAuthenticated }: { wars: WarSummary[]; isAuthenticated: boolean }) {
+function HomeWarList({
+  wars,
+  isAuthenticated,
+  listPage,
+}: {
+  wars: WarSummary[]
+  isAuthenticated: boolean
+  listPage: UseWarListPageResult
+}) {
   if (wars.length === 0) {
     return <HomeEmptyState isAuthenticated={isAuthenticated} />
   }
   return (
-    <ul className="war-grid">
-      {wars.map((war) => (
-        <li key={war.id}>
-          <WarCard war={war} variant="home" />
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="war-grid">
+        {wars.map((war) => (
+          <li key={war.id}>
+            <WarCard war={war} variant="home" />
+          </li>
+        ))}
+      </ul>
+      <WarListPagination listPage={listPage} />
+    </>
   )
 }
 
