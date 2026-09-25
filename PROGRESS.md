@@ -111,6 +111,10 @@ Staging and production both run as a single application per environment containi
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
+- **Administration** (`war-spec.md` §3, §6.7, §10.1/§10.4, §12.9; specified as backlog item
+  5). Spec only — no Administrator flag on `voters`, no Remove/Suspend/Ban/kill-switch
+  endpoints, no moderation-log table, no bootstrap script, and no Admin Dashboard page exist
+  yet.
 
 ---
 
@@ -454,21 +458,6 @@ correct and non-obvious.
 
 ---
 
-## Designed but not specified
-
-**Platform moderation.** Agreed in discussion, never written into the spec: an administrator
-role grantable to several people, per-voter suspension from creating Wars, a global
-creation kill switch, soft-deleting a War while hard-deleting its media, and an append-only
-log of moderation actions.
-
-Two things that shaped the design and are worth keeping: the foreign keys have no cascade
-rules, so deleting a War needs an explicit ordered teardown; and one uploaded image becomes
-several stored objects across two prefixes, so a naive prefix sweep leaves the full-resolution
-originals behind.
-
-`war-spec.md` section 2 still lists "Admin moderation dashboard" as a non-goal, which
-this would reverse.
-
 ## Backlog
 
 Requested 2026-09-24, to work through one at a time.
@@ -484,14 +473,13 @@ Requested 2026-09-24, to work through one at a time.
    above, and `war-spec.md`'s §4 (no longer documents it).
 4. ~~Drop the category from the results page's meta description.~~ **Done** — see the
    war-infra "Link-preview tags" entry above.
-5. **Spec an admin dashboard.** See "Designed but not specified" above for prior discussion
-   (admin role, per-voter suspension, creation kill switch, soft/hard-delete split, append-only
-   moderation log) — this backlog item is to actually turn that into a written spec. New here:
-   view every War regardless of status; delete any War regardless of ownership; view every
-   voter and their full vote history; ban/block a voter, deleting their Wars and votes; grant
-   or revoke admin rights on other logged-in users. Open question to resolve while specifying:
-   how the first admin (the user) gets that role on a fresh deployment — a seed script, an
-   env-var-designated voter id promoted on first login, or something else.
+5. ~~Spec an admin dashboard.~~ **Done** — see `war-spec.md` §3 (the Administrator role),
+   §6.7 (Administration: visibility, Remove a War, Suspend/Ban, the kill switch, the
+   moderation log), §10.1/§10.4 (the Admin Dashboard route and page), and §12.9 (the manual
+   bootstrap script). The open bootstrap question is resolved: a manual script, run by hand
+   against the database, once per environment, promoting an already-signed-in Voter — never
+   self-service, never the pipeline. `war-spec.md` §2 no longer lists this as a non-goal. Not
+   yet built — see war-api's "Not built" above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.
 7. ~~Export/import should carry the share image.~~ **Done** — see "Export/import carries the

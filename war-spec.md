@@ -35,7 +35,6 @@ to it.
 - One API layer serving web and future mobile clients identically
 - Multiple OAuth providers, each producing a unique, non-mergeable voter identity
 - Campaigns configurable with image-rich or short-video contestants
-- Per-campaign contestant fields, so a pageant and a primary are served by the same code
 - Binary matchups served one at a time, with choices persisted in full
 - A win-count leaderboard readable by anonymous and authenticated users alike
 - A tamper-evident vote audit trail
@@ -45,7 +44,6 @@ to it.
 - Real-time leaderboard streaming — polled refresh only
 - Push notifications
 - War creator moderation tools (removing voters, resetting votes)
-- Admin moderation dashboard
 - Vote tamper-detection analytics — the data is collected; the tooling is future work
 - Paid or promoted Wars
 - Weighted votes; all voters are equal
@@ -65,9 +63,11 @@ to it.
 | **Anonymous Visitor** | Browse and view rankings of public Wars; cannot vote |
 | **Voter** | Authenticated; may join Wars, cast votes, view rankings |
 | **War Creator** | A Voter who created a specific War; manages it through its lifecycle |
+| **Administrator** | A Voter granted platform-wide moderation rights (§6.7); zero or more may exist at once |
 
 "War Creator" is a relationship to a particular War, not an account type. A Voter becomes
-one by creating a War.
+one by creating a War. "Administrator" is likewise a right granted to an existing Voter
+account, not a separate kind of identity — the same OAuth sign-in works either way.
 
 A Voter may act through any client interchangeably — the default UI or a custom UI. Each is
 a different route to the same identity, and the API is the sole authority over what that
@@ -420,6 +420,60 @@ The only such task closes Wars whose end date has passed. It is idempotent — s
 repeatedly, concurrently, and after arbitrary delay — and changes no observable behaviour,
 because effective status (§4) already treats those Wars as closed.
 
+### 6.7 Administration
+
+An **Administrator** is a Voter granted platform-wide moderation rights. Zero or more may
+exist; the role carries no other special identity, and an Administrator uses the same sign-in
+as everyone else. Getting the *first* Administrator onto a fresh deployment is a manual,
+out-of-band step (§12.9) — there is no self-service path and none is planned, since a
+self-service path to platform-wide rights is exactly the thing moderation exists to guard
+against. Granting or revoking the role on any *other* Voter, once at least one Administrator
+exists, is an ordinary Administrator capability (below) — the manual step is only ever needed
+once per environment, to bootstrap the first one.
+
+**An Administrator may not revoke their own rights.** Only another Administrator can do that.
+This is deliberate: self-revocation risks leaving a deployment with no Administrator at all,
+recoverable only by repeating the manual bootstrap step — a failure mode worth making
+structurally impossible rather than merely discouraged, the same reasoning §8.1 gives for why
+a mirrored matchup pairing cannot exist at all.
+
+**Visibility.** An Administrator may view every War regardless of status — draft, invite-only,
+or closed — and every Voter, including a Voter's own complete vote history (§8.3's audit trail,
+otherwise kept for future tooling, surfaced here to a human instead). This is the only way
+visibility scoping (§6.1's default scoping, and "a War not currently published is invisible to
+everyone but its creator") is ever bypassed.
+
+**Remove a War** takes down a War an Administrator has moderated for cause. It is deliberately
+not the same operation as a creator's own **Delete** (§6.1): Remove soft-deletes the War —
+marked removed and hidden from everyone, including its own creator, but its row and its votes
+persist — while hard-deleting its media outright, the same two-prefix originals-and-variants
+cleanup Delete already needs (§6.1's implementation note). Keeping the War and its votes intact
+under the hood preserves the audit trail (§8.3) for whatever the moderation was investigating;
+only the media, which is typically the reason for the removal, is actually reclaimed.
+
+**Suspend** and **Ban** are two severities of acting against a Voter, not one:
+
+| Action | Effect | Reversible |
+|---|---|---|
+| **Suspend** | Blocks creating new Wars from this point on. Existing Wars, votes, and the ability to vote in others' Wars are untouched. | Yes — unsuspend |
+| **Ban** | Blocks sign-in entirely, and deletes every War this Voter created (§6.1's Delete — contestants, media, and votes, entirely) and every vote this Voter cast elsewhere, with every affected contestant's counters recomputed accordingly. | The block lifts on unban; deleted data does not come back, same as any other Delete |
+
+A Ban is the only way a Voter's own cast votes are ever removed after the fact — an intentional
+exception to §8.1's immutability, scoped to exactly this one moderation action, because the
+alternative (an abusive Voter's votes standing forever) is worse than the exception.
+
+**A global War-creation kill switch** rejects every `POST /wars` request, from every Voter
+including Administrators, while enabled. No exceptions and no special-casing — an emergency
+stop is only trustworthy if it actually stops everything. Nothing else is affected: existing
+Wars keep running, voting continues, and disabling the switch requires the same Administrator
+capability as enabling it.
+
+**An append-only moderation log** records every Administrator action — Remove a War, Suspend/
+unsuspend, Ban/unban, granting or revoking Administrator rights, toggling the kill switch —
+with which Administrator, the target, and when. Never edited or deleted, mirroring votes'
+own immutability (§8.1), and for the same reason: several Administrators may exist, and each
+must be individually accountable for what they did.
+
 ---
 
 ## 7. Scoring
@@ -639,12 +693,16 @@ against, so those tests exercise real shapes rather than believed ones.
 | Create War | Creates an empty draft War and forwards to its Edit page | Yes |
 | Edit War | Metadata, contestants and media, Publish/Unpublish, Clear Votes, and Delete, for any War the voter created, any status | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
+| Admin Dashboard | Every War and Voter, moderation actions, the moderation log (§6.7); Administrators only | Yes |
 | Sign in | Provider selection | No |
 | Auth callback | Exchanges the refresh cookie for a token, then returns the voter where they were going | No |
 
 Routing is client-side; the hosting layer serves the application shell with a success status
 for any unmatched path so deep links work. An unauthenticated visit to a protected route
-redirects to sign-in carrying the intended destination, and returns there afterwards.
+redirects to sign-in carrying the intended destination, and returns there afterwards. An
+authenticated but non-Administrator visit to the Admin Dashboard redirects Home instead —
+unlike a private War (§6.1), whether this route exists at all isn't sensitive, so there is no
+need for a not-found-shaped response here.
 
 **Every route renders beneath a persistent navigation header**, rendered once by a shell
 wrapping the whole route tree rather than added page by page — a page that forgets it is then
@@ -930,6 +988,22 @@ Both empty-state links to Start a War remain even though the header also carries
 state is a page's *entire* visible content at that moment, and the one visitor with something
 to do there should find that action in the content rather than having to look away to the
 header.
+
+**Admin Dashboard** (§6.7) is reachable only by an Administrator — the identity menu shows no
+link to it for anyone else, the same "no offer that only ends in a redirect" reasoning §10.2
+already gives for hiding authenticated-only links from an anonymous visitor. It lists every War
+regardless of status and every Voter, each searchable; selecting a Voter shows their complete
+vote history. Every War and every Voter carries its moderation actions directly on its own row
+— Remove for a War, Suspend/Ban for a Voter, plus granting or revoking another Voter's
+Administrator rights — each behind the same confirm-first pattern every other destructive
+action in this UI already uses (Delete, Clear Votes, Publish/Unpublish), naming what will
+happen before it does. A single platform-wide control toggles the War-creation kill switch,
+displayed prominently enough that an Administrator who turned it on is never left wondering
+whether it's still on. The moderation log renders as a plain, reverse-chronological list —
+who did what, to what, and when — with no filtering beyond what's already searchable above; it
+exists for accountability, not investigation tooling. This page belongs to the default UI
+only — a custom UI (§11) is never required to implement it, since Administrators can always
+reach it through the default UI regardless of which custom UI a War itself uses.
 
 ### 10.5 Errors
 
@@ -1251,6 +1325,12 @@ Changing any of them needs a better reason than tidiness.
 - **Each provider redirect URI must be registered by hand** with the provider, per
   environment. Nothing in the pipeline does this, and the failure surfaces only when a real
   user attempts sign-in.
+- **The first Administrator (§6.7) is granted by a manual script, run by hand against the
+  database, once per environment** — never by the pipeline, and never self-service. The
+  target Voter must already have signed in at least once (the script promotes an existing
+  Voter row; it cannot create one). Every Administrator granted afterward is granted through
+  the Admin Dashboard instead, by an existing Administrator — this manual step exists solely
+  to bootstrap the very first one per environment.
 
 ### 12.10 Out of scope
 
