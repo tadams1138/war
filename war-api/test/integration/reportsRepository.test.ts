@@ -30,8 +30,8 @@ describe('reportsRepository (war-spec.md §8.5)', () => {
 
     // Assert
     expect(reports).toHaveLength(2);
-    expect(reports[0].explanation).toBe('second');
-    expect(reports[1].explanation).toBe('first');
+    expect(reports[0]!.explanation).toBe('second');
+    expect(reports[1]!.explanation).toBe('first');
     expect(reports.every((report) => report.addressed === false)).toBe(true);
   });
 
