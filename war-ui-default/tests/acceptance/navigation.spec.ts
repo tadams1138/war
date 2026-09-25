@@ -114,7 +114,7 @@ test('A voter with no display name on file is shown a fallback', async ({ page }
   await expect(identityTrigger(page)).not.toContainText('null')
 })
 
-test('Opening the identity menu reveals My Wars, Create War and Log out', async ({ page }) => {
+test('Opening the identity menu reveals My Wars, Start a War and Log out', async ({ page }) => {
   // Arrange
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -126,7 +126,7 @@ test('Opening the identity menu reveals My Wars, Create War and Log out', async 
   // Assert — Home is not in this menu; it's the brand mark in the nav bar
   // itself, shown to every visitor regardless of auth state (NavBar.tsx).
   await expect(identityMenu(page).getByRole('menuitem', { name: 'My Wars' })).toHaveAttribute('href', '/my-wars')
-  await expect(identityMenu(page).getByRole('menuitem', { name: 'Create War' })).toHaveAttribute('href', '/wars/new')
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'Start a War' })).toHaveAttribute('href', '/wars/new')
   await expect(identityMenu(page).getByRole('menuitem', { name: 'Log out' })).toBeVisible()
 })
 
@@ -151,11 +151,11 @@ test("The identity menu has its own background, not the page behind it", async (
   expect(alpha).toBeGreaterThan(0)
 })
 
-// Scenario Outline: My Wars and Create War remain reachable, via the
+// Scenario Outline: My Wars and Start a War remain reachable, via the
 // identity menu, from every route -- and Home, via the nav bar's brand
 // mark, alongside them. The voter must actually have a War of
 // their own before this test starts — a voter with none would hit MyWars's
-// own empty-state "Create a War" CTA, which carries the same accessible name
+// own empty-state "Start a War" CTA, which carries the same accessible name
 // as the identity menu's own item and would let that row pass even if the
 // menu itself carried no such item at all. Scoping every assertion to the
 // menu landmark, not the page, is the second, independent safeguard against
@@ -172,7 +172,7 @@ const REACHABILITY_ROWS: { page: string; path: string }[] = [
 ]
 
 for (const { page: pageLabel, path } of REACHABILITY_ROWS) {
-  test(`My Wars, Create War and Home remain reachable from ${pageLabel}`, async ({
+  test(`My Wars, Start a War and Home remain reachable from ${pageLabel}`, async ({
     page,
   }) => {
     // Arrange — a voter who has already created a War (CREATED_WAR), so
@@ -196,7 +196,7 @@ for (const { page: pageLabel, path } of REACHABILITY_ROWS) {
     // Assert
     await expect(nav(page).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
     await expect(identityMenu(page).getByRole('menuitem', { name: 'My Wars' })).toHaveAttribute('href', '/my-wars')
-    await expect(identityMenu(page).getByRole('menuitem', { name: 'Create War' })).toHaveAttribute(
+    await expect(identityMenu(page).getByRole('menuitem', { name: 'Start a War' })).toHaveAttribute(
       'href',
       '/wars/new',
     )
@@ -217,7 +217,7 @@ test('Selecting an item in the identity menu navigates there and closes the menu
   await openIdentityMenu(page)
 
   // Act
-  await identityMenu(page).getByRole('menuitem', { name: 'Create War' }).click()
+  await identityMenu(page).getByRole('menuitem', { name: 'Start a War' }).click()
 
   // Assert
   await page.waitForURL('**/wars/war-nav-menu-created/edit')
@@ -238,7 +238,7 @@ test('The current page is indicated within the identity menu', async ({ page }) 
 
   // Assert — the spec says the other item is unmarked.
   await expect(identityMenu(page).getByRole('menuitem', { name: 'My Wars' })).toHaveAttribute('aria-current', 'page')
-  await expect(identityMenu(page).getByRole('menuitem', { name: 'Create War' })).not.toHaveAttribute(
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'Start a War' })).not.toHaveAttribute(
     'aria-current',
     'page',
   )

@@ -56,7 +56,7 @@ function HomeWarList({
 // visitor's only options are to wait or log in (NavBar already covers the
 // latter), but a signed-in voter is the one visitor who can make a
 // published War exist, so they're pointed at /wars/new instead. This link
-// is in addition to NavBar's own persistent Create War link, not in place
+// is in addition to NavBar's own persistent Start a War link, not in place
 // of it — the same deliberate duplication MyWars's empty state already has.
 function HomeEmptyState({ isAuthenticated }: { isAuthenticated: boolean }) {
   if (!isAuthenticated) {
@@ -66,7 +66,7 @@ function HomeEmptyState({ isAuthenticated }: { isAuthenticated: boolean }) {
     <div data-testid="empty-state">
       <p>No published Wars right now — create one to get started.</p>
       <Link to="/wars/new" data-testid="home-create-war-cta">
-        Create a War
+        Start a War
       </Link>
     </div>
   )

@@ -29,11 +29,11 @@ Feature: Navigation
     When they navigate to the home page
     Then the navigation shows a fallback identity label instead of a blank
 
-  Scenario: Opening the identity menu reveals My Wars, Create War and Log out
+  Scenario: Opening the identity menu reveals My Wars, Start a War and Log out
     Given an authenticated voter viewing the navigation
     When they open the identity menu
     Then the identity menu shows a link to My Wars
-    And the identity menu shows a link to create a War
+    And the identity menu shows a link to start a War
     And the identity menu shows a log out control
 
   Scenario: The identity menu has its own background, not the page behind it
@@ -41,34 +41,34 @@ Feature: Navigation
     When they open the identity menu
     Then the menu renders on an opaque or translucent surface of its own
 
-  Scenario Outline: My Wars, Create War and Home remain reachable from every route
+  Scenario Outline: My Wars, Start a War and Home remain reachable from every route
     Given an authenticated voter who has already created a War
     When they navigate to "<page>"
     Then the Home brand mark links to the home page
     When they open the identity menu
     Then the identity menu shows a link to My Wars
-    And the identity menu shows a link to create a War
+    And the identity menu shows a link to start a War
 
     Examples:
       | page                       |
       | the home page              |
       | their My Wars page         |
-      | the Create War page        |
+      | the Start a War page       |
       | that War's detail page     |
       | that War's vote page       |
 
   Scenario: Selecting an item in the identity menu navigates there and closes the menu
     Given an authenticated voter viewing the navigation
     When they open the identity menu
-    And they select Create War from the identity menu
-    Then they land on the Create War page
+    And they select Start a War from the identity menu
+    Then they land on the Start a War page
     And the identity menu is closed
 
   Scenario: The current page is indicated within the identity menu
     Given an authenticated voter on their My Wars page
     When they open the identity menu
     Then the My Wars item is marked as the current page
-    And the Create War item is not marked as the current page
+    And the Start a War item is not marked as the current page
 
   Scenario: Clicking outside the identity menu closes it
     Given an authenticated voter viewing the navigation

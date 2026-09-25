@@ -665,7 +665,7 @@ partial or transitional state.
 - **Anonymous:** the brand mark, plus sign-in only. No links to authenticated destinations —
   offering an action that only ends in a redirect is friction the header exists to remove.
 - **Authenticated:** the brand mark, plus a single identity control (the voter's avatar and
-  name) that opens a menu holding My Wars, Create War, and a sign-out control, always
+  name) that opens a menu holding My Wars, Start a War, and a sign-out control, always
   together — Home is not repeated in this menu, since the brand mark already covers it for
   every visitor. The control is closed by default, so the persistent header stays small
   regardless of how many destinations it holds. The open menu renders on an opaque or
@@ -673,7 +673,7 @@ partial or transitional state.
   can render a contestant's own media directly beneath the header, and menu text must stay
   legible against it regardless of what that background is.
 
-**Create War is a top-level action** within that menu, not something reached through My
+**Start a War is a top-level action** within that menu, not something reached through My
 Wars — the tradeoff being a second item rather than a leaner menu. My Wars remains a separate
 destination for *reviewing* Wars.
 
@@ -815,7 +815,8 @@ affected. The file is validated in full before anything is created: a malformed 
 file is rejected with one clear message and creates nothing at all. Once the new draft exists,
 any later failure (a contestant, an image) leaves it in place with its error shown, rather than
 discarding what already succeeded — the creator lands on its Edit page and finishes repairing
-it by hand, the same way an abandoned Create War draft is already just findable, never lost.
+it by hand, the same way a draft abandoned right after Start a War is already just findable,
+never lost.
 
 **War cards** summarise a War: title, category, status, contestant count, creator's name where
 known, and time remaining where an end date is set, topped by its share image when it has one
@@ -840,7 +841,7 @@ creator-chosen theme (§4) until the voter viewing them picks a different one fr
 persistent navigation header — reachable from every page, not just the themed ones. That pick
 is remembered only on the device it was made on, independently per War — it is not part of
 the voter's account, so it does not follow them to a different browser, and it never changes
-what any other voter sees. Home, My Wars, Create War, and sign-in are not themed by any single
+what any other voter sees. Home, My Wars, Start a War, and sign-in are not themed by any single
 War; they render in `arcade` until the voter picks a theme for those pages as a group,
 remembered the same way. The navigation header itself always renders in whichever theme the
 current page is showing.
@@ -861,7 +862,7 @@ an authenticated voter — an anonymous visitor who taps it is redirected to sig
 that destination and returned to it afterward, the same rule §10.1 states for any protected
 route.
 
-**Create War** creates an empty draft immediately — no fields collected up front — and forwards
+**Start a War** creates an empty draft immediately — no fields collected up front — and forwards
 straight to that draft's Edit page. There is no separate creation wizard and no review step;
 everything about a draft, including publishing it, happens on the one page. Partway
 abandonment (navigating away before the draft has a title, contestants, or is published) leaves
@@ -873,7 +874,7 @@ glance to tell a draft, published, or closed War apart. Selecting one opens its 
 Every card, regardless of status, additionally carries an edit affordance, since editing is
 never status-gated (§6.1). This page adds no
 resume affordance beyond that. Its header and its empty state both carry two entry points, not
-one: Create War, and Import a War (above).
+one: Start a War, and Import a War (above).
 
 **Editing** is one page covering everything a War needs: title, category, visibility, theme,
 end date, share image, each contestant's name, bio, and images (add, remove, reorder, up to
@@ -925,7 +926,7 @@ failure the client-side check didn't catch (a race, a network error) shows the A
 validation messages verbatim, never generic error copy — these are addressed to the creator,
 and only the creator ever reaches them.
 
-Both empty-state links to Create War remain even though the header also carries one. An empty
+Both empty-state links to Start a War remain even though the header also carries one. An empty
 state is a page's *entire* visible content at that moment, and the one visitor with something
 to do there should find that action in the content rather than having to look away to the
 header.
