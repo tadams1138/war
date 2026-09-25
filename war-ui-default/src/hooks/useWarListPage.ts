@@ -38,9 +38,11 @@ export interface UseWarListPageResult {
 }
 
 const SEARCH_DEBOUNCE_MS = 300
+// Backlog item 2 (PROGRESS.md): 10 cards per page.
+const PAGE_SIZE = '10'
 
 function buildParams(sort: WarListSort, q: string, creatorMe: boolean, cursor?: string): GetWarsParams {
-  const params: GetWarsParams = { sort }
+  const params: GetWarsParams = { sort, limit: PAGE_SIZE }
   if (q) params.q = q
   if (creatorMe) params.creator = 'me'
   if (cursor) params.cursor = cursor
