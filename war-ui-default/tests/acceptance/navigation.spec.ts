@@ -178,7 +178,7 @@ for (const { page: pageLabel, path } of REACHABILITY_ROWS) {
     // Arrange — a voter who has already created a War (CREATED_WAR), so
     // My Wars renders a non-empty list rather than its own empty-state CTA.
     await useScenario(page, [
-      { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [CREATED_WAR] } }] },
+      { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [CREATED_WAR], next_cursor: null } }] },
       {
         method: 'GET',
         path: `${API}/wars/${CREATED_WAR.id}/rankings`,
@@ -228,7 +228,7 @@ test('Selecting an item in the identity menu navigates there and closes the menu
 
 test('The current page is indicated within the identity menu', async ({ page }) => {
   // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, '/my-wars')

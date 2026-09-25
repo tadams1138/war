@@ -3,28 +3,30 @@
 // creator who leaves a draft before it's published has, until this page
 // exists, no way to find that draft War again.
 import { Link } from 'react-router-dom'
-import { getWars, type WarSummary } from '../api/client'
+import type { WarSummary } from '../api/client'
 import { WarCard } from '../components/WarCard'
-import { useAsyncResource } from '../hooks/useAsyncResource'
+import { WarListControls, WarListPagination } from '../components/WarListControls'
+import { useWarListPage, type UseWarListPageResult } from '../hooks/useWarListPage'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
 export function MyWars() {
-  const state = useAsyncResource(() => getWars({ creator: 'me' }), [])
+  const listPage = useWarListPage({ creatorMe: true })
   const [theme, setTheme] = useTheme('home', 'arcade')
   usePublishTheme('home', theme, setTheme)
 
   return (
     <main data-theme={theme}>
       <h1>My Wars</h1>
-      {state.status === 'loading' && <p>Loading…</p>}
-      {state.status === 'error' && <p role="alert">{state.message}</p>}
-      {state.status === 'loaded' && <MyWarsList wars={state.value.wars} />}
+      <WarListControls listPage={listPage} />
+      {listPage.state.status === 'loading' && <p>Loading…</p>}
+      {listPage.state.status === 'error' && <p role="alert">{listPage.state.message}</p>}
+      {listPage.state.status === 'loaded' && <MyWarsList wars={listPage.state.wars} listPage={listPage} />}
     </main>
   )
 }
 
-function MyWarsList({ wars }: { wars: WarSummary[] }) {
+function MyWarsList({ wars, listPage }: { wars: WarSummary[]; listPage: UseWarListPageResult }) {
   if (wars.length === 0) {
     return (
       <div data-testid="empty-state">
@@ -39,12 +41,15 @@ function MyWarsList({ wars }: { wars: WarSummary[] }) {
     )
   }
   return (
-    <ul className="war-grid">
-      {wars.map((war) => (
-        <li key={war.id}>
-          <WarCard war={war} showEditLink />
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="war-grid">
+        {wars.map((war) => (
+          <li key={war.id}>
+            <WarCard war={war} showEditLink />
+          </li>
+        ))}
+      </ul>
+      <WarListPagination listPage={listPage} />
+    </>
   )
 }

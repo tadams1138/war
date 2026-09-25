@@ -28,3 +28,13 @@ Feature: My Wars
     When they navigate directly to "/my-wars"
     Then they are redirected to "/login"
     And the returnTo query param is "/my-wars"
+
+  Scenario: My Wars offers sorting and search controls
+    Given an authenticated voter who created several Wars
+    When they navigate to their My Wars page
+    Then a sort menu and a search box are shown
+
+  Scenario: Choosing a different sort on My Wars re-fetches their own Wars in that order
+    Given an authenticated voter who created several Wars
+    When they select "Oldest" from the sort menu
+    Then their own Wars are requested sorted "oldest" first, still scoped to creator=me

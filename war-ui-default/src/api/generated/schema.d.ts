@@ -287,6 +287,8 @@ export interface paths {
                     cursor?: string;
                     limit?: string;
                     creator?: "me";
+                    sort?: "newest" | "oldest" | "expiring_soonest" | "alphabetical";
+                    q?: string;
                 };
                 header?: never;
                 path?: never;
@@ -302,6 +304,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             wars: components["schemas"]["WarSummary"][];
+                            next_cursor: null | string;
                         };
                     };
                 };
@@ -411,6 +414,7 @@ export interface paths {
                             contestant_count: number;
                             /** Format: uri */
                             share_image_url: null | string;
+                            creator_name: null | string;
                             contestants: components["schemas"]["ContestantDetail"][];
                             is_owner: boolean;
                         };
@@ -1665,6 +1669,7 @@ export interface components {
             contestant_count: number;
             /** Format: uri */
             share_image_url: null | string;
+            creator_name: null | string;
         };
         ContestantDetail: {
             /** Format: uuid */

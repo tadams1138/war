@@ -34,6 +34,7 @@ function WarCardDetails({ war }: { war: WarSummary }) {
       <h3>{warTitle(war.title)}</h3>
       {war.category && <p>{war.category}</p>}
       <p>{contestantCountLabel(war.contestant_count)}</p>
+      {war.creator_name && <p data-testid="war-creator-name">{war.creator_name}</p>}
       {war.ends_at && <p data-testid="war-time-remaining">{timeRemainingLabel(war.ends_at)}</p>}
     </>
   )

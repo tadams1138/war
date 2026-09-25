@@ -79,7 +79,7 @@ test("A War's vote page renders in its creator-chosen theme", async ({ page }) =
 
 test('Home renders in "arcade" until the voter chooses otherwise', async ({ page }) => {
   // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
 
   // Act
   await page.goto('/')
@@ -92,7 +92,7 @@ test('Choosing a theme on Home does not change what a War\'s own page shows', as
   // Arrange
   const warDetail = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] },
+    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
     { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: warDetail }] },
   ])
 
@@ -107,7 +107,7 @@ test('Choosing a theme on Home does not change what a War\'s own page shows', as
 
 test('The nav theme menu is present and usable on pages with no War in scope', async ({ page }) => {
   // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
 
   // Act / Assert
   await page.goto('/login')

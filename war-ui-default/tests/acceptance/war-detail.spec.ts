@@ -912,7 +912,7 @@ test('Confirming delete removes the War and returns to My Wars', async ({ page }
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/war-own-draft`, responses: [{ status: 200, body: detail }] },
     { method: 'DELETE', path: `${API}/wars/war-own-draft`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [] } }] },
+    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
