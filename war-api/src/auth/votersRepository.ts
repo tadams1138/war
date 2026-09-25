@@ -9,6 +9,8 @@ export interface Voter {
   providerUserId: string;
   displayName: string | null;
   avatarUrl: string | null;
+  isModerator: boolean;
+  isAdmin: boolean;
 }
 
 function toVoter(row: {
@@ -17,6 +19,8 @@ function toVoter(row: {
   provider_user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  is_moderator: boolean;
+  is_admin: boolean;
 }): Voter {
   return {
     id: row.id,
@@ -24,6 +28,8 @@ function toVoter(row: {
     providerUserId: row.provider_user_id,
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
+    isModerator: row.is_moderator,
+    isAdmin: row.is_admin,
   };
 }
 
@@ -65,5 +71,17 @@ export async function findOrCreateVoter(
 
 export async function findVoterById(db: Kysely<Database>, id: string): Promise<Voter | undefined> {
   const row = await db.selectFrom('voters').selectAll().where('id', '=', id).executeTakeFirst();
+  return row ? toVoter(row) : undefined;
+}
+
+/** Grants or revokes `role` on `voterId` (spec §6.7) — the only mutator of either role column. Returns `undefined` if no such voter exists, for callers to 404. */
+export async function setVoterRole(
+  db: Kysely<Database>,
+  voterId: string,
+  role: 'moderator' | 'admin',
+  granted: boolean,
+): Promise<Voter | undefined> {
+  const values = role === 'admin' ? { is_admin: granted } : { is_moderator: granted };
+  const row = await db.updateTable('voters').set(values).where('id', '=', voterId).returningAll().executeTakeFirst();
   return row ? toVoter(row) : undefined;
 }
