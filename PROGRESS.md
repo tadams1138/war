@@ -90,6 +90,21 @@ Staging and production both run as a single application per environment containi
   this one field. A request body still containing either field is silently ignored, not
   rejected. Bio (markdown) is now the only per-contestant free text — see the matching
   war-ui-default entry below for the client-side half of this removal.
+- **Server-side sort, search, and keyset pagination for `GET /wars`** (backlog item 2).
+  `sort` (`newest` default / `oldest` / `expiring_soonest` / `alphabetical`) and `q`
+  (free-text, matched against title or the creator's `display_name`) query params; the
+  response envelope is now `{ wars, next_cursor }` — an opaque cursor, not a page number, so
+  paging never needs a total count. `warsRepository.ts`'s `baseWarsQuery` gained a
+  `LEFT JOIN voters` (for `creator_name` and the search predicate) and a per-sort keyset
+  cursor: the two nullable sort keys (`title`, `ends_at`) use an
+  `(col IS NULL), COALESCE(col, sentinel), id` tuple so nulls sort last without breaking
+  cursor correctness at that boundary. `q` is `ILIKE`-escaped and backed by new `pg_trgm` GIN
+  indexes on `wars.title`/`voters.display_name` so substring search stays index-backed at
+  scale; a null or whitespace-only title never matches on the title side (only via the
+  creator's name). A malformed or sort-mismatched cursor is rejected with 400 rather than
+  reaching the database. `WarSummary` gained `creator_name: string | null` — populated on the
+  listing, `null` on every other route's response (create/patch/publish/.../close), since
+  only the listing needed it.
 
 ### Not built
 
@@ -352,6 +367,15 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   `ImportApi.uploadShareImage`, right after creating the War. An older export with no
   `share_image` field still imports fine — `validateWarImport.ts` defaults it to `null`.
   `docs/building-a-war-import.md` updated to match.
+- **Home/My Wars sort, search, and pagination** (backlog item 2, client-side half; see the
+  matching war-api entry above). A shared `useWarListPage` hook drives both pages: a sort
+  `<select>` (Newest/Oldest/Expiring Soonest/Alphabetical), a debounced (300ms) search
+  `<input>`, and Prev/Next controls — 10 Wars per page. Server-driven throughout: Next fetches
+  the next page with the previous page's `next_cursor`; Prev only replays a page already
+  fetched this session from an in-memory cache, never a new request; changing sort or the
+  settled search text drops the cache and starts over at page 1. A `requestSeq` counter
+  guards against a slower, now-stale fetch resolving after a newer one and overwriting fresher
+  state. `WarCard` renders `creator_name` when present, alongside the existing `ends_at`.
 
 ### Not built
 
@@ -451,10 +475,10 @@ Requested 2026-09-24, to work through one at a time.
 
 1. ~~Narrow-viewport vote page: make each bio independently scrollable.~~ **Done** — see
    the war-ui-default "Narrow-viewport bio scrolling fixed" entry above.
-2. **My Wars / Home cards: pagination, sorting, and a filter bar.** 10 cards per page;
-   sortable by newest, oldest, expiring soonest, and alphabetical; a type-ahead filter bar
-   matching anywhere in the title or creator's name; each card gains the creator's name and
-   end date (when set).
+2. ~~My Wars / Home cards: pagination, sorting, and a filter bar.~~ **Done** — see the
+   "Server-side sort, search, and keyset pagination" (war-api) and "Home/My Wars sort,
+   search, and pagination" (war-ui-default) entries above, and `war-spec.md`'s new
+   "Sorting, searching, and paging a War list" paragraph.
 3. ~~Remove the contestant custom-attribute schema entirely.~~ **Done** — see the
    "Contestant custom-attribute schema removed" entries under war-api and war-ui-default
    above, and `war-spec.md`'s §4 (no longer documents it).
