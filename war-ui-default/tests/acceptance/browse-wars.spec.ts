@@ -201,6 +201,21 @@ test('Home renders a sort menu and a search box', async ({ page }) => {
   await expect(page.getByTestId('war-search-input')).toBeVisible()
 })
 
+test('Requests 10 Wars per page', async ({ page }) => {
+  // Arrange
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
+  ])
+
+  // Act
+  await page.goto('/')
+
+  // Assert
+  const calls = await waitForCallLog(page, (log) => log.some((entry) => entry.url.includes('/wars')))
+  const call = calls.find((entry) => entry.url.includes('/wars'))
+  expect(new URL(call!.url).searchParams.get('limit')).toBe('10')
+})
+
 test('Selecting a different sort re-fetches Wars with the new sort param', async ({ page }) => {
   // Arrange
   await useScenario(page, [
