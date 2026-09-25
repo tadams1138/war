@@ -45,7 +45,9 @@ to it.
 - Real-time leaderboard streaming — polled refresh only
 - Push notifications
 - War creator moderation tools (removing voters, resetting votes)
-- Admin moderation dashboard
+- Broad admin dashboard (viewing every War/voter regardless of ownership, banning voters,
+  a creation kill switch, soft/hard-delete split) — the Admin role introduced by abuse
+  reporting (§3, §8.5) is scoped to granting roles and reviewing reports only
 - Vote tamper-detection analytics — the data is collected; the tooling is future work
 - Paid or promoted Wars
 - Weighted votes; all voters are equal
@@ -63,11 +65,17 @@ to it.
 | Role | Capabilities |
 |---|---|
 | **Anonymous Visitor** | Browse and view rankings of public Wars; cannot vote |
-| **Voter** | Authenticated; may join Wars, cast votes, view rankings |
+| **Voter** | Authenticated; may join Wars, cast votes, view rankings, file abuse reports (§8.5) |
 | **War Creator** | A Voter who created a specific War; manages it through its lifecycle |
+| **Moderator** | An account-level role, granted by an Admin; reviews abuse reports across every War (§8.5) |
+| **Admin** | An account-level role; grants and revokes Moderator and Admin on any Voter (§6.7) |
 
 "War Creator" is a relationship to a particular War, not an account type. A Voter becomes
-one by creating a War.
+one by creating a War. **Moderator and Admin are account-level roles**, independent of any
+particular War, and stack freely with War Creator — a Voter can hold either or both while
+also creating Wars of their own. Holding Moderator does not, on its own, exempt a Voter's
+own Wars from being reported by others; report visibility follows the Moderator role, not
+War ownership.
 
 A Voter may act through any client interchangeably — the default UI or a custom UI. Each is
 a different route to the same identity, and the API is the sole authority over what that
@@ -420,6 +428,17 @@ The only such task closes Wars whose end date has passed. It is idempotent — s
 repeatedly, concurrently, and after arbitrary delay — and changes no observable behaviour,
 because effective status (§4) already treats those Wars as closed.
 
+### 6.7 Role grants
+
+Granting or revoking **Moderator** or **Admin** on a Voter is an Admin-only operation;
+every other caller, Moderator included, gets a 403. There is no self-service path to either
+role.
+
+**The first Admin on a fresh deployment is created by a seed script**, run once at deploy
+time against a designated Voter id — not through any API endpoint, since no Admin yet
+exists to call one. Every Admin after that is granted through this endpoint by an existing
+Admin.
+
 ---
 
 ## 7. Scoring
@@ -535,6 +554,44 @@ shared counter store becomes necessary before autoscaling.
 the address the application sees is the proxy's unless the proxy hop count is configured. If
 it is not, every client behind the same hop shares one bucket — better than no limit, but not
 per-client accuracy. See §12.2.
+
+### 8.5 Abuse reporting
+
+Rate limiting (§8.4) catches scripted abuse; some abuse — spammed votes from a coordinated
+group, inappropriate media — is only obvious to a human. Abuse reporting is that path: any
+Voter (§3) can flag a War for a Moderator to review.
+
+**Filing a report** requires nothing but an authenticated Voter and a War id — the Voter
+need not have joined or voted in that War. A report carries a required, short text
+explanation. A Voter may file any number of reports, including several against the same
+War; reports are never deduplicated or merged.
+
+| Attribute | Notes |
+|---|---|
+| War | The War being reported |
+| Reporter | The Voter who filed it |
+| Explanation | Required short text |
+| Filed at | Timestamp |
+| Addressed | Boolean, defaults `false` |
+
+**Reports accumulate; none is ever deleted.** Each is independent — addressing one leaves
+every other report on that War, or on any other War, untouched.
+
+**Visibility is Moderator/Admin only.** A War's creator is never shown that their War was
+reported, by whom, or why — reports are invisible to everyone except Moderator and Admin,
+with no exception for the War's own creator. No notification is sent to anyone when a
+report is filed, consistent with the platform carrying no push notifications (§2).
+
+**Moderator/Admin capabilities**, all 403 for anyone else:
+
+- **List reports for a War** — every report against a given War id, newest first, each
+  with its reporter, explanation, filed-at time, and addressed state.
+- **List Wars with unaddressed reports** — every War carrying at least one report where
+  `addressed` is `false`, each with its unaddressed-report count. This is the moderation
+  queue: it is how a Moderator or Admin finds what still needs attention without checking
+  every War.
+- **Set a report's addressed state** — toggles one report's `addressed` flag in either
+  direction, so a Moderator or Admin can reopen a report addressed in error.
 
 ---
 
