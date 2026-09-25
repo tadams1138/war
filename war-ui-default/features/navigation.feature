@@ -5,6 +5,18 @@ Feature: Navigation
     Then the footer shows a copyright notice
     And the footer links to the project's GitHub repository
     And the footer links to the Import build guide
+    And the footer links to the Privacy Policy
+    And the footer links to the Terms of Service
+
+  Scenario: The Privacy Policy page is reachable and shows its content
+    Given any visitor
+    When they navigate to the Privacy Policy page
+    Then they see the Privacy Policy heading
+
+  Scenario: The Terms of Service page is reachable and shows its content
+    Given any visitor
+    When they navigate to the Terms of Service page
+    Then they see the Terms of Service heading
 
   Scenario: An anonymous visitor sees a link to log in and the Home brand mark
     Given an anonymous visitor on the home page

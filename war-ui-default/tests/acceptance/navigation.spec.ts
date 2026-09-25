@@ -38,6 +38,24 @@ test("Every page shows a persistent footer with attribution and project links", 
     'href',
     'https://github.com/tadams1138/war/blob/master/docs/building-a-war-import.md',
   )
+  await expect(footer(page).getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy')
+  await expect(footer(page).getByRole('link', { name: /terms of service/i })).toHaveAttribute('href', '/terms')
+})
+
+test('The Privacy Policy page is reachable and shows its content', async ({ page }) => {
+  // Arrange / Act
+  await page.goto('/privacy')
+
+  // Assert
+  await expect(page.getByRole('heading', { name: 'Privacy Policy' })).toBeVisible()
+})
+
+test('The Terms of Service page is reachable and shows its content', async ({ page }) => {
+  // Arrange / Act
+  await page.goto('/terms')
+
+  // Assert
+  await expect(page.getByRole('heading', { name: 'Terms of Service' })).toBeVisible()
 })
 
 test('An anonymous visitor sees a link to log in and the Home brand mark', async ({ page }) => {

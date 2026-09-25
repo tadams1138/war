@@ -13,6 +13,8 @@ import { CreateWar } from './pages/CreateWar'
 import { EditWar } from './pages/EditWar'
 import { ImportWar } from './pages/ImportWar'
 import { MyWars } from './pages/MyWars'
+import { PrivacyPolicy } from './pages/PrivacyPolicy'
+import { TermsOfService } from './pages/TermsOfService'
 
 export default function App() {
   return (
@@ -24,6 +26,8 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
             <Route path="/wars/:id" element={<WarDetail />} />
             <Route
               path="/wars/:id/vote"

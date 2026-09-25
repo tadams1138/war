@@ -3,6 +3,7 @@
 // NavBar does -- its background/text color come from the [data-theme]
 // custom properties in themes.css, so an unthemed footer would render
 // wrong (or invisible) against a dark theme's page background.
+import { Link } from 'react-router-dom'
 import { useActiveTheme } from '../theme/ThemeContext'
 
 const REPO_URL = 'https://github.com/tadams1138/war'
@@ -23,6 +24,8 @@ export function Footer() {
       <a href={IMPORT_GUIDE_URL} target="_blank" rel="noreferrer">
         Building a War import (guide for AI implementers)
       </a>
+      <Link to="/privacy">Privacy Policy</Link>
+      <Link to="/terms">Terms of Service</Link>
     </footer>
   )
 }
