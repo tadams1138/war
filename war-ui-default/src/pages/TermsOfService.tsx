@@ -7,20 +7,13 @@ export function TermsOfService() {
   return (
     <main>
       <h1>Terms of Service</h1>
-      <p>
-        <em>
-          This is a draft agreement for a small, independently-run project. It is not legal advice and has not been
-          reviewed by an attorney.
-        </em>
-      </p>
       <p>Last updated: {LAST_UPDATED}</p>
 
-      <h2>Who runs this</h2>
-      <p>War is operated by Tom Adams as an independent, non-commercial project. By using it, you agree to these terms.</p>
+      <p>By using War, you agree to these terms.</p>
 
       <h2>The service</h2>
       <p>
-        War lets signed-in users create "Wars" — head-to-head voting campaigns — and lets visitors vote in them. It's
+        War lets signed-in users start "Wars" — head-to-head voting campaigns — and lets visitors vote in them. It's
         provided as-is, with no uptime or availability guarantee.
       </p>
 
@@ -32,7 +25,7 @@ export function TermsOfService() {
 
       <h2>Your content</h2>
       <p>
-        If you create a War, you're responsible for the images, video links, and text you submit. Don't upload
+        If you start a War, you're responsible for the images, video links, and text you submit. Don't upload
         content you don't have the right to use, or content that's illegal, harassing, or infringing. We may remove
         a War or content that violates this.
       </p>
@@ -55,7 +48,7 @@ export function TermsOfService() {
 
       <h2>Contact</h2>
       <p>
-        Questions about these terms: <a href="mailto:tadams1138@hotmail.com">tadams1138@hotmail.com</a>
+        Questions about these terms: <a href="mailto:user-support@tmad.dev">user-support@tmad.dev</a>
       </p>
     </main>
   )
