@@ -8,16 +8,7 @@ export function PrivacyPolicy() {
   return (
     <main>
       <h1>Privacy Policy</h1>
-      <p>
-        <em>
-          This is a draft policy for a small, independently-run project. It is not legal advice and has not been
-          reviewed by an attorney.
-        </em>
-      </p>
       <p>Last updated: {LAST_UPDATED}</p>
-
-      <h2>Who runs this</h2>
-      <p>War is operated by Tom Adams as an independent, non-commercial project.</p>
 
       <h2>What we collect</h2>
       <ul>
@@ -31,7 +22,7 @@ export function PrivacyPolicy() {
           signed-in identity.
         </li>
         <li>
-          <strong>Content you upload.</strong> If you create a War, images you upload are processed on upload — we
+          <strong>Content you upload.</strong> If you start a War, images you upload are processed on upload — we
           strip embedded metadata (including any location data a phone camera may attach) and re-encode the image
           before it is ever shown to anyone. The original file you uploaded is not kept.
         </li>
@@ -63,7 +54,7 @@ export function PrivacyPolicy() {
 
       <h2>Contact</h2>
       <p>
-        Questions about this policy: <a href="mailto:tadams1138@hotmail.com">tadams1138@hotmail.com</a>
+        Questions about this policy: <a href="mailto:user-support@tmad.dev">user-support@tmad.dev</a>
       </p>
     </main>
   )
