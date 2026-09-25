@@ -63,11 +63,14 @@ to it.
 | **Anonymous Visitor** | Browse and view rankings of public Wars; cannot vote |
 | **Voter** | Authenticated; may join Wars, cast votes, view rankings |
 | **War Creator** | A Voter who created a specific War; manages it through its lifecycle |
-| **Administrator** | A Voter granted platform-wide moderation rights (§6.7); zero or more may exist at once |
+| **Administrator** | A Voter granted every moderation right, including granting and revoking roles (§6.7); zero or more may exist at once |
+| **Moderator** | A Voter granted every moderation right *except* granting or revoking anyone's role (§6.7); zero or more may exist at once |
 
 "War Creator" is a relationship to a particular War, not an account type. A Voter becomes
-one by creating a War. "Administrator" is likewise a right granted to an existing Voter
-account, not a separate kind of identity — the same OAuth sign-in works either way.
+one by creating a War. "Administrator" and "Moderator" are likewise rights granted to an
+existing Voter account, not a separate kind of identity — the same OAuth sign-in works either
+way. The two are mutually exclusive: Administrator is a strict superset of Moderator's
+capabilities, so a Voter is one, the other, or neither, never both.
 
 A Voter may act through any client interchangeably — the default UI or a custom UI. Each is
 a different route to the same identity, and the API is the sole authority over what that
@@ -422,36 +425,47 @@ because effective status (§4) already treats those Wars as closed.
 
 ### 6.7 Administration
 
-An **Administrator** is a Voter granted platform-wide moderation rights. Zero or more may
-exist; the role carries no other special identity, and an Administrator uses the same sign-in
-as everyone else. Getting the *first* Administrator onto a fresh deployment is a manual,
-out-of-band step (§12.9) — there is no self-service path and none is planned, since a
-self-service path to platform-wide rights is exactly the thing moderation exists to guard
-against. Granting or revoking the role on any *other* Voter, once at least one Administrator
-exists, is an ordinary Administrator capability (below) — the manual step is only ever needed
-once per environment, to bootstrap the first one.
+An **Administrator** or a **Moderator** — together, **Staff** below — is a Voter granted
+moderation rights. Zero or more of each may exist; neither role carries any other special
+identity, and Staff use the same sign-in as everyone else. The two roles differ in exactly one
+place: **only an Administrator may grant or revoke anyone's role** — Administrator or
+Moderator, on any Voter, including changing one into the other. Every other capability below
+belongs to Staff, Administrator and Moderator alike; a Moderator is never restricted from
+anything except managing roles. Because of that one difference, Administrator is a strict
+superset of Moderator, and the two are mutually exclusive (§3) — there is never a reason for
+one Voter to hold both.
 
-**An Administrator may not revoke their own rights.** Only another Administrator can do that.
-This is deliberate: self-revocation risks leaving a deployment with no Administrator at all,
-recoverable only by repeating the manual bootstrap step — a failure mode worth making
-structurally impossible rather than merely discouraged, the same reasoning §8.1 gives for why
-a mirrored matchup pairing cannot exist at all.
+Getting the *first* Administrator onto a fresh deployment is a manual, out-of-band step
+(§12.9) — there is no self-service path and none is planned, since a self-service path to
+role management is exactly the thing this restriction exists to guard against. Every grant
+after that, Administrator or Moderator, is an ordinary Administrator capability through the
+Admin Dashboard — the manual step is only ever needed once per environment, to bootstrap the
+first Administrator; a first Moderator needs no bootstrap at all, since any Administrator can
+grant that role the moment one exists.
 
-**Visibility.** An Administrator may view every War regardless of status — draft, invite-only,
-or closed — and every Voter, including a Voter's own complete vote history (§8.3's audit trail,
+**An Administrator may not remove their own Administrator role** — not by revoking it outright,
+and not by changing it to Moderator. Only another Administrator can do either. This is
+deliberate: self-removal risks leaving a deployment with no Administrator at all, recoverable
+only by repeating the manual bootstrap step — a failure mode worth making structurally
+impossible rather than merely discouraged, the same reasoning §8.1 gives for why a mirrored
+matchup pairing cannot exist at all. A Moderator cannot remove any role, including their own,
+so no analogous guard is needed for them.
+
+**Visibility.** Staff may view every War regardless of status — draft, invite-only, or closed
+— and every Voter, including a Voter's own complete vote history (§8.3's audit trail,
 otherwise kept for future tooling, surfaced here to a human instead). This is the only way
 visibility scoping (§6.1's default scoping, and "a War not currently published is invisible to
 everyone but its creator") is ever bypassed.
 
-**Remove a War** takes down a War an Administrator has moderated for cause. It is deliberately
-not the same operation as a creator's own **Delete** (§6.1): Remove soft-deletes the War —
-marked removed and hidden from everyone, including its own creator, but its row and its votes
+**Remove a War** takes down a War Staff have moderated for cause. It is deliberately not the
+same operation as a creator's own **Delete** (§6.1): Remove soft-deletes the War — marked
+removed and hidden from everyone, including its own creator, but its row and its votes
 persist — while hard-deleting its media outright, the same two-prefix originals-and-variants
 cleanup Delete already needs (§6.1's implementation note). Keeping the War and its votes intact
 under the hood preserves the audit trail (§8.3) for whatever the moderation was investigating;
 only the media, which is typically the reason for the removal, is actually reclaimed.
 
-**Suspend** and **Ban** are two severities of acting against a Voter, not one:
+**Suspend** and **Ban** are two severities of Staff acting against a Voter, not one:
 
 | Action | Effect | Reversible |
 |---|---|---|
@@ -463,16 +477,16 @@ exception to §8.1's immutability, scoped to exactly this one moderation action,
 alternative (an abusive Voter's votes standing forever) is worse than the exception.
 
 **A global War-creation kill switch** rejects every `POST /wars` request, from every Voter
-including Administrators, while enabled. No exceptions and no special-casing — an emergency
-stop is only trustworthy if it actually stops everything. Nothing else is affected: existing
-Wars keep running, voting continues, and disabling the switch requires the same Administrator
-capability as enabling it.
+including Staff, while enabled. No exceptions and no special-casing — an emergency stop is
+only trustworthy if it actually stops everything. Nothing else is affected: existing Wars keep
+running, voting continues, and disabling the switch requires the same Staff capability as
+enabling it.
 
-**An append-only moderation log** records every Administrator action — Remove a War, Suspend/
-unsuspend, Ban/unban, granting or revoking Administrator rights, toggling the kill switch —
-with which Administrator, the target, and when. Never edited or deleted, mirroring votes'
-own immutability (§8.1), and for the same reason: several Administrators may exist, and each
-must be individually accountable for what they did.
+**An append-only moderation log** records every Staff action — Remove a War, Suspend/unsuspend,
+Ban/unban, an Administrator granting or revoking a role, toggling the kill switch — with which
+Administrator or Moderator, the target, and when. Never edited or deleted, mirroring votes'
+own immutability (§8.1), and for the same reason: several Staff may exist, and each must be
+individually accountable for what they did.
 
 ---
 
@@ -693,14 +707,15 @@ against, so those tests exercise real shapes rather than believed ones.
 | Create War | Creates an empty draft War and forwards to its Edit page | Yes |
 | Edit War | Metadata, contestants and media, Publish/Unpublish, Clear Votes, and Delete, for any War the voter created, any status | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
-| Admin Dashboard | Every War and Voter, moderation actions, the moderation log (§6.7); Administrators only | Yes |
+| Admin Dashboard | Every War and Voter, moderation actions, the moderation log (§6.7); Staff only | Yes |
 | Sign in | Provider selection | No |
 | Auth callback | Exchanges the refresh cookie for a token, then returns the voter where they were going | No |
 
 Routing is client-side; the hosting layer serves the application shell with a success status
 for any unmatched path so deep links work. An unauthenticated visit to a protected route
 redirects to sign-in carrying the intended destination, and returns there afterwards. An
-authenticated but non-Administrator visit to the Admin Dashboard redirects Home instead —
+authenticated visit to the Admin Dashboard by neither an Administrator nor a Moderator
+redirects Home instead —
 unlike a private War (§6.1), whether this route exists at all isn't sensitive, so there is no
 need for a not-found-shaped response here.
 
@@ -989,19 +1004,21 @@ state is a page's *entire* visible content at that moment, and the one visitor w
 to do there should find that action in the content rather than having to look away to the
 header.
 
-**Admin Dashboard** (§6.7) is reachable only by an Administrator — the identity menu shows no
-link to it for anyone else, the same "no offer that only ends in a redirect" reasoning §10.2
-already gives for hiding authenticated-only links from an anonymous visitor. It lists every War
-regardless of status and every Voter, each searchable; selecting a Voter shows their complete
-vote history. Every War and every Voter carries its moderation actions directly on its own row
-— Remove for a War, Suspend/Ban for a Voter, plus granting or revoking another Voter's
-Administrator rights — each behind the same confirm-first pattern every other destructive
-action in this UI already uses (Delete, Clear Votes, Publish/Unpublish), naming what will
-happen before it does. A single platform-wide control toggles the War-creation kill switch,
-displayed prominently enough that an Administrator who turned it on is never left wondering
-whether it's still on. The moderation log renders as a plain, reverse-chronological list —
-who did what, to what, and when — with no filtering beyond what's already searchable above; it
-exists for accountability, not investigation tooling. This page belongs to the default UI
+**Admin Dashboard** (§6.7) is reachable only by Staff — an Administrator or a Moderator — the
+identity menu shows no link to it for anyone else, the same "no offer that only ends in a
+redirect" reasoning §10.2 already gives for hiding authenticated-only links from an anonymous
+visitor. It lists every War regardless of status and every Voter, each searchable; selecting a
+Voter shows their complete vote history. Every War and every Voter carries its moderation
+actions directly on its own row — Remove for a War, Suspend/Ban for a Voter — behind the same
+confirm-first pattern every other destructive action in this UI already uses (Delete, Clear
+Votes, Publish/Unpublish), naming what will happen before it does. **Granting or revoking a
+Voter's Administrator or Moderator role renders only for an Administrator** — a Moderator sees
+every other row action but not this one, matching §6.7's one restriction exactly. A single
+platform-wide control toggles the War-creation kill switch, available to Staff generally and
+displayed prominently enough that whoever turned it on is never left wondering whether it's
+still on. The moderation log renders as a plain, reverse-chronological list — who did what, to
+what, and when — with no filtering beyond what's already searchable above; it exists for
+accountability, not investigation tooling. This page belongs to the default UI
 only — a custom UI (§11) is never required to implement it, since Administrators can always
 reach it through the default UI regardless of which custom UI a War itself uses.
 
@@ -1328,9 +1345,10 @@ Changing any of them needs a better reason than tidiness.
 - **The first Administrator (§6.7) is granted by a manual script, run by hand against the
   database, once per environment** — never by the pipeline, and never self-service. The
   target Voter must already have signed in at least once (the script promotes an existing
-  Voter row; it cannot create one). Every Administrator granted afterward is granted through
-  the Admin Dashboard instead, by an existing Administrator — this manual step exists solely
-  to bootstrap the very first one per environment.
+  Voter row; it cannot create one). Every Administrator or Moderator granted afterward,
+  including the very first Moderator, is granted through the Admin Dashboard instead, by an
+  existing Administrator — this manual step exists solely to bootstrap the first Administrator
+  per environment.
 
 ### 12.10 Out of scope
 

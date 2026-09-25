@@ -112,9 +112,9 @@ Staging and production both run as a single application per environment containi
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
 - **Administration** (`war-spec.md` §3, §6.7, §10.1/§10.4, §12.9; specified as backlog item
-  5). Spec only — no Administrator flag on `voters`, no Remove/Suspend/Ban/kill-switch
-  endpoints, no moderation-log table, no bootstrap script, and no Admin Dashboard page exist
-  yet.
+  5, Moderator role added afterward). Spec only — no Administrator/Moderator role column on
+  `voters`, no Remove/Suspend/Ban/kill-switch endpoints, no moderation-log table, no bootstrap
+  script, and no Admin Dashboard page exist yet.
 
 ---
 
