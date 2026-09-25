@@ -38,3 +38,33 @@ Feature: Browse Wars
     Given a published public War titled "Miss Universe 2026" exists
     When an unauthenticated visitor selects its Vote link
     Then the visitor is redirected to the sign-in page
+
+  Scenario: A War card shows its creator's name when known
+    Given a published public War created by a voter named "Ada Lovelace"
+    When an authenticated voter loads the home page
+    Then its War card shows "Ada Lovelace"
+
+  Scenario: A War card shows nothing extra when the creator's name is unknown
+    Given a published public War with no known creator name
+    When an authenticated voter loads the home page
+    Then its War card does not show a creator name
+
+  Scenario: Home offers sorting and search controls
+    Given published public Wars exist
+    When an authenticated voter loads the home page
+    Then a sort menu and a search box are shown
+
+  Scenario: Choosing a different sort re-fetches Wars in that order
+    Given published public Wars exist
+    When a visitor selects "Oldest" from the sort menu
+    Then Wars are requested sorted "oldest" first
+
+  Scenario: Searching narrows the Wars shown, after a short pause
+    Given published public Wars exist
+    When a visitor types into the search box
+    Then Wars are requested matching that search text, once typing settles
+
+  Scenario: Paging through Wars with Next and Prev
+    Given more published public Wars exist than fit on one page
+    When a visitor selects Next then Prev
+    Then the first page's Wars are shown again without a new request

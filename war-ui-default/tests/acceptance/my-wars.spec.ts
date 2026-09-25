@@ -1,7 +1,7 @@
 // Binds features/my-wars.feature.
 import { expect, test } from '@playwright/test'
 import { buildWarSummary } from '../../src/mocks/fixtures'
-import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
 
 test('A voter sees every War they created, across every status', async ({ page }) => {
   // Arrange
@@ -10,7 +10,7 @@ test('A voter sees every War they created, across every status', async ({ page }
     buildWarSummary({ id: 'war-published', title: 'My Published War', status: 'published' }),
     buildWarSummary({ id: 'war-closed', title: 'My Closed War', status: 'closed' }),
   ]
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars, next_cursor: null } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
 
@@ -30,7 +30,7 @@ test("My Wars does not show another voter's Wars", async ({ page }) => {
   // creator=me scoping (war-spec.md §10.4), exactly as browse-wars.spec.ts
   // and create-war.spec.ts already mock every other endpoint on this page;
   // this is a UI-level test and does not re-verify the API's own scoping.
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
 
@@ -51,7 +51,7 @@ test("A War card links to its detail page", async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-draft-1', title: 'My Draft War', status: 'draft' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] },
+    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] },
     { method: 'GET', path: `${API}/wars/war-draft-1`, responses: [{ status: 200, body: { ...war, contestants: [] } }] },
   ])
   await page.goto('/')
@@ -68,7 +68,7 @@ test("A War card links to its detail page", async ({ page }) => {
 
 test('No Wars created yet', async ({ page }) => {
   // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
 
@@ -83,7 +83,7 @@ test('No Wars created yet', async ({ page }) => {
 test('A draft War card shows an Edit link', async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-draft-1', title: 'My Draft War', status: 'draft' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
 
@@ -97,7 +97,7 @@ test('A draft War card shows an Edit link', async ({ page }) => {
 test("A draft War card's Edit link is styled as a themed button, not plain text", async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-draft-2', title: 'My Other Draft War', status: 'draft' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
 
@@ -112,7 +112,7 @@ test("A draft War card's Edit link is styled as a themed button, not plain text"
 test('A published War card also shows an Edit link — editing is never status-gated', async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-published-1', title: 'My Published War', status: 'published' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war] } }] }])
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] }])
   await page.goto('/')
   await loginAsTestVoter(page)
 
@@ -129,4 +129,44 @@ test('My Wars requires authentication', async ({ page }) => {
 
   // Assert
   await expect(page).toHaveURL(/\/login\?returnTo=%2Fmy-wars$/)
+})
+
+test('My Wars renders a sort menu and a search box', async ({ page }) => {
+  // Arrange
+  const war = buildWarSummary({ id: 'war-draft-1', title: 'My Draft War', status: 'draft' })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/my-wars')
+
+  // Assert
+  await expect(page.getByTestId('war-sort-select')).toHaveValue('newest')
+  await expect(page.getByTestId('war-search-input')).toBeVisible()
+})
+
+test('Choosing a different sort on My Wars re-fetches, still scoped to creator=me', async ({ page }) => {
+  // Arrange
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/my-wars')
+
+  // Act
+  await page.getByTestId('war-sort-select').selectOption('oldest')
+
+  // Assert
+  await waitForCallLog(page, (log) =>
+    log.some(
+      (entry) =>
+        entry.url.includes('/wars') &&
+        new URL(entry.url).searchParams.get('sort') === 'oldest' &&
+        new URL(entry.url).searchParams.get('creator') === 'me',
+    ),
+  )
 })
