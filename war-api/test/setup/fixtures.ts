@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import type { Kysely } from 'kysely';
 import type { Database } from '../../src/db/types.js';
-import { findOrCreateVoter, type Voter } from '../../src/auth/votersRepository.js';
+import { findOrCreateVoter, setVoterRole, type Voter } from '../../src/auth/votersRepository.js';
 import { createWar, type War } from '../../src/wars/warsRepository.js';
 import { publishWar, closeWar } from '../../src/wars/warsService.js';
 import { createContestant, type Contestant } from '../../src/contestants/contestantsRepository.js';
@@ -18,6 +18,18 @@ export async function makeVoter(db: Kysely<Database>, seed: string): Promise<Vot
     avatarUrl: null,
   });
   return voter;
+}
+
+export async function makeAdmin(db: Kysely<Database>, seed: string): Promise<Voter> {
+  const voter = await makeVoter(db, seed);
+  const updated = await setVoterRole(db, voter.id, 'admin', true);
+  return updated!;
+}
+
+export async function makeModerator(db: Kysely<Database>, seed: string): Promise<Voter> {
+  const voter = await makeVoter(db, seed);
+  const updated = await setVoterRole(db, voter.id, 'moderator', true);
+  return updated!;
 }
 
 export interface DraftWarOptions {
