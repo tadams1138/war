@@ -40,7 +40,7 @@ describe('presentWarSummary', () => {
     });
 
     // Act
-    const view = presentWarSummary(war, new Date('2026-01-01T00:00:00Z'), 2, 'https://cdn.test');
+    const view = presentWarSummary(war, new Date('2026-01-01T00:00:00Z'), 2, 'https://cdn.test', 'Creator Name');
 
     // Assert
     expect(view).toEqual({
@@ -54,6 +54,7 @@ describe('presentWarSummary', () => {
       ends_at: '2026-02-01T00:00:00.000Z',
       contestant_count: 2,
       share_image_url: null,
+      creator_name: 'Creator Name',
     });
   });
 
@@ -62,7 +63,7 @@ describe('presentWarSummary', () => {
     const war = makeWar({ shareImageKey: 'share-images/a5b1e2c4-9999-4a11-8a11-000000000002.jpg' });
 
     // Act
-    const view = presentWarSummary(war, new Date('2026-01-01T00:00:00Z'), 0, 'https://cdn.test');
+    const view = presentWarSummary(war, new Date('2026-01-01T00:00:00Z'), 0, 'https://cdn.test', null);
 
     // Assert
     expect(view.share_image_url).toBe('https://cdn.test/share-images/a5b1e2c4-9999-4a11-8a11-000000000002.jpg');
