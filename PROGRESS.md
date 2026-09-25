@@ -400,6 +400,15 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   environment** — `assertProductionConfig` now refuses to boot with any of the four
   unconfigured. Bring staging up first, confirm all four buttons work end-to-end, then
   production.
+- **Owner action, four items — complete each provider's own app/site verification before
+  production sign-in with it can go live to the public (each is a manual step on that
+  provider's own developer console, not something the pipeline or this repo can do):**
+  1. Google — complete OAuth consent screen verification for this site.
+  2. Microsoft — complete Microsoft Entra app verification (publisher/domain verification)
+     for this site.
+  3. Facebook — complete Facebook App Review for the Login product on this site.
+  4. Twitter/X — complete the developer app's own review/elevated-access approval for this
+     site.
 
 ---
 
