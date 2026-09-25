@@ -33,7 +33,7 @@ describe('useWarListPage', () => {
     await waitFor(() => expect(result.current.state.status).toBe('loaded'))
 
     // Assert
-    expect(client.getWars).toHaveBeenCalledWith({ sort: 'newest' })
+    expect(client.getWars).toHaveBeenCalledWith({ sort: 'newest', limit: '10' })
   })
 
   it('includes creator=me when creatorMe is requested (MyWars)', async () => {
@@ -45,7 +45,7 @@ describe('useWarListPage', () => {
     await waitFor(() => expect(client.getWars).toHaveBeenCalled())
 
     // Assert
-    expect(client.getWars).toHaveBeenCalledWith({ sort: 'newest', creator: 'me' })
+    expect(client.getWars).toHaveBeenCalledWith({ sort: 'newest', limit: '10', creator: 'me' })
   })
 
   it('changing sort resets to page 1 and fetches with the new sort and no cursor', async () => {
@@ -60,7 +60,7 @@ describe('useWarListPage', () => {
     await waitFor(() => expect(result.current.state).toMatchObject({ status: 'loaded' }))
 
     // Assert
-    expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'oldest' })
+    expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'oldest', limit: '10' })
     expect(result.current.hasPrev).toBe(false)
   })
 
@@ -78,7 +78,7 @@ describe('useWarListPage', () => {
     expect(vi.mocked(client.getWars).mock.calls.length).toBe(callsBeforeTyping)
 
     // Assert — fetched with q once the debounce elapses
-    await waitFor(() => expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'newest', q: 'pastry' }), {
+    await waitFor(() => expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'newest', limit: '10', q: 'pastry' }), {
       timeout: 2000,
     })
   })
@@ -98,7 +98,7 @@ describe('useWarListPage', () => {
     await waitFor(() => expect(result.current.state).toMatchObject({ status: 'loaded', wars: secondPage.wars }))
 
     // Assert
-    expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'newest', cursor: 'cursor-abc' })
+    expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'newest', limit: '10', cursor: 'cursor-abc' })
     expect(result.current.hasNext).toBe(false)
     expect(result.current.hasPrev).toBe(true)
   })
