@@ -1,5 +1,5 @@
 // The authenticated half of NavBar (the spec, "NavBar"): a single
-// avatar+name control that opens a menu holding My Wars, Create War,
+// avatar+name control that opens a menu holding My Wars, Start a War,
 // Import a War, and Log out — collapsed by default so the persistent
 // chrome stays small. Home lives outside this menu now, as the brand
 // mark every visitor sees regardless of auth state (NavBar.tsx).
@@ -64,7 +64,7 @@ export function IdentityMenu() {
             My Wars
           </NavLink>
           <NavLink role="menuitem" to="/wars/new" onClick={closeThen()}>
-            Create War
+            Start a War
           </NavLink>
           <NavLink role="menuitem" to="/wars/import" onClick={closeThen()}>
             Import a War
