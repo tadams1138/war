@@ -45,8 +45,8 @@ export function presentReport(report: Report): ReportView {
 }
 
 function explanationError(explanation: unknown): string | null {
-  if (typeof explanation !== 'string' || explanation.length === 0) {
-    return 'explanation must be a non-empty string';
+  if (typeof explanation !== 'string' || explanation.length === 0 || explanation.length > 1000) {
+    return 'explanation must be a non-empty string of at most 1000 characters';
   }
   return null;
 }

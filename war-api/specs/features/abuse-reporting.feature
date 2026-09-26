@@ -19,6 +19,12 @@ Feature: Abuse reporting
     Then the response status is 422
     And no report is created
 
+  Scenario: An overly long explanation is rejected
+    Given an authenticated Voter and a War
+    When they POST an explanation longer than 1000 characters to that War's reports
+    Then the response status is 422
+    And no report is created
+
   Scenario: Reporting a nonexistent War 404s
     Given an authenticated Voter
     When they POST an explanation to a nonexistent War's reports
