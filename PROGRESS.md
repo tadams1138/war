@@ -90,6 +90,23 @@ Staging and production both run as a single application per environment containi
   this one field. A request body still containing either field is silently ignored, not
   rejected. Bio (markdown) is now the only per-contestant free text — see the matching
   war-ui-default entry below for the client-side half of this removal.
+- **Moderator/Admin roles and abuse reporting** (spec §3, §6.7, §8.5). `is_moderator`/
+  `is_admin` are account-level booleans on `voters`, granted or revoked by an Admin only via
+  `PUT /voters/:id/roles/:role` (`roles/routes.ts`, `requireAdmin` guard,
+  `rolesService.grantRole`) — never self-service. Any authenticated Voter can file an abuse
+  report against any War (`POST /wars/:id/reports`, `reportsService.fileReport`) with a
+  required, non-empty explanation, any number of times, never deduplicated. Moderators and
+  Admins (`requireModeratorOrAdmin`, `roles/rolesAccess.ts`) can list every report against a
+  given War (`GET /wars/:id/reports`, newest first), read the cross-War unaddressed-reports
+  queue (`GET /reports/unaddressed`, `reportsService.unaddressedQueue`), and toggle a report's
+  addressed state either direction (`PATCH /reports/:id`,
+  `reportsService.setAddressed`) — a War's own creator has no visibility into its reports, no
+  exception. Deleting a War now also deletes its reports as part of the same
+  transaction (`deleteReportsForWar`, called from `deleteWarRow`, `wars/warsRepository.ts`) —
+  a report only ever disappears as a side effect of its War being deleted.
+- **`seed-admin` script** bootstraps the first Admin account in an environment with no
+  existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
+  *Operational prerequisites* below.
 
 ### Not built
 
@@ -401,6 +418,11 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   environment** — `assertProductionConfig` now refuses to boot with any of the four
   unconfigured. Bring staging up first, confirm all four buttons work end-to-end, then
   production.
+- **`seed-admin` must run once per environment** to bootstrap the first Admin —
+  `npm --prefix war-api run seed-admin -- <voterId>`. Needs `DATABASE_URL` pointed at that
+  environment's database and war-api's dev dependencies installed; the script compiles via
+  `tsc` before it runs. Nothing else grants the Admin role, since the role-grant endpoint
+  itself is Admin-only.
 
 ---
 
@@ -429,7 +451,9 @@ suspension from creating Wars, a global creation kill switch, soft-deleting a Wa
 hard-deleting its media, viewing every War/voter regardless of ownership, banning a voter
 (deleting their Wars and votes), and an append-only log of moderation actions. Narrower than
 this: Admin and Moderator roles, role grants, and abuse reporting are now specified —
-`war-spec.md` §3, §6.7, §8.5. Not yet built (see backlog item 5).
+`war-spec.md` §3, §6.7, §8.5 — and now built (see the war-api "Moderator/Admin roles and
+abuse reporting" entry above). Only the broader dashboard pieces listed above remain
+unbuilt (see backlog item 5).
 
 Two things that shaped the design and are worth keeping: the foreign keys have no cascade
 rules, so deleting a War needs an explicit ordered teardown; and one uploaded image becomes
