@@ -5,6 +5,7 @@ import {
   listWarsWithUnaddressedReports,
   setReportAddressed,
 } from '../../src/reports/reportsRepository.js';
+import { deleteWarRow } from '../../src/wars/warsRepository.js';
 import { makeDraftWar, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
@@ -68,5 +69,20 @@ describe('reportsRepository (war-spec.md §8.5)', () => {
     // Assert
     expect(addressed?.addressed).toBe(true);
     expect(reopened?.addressed).toBe(false);
+  });
+
+  it('is removed entirely when its War is deleted (war-spec.md §8.5, no FK cascade on reports.war_id)', async () => {
+    // Arrange
+    const creator = await makeVoter(harness.db, 'creator');
+    const reporter = await makeVoter(harness.db, 'reporter');
+    const war = await makeDraftWar(harness.db, creator.id);
+    await createReport(harness.db, { warId: war.id, reporterId: reporter.id, explanation: 'an issue' });
+
+    // Act
+    await deleteWarRow(harness.db, war.id);
+
+    // Assert
+    const remaining = await harness.db.selectFrom('reports').selectAll().where('war_id', '=', war.id).execute();
+    expect(remaining).toHaveLength(0);
   });
 });
