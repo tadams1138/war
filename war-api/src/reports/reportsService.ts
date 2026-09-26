@@ -2,7 +2,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import type { MutationOutcome, NotFound, ValidationError } from '../shared/outcomes.js';
 import { findWarById } from '../wars/warsRepository.js';
-import { createReport, type Report } from './reportsRepository.js';
+import { createReport, listReportsForWar, type Report } from './reportsRepository.js';
 
 export interface ReportView {
   id: string;
@@ -62,4 +62,15 @@ export async function fileReport(db: Kysely<Database>, input: FileReportInput): 
 
   const report = await createReport(db, { warId: input.warId, reporterId: input.reporterId, explanation: input.explanation as string });
   return { kind: 'ok', value: report };
+}
+
+export type ListReportsOutcome = MutationOutcome<Report[], NotFound>;
+
+/** Every report against `warId`, newest first (spec §8.5). 404s if the War itself doesn't exist; caller permission (Moderator/Admin) is enforced by `requireModeratorOrAdmin`, not here. */
+export async function listReportsForWarOutcome(db: Kysely<Database>, warId: string): Promise<ListReportsOutcome> {
+  const war = await findWarById(db, warId);
+  if (!war) return { kind: 'notFound' };
+
+  const reports = await listReportsForWar(db, warId);
+  return { kind: 'ok', value: reports };
 }

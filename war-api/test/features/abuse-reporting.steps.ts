@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeDraftWar, makeVoter } from '../setup/fixtures.js';
+import { makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -148,6 +148,94 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('the response status is 401', () => {
       expect(response.status).toBe(401);
+    });
+  });
+
+  async function getReports(voterId: string | undefined, warId: string): Promise<request.Response> {
+    await harness.app.ready();
+    const req = request(harness.app.server).get(`/api/v1/wars/${warId}/reports`);
+    if (voterId) {
+      const jwt = await harness.jwtFor(voterId);
+      req.set('Authorization', `Bearer ${jwt}`);
+    }
+    return req;
+  }
+
+  Scenario('A Moderator lists every report against a War', ({ Given, When, Then, And }) => {
+    let moderatorId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('a War with two reports against it and a Moderator', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const reporter = await makeVoter(harness.db, 'reporter');
+      const moderator = await makeModerator(harness.db, 'moderator');
+      const war = await makeDraftWar(harness.db, creator.id);
+      await postReport(reporter.id, war.id, 'first');
+      await postReport(reporter.id, war.id, 'second');
+      moderatorId = moderator.id;
+      warId = war.id;
+    });
+
+    When("the Moderator GETs that War's reports", async () => {
+      response = await getReports(moderatorId, warId);
+    });
+
+    Then('the response status is 200', () => {
+      expect(response.status).toBe(200);
+    });
+
+    And('both reports are listed, newest first', () => {
+      expect(response.body.reports).toHaveLength(2);
+      expect(response.body.reports[0].explanation).toBe('second');
+      expect(response.body.reports[1].explanation).toBe('first');
+    });
+  });
+
+  Scenario("The War's own creator cannot see its reports", ({ Given, When, Then }) => {
+    let creatorId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('a War with a report against it', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const reporter = await makeVoter(harness.db, 'reporter');
+      const war = await makeDraftWar(harness.db, creator.id);
+      await postReport(reporter.id, war.id, 'an issue');
+      creatorId = creator.id;
+      warId = war.id;
+    });
+
+    When("its creator GETs that War's reports", async () => {
+      response = await getReports(creatorId, warId);
+    });
+
+    Then('the response status is 403', () => {
+      expect(response.status).toBe(403);
+    });
+  });
+
+  Scenario('A plain Voter cannot list reports for a War', ({ Given, When, Then }) => {
+    let voterId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('a War with a report against it and a plain Voter', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const reporter = await makeVoter(harness.db, 'reporter');
+      const plainVoter = await makeVoter(harness.db, 'plain');
+      const war = await makeDraftWar(harness.db, creator.id);
+      await postReport(reporter.id, war.id, 'an issue');
+      voterId = plainVoter.id;
+      warId = war.id;
+    });
+
+    When('the plain Voter GETs that War\'s reports', async () => {
+      response = await getReports(voterId, warId);
+    });
+
+    Then('the response status is 403', () => {
+      expect(response.status).toBe(403);
     });
   });
 });
