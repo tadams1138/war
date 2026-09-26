@@ -19,6 +19,8 @@ export interface VotersTable {
   provider_user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  is_moderator: Generated<boolean>;
+  is_admin: Generated<boolean>;
   created_at: GeneratedTimestamp;
 }
 
@@ -101,6 +103,15 @@ export interface VotesTable {
   created_at: GeneratedTimestamp;
 }
 
+export interface ReportsTable {
+  id: string;
+  war_id: string;
+  reporter_id: string;
+  explanation: string;
+  addressed: Generated<boolean>;
+  created_at: GeneratedTimestamp;
+}
+
 export interface Database {
   voters: VotersTable;
   wars: WarsTable;
@@ -110,4 +121,5 @@ export interface Database {
   matchups: MatchupsTable;
   war_memberships: WarMembershipsTable;
   votes: VotesTable;
+  reports: ReportsTable;
 }

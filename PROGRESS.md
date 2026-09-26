@@ -90,12 +90,33 @@ Staging and production both run as a single application per environment containi
   this one field. A request body still containing either field is silently ignored, not
   rejected. Bio (markdown) is now the only per-contestant free text — see the matching
   war-ui-default entry below for the client-side half of this removal.
+- **Moderator/Admin roles and abuse reporting** (spec §3, §6.7, §8.5). `is_moderator`/
+  `is_admin` are account-level booleans on `voters`, granted or revoked by an Admin only via
+  `PUT /voters/:id/roles/:role` (`roles/routes.ts`, `requireAdmin` guard,
+  `rolesService.grantRole`) — never self-service. Any authenticated Voter can file an abuse
+  report against any War (`POST /wars/:id/reports`, `reportsService.fileReport`) with a
+  required, non-empty explanation, any number of times, never deduplicated. Moderators and
+  Admins (`requireModeratorOrAdmin`, `roles/rolesAccess.ts`) can list every report against a
+  given War (`GET /wars/:id/reports`, newest first), read the cross-War unaddressed-reports
+  queue (`GET /reports/unaddressed`, `reportsService.unaddressedQueue`), and toggle a report's
+  addressed state either direction (`PATCH /reports/:id`,
+  `reportsService.setAddressed`) — a War's own creator has no visibility into its reports, no
+  exception. Deleting a War now also deletes its reports as part of the same
+  transaction (`deleteReportsForWar`, called from `deleteWarRow`, `wars/warsRepository.ts`) —
+  a report only ever disappears as a side effect of its War being deleted.
+- **`seed-admin` script** bootstraps the first Admin account in an environment with no
+  existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
+  *Operational prerequisites* below.
 
 ### Not built
 
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
+- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Spec only — no Remove-War
+  soft-delete, no Suspend/Ban, no creation kill switch, no moderation-log table, and no
+  self-removal guard on an Admin's own role. Admin/Moderator roles, role grants, and abuse
+  reporting (the narrower part of §6.7, plus §8.5) are already specified and built.
 
 ---
 
@@ -357,6 +378,7 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
+- Admin Dashboard page (`war-spec.md` §10.1, §6.7; backlog item 5).
 
 ---
 
@@ -393,6 +415,7 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 ## Operational prerequisites
 
+- **Google OAuth app verification: complete.**
 - Each provider's redirect URI must be registered by hand with that provider, per
   environment. Nothing in the pipeline does it.
 - Google, Microsoft, Facebook, and Twitter/X apps must all be registered, with secrets set in
@@ -400,6 +423,11 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   environment** — `assertProductionConfig` now refuses to boot with any of the four
   unconfigured. Bring staging up first, confirm all four buttons work end-to-end, then
   production.
+- **`seed-admin` must run once per environment** to bootstrap the first Admin —
+  `npm --prefix war-api run seed-admin -- <voterId>`. Needs `DATABASE_URL` pointed at that
+  environment's database and war-api's dev dependencies installed; the script compiles via
+  `tsc` before it runs. Nothing else grants the Admin role, since the role-grant endpoint
+  itself is Admin-only.
 
 ---
 
@@ -423,18 +451,10 @@ correct and non-obvious.
 
 ## Designed but not specified
 
-**Platform moderation.** Agreed in discussion, never written into the spec: an administrator
-role grantable to several people, per-voter suspension from creating Wars, a global
-creation kill switch, soft-deleting a War while hard-deleting its media, and an append-only
-log of moderation actions.
-
-Two things that shaped the design and are worth keeping: the foreign keys have no cascade
-rules, so deleting a War needs an explicit ordered teardown; and one uploaded image becomes
-several stored objects across two prefixes, so a naive prefix sweep leaves the full-resolution
-originals behind.
-
-`war-spec.md` section 2 still lists "Admin moderation dashboard" as a non-goal, which
-this would reverse.
+Two things that shaped the admin/reporting design and are worth keeping: the foreign keys
+have no cascade rules, so deleting a War needs an explicit ordered teardown; and one
+uploaded image becomes several stored objects across two prefixes, so a naive prefix sweep
+leaves the full-resolution originals behind.
 
 ## Backlog
 
@@ -451,14 +471,13 @@ Requested 2026-09-24, to work through one at a time.
    above, and `war-spec.md`'s §4 (no longer documents it).
 4. ~~Drop the category from the results page's meta description.~~ **Done** — see the
    war-infra "Link-preview tags" entry above.
-5. **Spec an admin dashboard.** See "Designed but not specified" above for prior discussion
-   (admin role, per-voter suspension, creation kill switch, soft/hard-delete split, append-only
-   moderation log) — this backlog item is to actually turn that into a written spec. New here:
-   view every War regardless of status; delete any War regardless of ownership; view every
-   voter and their full vote history; ban/block a voter, deleting their Wars and votes; grant
-   or revoke admin rights on other logged-in users. Open question to resolve while specifying:
-   how the first admin (the user) gets that role on a fresh deployment — a seed script, an
-   env-var-designated voter id promoted on first login, or something else.
+5. ~~Spec the broad admin dashboard.~~ **Spec done** — `war-spec.md` §3, §6.7 (role grants,
+   self-removal guard, visibility, Remove a War, Suspend/Ban, the kill switch, the
+   moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
+   Moderator roles, role grants, and abuse reporting are also **built** (see the war-api
+   "Moderator/Admin roles and abuse reporting" entry above). Not yet built: Remove a War,
+   Suspend/Ban, the kill switch, the moderation log, the self-removal guard, and the Admin
+   Dashboard page — see the "Not built" entries above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.
 7. ~~Export/import should carry the share image.~~ **Done** — see "Export/import carries the
