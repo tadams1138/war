@@ -330,9 +330,9 @@ votes as part of removing it — scoped to that contestant's own matchups only, 
 War — and, like every destructive action on this page, asks for confirmation first, naming
 what will be lost.
 
-**Deletion** removes a War, its contestants, its media, and its votes entirely, in any status.
-Only the creator may delete, and confirmation is always required first — this app's standard
-guard on anything that cannot be undone (§10.4).
+**Deletion** removes a War, its contestants, its media, its votes, and any reports filed
+against it, entirely, in any status. Only the creator may delete, and confirmation is always
+required first — this app's standard guard on anything that cannot be undone (§10.4).
 
 **Clear Votes**, reachable by the creator from the Edit page in any status, deletes every vote
 cast in the War and resets every contestant's win and appearance counters to zero — the same
@@ -574,8 +574,9 @@ War; reports are never deduplicated or merged.
 | Filed at | Timestamp |
 | Addressed | Boolean, defaults `false` |
 
-**Reports accumulate; none is ever deleted.** Each is independent — addressing one leaves
-every other report on that War, or on any other War, untouched.
+**Reports accumulate; none is ever deleted individually** — a report is removed only as a
+side effect of its War being deleted (§6.1). Short of that, each is independent —
+addressing one leaves every other report on that War, or on any other War, untouched.
 
 **Visibility is Moderator/Admin only.** A War's creator is never shown that their War was
 reported, by whom, or why — reports are invisible to everyone except Moderator and Admin,
@@ -950,12 +951,12 @@ than a blank or broken preview. This applies to the War's detail page specifical
 pages under the same War (editing, voting) are not meant to be shared and carry no such
 preview of their own.
 
-**Delete** removes the War entirely — contestants, media, and every vote (§6.1) — regardless of
-status. **Clear Votes** deletes every vote cast in the War and resets every contestant's
-counters to zero, also regardless of status. Both ask for confirmation first, naming what will
-be lost, since neither can be undone; both, like removing a contestant that carries votes
-(§6.1), are visually distinguished from ordinary actions so a creator never mistakes a
-destructive choice for a routine one.
+**Delete** removes the War entirely — contestants, media, every vote, and any reports filed
+against it (§6.1) — regardless of status. **Clear Votes** deletes every vote cast in the War
+and resets every contestant's counters to zero, also regardless of status. Both ask for
+confirmation first, naming what will be lost, since neither can be undone; both, like removing
+a contestant that carries votes (§6.1), are visually distinguished from ordinary actions so a
+creator never mistakes a destructive choice for a routine one.
 
 **Publish** and **Unpublish** are the two directions of one toggle governing whether anyone but
 the creator can currently reach the War — not a one-time step, and reversible in either
