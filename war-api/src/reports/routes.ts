@@ -10,6 +10,7 @@ import {
   listReportsForWarOutcome,
   presentReport,
   reportViewSchema,
+  setAddressed,
   unaddressedQueue,
   unaddressedWarViewSchema,
 } from './reportsService.js';
@@ -83,6 +84,25 @@ export function registerReportsRoutes(app: FastifyInstance, deps: ReportsRouteDe
     async (_request, reply) => {
       const wars = await unaddressedQueue(db);
       return reply.send({ wars });
+    },
+  );
+
+  app.patch<{ Params: { id: string }; Body: { addressed: boolean } }>(
+    '/reports/:id',
+    bearerAuthRoute(
+      auth,
+      {
+        body: { type: 'object', required: ['addressed'], properties: { addressed: { type: 'boolean' } } },
+        response: { 200: reportViewSchema, 403: errorResponseSchema, 404: errorResponseSchema },
+      },
+      [requireModeratorOrAdmin(db)],
+    ),
+    async (request, reply) => {
+      const outcome = await setAddressed(db, request.params.id, request.body.addressed);
+      if (outcome.kind !== 'ok') {
+        return replyForOutcome(reply, outcome);
+      }
+      return reply.send(presentReport(outcome.value));
     },
   );
 }

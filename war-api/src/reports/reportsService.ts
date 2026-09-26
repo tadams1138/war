@@ -6,6 +6,7 @@ import {
   createReport,
   listReportsForWar,
   listWarsWithUnaddressedReports,
+  setReportAddressed,
   type Report,
   type UnaddressedWarQueueEntry,
 } from './reportsRepository.js';
@@ -105,4 +106,12 @@ export async function unaddressedQueue(db: Kysely<Database>): Promise<Unaddresse
     title: entry.title,
     unaddressed_count: entry.unaddressedCount,
   }));
+}
+
+export type SetAddressedOutcome = MutationOutcome<Report, NotFound>;
+
+/** Toggles one report's addressed flag (spec §8.5). Caller permission (Moderator/Admin) is enforced by `requireModeratorOrAdmin`, not here. */
+export async function setAddressed(db: Kysely<Database>, reportId: string, addressed: boolean): Promise<SetAddressedOutcome> {
+  const report = await setReportAddressed(db, reportId, addressed);
+  return report ? { kind: 'ok', value: report } : { kind: 'notFound' };
 }
