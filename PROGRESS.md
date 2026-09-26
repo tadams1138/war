@@ -113,6 +113,10 @@ Staging and production both run as a single application per environment containi
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
+- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Spec only — no Remove-War
+  soft-delete, no Suspend/Ban, no creation kill switch, no moderation-log table, and no
+  self-removal guard on an Admin's own role. Admin/Moderator roles, role grants, and abuse
+  reporting (the narrower part of §6.7, plus §8.5) are already specified and built.
 
 ---
 
@@ -374,6 +378,7 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
+- Admin Dashboard page (`war-spec.md` §10.1, §6.7; backlog item 5).
 
 ---
 
@@ -446,19 +451,10 @@ correct and non-obvious.
 
 ## Designed but not specified
 
-**Broad admin dashboard.** Agreed in discussion, never written into the spec: per-voter
-suspension from creating Wars, a global creation kill switch, soft-deleting a War while
-hard-deleting its media, viewing every War/voter regardless of ownership, banning a voter
-(deleting their Wars and votes), and an append-only log of moderation actions. Narrower than
-this: Admin and Moderator roles, role grants, and abuse reporting are now specified —
-`war-spec.md` §3, §6.7, §8.5 — and now built (see the war-api "Moderator/Admin roles and
-abuse reporting" entry above). Only the broader dashboard pieces listed above remain
-unbuilt (see backlog item 5).
-
-Two things that shaped the design and are worth keeping: the foreign keys have no cascade
-rules, so deleting a War needs an explicit ordered teardown; and one uploaded image becomes
-several stored objects across two prefixes, so a naive prefix sweep leaves the full-resolution
-originals behind.
+Two things that shaped the admin/reporting design and are worth keeping: the foreign keys
+have no cascade rules, so deleting a War needs an explicit ordered teardown; and one
+uploaded image becomes several stored objects across two prefixes, so a naive prefix sweep
+leaves the full-resolution originals behind.
 
 ## Backlog
 
@@ -475,13 +471,13 @@ Requested 2026-09-24, to work through one at a time.
    above, and `war-spec.md`'s §4 (no longer documents it).
 4. ~~Drop the category from the results page's meta description.~~ **Done** — see the
    war-infra "Link-preview tags" entry above.
-5. **Spec the remaining broad admin dashboard.** Admin/Moderator roles, role grants (seed
-   script bootstraps the first Admin), and abuse reporting are now specified —
-   `war-spec.md` §3, §6.7, §8.5 — and out of this item's scope. Still to spec: per-voter
-   suspension from creating Wars, a global creation kill switch, soft-deleting a War while
-   hard-deleting its media, viewing every War regardless of status, deleting any War
-   regardless of ownership, viewing every voter and their full vote history, and
-   banning/blocking a voter (deleting their Wars and votes).
+5. ~~Spec the broad admin dashboard.~~ **Spec done** — `war-spec.md` §3, §6.7 (role grants,
+   self-removal guard, visibility, Remove a War, Suspend/Ban, the kill switch, the
+   moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
+   Moderator roles, role grants, and abuse reporting are also **built** (see the war-api
+   "Moderator/Admin roles and abuse reporting" entry above). Not yet built: Remove a War,
+   Suspend/Ban, the kill switch, the moderation log, the self-removal guard, and the Admin
+   Dashboard page — see the "Not built" entries above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.
 7. ~~Export/import should carry the share image.~~ **Done** — see "Export/import carries the
