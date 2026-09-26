@@ -91,7 +91,7 @@ export async function refresh(deps: AuthDependencies, presentedTokenValue: strin
   const rotated = await rotateRefreshToken(deps.db, decision.token, hashRefreshToken(newTokenValue));
   if (rotated.kind === 'lost-race') {
     // Another request already rotated this exact token concurrently — the
-    // same signal as presenting an already-used token (spec).
+    // same signal as presenting an already-used token (spec §5.2).
     await revokeFamily(deps.db, decision.token.familyId);
     return { kind: 'reused' };
   }
