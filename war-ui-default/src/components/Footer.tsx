@@ -26,6 +26,7 @@ export function Footer() {
       </a>
       <Link to="/privacy">Privacy Policy</Link>
       <Link to="/terms">Terms of Service</Link>
+      <Link to="/data-deletion">Data Deletion</Link>
     </footer>
   )
 }
