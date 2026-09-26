@@ -60,3 +60,25 @@ Feature: Abuse reporting
     Given a plain Voter
     When the plain Voter GETs the unaddressed-reports queue
     Then the response status is 403
+
+  Scenario: A Moderator marks a report addressed
+    Given a Moderator and an unaddressed report
+    When the Moderator PATCHes that report's addressed state to true
+    Then the response status is 200
+    And the report's addressed state is now true
+
+  Scenario: A Moderator reopens a report addressed in error
+    Given a Moderator and a report already marked addressed
+    When the Moderator PATCHes that report's addressed state to false
+    Then the response status is 200
+    And the report's addressed state is now false
+
+  Scenario: A plain Voter cannot change a report's addressed state
+    Given a plain Voter and an unaddressed report
+    When the plain Voter PATCHes that report's addressed state to true
+    Then the response status is 403
+
+  Scenario: Addressing a nonexistent report 404s
+    Given a Moderator
+    When the Moderator PATCHes a nonexistent report's addressed state to true
+    Then the response status is 404

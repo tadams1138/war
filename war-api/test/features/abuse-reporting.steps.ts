@@ -321,4 +321,113 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(response.status).toBe(403);
     });
   });
+
+  async function patchAddressed(voterId: string | undefined, reportId: string, addressed: boolean): Promise<request.Response> {
+    await harness.app.ready();
+    const req = request(harness.app.server).patch(`/api/v1/reports/${reportId}`);
+    if (voterId) {
+      const jwt = await harness.jwtFor(voterId);
+      req.set('Authorization', `Bearer ${jwt}`);
+    }
+    return req.send({ addressed });
+  }
+
+  Scenario('A Moderator marks a report addressed', ({ Given, When, Then, And }) => {
+    let moderatorId: string;
+    let reportId: string;
+    let response: request.Response;
+
+    Given('a Moderator and an unaddressed report', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const reporter = await makeVoter(harness.db, 'reporter');
+      const moderator = await makeModerator(harness.db, 'moderator');
+      const war = await makeDraftWar(harness.db, creator.id);
+      const filed = await postReport(reporter.id, war.id, 'an issue');
+      moderatorId = moderator.id;
+      reportId = filed.body.id;
+    });
+
+    When("the Moderator PATCHes that report's addressed state to true", async () => {
+      response = await patchAddressed(moderatorId, reportId, true);
+    });
+
+    Then('the response status is 200', () => {
+      expect(response.status).toBe(200);
+    });
+
+    And("the report's addressed state is now true", () => {
+      expect(response.body.addressed).toBe(true);
+    });
+  });
+
+  Scenario('A Moderator reopens a report addressed in error', ({ Given, When, Then, And }) => {
+    let moderatorId: string;
+    let reportId: string;
+    let response: request.Response;
+
+    Given('a Moderator and a report already marked addressed', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const reporter = await makeVoter(harness.db, 'reporter');
+      const moderator = await makeModerator(harness.db, 'moderator');
+      const war = await makeDraftWar(harness.db, creator.id);
+      const filed = await postReport(reporter.id, war.id, 'an issue');
+      await patchAddressed(moderator.id, filed.body.id, true);
+      moderatorId = moderator.id;
+      reportId = filed.body.id;
+    });
+
+    When("the Moderator PATCHes that report's addressed state to false", async () => {
+      response = await patchAddressed(moderatorId, reportId, false);
+    });
+
+    Then('the response status is 200', () => {
+      expect(response.status).toBe(200);
+    });
+
+    And("the report's addressed state is now false", () => {
+      expect(response.body.addressed).toBe(false);
+    });
+  });
+
+  Scenario("A plain Voter cannot change a report's addressed state", ({ Given, When, Then }) => {
+    let voterId: string;
+    let reportId: string;
+    let response: request.Response;
+
+    Given('a plain Voter and an unaddressed report', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const reporter = await makeVoter(harness.db, 'reporter');
+      const plainVoter = await makeVoter(harness.db, 'plain');
+      const war = await makeDraftWar(harness.db, creator.id);
+      const filed = await postReport(reporter.id, war.id, 'an issue');
+      voterId = plainVoter.id;
+      reportId = filed.body.id;
+    });
+
+    When("the plain Voter PATCHes that report's addressed state to true", async () => {
+      response = await patchAddressed(voterId, reportId, true);
+    });
+
+    Then('the response status is 403', () => {
+      expect(response.status).toBe(403);
+    });
+  });
+
+  Scenario('Addressing a nonexistent report 404s', ({ Given, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('a Moderator', async () => {
+      const moderator = await makeModerator(harness.db, 'moderator');
+      moderatorId = moderator.id;
+    });
+
+    When("the Moderator PATCHes a nonexistent report's addressed state to true", async () => {
+      response = await patchAddressed(moderatorId, '00000000-0000-0000-0000-000000000000', true);
+    });
+
+    Then('the response status is 404', () => {
+      expect(response.status).toBe(404);
+    });
+  });
 });
