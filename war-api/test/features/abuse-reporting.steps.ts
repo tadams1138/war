@@ -114,6 +114,33 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario('An overly long explanation is rejected', ({ Given, When, Then, And }) => {
+    let reporterId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('an authenticated Voter and a War', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const reporter = await makeVoter(harness.db, 'reporter');
+      const war = await makeDraftWar(harness.db, creator.id);
+      reporterId = reporter.id;
+      warId = war.id;
+    });
+
+    When("they POST an explanation longer than 1000 characters to that War's reports", async () => {
+      response = await postReport(reporterId, warId, 'a'.repeat(1001));
+    });
+
+    Then('the response status is 422', () => {
+      expect(response.status).toBe(422);
+    });
+
+    And('no report is created', async () => {
+      const rows = await harness.db.selectFrom('reports').selectAll().where('war_id', '=', warId).execute();
+      expect(rows).toHaveLength(0);
+    });
+  });
+
   Scenario('Reporting a nonexistent War 404s', ({ Given, When, Then }) => {
     let reporterId: string;
     let response: request.Response;
