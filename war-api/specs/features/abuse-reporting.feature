@@ -28,3 +28,19 @@ Feature: Abuse reporting
     Given a request with no Authorization header
     When they POST an explanation to a War's reports
     Then the response status is 401
+
+  Scenario: A Moderator lists every report against a War
+    Given a War with two reports against it and a Moderator
+    When the Moderator GETs that War's reports
+    Then the response status is 200
+    And both reports are listed, newest first
+
+  Scenario: The War's own creator cannot see its reports
+    Given a War with a report against it
+    When its creator GETs that War's reports
+    Then the response status is 403
+
+  Scenario: A plain Voter cannot list reports for a War
+    Given a War with a report against it and a plain Voter
+    When the plain Voter GETs that War's reports
+    Then the response status is 403
