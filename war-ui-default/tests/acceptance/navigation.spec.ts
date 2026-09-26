@@ -40,6 +40,7 @@ test("Every page shows a persistent footer with attribution and project links", 
   )
   await expect(footer(page).getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy')
   await expect(footer(page).getByRole('link', { name: /terms of service/i })).toHaveAttribute('href', '/terms')
+  await expect(footer(page).getByRole('link', { name: /data deletion/i })).toHaveAttribute('href', '/data-deletion')
 })
 
 test('The Privacy Policy page is reachable and shows its content', async ({ page }) => {
@@ -56,6 +57,14 @@ test('The Terms of Service page is reachable and shows its content', async ({ pa
 
   // Assert
   await expect(page.getByRole('heading', { name: 'Terms of Service' })).toBeVisible()
+})
+
+test('The Data Deletion instructions page is reachable and shows its content', async ({ page }) => {
+  // Arrange / Act
+  await page.goto('/data-deletion')
+
+  // Assert
+  await expect(page.getByRole('heading', { name: 'Data Deletion' })).toBeVisible()
 })
 
 test('An anonymous visitor sees a link to log in and the Home brand mark', async ({ page }) => {

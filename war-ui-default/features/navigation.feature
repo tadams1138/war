@@ -7,6 +7,7 @@ Feature: Navigation
     And the footer links to the Import build guide
     And the footer links to the Privacy Policy
     And the footer links to the Terms of Service
+    And the footer links to the Data Deletion instructions
 
   Scenario: The Privacy Policy page is reachable and shows its content
     Given any visitor
@@ -17,6 +18,11 @@ Feature: Navigation
     Given any visitor
     When they navigate to the Terms of Service page
     Then they see the Terms of Service heading
+
+  Scenario: The Data Deletion instructions page is reachable and shows its content
+    Given any visitor
+    When they navigate to the Data Deletion instructions page
+    Then they see the Data Deletion heading
 
   Scenario: An anonymous visitor sees a link to log in and the Home brand mark
     Given an anonymous visitor on the home page
