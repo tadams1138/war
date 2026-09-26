@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
+import { makeAdmin, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -232,6 +232,89 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the plain Voter GETs that War\'s reports', async () => {
       response = await getReports(voterId, warId);
+    });
+
+    Then('the response status is 403', () => {
+      expect(response.status).toBe(403);
+    });
+  });
+
+  async function getQueue(voterId: string | undefined): Promise<request.Response> {
+    await harness.app.ready();
+    const req = request(harness.app.server).get('/api/v1/reports/unaddressed');
+    if (voterId) {
+      const jwt = await harness.jwtFor(voterId);
+      req.set('Authorization', `Bearer ${jwt}`);
+    }
+    return req;
+  }
+
+  Scenario('A Moderator sees only Wars with unaddressed reports', ({ Given, When, Then, And }) => {
+    let moderatorId: string;
+    let unaddressedWarId: string;
+    let response: request.Response;
+
+    Given('one War with an unaddressed report and another whose only report is addressed', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const reporter = await makeVoter(harness.db, 'reporter');
+      const moderator = await makeModerator(harness.db, 'moderator');
+      const warNeedingReview = await makeDraftWar(harness.db, creator.id, { title: 'Needs review' });
+      const warAllClear = await makeDraftWar(harness.db, creator.id, { title: 'All clear' });
+      await postReport(reporter.id, warNeedingReview.id, 'still open');
+      const addressedReport = await postReport(reporter.id, warAllClear.id, 'resolved already');
+      await harness.db.updateTable('reports').set({ addressed: true }).where('id', '=', addressedReport.body.id).execute();
+      moderatorId = moderator.id;
+      unaddressedWarId = warNeedingReview.id;
+    });
+
+    When('the Moderator GETs the unaddressed-reports queue', async () => {
+      response = await getQueue(moderatorId);
+    });
+
+    Then('the response status is 200', () => {
+      expect(response.status).toBe(200);
+    });
+
+    And('only the War with the unaddressed report is listed', () => {
+      expect(response.body.wars).toHaveLength(1);
+      expect(response.body.wars[0].war_id).toBe(unaddressedWarId);
+      expect(response.body.wars[0].unaddressed_count).toBe(1);
+    });
+  });
+
+  Scenario('An Admin without the Moderator flag can also read the queue', ({ Given, When, Then }) => {
+    let adminId: string;
+    let response: request.Response;
+
+    Given('an Admin and a War with an unaddressed report', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const reporter = await makeVoter(harness.db, 'reporter');
+      const admin = await makeAdmin(harness.db, 'admin');
+      const war = await makeDraftWar(harness.db, creator.id);
+      await postReport(reporter.id, war.id, 'an issue');
+      adminId = admin.id;
+    });
+
+    When('the Admin GETs the unaddressed-reports queue', async () => {
+      response = await getQueue(adminId);
+    });
+
+    Then('the response status is 200', () => {
+      expect(response.status).toBe(200);
+    });
+  });
+
+  Scenario('A plain Voter cannot read the queue', ({ Given, When, Then }) => {
+    let voterId: string;
+    let response: request.Response;
+
+    Given('a plain Voter', async () => {
+      const voter = await makeVoter(harness.db, 'plain');
+      voterId = voter.id;
+    });
+
+    When('the plain Voter GETs the unaddressed-reports queue', async () => {
+      response = await getQueue(voterId);
     });
 
     Then('the response status is 403', () => {

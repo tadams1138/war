@@ -2,7 +2,13 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import type { MutationOutcome, NotFound, ValidationError } from '../shared/outcomes.js';
 import { findWarById } from '../wars/warsRepository.js';
-import { createReport, listReportsForWar, type Report } from './reportsRepository.js';
+import {
+  createReport,
+  listReportsForWar,
+  listWarsWithUnaddressedReports,
+  type Report,
+  type UnaddressedWarQueueEntry,
+} from './reportsRepository.js';
 
 export interface ReportView {
   id: string;
@@ -73,4 +79,30 @@ export async function listReportsForWarOutcome(db: Kysely<Database>, warId: stri
 
   const reports = await listReportsForWar(db, warId);
   return { kind: 'ok', value: reports };
+}
+
+export interface UnaddressedWarView {
+  war_id: string;
+  title: string | null;
+  unaddressed_count: number;
+}
+
+export const unaddressedWarViewSchema = {
+  type: 'object',
+  required: ['war_id', 'title', 'unaddressed_count'],
+  properties: {
+    war_id: { type: 'string', format: 'uuid' },
+    title: { type: ['string', 'null'] },
+    unaddressed_count: { type: 'integer', minimum: 1 },
+  },
+};
+
+/** The moderation queue (spec §8.5) — never fails; an empty result just means nothing is waiting. */
+export async function unaddressedQueue(db: Kysely<Database>): Promise<UnaddressedWarView[]> {
+  const entries = await listWarsWithUnaddressedReports(db);
+  return entries.map((entry: UnaddressedWarQueueEntry) => ({
+    war_id: entry.warId,
+    title: entry.title,
+    unaddressed_count: entry.unaddressedCount,
+  }));
 }

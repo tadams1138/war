@@ -44,3 +44,19 @@ Feature: Abuse reporting
     Given a War with a report against it and a plain Voter
     When the plain Voter GETs that War's reports
     Then the response status is 403
+
+  Scenario: A Moderator sees only Wars with unaddressed reports
+    Given one War with an unaddressed report and another whose only report is addressed
+    When the Moderator GETs the unaddressed-reports queue
+    Then the response status is 200
+    And only the War with the unaddressed report is listed
+
+  Scenario: An Admin without the Moderator flag can also read the queue
+    Given an Admin and a War with an unaddressed report
+    When the Admin GETs the unaddressed-reports queue
+    Then the response status is 200
+
+  Scenario: A plain Voter cannot read the queue
+    Given a plain Voter
+    When the plain Voter GETs the unaddressed-reports queue
+    Then the response status is 403

@@ -5,7 +5,14 @@ import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { requireModeratorOrAdmin } from '../roles/rolesAccess.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
-import { fileReport, listReportsForWarOutcome, presentReport, reportViewSchema } from './reportsService.js';
+import {
+  fileReport,
+  listReportsForWarOutcome,
+  presentReport,
+  reportViewSchema,
+  unaddressedQueue,
+  unaddressedWarViewSchema,
+} from './reportsService.js';
 
 export interface ReportsRouteDeps {
   db: Kysely<Database>;
@@ -58,6 +65,24 @@ export function registerReportsRoutes(app: FastifyInstance, deps: ReportsRouteDe
         return replyForOutcome(reply, outcome);
       }
       return reply.send({ reports: outcome.value.map(presentReport) });
+    },
+  );
+
+  app.get(
+    '/reports/unaddressed',
+    bearerAuthRoute(
+      auth,
+      {
+        response: {
+          200: { type: 'object', required: ['wars'], properties: { wars: { type: 'array', items: unaddressedWarViewSchema } } },
+          403: errorResponseSchema,
+        },
+      },
+      [requireModeratorOrAdmin(db)],
+    ),
+    async (_request, reply) => {
+      const wars = await unaddressedQueue(db);
+      return reply.send({ wars });
     },
   );
 }
