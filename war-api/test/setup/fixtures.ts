@@ -33,7 +33,8 @@ export async function makeModerator(db: Kysely<Database>, seed: string): Promise
 }
 
 export interface DraftWarOptions {
-  title?: string;
+  /** `null` creates a War with no title -- distinct from omitting the option, which defaults to 'Test War'. */
+  title?: string | null;
   visibility?: string;
   theme?: string;
   endsAt?: Date | null;
@@ -46,7 +47,7 @@ function withDefault<T>(value: T | undefined, fallback: T): T {
 export async function makeDraftWar(db: Kysely<Database>, creatorId: string, options: DraftWarOptions = {}): Promise<War> {
   return createWar(db, {
     creatorId,
-    title: withDefault(options.title, 'Test War'),
+    title: options.title === undefined ? 'Test War' : options.title,
     category: null,
     visibility: withDefault(options.visibility, 'public'),
     mediaMode: 'image',

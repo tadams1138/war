@@ -688,7 +688,7 @@ test('Confirming delete removes the War and navigates to My Wars', async ({ page
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
     { method: 'DELETE', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [] } }] },
+    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
   ])
   await gotoEditPage(page)
   await page.getByTestId('edit-war-delete-button').click()
@@ -725,7 +725,7 @@ test('Deleting a published War works the same as deleting a draft', async ({ pag
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
     { method: 'DELETE', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [] } }] },
+    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
   ])
   await gotoEditPage(page)
 

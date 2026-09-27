@@ -771,7 +771,7 @@ partial or transitional state.
 - **Anonymous:** the brand mark, plus sign-in only. No links to authenticated destinations —
   offering an action that only ends in a redirect is friction the header exists to remove.
 - **Authenticated:** the brand mark, plus a single identity control (the voter's avatar and
-  name) that opens a menu holding My Wars, Create War, and a sign-out control, always
+  name) that opens a menu holding My Wars, Start a War, and a sign-out control, always
   together — Home is not repeated in this menu, since the brand mark already covers it for
   every visitor. The control is closed by default, so the persistent header stays small
   regardless of how many destinations it holds. The open menu renders on an opaque or
@@ -779,7 +779,7 @@ partial or transitional state.
   can render a contestant's own media directly beneath the header, and menu text must stay
   legible against it regardless of what that background is.
 
-**Create War is a top-level action** within that menu, not something reached through My
+**Start a War is a top-level action** within that menu, not something reached through My
 Wars — the tradeoff being a second item rather than a leaner menu. My Wars remains a separate
 destination for *reviewing* Wars.
 
@@ -921,30 +921,42 @@ affected. The file is validated in full before anything is created: a malformed 
 file is rejected with one clear message and creates nothing at all. Once the new draft exists,
 any later failure (a contestant, an image) leaves it in place with its error shown, rather than
 discarding what already succeeded — the creator lands on its Edit page and finishes repairing
-it by hand, the same way an abandoned Create War draft is already just findable, never lost.
+it by hand, the same way a draft abandoned right after Start a War is already just findable,
+never lost.
 
-**War cards** summarise a War: title, category, status, contestant count, and time remaining
-where an end date is set, topped by its share image when it has one — no placeholder when it
-doesn't; the card simply carries no image slot rather than a generic stand-in. Time remaining
-renders "Ended" at or past the end date, whole days rounded up at a day or more, and whole
-hours rounded up below that with a one-hour floor — so a War ending in minutes reads "1 hour"
-rather than "0 hours" or a misleading "1 day".
+**War cards** summarise a War: title, category, status, contestant count, creator's name where
+known, and time remaining where an end date is set, topped by its share image when it has one
+— no placeholder when it doesn't; the card simply carries no image slot rather than a generic
+stand-in. Time remaining renders "Ended" at or past the end date, whole days rounded up at a
+day or more, and whole hours rounded up below that with a one-hour floor — so a War ending in
+minutes reads "1 hour" rather than "0 hours" or a misleading "1 day".
+
+**Sorting, searching, and paging a War list** (Home and My Wars, below, share this exactly).
+Sort orders: newest first (default), oldest first, expiring soonest (a War with no end date
+sorts after every War that has one), and alphabetical by title (a War with no title, or a
+title that is blank once whitespace is trimmed, sorts after every War that has one). Search is
+a single free-text box, matched case-insensitively against anywhere in a War's title or its
+creator's name — a War with no title, or a blank one, is only ever found by its creator's
+name, never by an empty or whitespace match. Ten cards per page; **Next**/**Prev** step one
+page at a time — there is no jump to an arbitrary page number and no total shown, since
+counting a searched, sorted list is not free at any real scale. Changing the sort order or the
+search text starts back at the first page.
 
 **Theme switching.** A War's detail (which carries its results) and vote pages render in its
 creator-chosen theme (§4) until the voter viewing them picks a different one from the theme control in the
 persistent navigation header — reachable from every page, not just the themed ones. That pick
 is remembered only on the device it was made on, independently per War — it is not part of
 the voter's account, so it does not follow them to a different browser, and it never changes
-what any other voter sees. Home, My Wars, Create War, and sign-in are not themed by any single
+what any other voter sees. Home, My Wars, Start a War, and sign-in are not themed by any single
 War; they render in `arcade` until the voter picks a theme for those pages as a group,
 remembered the same way. The navigation header itself always renders in whichever theme the
 current page is showing.
 
-**Home** browses published public Wars. Its empty state is **auth-aware**: an anonymous visitor
-is told to check back, since waiting or signing in really are their only options; an
-authenticated voter is invited to create one and given a link, because they are the one
-visitor who can *make* a published War exist. Telling them only to check back is not merely
-unhelpful, it omits the one action they have.
+**Home** browses published public Wars, sorted, searched, and paged as above. Its empty state
+is **auth-aware**: an anonymous visitor is told to check back, since waiting or signing in
+really are their only options; an authenticated voter is invited to create one and given a
+link, because they are the one visitor who can *make* a published War exist. Telling them only
+to check back is not merely unhelpful, it omits the one action they have.
 
 Every War card on Home is already known to be published — that is the page's whole premise —
 so the card does not repeat "published" as a status word; **My Wars** still shows status, since it
@@ -956,18 +968,19 @@ an authenticated voter — an anonymous visitor who taps it is redirected to sig
 that destination and returned to it afterward, the same rule §10.1 states for any protected
 route.
 
-**Create War** creates an empty draft immediately — no fields collected up front — and forwards
+**Start a War** creates an empty draft immediately — no fields collected up front — and forwards
 straight to that draft's Edit page. There is no separate creation wizard and no review step;
 everything about a draft, including publishing it, happens on the one page. Partway
 abandonment (navigating away before the draft has a title, contestants, or is published) leaves
 an unreachable-but-findable draft behind at no cost — My Wars finds it again.
 
-**My Wars** lists every War the voter created, most recent first, each as a full war card
-including status — a creator needs status at a glance to tell a draft, published, or closed War
-apart. Selecting one opens its detail page. Every card, regardless of status, additionally
-carries an edit affordance, since editing is never status-gated (§6.1). This page adds no
+**My Wars** lists every War the voter created, sorted, searched, and paged as above (newest
+first by default), each as a full war card including status — a creator needs status at a
+glance to tell a draft, published, or closed War apart. Selecting one opens its detail page.
+Every card, regardless of status, additionally carries an edit affordance, since editing is
+never status-gated (§6.1). This page adds no
 resume affordance beyond that. Its header and its empty state both carry two entry points, not
-one: Create War, and Import a War (above).
+one: Start a War, and Import a War (above).
 
 **Editing** is one page covering everything a War needs: title, category, visibility, theme,
 end date, share image, each contestant's name, bio, and images (add, remove, reorder, up to
@@ -1019,7 +1032,7 @@ failure the client-side check didn't catch (a race, a network error) shows the A
 validation messages verbatim, never generic error copy — these are addressed to the creator,
 and only the creator ever reaches them.
 
-Both empty-state links to Create War remain even though the header also carries one. An empty
+Both empty-state links to Start a War remain even though the header also carries one. An empty
 state is a page's *entire* visible content at that moment, and the one visitor with something
 to do there should find that action in the content rather than having to look away to the
 header.
