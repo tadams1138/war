@@ -106,8 +106,4 @@ taking responsibility for what's in this repo, not to hide how it was made.
 
 ## License
 
-Copyright © 2026 Tom Adams. All rights reserved.
-
-This repository is publicly available for viewing and evaluation purposes only. No
-permission is granted to copy, modify, distribute, sublicense, or use this software or its
-source code for commercial purposes without prior written permission.
+See [`LICENSE`](LICENSE) — all rights reserved; publicly viewable for evaluation only.
