@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "migrate": "node-pg-migrate -m db/migrations up",
     "dump-openapi": "tsc -p tsconfig.json && node dist/scripts/dumpOpenApi.js",
+    "seed-admin": "tsc -p tsconfig.json && node dist/scripts/seedAdmin.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

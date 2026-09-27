@@ -1,6 +1,7 @@
 import type { Kysely, Selectable } from 'kysely';
 import type { Database, WarsTable } from '../db/types.js';
 import { newId } from '../db/uuid.js';
+import { deleteReportsForWar } from '../reports/reportsRepository.js';
 
 export interface War {
   id: string;
@@ -235,6 +236,7 @@ export async function deleteWarRow(db: Kysely<Database>, warId: string): Promise
 
     await trx.deleteFrom('contestants').where('war_id', '=', warId).execute();
     await trx.deleteFrom('war_memberships').where('war_id', '=', warId).execute();
+    await deleteReportsForWar(trx, warId);
     await trx.deleteFrom('wars').where('id', '=', warId).execute();
   });
 }
