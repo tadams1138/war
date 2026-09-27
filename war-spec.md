@@ -45,7 +45,6 @@ to it.
 - Real-time leaderboard streaming — polled refresh only
 - Push notifications
 - War creator moderation tools (removing voters, resetting votes)
-- Admin moderation dashboard
 - Vote tamper-detection analytics — the data is collected; the tooling is future work
 - Paid or promoted Wars
 - Weighted votes; all voters are equal
@@ -63,11 +62,17 @@ to it.
 | Role | Capabilities |
 |---|---|
 | **Anonymous Visitor** | Browse and view rankings of public Wars; cannot vote |
-| **Voter** | Authenticated; may join Wars, cast votes, view rankings |
+| **Voter** | Authenticated; may join Wars, cast votes, view rankings, file abuse reports (§8.5) |
 | **War Creator** | A Voter who created a specific War; manages it through its lifecycle |
+| **Moderator** | An account-level role, granted by an Admin; every Administration capability (§6.7) and abuse-report review (§8.5) except granting or revoking roles |
+| **Admin** | An account-level role, granted by another Admin; every Moderator capability plus granting and revoking Moderator and Admin on any Voter (§6.7) |
 
 "War Creator" is a relationship to a particular War, not an account type. A Voter becomes
-one by creating a War.
+one by creating a War. **Moderator and Admin are account-level roles**, independent of any
+particular War, and stack freely with War Creator — a Voter can hold either or both while
+also creating Wars of their own. Holding Moderator does not, on its own, exempt a Voter's
+own Wars from being reported by others; report visibility follows the Moderator role, not
+War ownership.
 
 A Voter may act through any client interchangeably — the default UI or a custom UI. Each is
 a different route to the same identity, and the API is the sole authority over what that
@@ -322,9 +327,9 @@ votes as part of removing it — scoped to that contestant's own matchups only, 
 War — and, like every destructive action on this page, asks for confirmation first, naming
 what will be lost.
 
-**Deletion** removes a War, its contestants, its media, and its votes entirely, in any status.
-Only the creator may delete, and confirmation is always required first — this app's standard
-guard on anything that cannot be undone (§10.4).
+**Deletion** removes a War, its contestants, its media, its votes, and any reports filed
+against it, entirely, in any status. Only the creator may delete, and confirmation is always
+required first — this app's standard guard on anything that cannot be undone (§10.4).
 
 **Clear Votes**, reachable by the creator from the Edit page in any status, deletes every vote
 cast in the War and resets every contestant's win and appearance counters to zero — the same
@@ -419,6 +424,64 @@ excluded from the published contract.
 The only such task closes Wars whose end date has passed. It is idempotent — safe to run
 repeatedly, concurrently, and after arbitrary delay — and changes no observable behaviour,
 because effective status (§4) already treats those Wars as closed.
+
+### 6.7 Administration
+
+**Moderator** and **Admin** (together, **Staff** below) are account-level roles (§3).
+Granting or revoking either on a Voter is an Admin-only operation; every other caller,
+Moderator included, gets a 403. There is no self-service path to either role.
+
+**The first Admin on a fresh deployment is created by a seed script**, run once at deploy
+time against a designated Voter id — not through any API endpoint, since no Admin yet
+exists to call one. Every Admin after that is granted through this endpoint by an existing
+Admin; a first Moderator needs no bootstrap at all, since any Admin can grant that role the
+moment one exists.
+
+**An Admin should not remove their own Admin role** — not by revoking it outright, and not
+by demoting it to Moderator. Only another Admin should be able to do either. Self-removal
+risks leaving a deployment with no Admin at all, recoverable only by repeating the manual
+bootstrap step above — a failure mode worth making structurally impossible rather than
+merely discouraged, the same reasoning §8.1 gives for why a mirrored matchup pairing cannot
+exist at all.
+
+**Visibility.** Staff may view every War regardless of status — draft, invite-only, or
+closed — and every Voter, including a Voter's own complete vote history (§8.3's audit
+trail, otherwise kept for future tooling, surfaced here to a human instead). This is the
+only way visibility scoping (§6.1's default scoping, and "a War not currently published is
+invisible to everyone but its creator") is ever bypassed.
+
+**Remove a War** takes down a War Staff have moderated for cause. It is deliberately not
+the same operation as a creator's own **Delete** (§6.1): Remove soft-deletes the War —
+marked removed and hidden from everyone, including its own creator, but its row and its
+votes persist — while hard-deleting its media outright, the same two-prefix
+originals-and-variants cleanup Delete already needs (§6.1's implementation note). Keeping
+the War and its votes intact under the hood preserves the audit trail (§8.3) for whatever
+the moderation was investigating; only the media, typically the reason for the removal, is
+actually reclaimed.
+
+**Suspend** and **Ban** are two severities of Staff acting against a Voter, not one:
+
+| Action | Effect | Reversible |
+|---|---|---|
+| **Suspend** | Blocks creating new Wars from this point on. Existing Wars, votes, and the ability to vote in others' Wars are untouched. | Yes — unsuspend |
+| **Ban** | Blocks sign-in entirely, and deletes every War this Voter created (§6.1's Delete — contestants, media, and votes, entirely) and every vote this Voter cast elsewhere, with every affected contestant's counters recomputed accordingly. | The block lifts on unban; deleted data does not come back, same as any other Delete |
+
+A Ban is the only way a Voter's own cast votes are ever removed after the fact — an
+intentional exception to §8.1's immutability, scoped to exactly this one moderation action,
+because the alternative (an abusive Voter's votes standing forever) is worse than the
+exception.
+
+**A global War-creation kill switch** rejects every `POST /wars` request, from every Voter
+including Staff, while enabled. No exceptions and no special-casing — an emergency stop is
+only trustworthy if it actually stops everything. Nothing else is affected: existing Wars
+keep running, voting continues, and disabling the switch requires the same Staff capability
+as enabling it.
+
+**An append-only moderation log** records every Staff action — Remove a War,
+Suspend/unsuspend, Ban/unban, an Admin granting or revoking a role, toggling the kill
+switch — with which Staff member, the target, and when. Never edited or deleted, mirroring
+votes' own immutability (§8.1), and for the same reason: several Staff may exist, and each
+must be individually accountable for what they did.
 
 ---
 
@@ -536,6 +599,45 @@ the address the application sees is the proxy's unless the proxy hop count is co
 it is not, every client behind the same hop shares one bucket — better than no limit, but not
 per-client accuracy. See §12.2.
 
+### 8.5 Abuse reporting
+
+Rate limiting (§8.4) catches scripted abuse; some abuse — spammed votes from a coordinated
+group, inappropriate media — is only obvious to a human. Abuse reporting is that path: any
+Voter (§3) can flag a War for a Moderator to review.
+
+**Filing a report** requires nothing but an authenticated Voter and a War id — the Voter
+need not have joined or voted in that War. A report carries a required, short text
+explanation. A Voter may file any number of reports, including several against the same
+War; reports are never deduplicated or merged.
+
+| Attribute | Notes |
+|---|---|
+| War | The War being reported |
+| Reporter | The Voter who filed it |
+| Explanation | Required short text |
+| Filed at | Timestamp |
+| Addressed | Boolean, defaults `false` |
+
+**Reports accumulate; none is ever deleted individually** — a report is removed only as a
+side effect of its War being deleted (§6.1). Short of that, each is independent —
+addressing one leaves every other report on that War, or on any other War, untouched.
+
+**Visibility is Moderator/Admin only.** A War's creator is never shown that their War was
+reported, by whom, or why — reports are invisible to everyone except Moderator and Admin,
+with no exception for the War's own creator. No notification is sent to anyone when a
+report is filed, consistent with the platform carrying no push notifications (§2).
+
+**Moderator/Admin capabilities**, all 403 for anyone else:
+
+- **List reports for a War** — every report against a given War id, newest first, each
+  with its reporter, explanation, filed-at time, and addressed state.
+- **List Wars with unaddressed reports** — every War carrying at least one report where
+  `addressed` is `false`, each with its unaddressed-report count. This is the moderation
+  queue: it is how a Moderator or Admin finds what still needs attention without checking
+  every War.
+- **Set a report's addressed state** — toggles one report's `addressed` flag in either
+  direction, so a Moderator or Admin can reopen a report addressed in error.
+
 ---
 
 ## 9. Media Handling
@@ -639,12 +741,16 @@ against, so those tests exercise real shapes rather than believed ones.
 | Create War | Creates an empty draft War and forwards to its Edit page | Yes |
 | Edit War | Metadata, contestants and media, Publish/Unpublish, Clear Votes, and Delete, for any War the voter created, any status | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
+| Admin Dashboard | Every War and Voter, moderation actions, the moderation log (§6.7); Staff only | Yes |
 | Sign in | Provider selection | No |
 | Auth callback | Exchanges the refresh cookie for a token, then returns the voter where they were going | No |
 
 Routing is client-side; the hosting layer serves the application shell with a success status
 for any unmatched path so deep links work. An unauthenticated visit to a protected route
-redirects to sign-in carrying the intended destination, and returns there afterwards.
+redirects to sign-in carrying the intended destination, and returns there afterwards. An
+authenticated visit to the Admin Dashboard by neither a Moderator nor an Admin redirects
+Home instead — unlike a private War (§6.1), whether this route exists at all isn't
+sensitive, so there is no need for a not-found-shaped response here.
 
 **Every route renders beneath a persistent navigation header**, rendered once by a shell
 wrapping the whole route tree rather than added page by page — a page that forgets it is then
@@ -893,12 +999,12 @@ than a blank or broken preview. This applies to the War's detail page specifical
 pages under the same War (editing, voting) are not meant to be shared and carry no such
 preview of their own.
 
-**Delete** removes the War entirely — contestants, media, and every vote (§6.1) — regardless of
-status. **Clear Votes** deletes every vote cast in the War and resets every contestant's
-counters to zero, also regardless of status. Both ask for confirmation first, naming what will
-be lost, since neither can be undone; both, like removing a contestant that carries votes
-(§6.1), are visually distinguished from ordinary actions so a creator never mistakes a
-destructive choice for a routine one.
+**Delete** removes the War entirely — contestants, media, every vote, and any reports filed
+against it (§6.1) — regardless of status. **Clear Votes** deletes every vote cast in the War
+and resets every contestant's counters to zero, also regardless of status. Both ask for
+confirmation first, naming what will be lost, since neither can be undone; both, like removing
+a contestant that carries votes (§6.1), are visually distinguished from ordinary actions so a
+creator never mistakes a destructive choice for a routine one.
 
 **Publish** and **Unpublish** are the two directions of one toggle governing whether anyone but
 the creator can currently reach the War — not a one-time step, and reversible in either
