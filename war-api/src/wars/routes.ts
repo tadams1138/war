@@ -22,7 +22,7 @@ import {
   setShareImage,
   unpublishWar,
 } from './warsService.js';
-import { closeExpiredWars, listWars } from './warsRepository.js';
+import { closeExpiredWars, listWars, type WarsSort } from './warsRepository.js';
 
 export interface WarsRouteDeps {
   db: Kysely<Database>;
@@ -63,10 +63,30 @@ function wantsOwnWars(query: { creator?: string }): boolean {
   return query.creator === 'me';
 }
 
+/** `Math.min(Number(raw ?? 20) || 20, 100)`, pulled out purely to keep the `GET /wars` handler's own branch count down. */
+function resolveWarsListLimit(raw: string | undefined): number {
+  return Math.min(Number(raw ?? 20) || 20, 100);
+}
+
+/** Defaults to `'newest'` (spec) -- ajv's querystring enum already guarantees `raw`, when present, is one of the four valid sort modes. */
+function resolveWarsListSort(raw: string | undefined): WarsSort {
+  return (raw as WarsSort | undefined) ?? 'newest';
+}
+
 export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): void {
   const { db, auth } = deps;
 
-  app.get<{ Querystring: { status?: string; category?: string; cursor?: string; limit?: string; creator?: string } }>(
+  app.get<{
+    Querystring: {
+      status?: string;
+      category?: string;
+      cursor?: string;
+      limit?: string;
+      creator?: string;
+      sort?: string;
+      q?: string;
+    };
+  }>(
     '/wars',
     {
       schema: {
@@ -81,14 +101,28 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
             // fails Fastify's own ajv validation and returns its standard
             // envelope, never this API's `{ error }` shape.
             creator: { type: 'string', enum: ['me'] },
+            sort: { type: 'string', enum: ['newest', 'oldest', 'expiring_soonest', 'alphabetical'] },
+            q: { type: 'string' },
           },
         },
         response: {
           200: {
             type: 'object',
-            required: ['wars'],
-            properties: { wars: { type: 'array', items: { $ref: 'WarSummary#' } } },
+            required: ['wars', 'next_cursor'],
+            properties: {
+              wars: { type: 'array', items: { $ref: 'WarSummary#' } },
+              next_cursor: { type: ['string', 'null'] },
+            },
           },
+          // Deliberately no `400` entry here: registering one would make
+          // Fastify serialize *every* 400 from this route -- including its
+          // own ajv querystring-validation envelope (`creator=someone-else`,
+          // spec) -- through this route's schema, silently stripping that
+          // envelope's `statusCode`/`code`/`message` down to `error` alone.
+          // The `reply.code(400).send(...)` below for an invalid cursor
+          // still sends its own literal `{ error: 'invalid cursor' }` body;
+          // it just isn't schema-validated/serialized against a declared
+          // shape.
           401: errorResponseSchema,
         },
       },
@@ -99,21 +133,32 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       preHandler: requireAuthIf(auth, (request) => wantsOwnWars(request.query as { creator?: string })),
     },
     async (request, reply) => {
-      const limit = Math.min(Number(request.query.limit ?? 20) || 20, 100);
+      const limit = resolveWarsListLimit(request.query.limit);
       const creatorId = wantsOwnWars(request.query) ? request.voterId : undefined;
-      const wars = await listWars(db, {
+      const sort = resolveWarsListSort(request.query.sort);
+      const outcome = await listWars(db, {
         status: request.query.status,
         category: request.query.category,
         cursor: request.query.cursor,
         limit,
         creatorId,
+        sort,
+        q: request.query.q,
       });
+      if (outcome.kind === 'invalidCursor') {
+        return reply.code(400).send({ error: 'invalid cursor' });
+      }
       const now = new Date();
       const counts = await countContestantsByWarIds(
         db,
-        wars.map((war) => war.id),
+        outcome.wars.map((war) => war.id),
       );
-      return reply.send({ wars: wars.map((war) => presentWarSummary(war, now, counts.get(war.id) ?? 0, deps.publicBaseUrl)) });
+      return reply.send({
+        wars: outcome.wars.map((war) =>
+          presentWarSummary(war, now, counts.get(war.id) ?? 0, deps.publicBaseUrl, war.creatorName),
+        ),
+        next_cursor: outcome.nextCursor,
+      });
     },
   );
 
@@ -140,7 +185,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return reply.code(422).send({ error: 'validation error', details: outcome.errors });
       }
       // A freshly created War has no contestants yet -- creation only inserts the `wars` row.
-      return reply.code(201).send(presentWarSummary(outcome.war, new Date(), 0, deps.publicBaseUrl));
+      return reply.code(201).send(presentWarSummary(outcome.war, new Date(), 0, deps.publicBaseUrl, null));
     },
   );
 
@@ -219,7 +264,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return replyForOutcome(reply, outcome);
       }
       return reply.send(
-        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl, null),
       );
     },
   );
@@ -240,7 +285,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return replyForOutcome(reply, outcome);
       }
       return reply.send(
-        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl, null),
       );
     },
   );
@@ -261,7 +306,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return replyForOutcome(reply, outcome);
       }
       return reply.send(
-        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl, null),
       );
     },
   );
@@ -281,7 +326,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return replyForOutcome(reply, outcome);
       }
       return reply.send(
-        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl, null),
       );
     },
   );
@@ -322,7 +367,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
-      return reply.send(presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl));
+      return reply.send(presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl, null));
     },
   );
 
@@ -335,7 +380,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return replyForOutcome(reply, outcome);
       }
       return reply.send(
-        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl),
+        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl, null),
       );
     },
   );

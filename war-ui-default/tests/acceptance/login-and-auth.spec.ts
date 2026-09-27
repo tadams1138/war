@@ -90,7 +90,7 @@ test('Concurrent 401s trigger exactly one refresh', async ({ page }) => {
     {
       method: 'GET',
       path: `${API}/wars`,
-      responses: [{ status: 401, body: { error: 'expired' } }, { status: 200, body: { wars: [] } }],
+      responses: [{ status: 401, body: { error: 'expired' } }, { status: 200, body: { wars: [], next_cursor: null } }],
     },
     {
       method: 'GET',
