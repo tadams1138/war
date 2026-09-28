@@ -134,4 +134,52 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(response.status).toBe(404);
     });
   });
+
+  Scenario('An Admin cannot remove their own Admin role', ({ Given, When, Then, And }) => {
+    let adminId: string;
+    let response: request.Response;
+
+    Given('an Admin', async () => {
+      const admin = await makeAdmin(harness.db, 'admin');
+      adminId = admin.id;
+    });
+
+    When('the Admin PUTs granted false for the admin role on themselves', async () => {
+      response = await putRole(adminId, adminId, 'admin', false);
+    });
+
+    Then('the response status is 403', () => {
+      expect(response.status).toBe(403);
+    });
+
+    And('the Admin still has the admin role', async () => {
+      const voter = await harness.db.selectFrom('voters').selectAll().where('id', '=', adminId).executeTakeFirstOrThrow();
+      expect(voter.is_admin).toBe(true);
+    });
+  });
+
+  Scenario("Another Admin can remove a first Admin's role", ({ Given, When, Then, And }) => {
+    let firstAdminId: string;
+    let secondAdminId: string;
+    let response: request.Response;
+
+    Given('two Admins', async () => {
+      const first = await makeAdmin(harness.db, 'first-admin');
+      const second = await makeAdmin(harness.db, 'second-admin');
+      firstAdminId = first.id;
+      secondAdminId = second.id;
+    });
+
+    When("the first Admin PUTs granted false for the admin role on the second Admin", async () => {
+      response = await putRole(firstAdminId, secondAdminId, 'admin', false);
+    });
+
+    Then('the response status is 200', () => {
+      expect(response.status).toBe(200);
+    });
+
+    And('the second Admin no longer has the admin role', () => {
+      expect(response.body.is_admin).toBe(false);
+    });
+  });
 });
