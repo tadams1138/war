@@ -41,7 +41,7 @@ export function registerRolesRoutes(app: FastifyInstance, deps: RolesRouteDeps):
       [requireAdmin(db)],
     ),
     async (request, reply) => {
-      const outcome = await grantRole(db, request.params.id, request.params.role as 'moderator' | 'admin', request.body.granted);
+      const outcome = await grantRole(db, request.voterId!, request.params.id, request.params.role as 'moderator' | 'admin', request.body.granted);
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }

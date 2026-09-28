@@ -26,3 +26,15 @@ Feature: Role grants
     Given an Admin
     When the Admin PUTs granted true for the moderator role on a nonexistent voter id
     Then the response status is 404
+
+  Scenario: An Admin cannot remove their own Admin role
+    Given an Admin
+    When the Admin PUTs granted false for the admin role on themselves
+    Then the response status is 403
+    And the Admin still has the admin role
+
+  Scenario: Another Admin can remove a first Admin's role
+    Given two Admins
+    When the first Admin PUTs granted false for the admin role on the second Admin
+    Then the response status is 200
+    And the second Admin no longer has the admin role
