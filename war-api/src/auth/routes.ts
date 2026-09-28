@@ -242,11 +242,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
           properties: {
             voter: {
               type: 'object',
-              required: ['id', 'display_name', 'avatar_url'],
+              required: ['id', 'display_name', 'avatar_url', 'is_moderator', 'is_admin'],
               properties: {
                 id: { type: 'string', format: 'uuid' },
                 display_name: { type: ['string', 'null'] },
                 avatar_url: { type: ['string', 'null'] },
+                is_moderator: { type: 'boolean' },
+                is_admin: { type: 'boolean' },
               },
             },
           },
@@ -256,7 +258,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
     async (request, reply) => {
       const voter = await currentVoter(deps, request.headers.authorization);
       return reply.send({
-        voter: { id: voter.id, display_name: voter.displayName, avatar_url: voter.avatarUrl },
+        voter: {
+          id: voter.id,
+          display_name: voter.displayName,
+          avatar_url: voter.avatarUrl,
+          is_moderator: voter.isModerator,
+          is_admin: voter.isAdmin,
+        },
       });
     },
   );

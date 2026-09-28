@@ -258,6 +258,8 @@ export interface paths {
                                 id: string;
                                 display_name: null | string;
                                 avatar_url: null | string;
+                                is_moderator: boolean;
+                                is_admin: boolean;
                             };
                         };
                     };
