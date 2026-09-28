@@ -6,7 +6,7 @@ describe('resolveVoterIdentity', () => {
     // Arrange
     const state = {
       status: 'loaded' as const,
-      value: { voter: { id: 'voter-1', display_name: 'Jordan', avatar_url: 'https://cdn.example.test/a.png' } },
+      value: { voter: { id: 'voter-1', display_name: 'Jordan', avatar_url: 'https://cdn.example.test/a.png', is_moderator: false, is_admin: false } },
     }
 
     // Act
@@ -20,7 +20,7 @@ describe('resolveVoterIdentity', () => {
     // Arrange
     const state = {
       status: 'loaded' as const,
-      value: { voter: { id: 'voter-1', display_name: null, avatar_url: null } },
+      value: { voter: { id: 'voter-1', display_name: null, avatar_url: null, is_moderator: false, is_admin: false } },
     }
 
     // Act
