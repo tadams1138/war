@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import type { Forbidden, MutationOutcome, NotFound } from '../shared/outcomes.js';
 import { setVoterRole, type Voter } from '../auth/votersRepository.js';
+import { logAction } from '../moderation/moderationLogRepository.js';
 
 export type GrantRoleOutcome = MutationOutcome<Voter, NotFound | Forbidden>;
 
@@ -23,5 +24,11 @@ export async function grantRole(
     return { kind: 'forbidden' };
   }
   const voter = await setVoterRole(db, targetVoterId, role, granted);
-  return voter ? { kind: 'ok', value: voter } : { kind: 'notFound' };
+  if (!voter) return { kind: 'notFound' };
+  await logAction(db, {
+    action: `${granted ? 'grant' : 'revoke'}_role_${role}`,
+    staffVoterId: callerVoterId,
+    targetVoterId,
+  });
+  return { kind: 'ok', value: voter };
 }
