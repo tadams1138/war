@@ -112,6 +112,15 @@ export interface ReportsTable {
   created_at: GeneratedTimestamp;
 }
 
+export interface ModerationLogTable {
+  id: string;
+  action: string;
+  staff_voter_id: string;
+  target_war_id: string | null;
+  target_voter_id: string | null;
+  created_at: GeneratedTimestamp;
+}
+
 export interface Database {
   voters: VotersTable;
   wars: WarsTable;
@@ -122,4 +131,5 @@ export interface Database {
   war_memberships: WarMembershipsTable;
   votes: VotesTable;
   reports: ReportsTable;
+  moderation_log: ModerationLogTable;
 }
