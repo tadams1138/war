@@ -2343,6 +2343,381 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/wars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    status?: "draft" | "published" | "closed" | "removed";
+                    q?: string;
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            wars: {
+                                /** Format: uuid */
+                                id: string;
+                                title: null | string;
+                                status: string;
+                                visibility: string;
+                                /** Format: uuid */
+                                creator_id: null | string;
+                                creator_name: null | string;
+                                /** Format: date-time */
+                                created_at: string;
+                                /** Format: date-time */
+                                removed_at: null | string;
+                                unaddressed_report_count: number;
+                            }[];
+                            next_cursor: null | string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/wars/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            title: null | string;
+                            status: string;
+                            visibility: string;
+                            /** Format: uuid */
+                            creator_id: null | string;
+                            creator_name: null | string;
+                            /** Format: date-time */
+                            created_at: string;
+                            /** Format: date-time */
+                            removed_at: null | string;
+                            unaddressed_report_count: number;
+                            report_count: number;
+                            contestants: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                win_count: number;
+                                appearance_count: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/voters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    status?: "suspended" | "banned" | "staff";
+                    q?: string;
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            voters: {
+                                /** Format: uuid */
+                                id: string;
+                                display_name: null | string;
+                                avatar_url: null | string;
+                                is_moderator: boolean;
+                                is_admin: boolean;
+                                suspended: boolean;
+                                banned: boolean;
+                                /** Format: date-time */
+                                created_at: string;
+                                war_count: number;
+                            }[];
+                            next_cursor: null | string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/voters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            display_name: null | string;
+                            avatar_url: null | string;
+                            is_moderator: boolean;
+                            is_admin: boolean;
+                            suspended: boolean;
+                            banned: boolean;
+                            /** Format: date-time */
+                            created_at: string;
+                            war_count: number;
+                            wars: {
+                                /** Format: uuid */
+                                id: string;
+                                title: null | string;
+                                status: string;
+                                /** Format: date-time */
+                                removed_at: null | string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/voters/{id}/votes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            votes: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                war_id: string;
+                                war_title: null | string;
+                                /** Format: uuid */
+                                matchup_id: string;
+                                /** Format: uuid */
+                                winner_contestant_id: string;
+                                winner_name: string;
+                                /** Format: uuid */
+                                loser_contestant_id: string;
+                                loser_name: string;
+                                /** Format: date-time */
+                                cast_at: string;
+                            }[];
+                            next_cursor: null | string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {

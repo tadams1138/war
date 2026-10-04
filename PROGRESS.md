@@ -183,6 +183,28 @@ Staging and production both run as a single application per environment containi
       survive.
     - A role grant landing between `findModerationTarget` and the write isn't caught, since
       there is no row lock.
+- **Staff visibility** (spec §6.7 "Visibility"). Staff-only (`requireModeratorOrAdmin`),
+  read-only endpoints live under `/admin/` (`admin/`). Public routes and `isWarVisibleTo`
+  are unchanged.
+  - `GET /admin/wars?status=&q=`: every War, removed included. `status` is one of `draft`,
+    `published`, `closed`, `removed`. Items carry `unaddressed_report_count`.
+  - `GET /admin/wars/:id`: the War plus `contestants` (with counters) and `report_count`.
+  - `GET /admin/voters?status=&q=`: `status` is one of `suspended`, `banned`, `staff`. Items
+    carry `war_count`.
+  - `GET /admin/voters/:id`: the Voter plus all their `wars`, unpaged.
+  - `GET /admin/voters/:id/votes`: full history with winner/loser names, removed Wars
+    included.
+  - Lists use keyset paging (`limit` 1–100, default 50, `cursor`, `next_cursor`).
+    `shared/keysetCursor.ts` holds the paging code, now shared with the moderation log.
+  - A malformed id gets 404 and a bad `status`/`cursor`/`limit` gets 400.
+  - War `status` is the stored column, so an expired War not yet closed shows `published`.
+  - `shared/likePattern.ts` holds the ILIKE escaping, now shared with `GET /wars`.
+  - Migration `20260116000000_admin_read_indexes.sql` adds
+    `votes (voter_id, created_at DESC, id DESC)`, `wars (creator_id)`, and
+    `(created_at DESC, id DESC)` on `wars` and `voters`. It doesn't use `CONCURRENTLY`, so
+    each build locks writes on its table. That's fine at current size, but not later on a
+    big `votes` table.
+  - No `EXPLAIN` has been run on these queries yet.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
   existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
   *Operational prerequisites* below.
@@ -207,10 +229,8 @@ Staging and production both run as a single application per environment containi
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
-- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Not built: Staff's view
-  of every War (and of removed Wars) and of every Voter. Admin/Moderator roles, role grants,
-  the self-removal guard, the moderation log, the kill switch, Remove a War, Suspend/Ban, and
-  abuse reporting are built.
+- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). The war-api half is
+  fully built. The Admin Dashboard page in war-ui-default is not.
 - A creator's own **Delete** (§6.1) still leaves the War's media objects in storage. It
   could now reuse `deletePrefix`, the way Remove a War does.
 
@@ -589,9 +609,8 @@ Requested 2026-09-24, to work through one at a time.
    self-removal guard, visibility, Remove a War, Suspend/Ban, the kill switch, the
    moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
    Moderator roles, role grants, abuse reporting, the self-removal guard, the moderation
-   log, the kill switch, Remove a War, and Suspend/Ban are also **built** (see the war-api
-   entries above). Not yet built: Staff visibility of every War and Voter, and the Admin
-   Dashboard page. See the "Not built" entries
+   log, the kill switch, Remove a War, Suspend/Ban, and Staff visibility are also **built**
+   (see the war-api entries above). Not yet built: the Admin Dashboard page. See the "Not built" entries
    above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.

@@ -2,6 +2,7 @@ import type { Kysely, Selectable } from 'kysely';
 import { sql } from 'kysely';
 import type { Database, WarsTable } from '../db/types.js';
 import { newId } from '../db/uuid.js';
+import { containsPattern } from '../shared/likePattern.js';
 import { deleteReportsForWar } from '../reports/reportsRepository.js';
 
 export interface War {
@@ -157,11 +158,6 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
 
 type WarsQuery = ReturnType<typeof baseWarsQuery>;
 
-/** Escapes `%`, `_`, and `\` so a raw search term is matched literally by `ILIKE`, never as a wildcard. */
-function escapeLikePattern(raw: string): string {
-  return raw.replace(/[\\%_]/g, (char) => `\\${char}`);
-}
-
 /**
  * Case-insensitive substring match against `wars.title` OR the creator's
  * `voters.display_name` (spec). A null or whitespace-only title never
@@ -170,7 +166,7 @@ function escapeLikePattern(raw: string): string {
  */
 function applySearch(query: WarsQuery, q: string | undefined): WarsQuery {
   if (!q) return query;
-  const pattern = `%${escapeLikePattern(q)}%`;
+  const pattern = containsPattern(q);
   return query.where(
     () =>
       sql<boolean>`(wars.title IS NOT NULL AND trim(wars.title) != '' AND wars.title ILIKE ${pattern}) OR voters.display_name ILIKE ${pattern}`,

@@ -450,6 +450,22 @@ trail, otherwise kept for future tooling, surfaced here to a human instead). Thi
 only way visibility scoping (§6.1's default scoping, and "a War not currently published is
 invisible to everyone but its creator") is ever bypassed.
 
+That bypass lives only in Staff's own read-only views, never on the ordinary routes. A
+Moderator browsing the public site sees exactly what any Voter sees. Being Staff never lets
+someone vote in, join, or edit a War they otherwise couldn't. Staff's views also include
+removed Wars, which no ordinary route ever shows. These views cover:
+- every War, filterable by status (including "removed") and by text matching its title or
+  creator's name, with each War's count of unaddressed reports
+- one War in full, removed or not, with its contestants and their standings
+- every Voter, filterable to the suspended, the banned, or Staff, with how many Wars each
+  created
+- one Voter with all their Wars
+- one Voter's complete vote history, newest first: every matchup they decided, in whatever
+  War, removed ones included
+
+Every list is paged like the moderation log. Reading never changes anything and writes
+nothing to the moderation log. No view exposes how a Voter signs in.
+
 **Remove a War** takes down a War Staff have moderated for cause. It is deliberately not
 the same operation as a creator's own **Delete** (§6.1): Remove soft-deletes the War —
 marked removed and hidden from everyone, including its own creator, but its row and its
