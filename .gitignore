@@ -66,3 +66,6 @@ terraform.rc
 *.njsproj
 *.sln
 *.sw?
+
+# Vite dependency pre-bundle cache
+.vite/
