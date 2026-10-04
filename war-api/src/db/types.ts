@@ -21,6 +21,8 @@ export interface VotersTable {
   avatar_url: string | null;
   is_moderator: Generated<boolean>;
   is_admin: Generated<boolean>;
+  suspended_at: Timestamp | null;
+  banned_at: Timestamp | null;
   created_at: GeneratedTimestamp;
 }
 

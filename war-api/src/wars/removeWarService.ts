@@ -7,17 +7,9 @@ import { deleteMediaForContestants } from '../contestants/contestantMediaReposit
 import { listContestantsByWar } from '../contestants/contestantsRepository.js';
 import type { ObjectStorage } from '../contestants/storage.js';
 import { markWarRemoved } from './warsRepository.js';
+import { deleteMediaObjects, mediaPrefixes } from './warMediaStorage.js';
 
 export type RemoveWarOutcome = MutationOutcome<void, NotFound>;
-
-/** Every storage prefix holding this War's media (key layout: `imageUploadService.ts`, `setShareImage` in `warsService.ts`). */
-function mediaPrefixes(warId: string, contestantIds: string[]): string[] {
-  return [
-    ...contestantIds.flatMap((id) => [`contestants/${id}/`, `originals/${id}/`]),
-    `share-images/${warId}.`,
-    `originals/share-images/${warId}.`,
-  ];
-}
 
 /**
  * Removes a War (spec §6.7): hidden from everyone, rows kept for the audit
@@ -42,17 +34,6 @@ export async function removeWar(
   });
   if (!prefixes) return { kind: 'notFound' };
 
-  await deleteMediaObjects(storage, log, warId, prefixes);
+  await deleteMediaObjects(storage, log, prefixes, { warId });
   return { kind: 'ok', value: undefined };
-}
-
-/** Best effort: the War is already removed, so a storage failure is logged (leaving orphaned objects) rather than failing the request. */
-async function deleteMediaObjects(storage: ObjectStorage, log: FastifyBaseLogger, warId: string, prefixes: string[]): Promise<void> {
-  try {
-    for (const prefix of prefixes) {
-      await storage.deletePrefix(prefix);
-    }
-  } catch (err) {
-    log.error({ err, warId }, 'failed to delete a removed War\'s media objects from storage');
-  }
 }

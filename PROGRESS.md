@@ -121,8 +121,8 @@ Staging and production both run as a single application per environment containi
   `to_char`) plus `id`, so millisecond JS Dates never skip rows. `target_war_id` has no
   foreign key on purpose, so a War hard delete (Ban, a creator's Delete) never blocks on log
   entries or removes them. The voter columns keep their foreign keys, since voters are never
-  deleted. Role grants/revokes, the kill switch, and Remove a War write to the log.
-  Suspend/Ban isn't built yet. It should call `logAction` inside its own transaction.
+  deleted. Every Staff action the spec lists writes to the log: role grants/revokes, the
+  kill switch, Remove a War, and Suspend/Ban.
 - **War-creation kill switch** (spec §6.7). State lives in `platform_settings`, a single-row
   table (`CHECK (id = 1)`). No row means off, and `setKillSwitch` upserts the row, so every
   API instance agrees. `GET /kill-switch` returns `{ enabled }`. `PUT /kill-switch` takes
@@ -150,6 +150,39 @@ Staging and production both run as a single application per environment containi
   removed War and erase the audit trail. `deleteWarRow` stays unfiltered, so a future Ban
   can still hard-delete a removed War. The S3 `deletePrefix` has no automated test. Tests use
   `InMemoryObjectStorage`.
+- **Suspend and Ban** (spec §6.7). `voters.suspended_at`/`banned_at` are exposed as `Voter`
+  booleans `suspended`/`banned`. Endpoints (`voterModeration/`) are Staff only:
+  `PUT /voters/:id/suspension` takes `{ suspended }` and `PUT /voters/:id/ban` takes
+  `{ banned }`. Both return `{ id, suspended, banned }`. `findModerationTarget` runs inside
+  the transaction, before any write. An unknown target gets 404. Targeting yourself or any
+  Staff member gets 403, so an Admin must revoke the role first. Refused calls change and
+  log nothing. Each accepted call logs `suspend_voter`, `unsuspend_voter`, `ban_voter` or
+  `unban_voter` in the same transaction.
+  - **Suspend:** a `rejectWhileSuspended` preHandler on `POST /wars` returns 403
+    `{ error: 'suspended' }`. It runs after the kill switch, whose 503 wins, and before the
+    rate limiter. A suspended Voter can still vote and edit their existing Wars.
+  - **Ban** runs one transaction:
+    - `purgeBannedVoterData` (`voterModeration/banPurge.ts`) hard-deletes every War the Voter
+      created, removed ones included. It uses `deleteWarRowIn`, the transaction-taking core
+      of `deleteWarRow`, which is now a thin wrapper.
+    - It deletes every vote the Voter cast and runs `recomputeContestantCounters` for each
+      affected War.
+    - It revokes all the Voter's refresh tokens (`revokeAllForVoter`) and deletes their
+      memberships.
+  - After commit, Ban deletes the deleted Wars' media objects best effort. It uses
+    `wars/warMediaStorage.ts` (`mediaPrefixes`, `deleteMediaObjects`), which is shared with
+    Remove a War. Reports the Voter filed and log rows naming them persist.
+  - **Ban blocks access at once:** `authenticatedVoterId` does one primary-key lookup per
+    authenticated request and rejects a banned Voter. `requireAuth` then gives 401 and
+    `optionalAuth` treats them as anonymous. `refresh` treats a banned Voter as invalid (401).
+    `completeCallback` returns `banned`, and the callback replies 403
+    `{ error: 'banned' }` with no refresh token issued.
+  - **Unban** lifts the block. Deleted data stays gone.
+  - **Known narrow races:**
+    - A vote whose auth check passed just before a ban commits can land after the purge and
+      survive.
+    - A role grant landing between `findModerationTarget` and the write isn't caught, since
+      there is no row lock.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
   existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
   *Operational prerequisites* below.
@@ -174,10 +207,10 @@ Staging and production both run as a single application per environment containi
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
-- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Not built: Suspend/Ban,
-  and Staff's view of every War (and of removed Wars). Admin/Moderator roles, role grants,
-  the self-removal guard, the moderation log, the kill switch, Remove a War, and abuse
-  reporting are built.
+- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Not built: Staff's view
+  of every War (and of removed Wars) and of every Voter. Admin/Moderator roles, role grants,
+  the self-removal guard, the moderation log, the kill switch, Remove a War, Suspend/Ban, and
+  abuse reporting are built.
 - A creator's own **Delete** (§6.1) still leaves the War's media objects in storage. It
   could now reuse `deletePrefix`, the way Remove a War does.
 
@@ -556,8 +589,9 @@ Requested 2026-09-24, to work through one at a time.
    self-removal guard, visibility, Remove a War, Suspend/Ban, the kill switch, the
    moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
    Moderator roles, role grants, abuse reporting, the self-removal guard, the moderation
-   log, the kill switch, and Remove a War are also **built** (see the war-api entries
-   above). Not yet built: Suspend/Ban and the Admin Dashboard page. See the "Not built" entries
+   log, the kill switch, Remove a War, and Suspend/Ban are also **built** (see the war-api
+   entries above). Not yet built: Staff visibility of every War and Voter, and the Admin
+   Dashboard page. See the "Not built" entries
    above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.

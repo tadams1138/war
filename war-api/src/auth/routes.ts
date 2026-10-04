@@ -29,6 +29,13 @@ export const oauthDeclinedResponseSchema = {
   },
 };
 
+/** The callback's 403 is either a declined authorization (`reason` set) or a banned Voter (`error: 'banned'`). */
+const callbackForbiddenResponseSchema = {
+  type: 'object',
+  required: ['error'],
+  properties: { error: { type: 'string' }, reason: { type: 'string' } },
+};
+
 export interface AuthRouteConfig {
   uiOrigins: string[];
   apiBaseUrl: string;
@@ -140,7 +147,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
     // stale 200-body example is superseded by the spec's cookie flow).
     // The four failure responses are the spec's "Callback failure
     // responses" table, checked in that exact order below.
-    { schema: { response: { 400: errorResponseSchema, 403: oauthDeclinedResponseSchema, 502: errorResponseSchema } } },
+    { schema: { response: { 400: errorResponseSchema, 403: callbackForbiddenResponseSchema, 502: errorResponseSchema } } },
     async (request, reply) => {
       const provider = deps.providers.get(request.params.provider);
       if (!provider) {
@@ -179,6 +186,10 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
         return reply.code(502).send({ error: `authentication with ${provider.slug} failed` });
       }
       const result = await completeCallback(deps, provider.slug, exchange.profile);
+      if (result.kind === 'banned') {
+        clearOAuthCookies(reply);
+        return reply.code(403).send({ error: 'banned' });
+      }
 
       void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, refreshCookieOptions());
       clearOAuthCookies(reply);
