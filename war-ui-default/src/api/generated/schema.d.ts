@@ -1979,7 +1979,10 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    limit?: number;
+                    cursor?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2006,6 +2009,7 @@ export interface paths {
                                 /** Format: date-time */
                                 created_at: string;
                             }[];
+                            next_cursor: null | string;
                         };
                     };
                 };

@@ -5,7 +5,7 @@ import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { requireModeratorOrAdmin } from '../roles/rolesAccess.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
-import { listModerationLog, type ModerationLogEntry } from './moderationLogRepository.js';
+import { DEFAULT_MODERATION_LOG_LIMIT, listModerationLog, type ModerationLogEntry } from './moderationLogRepository.js';
 
 export interface ModerationLogRouteDeps {
   db: Kysely<Database>;
@@ -44,16 +44,37 @@ export function registerModerationLogRoutes(app: FastifyInstance, deps: Moderati
     bearerAuthRoute(
       auth,
       {
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: DEFAULT_MODERATION_LOG_LIMIT },
+            cursor: { type: 'string' },
+          },
+        },
+        // Deliberately no `400` entry: declaring one would make Fastify serialize its own
+        // querystring-validation 400 through it (see `GET /wars`).
         response: {
-          200: { type: 'object', required: ['entries'], properties: { entries: { type: 'array', items: moderationLogEntryViewSchema } } },
+          200: {
+            type: 'object',
+            required: ['entries', 'next_cursor'],
+            properties: {
+              entries: { type: 'array', items: moderationLogEntryViewSchema },
+              next_cursor: { type: ['string', 'null'] },
+            },
+          },
           403: errorResponseSchema,
         },
       },
       [requireModeratorOrAdmin(db)],
     ),
-    async (_request, reply) => {
-      const entries = await listModerationLog(db);
-      return reply.send({ entries: entries.map(presentEntry) });
+    async (request, reply) => {
+      // ajv has already applied the default and bounds, so `limit` is always a valid integer here.
+      const { limit, cursor } = request.query as { limit: number; cursor?: string };
+      const outcome = await listModerationLog(db, { limit, cursor });
+      if (outcome.kind === 'invalidCursor') {
+        return reply.code(400).send({ error: 'invalid cursor' });
+      }
+      return reply.send({ entries: outcome.entries.map(presentEntry), next_cursor: outcome.nextCursor });
     },
   );
 }

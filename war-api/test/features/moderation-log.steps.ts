@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import request from 'supertest';
+import { sql } from 'kysely';
 import { expect } from 'vitest';
+import { newId } from '../../src/db/uuid.js';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { makeVoter, makeAdmin, makeModerator } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
@@ -150,9 +152,120 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  async function getLog(callerId: string): Promise<request.Response> {
+  Scenario('The moderation log is returned a page at a time', ({ Given, When, Then }) => {
+    let moderatorId: string;
+    let seededIds: string[];
+    let response: request.Response;
+
+    Given('an Admin and a Moderator, and 5 moderation log entries logged within the same millisecond', async () => {
+      // Arrange
+      const adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+      seededIds = await seedEntriesWithinOneMillisecond(adminId, 5);
+    });
+
+    When('the Moderator GETs the moderation log with limit 2', async () => {
+      // Act
+      response = await getLog(moderatorId, { limit: '2' });
+    });
+
+    Then('the response has the 2 newest entries and a next cursor', () => {
+      // Assert
+      expect(response.status).toBe(200);
+      const entries = response.body.entries as Array<{ id: string }>;
+      expect(entries.map((entry) => entry.id)).toEqual(seededIds.slice(0, 2));
+      expect(typeof response.body.next_cursor).toBe('string');
+    });
+  });
+
+  Scenario('Following the next cursor returns every remaining entry exactly once', ({ Given, When, Then }) => {
+    let moderatorId: string;
+    let seededIds: string[];
+    let pages: request.Response[];
+
+    Given('an Admin and a Moderator, and 5 moderation log entries logged within the same millisecond', async () => {
+      // Arrange
+      const adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+      seededIds = await seedEntriesWithinOneMillisecond(adminId, 5);
+    });
+
+    When('the Moderator pages through the moderation log with limit 2 following each next cursor', async () => {
+      // Act
+      pages = [];
+      let cursor: string | undefined;
+      do {
+        const page = await getLog(moderatorId, cursor ? { limit: '2', cursor } : { limit: '2' });
+        pages.push(page);
+        cursor = (page.body.next_cursor as string | null) ?? undefined;
+      } while (cursor && pages.length < 10);
+    });
+
+    Then('every entry appears exactly once, newest first, and the last page has a null next cursor', () => {
+      // Assert
+      expect(pages.map((page) => page.status)).toEqual([200, 200, 200]);
+      const ids = pages.flatMap((page) => (page.body.entries as Array<{ id: string }>).map((entry) => entry.id));
+      expect(ids).toEqual(seededIds);
+      expect(pages[pages.length - 1]?.body.next_cursor).toBeNull();
+    });
+  });
+
+  Scenario('A malformed cursor is rejected', ({ Given, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('a Moderator', async () => {
+      // Arrange
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the moderation log with cursor "not-a-cursor"', async () => {
+      // Act
+      response = await getLog(moderatorId, { cursor: 'not-a-cursor' });
+    });
+
+    Then('the response is 400', () => {
+      // Assert
+      expect(response.status).toBe(400);
+    });
+  });
+
+  Scenario('A limit outside 1 to 100 is rejected', ({ Given, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('a Moderator', async () => {
+      // Arrange
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the moderation log with limit 101', async () => {
+      // Act
+      response = await getLog(moderatorId, { limit: '101' });
+    });
+
+    Then('the response is 400', () => {
+      // Assert
+      expect(response.status).toBe(400);
+    });
+  });
+
+  /** Inserts `count` entries whose created_at differ only in microseconds; returns their ids newest first. */
+  async function seedEntriesWithinOneMillisecond(staffId: string, count: number): Promise<string[]> {
+    const ids: string[] = [];
+    for (let i = 1; i <= count; i += 1) {
+      const id = newId();
+      const micros = String(i * 100).padStart(6, '0');
+      await sql`insert into moderation_log (id, action, staff_voter_id, created_at)
+        values (${id}::uuid, 'grant_role_moderator', ${staffId}::uuid, ${`2026-01-01T00:00:00.${micros}Z`}::timestamptz)`.execute(harness.db);
+      ids.push(id);
+    }
+    return ids.reverse();
+  }
+
+  async function getLog(callerId: string, query: Record<string, string> = {}): Promise<request.Response> {
     await harness.app.ready();
     const jwt = await harness.jwtFor(callerId);
-    return request(harness.app.server).get('/api/v1/moderation-log').set('Authorization', `Bearer ${jwt}`);
+    return request(harness.app.server).get('/api/v1/moderation-log').query(query).set('Authorization', `Bearer ${jwt}`);
   }
 });

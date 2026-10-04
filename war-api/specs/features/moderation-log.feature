@@ -25,3 +25,23 @@ Feature: Moderation log
     Given a plain Voter
     When that Voter GETs the moderation log
     Then the response is 403
+
+  Scenario: The moderation log is returned a page at a time
+    Given an Admin and a Moderator, and 5 moderation log entries logged within the same millisecond
+    When the Moderator GETs the moderation log with limit 2
+    Then the response has the 2 newest entries and a next cursor
+
+  Scenario: Following the next cursor returns every remaining entry exactly once
+    Given an Admin and a Moderator, and 5 moderation log entries logged within the same millisecond
+    When the Moderator pages through the moderation log with limit 2 following each next cursor
+    Then every entry appears exactly once, newest first, and the last page has a null next cursor
+
+  Scenario: A malformed cursor is rejected
+    Given a Moderator
+    When the Moderator GETs the moderation log with cursor "not-a-cursor"
+    Then the response is 400
+
+  Scenario: A limit outside 1 to 100 is rejected
+    Given a Moderator
+    When the Moderator GETs the moderation log with limit 101
+    Then the response is 400

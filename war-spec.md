@@ -484,7 +484,10 @@ votes' own immutability (§8.1), and for the same reason: several Staff may exis
 must be individually accountable for what they did. An action and its log entry stand or
 fall together. If the entry can't be recorded, the action doesn't happen, and a refused
 action records nothing. Any Staff member can read the whole log, newest first. Everyone else
-gets a 403.
+gets a 403. The log is read a page at a time (at most 100 entries per page, 50 by default)
+by following an opaque continuation token. Paging never skips or repeats an entry, even when
+several entries share a timestamp. A malformed token or an out-of-range page size gets a 400.
+Entries outlive their targets: deleting a War never removes or blocks on its log entries.
 
 ---
 
