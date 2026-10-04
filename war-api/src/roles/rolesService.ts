@@ -12,6 +12,8 @@ export type GrantRoleOutcome = MutationOutcome<Voter, NotFound | Forbidden>;
  * Admin-only guard can't express is self-removal -- an Admin revoking their
  * own Admin role, which `requireAdmin` happily allows since the caller is an
  * Admin -- so that check lives here instead, where `callerVoterId` is available.
+ * The role change and its moderation log entry commit together or not at all,
+ * so no Staff action goes unrecorded.
  */
 export async function grantRole(
   db: Kysely<Database>,
@@ -23,12 +25,14 @@ export async function grantRole(
   if (role === 'admin' && !granted && targetVoterId === callerVoterId) {
     return { kind: 'forbidden' };
   }
-  const voter = await setVoterRole(db, targetVoterId, role, granted);
-  if (!voter) return { kind: 'notFound' };
-  await logAction(db, {
-    action: `${granted ? 'grant' : 'revoke'}_role_${role}`,
-    staffVoterId: callerVoterId,
-    targetVoterId,
+  return db.transaction().execute(async (trx): Promise<GrantRoleOutcome> => {
+    const voter = await setVoterRole(trx, targetVoterId, role, granted);
+    if (!voter) return { kind: 'notFound' };
+    await logAction(trx, {
+      action: `${granted ? 'grant' : 'revoke'}_role_${role}`,
+      staffVoterId: callerVoterId,
+      targetVoterId,
+    });
+    return { kind: 'ok', value: voter };
   });
-  return { kind: 'ok', value: voter };
 }

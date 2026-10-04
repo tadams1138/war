@@ -1970,6 +1970,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/moderation-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            entries: {
+                                /** Format: uuid */
+                                id: string;
+                                action: string;
+                                /** Format: uuid */
+                                staff_voter_id: string;
+                                /** Format: uuid */
+                                target_war_id: null | string;
+                                /** Format: uuid */
+                                target_voter_id: null | string;
+                                /** Format: date-time */
+                                created_at: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {

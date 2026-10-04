@@ -16,6 +16,7 @@ import { registerOpenApiRoutes } from './openapi/routes.js';
 import { registerSharedSchemas } from './openapi/schemas.js';
 import { registerRankingsRoutes } from './rankings/routes.js';
 import { registerReportsRoutes } from './reports/routes.js';
+import { registerModerationLogRoutes } from './moderation/routes.js';
 import { registerRolesRoutes } from './roles/routes.js';
 import { registerWarsRoutes } from './wars/routes.js';
 import type { AppConfig } from './config.js';
@@ -103,6 +104,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       registerRankingsRoutes(instance, { db: deps.db, auth: authDeps, publicBaseUrl: deps.config.s3.publicBaseUrl });
       registerReportsRoutes(instance, { db: deps.db, auth: authDeps });
       registerRolesRoutes(instance, { db: deps.db, auth: authDeps });
+      registerModerationLogRoutes(instance, { db: deps.db, auth: authDeps });
     },
     { prefix: API_PREFIX },
   );
