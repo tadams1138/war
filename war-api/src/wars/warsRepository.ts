@@ -64,8 +64,20 @@ export async function createWar(db: Kysely<Database>, input: CreateWarInput): Pr
 }
 
 export async function findWarById(db: Kysely<Database>, id: string): Promise<War | undefined> {
-  const row = await db.selectFrom('wars').selectAll().where('id', '=', id).executeTakeFirst();
+  const row = await db.selectFrom('wars').selectAll().where('id', '=', id).where('removed_at', 'is', null).executeTakeFirst();
   return row ? toWar(row) : undefined;
+}
+
+/** Marks a not-yet-removed War removed (spec §6.7). `false` if it doesn't exist or was already removed. */
+export async function markWarRemoved(db: Kysely<Database>, id: string): Promise<boolean> {
+  const row = await db
+    .updateTable('wars')
+    .set({ removed_at: sql<Date>`now()`, share_image_key: null })
+    .where('id', '=', id)
+    .where('removed_at', 'is', null)
+    .returning('id')
+    .executeTakeFirst();
+  return row !== undefined;
 }
 
 export type WarsSort = 'newest' | 'oldest' | 'alphabetical' | 'expiring_soonest';
@@ -121,7 +133,8 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
     .selectFrom('wars')
     .leftJoin('voters', 'voters.id', 'wars.creator_id')
     .selectAll('wars')
-    .select((eb) => eb.ref('voters.display_name').as('creator_name'));
+    .select((eb) => eb.ref('voters.display_name').as('creator_name'))
+    .where('wars.removed_at', 'is', null);
 
   if (filter.creatorId) {
     const ownScoped = query.where('wars.creator_id', '=', filter.creatorId);

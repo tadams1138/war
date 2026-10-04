@@ -23,6 +23,8 @@ import {
   setShareImage,
   unpublishWar,
 } from './warsService.js';
+import { requireModeratorOrAdmin } from '../roles/rolesAccess.js';
+import { removeWar } from './removeWarService.js';
 import { closeExpiredWars, listWars, type WarsSort } from './warsRepository.js';
 
 export interface WarsRouteDeps {
@@ -399,6 +401,18 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     bearerAuthRoute(auth, { response: { 204: {}, 403: errorResponseSchema, 404: errorResponseSchema } }),
     async (request, reply) => {
       const outcome = await joinWar(db, request.params.id, request.voterId!, new Date());
+      if (outcome.kind !== 'ok') {
+        return replyForOutcome(reply, outcome);
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    '/wars/:id/remove',
+    bearerAuthRoute(auth, { response: { 204: {}, 403: errorResponseSchema, 404: errorResponseSchema } }, [requireModeratorOrAdmin(db)]),
+    async (request, reply) => {
+      const outcome = await removeWar(db, deps.storage, request.log, request.voterId!, request.params.id);
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
