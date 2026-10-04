@@ -475,7 +475,10 @@ exception.
 including Staff, while enabled. No exceptions and no special-casing — an emergency stop is
 only trustworthy if it actually stops everything. Nothing else is affected: existing Wars
 keep running, voting continues, and disabling the switch requires the same Staff capability
-as enabling it.
+as enabling it. Any Staff member, Moderator or Admin, may read or set the switch. Everyone else
+gets a 403. A refused creation attempt gets a "service unavailable" response that names War
+creation as disabled, and it counts against no rate limit. The switch is off until first set.
+Its state is shared by every running API instance and survives restarts.
 
 **An append-only moderation log** records every Staff action — Remove a War,
 Suspend/unsuspend, Ban/unban, an Admin granting or revoking a role, toggling the kill

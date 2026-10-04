@@ -121,6 +121,13 @@ export interface ModerationLogTable {
   created_at: GeneratedTimestamp;
 }
 
+/** Single-row settings table; the row, when present, always has `id` 1. */
+export interface PlatformSettingsTable {
+  id: number;
+  war_creation_kill_switch: boolean;
+  updated_at: GeneratedTimestamp;
+}
+
 export interface Database {
   voters: VotersTable;
   wars: WarsTable;
@@ -132,4 +139,5 @@ export interface Database {
   votes: VotesTable;
   reports: ReportsTable;
   moderation_log: ModerationLogTable;
+  platform_settings: PlatformSettingsTable;
 }

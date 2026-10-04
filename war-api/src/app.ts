@@ -17,6 +17,7 @@ import { registerSharedSchemas } from './openapi/schemas.js';
 import { registerRankingsRoutes } from './rankings/routes.js';
 import { registerReportsRoutes } from './reports/routes.js';
 import { registerModerationLogRoutes } from './moderation/routes.js';
+import { registerKillSwitchRoutes } from './killSwitch/routes.js';
 import { registerRolesRoutes } from './roles/routes.js';
 import { registerWarsRoutes } from './wars/routes.js';
 import type { AppConfig } from './config.js';
@@ -105,6 +106,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       registerReportsRoutes(instance, { db: deps.db, auth: authDeps });
       registerRolesRoutes(instance, { db: deps.db, auth: authDeps });
       registerModerationLogRoutes(instance, { db: deps.db, auth: authDeps });
+      registerKillSwitchRoutes(instance, { db: deps.db, auth: authDeps });
     },
     { prefix: API_PREFIX },
   );
