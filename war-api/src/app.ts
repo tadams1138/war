@@ -16,6 +16,7 @@ import { registerOpenApiRoutes } from './openapi/routes.js';
 import { registerSharedSchemas } from './openapi/schemas.js';
 import { registerRankingsRoutes } from './rankings/routes.js';
 import { registerReportsRoutes } from './reports/routes.js';
+import { registerAdminRoutes } from './admin/routes.js';
 import { registerModerationLogRoutes } from './moderation/routes.js';
 import { registerKillSwitchRoutes } from './killSwitch/routes.js';
 import { registerRolesRoutes } from './roles/routes.js';
@@ -109,6 +110,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       registerModerationLogRoutes(instance, { db: deps.db, auth: authDeps });
       registerKillSwitchRoutes(instance, { db: deps.db, auth: authDeps });
       registerVoterModerationRoutes(instance, { db: deps.db, auth: authDeps, storage: deps.storage });
+      registerAdminRoutes(instance, { db: deps.db, auth: authDeps });
     },
     { prefix: API_PREFIX },
   );
