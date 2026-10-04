@@ -121,9 +121,18 @@ Staging and production both run as a single application per environment containi
   `to_char`) plus `id`, so millisecond JS Dates never skip rows. `target_war_id` has no
   foreign key on purpose, so a War hard delete (Ban, a creator's Delete) never blocks on log
   entries or removes them. The voter columns keep their foreign keys, since voters are never
-  deleted. Nothing else writes to the log yet,
-  because the actions it will cover (Remove a War, Suspend/Ban, the kill switch) aren't
-  built. Each should call `logAction` inside its own transaction.
+  deleted. Role grants/revokes and the kill switch write to the log. Remove a War and
+  Suspend/Ban aren't built yet. Each should call `logAction` inside its own transaction.
+- **War-creation kill switch** (spec §6.7). State lives in `platform_settings`, a single-row
+  table (`CHECK (id = 1)`). No row means off, and `setKillSwitch` upserts the row, so every
+  API instance agrees. `GET /kill-switch` returns `{ enabled }`. `PUT /kill-switch` takes
+  `{ enabled }`. Both are Staff only (Moderator or Admin). Each accepted PUT writes
+  `enable_war_creation_kill_switch` or `disable_war_creation_kill_switch` to the moderation
+  log in the same transaction (`killSwitch/killSwitchService.ts`). While on, the
+  `rejectWhileKillSwitchOn` preHandler answers `POST /wars` with 503
+  `{ error: 'war_creation_disabled' }` for everyone, Staff included. It runs after auth and
+  before the rate limiter, so a refused attempt costs no rate-limit budget. `POST /wars` is
+  the only route that creates Wars. `truncateAll` clears `platform_settings` between tests.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
   existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
   *Operational prerequisites* below.
@@ -149,8 +158,8 @@ Staging and production both run as a single application per environment containi
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
 - **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Not built: the Remove-War
-  soft delete, Suspend/Ban, and the creation kill switch. Admin/Moderator roles, role
-  grants, the self-removal guard, the moderation log, and abuse reporting are built.
+  soft delete and Suspend/Ban. Admin/Moderator roles, role grants, the self-removal guard,
+  the moderation log, the kill switch, and abuse reporting are built.
 
 ---
 
@@ -526,9 +535,9 @@ Requested 2026-09-24, to work through one at a time.
 5. ~~Spec the broad admin dashboard.~~ **Spec done** — `war-spec.md` §3, §6.7 (role grants,
    self-removal guard, visibility, Remove a War, Suspend/Ban, the kill switch, the
    moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
-   Moderator roles, role grants, abuse reporting, the self-removal guard, and the moderation
-   log are also **built** (see the war-api entries above). Not yet built: Remove a War,
-   Suspend/Ban, the kill switch, and the Admin Dashboard page. See the "Not built" entries
+   Moderator roles, role grants, abuse reporting, the self-removal guard, the moderation
+   log, and the kill switch are also **built** (see the war-api entries above). Not yet
+   built: Remove a War, Suspend/Ban, and the Admin Dashboard page. See the "Not built" entries
    above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.
