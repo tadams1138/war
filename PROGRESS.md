@@ -121,8 +121,8 @@ Staging and production both run as a single application per environment containi
   `to_char`) plus `id`, so millisecond JS Dates never skip rows. `target_war_id` has no
   foreign key on purpose, so a War hard delete (Ban, a creator's Delete) never blocks on log
   entries or removes them. The voter columns keep their foreign keys, since voters are never
-  deleted. Role grants/revokes and the kill switch write to the log. Remove a War and
-  Suspend/Ban aren't built yet. Each should call `logAction` inside its own transaction.
+  deleted. Role grants/revokes, the kill switch, and Remove a War write to the log.
+  Suspend/Ban isn't built yet. It should call `logAction` inside its own transaction.
 - **War-creation kill switch** (spec §6.7). State lives in `platform_settings`, a single-row
   table (`CHECK (id = 1)`). No row means off, and `setKillSwitch` upserts the row, so every
   API instance agrees. `GET /kill-switch` returns `{ enabled }`. `PUT /kill-switch` takes
@@ -133,6 +133,23 @@ Staging and production both run as a single application per environment containi
   `{ error: 'war_creation_disabled' }` for everyone, Staff included. It runs after auth and
   before the rate limiter, so a refused attempt costs no rate-limit budget. `POST /wars` is
   the only route that creates Wars. `truncateAll` clears `platform_settings` between tests.
+- **Remove a War** (spec §6.7). `POST /wars/:id/remove` is Staff only (Moderator or Admin)
+  and returns 204. A missing or already-removed War gets 404 and logs nothing further.
+  `removeWar` (`wars/removeWarService.ts`) uses one transaction: `markWarRemoved` sets
+  `wars.removed_at` and clears `share_image_key`. The same transaction deletes the War's
+  `contestant_media` rows and writes a `remove_war` log entry. The War, its contestants,
+  matchups, votes, memberships, and reports all persist. After commit, the War's media
+  objects are hard-deleted via the new `ObjectStorage.deletePrefix`, prefix by prefix:
+  `contestants/<cid>/` and `originals/<cid>/` for each contestant, then `share-images/<warId>.`
+  and `originals/share-images/<warId>.`. The S3 version pages through `ListObjectsV2` and
+  deletes each page with `DeleteObjects`. A storage failure is logged and leaves orphaned
+  objects. The War stays removed and the request still returns 204. Removed Wars are hidden
+  from everyone, Staff and the creator included. `findWarById` and `baseWarsQuery` filter
+  `removed_at IS NULL`, and every War route reads through one of them. The
+  unaddressed-reports queue also excludes removed Wars. So the creator can't DELETE a
+  removed War and erase the audit trail. `deleteWarRow` stays unfiltered, so a future Ban
+  can still hard-delete a removed War. The S3 `deletePrefix` has no automated test. Tests use
+  `InMemoryObjectStorage`.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
   existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
   *Operational prerequisites* below.
@@ -157,9 +174,12 @@ Staging and production both run as a single application per environment containi
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
-- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Not built: the Remove-War
-  soft delete and Suspend/Ban. Admin/Moderator roles, role grants, the self-removal guard,
-  the moderation log, the kill switch, and abuse reporting are built.
+- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Not built: Suspend/Ban,
+  and Staff's view of every War (and of removed Wars). Admin/Moderator roles, role grants,
+  the self-removal guard, the moderation log, the kill switch, Remove a War, and abuse
+  reporting are built.
+- A creator's own **Delete** (§6.1) still leaves the War's media objects in storage. It
+  could now reuse `deletePrefix`, the way Remove a War does.
 
 ---
 
@@ -536,8 +556,8 @@ Requested 2026-09-24, to work through one at a time.
    self-removal guard, visibility, Remove a War, Suspend/Ban, the kill switch, the
    moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
    Moderator roles, role grants, abuse reporting, the self-removal guard, the moderation
-   log, and the kill switch are also **built** (see the war-api entries above). Not yet
-   built: Remove a War, Suspend/Ban, and the Admin Dashboard page. See the "Not built" entries
+   log, the kill switch, and Remove a War are also **built** (see the war-api entries
+   above). Not yet built: Suspend/Ban and the Admin Dashboard page. See the "Not built" entries
    above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.

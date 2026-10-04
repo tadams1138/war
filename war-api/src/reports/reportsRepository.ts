@@ -64,6 +64,7 @@ export async function listWarsWithUnaddressedReports(db: Kysely<Database>): Prom
     .select(['reports.war_id as warId', 'wars.title as title'])
     .select((eb) => eb.fn.count<string>('reports.id').as('unaddressedCount'))
     .where('reports.addressed', '=', false)
+    .where('wars.removed_at', 'is', null)
     .groupBy(['reports.war_id', 'wars.title'])
     .orderBy('wars.title')
     .execute();

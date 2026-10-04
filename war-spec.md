@@ -453,11 +453,19 @@ invisible to everyone but its creator") is ever bypassed.
 **Remove a War** takes down a War Staff have moderated for cause. It is deliberately not
 the same operation as a creator's own **Delete** (§6.1): Remove soft-deletes the War —
 marked removed and hidden from everyone, including its own creator, but its row and its
-votes persist — while hard-deleting its media outright, the same two-prefix
-originals-and-variants cleanup Delete already needs (§6.1's implementation note). Keeping
-the War and its votes intact under the hood preserves the audit trail (§8.3) for whatever
-the moderation was investigating; only the media, typically the reason for the removal, is
-actually reclaimed.
+votes persist — while hard-deleting its media outright. That means every stored copy of
+every contestant image (the original and each variant) and the share image (the original
+and its rendered copy). Keeping the War and its votes intact under the hood preserves the
+audit trail (§8.3) for whatever the moderation was investigating. Only the media, typically
+the reason for the removal, is actually reclaimed.
+
+A removed War behaves as if it doesn't exist, everywhere. It can't be viewed, listed,
+voted on, edited, published, reported, or deleted, not even by its own creator. A creator's
+Delete can't erase what the moderation preserved. Removing is Staff only, and everyone else
+gets a 403. Removing a War that doesn't exist or is already removed gets a not-found
+response. The removal and its moderation log entry happen together. Media is reclaimed only
+after the removal commits. If reclaiming fails, the War stays removed: an orphaned file costs
+storage, not correctness.
 
 **Suspend** and **Ban** are two severities of Staff acting against a Voter, not one:
 

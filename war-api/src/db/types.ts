@@ -36,6 +36,7 @@ export interface WarsTable {
   ends_at: Timestamp | null;
   ui_slug: string | null;
   share_image_key: string | null;
+  removed_at: Timestamp | null;
   created_at: GeneratedTimestamp;
 }
 

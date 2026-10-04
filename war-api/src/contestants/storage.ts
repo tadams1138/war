@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 /**
  * The object-store boundary. In this slice, only image variants and
@@ -10,6 +10,8 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 export interface ObjectStorage {
   putPublic(key: string, body: Buffer, contentType: string): Promise<string>;
   putPrivate(key: string, body: Buffer, contentType: string): Promise<void>;
+  /** Hard-deletes every object, public or private, whose key starts with `prefix`. A prefix matching nothing is not an error. */
+  deletePrefix(prefix: string): Promise<void>;
 }
 
 export interface S3StorageConfig {
@@ -58,5 +60,22 @@ export class S3ObjectStorage implements ObjectStorage {
         ContentType: contentType,
       }),
     );
+  }
+
+  /** Lists each page of up to 1000 keys under `prefix` (ListObjectsV2's page size, also DeleteObjects' batch limit) and deletes it before fetching the next. */
+  async deletePrefix(prefix: string): Promise<void> {
+    let continuationToken: string | undefined;
+    do {
+      const page = await this.client.send(
+        new ListObjectsV2Command({ Bucket: this.config.bucket, Prefix: prefix, ContinuationToken: continuationToken }),
+      );
+      const objects = (page.Contents ?? []).flatMap((object) => (object.Key ? [{ Key: object.Key }] : []));
+      if (objects.length > 0) {
+        await this.client.send(
+          new DeleteObjectsCommand({ Bucket: this.config.bucket, Delete: { Objects: objects, Quiet: true } }),
+        );
+      }
+      continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (continuationToken);
   }
 }
