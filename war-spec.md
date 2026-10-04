@@ -481,7 +481,10 @@ as enabling it.
 Suspend/unsuspend, Ban/unban, an Admin granting or revoking a role, toggling the kill
 switch — with which Staff member, the target, and when. Never edited or deleted, mirroring
 votes' own immutability (§8.1), and for the same reason: several Staff may exist, and each
-must be individually accountable for what they did.
+must be individually accountable for what they did. An action and its log entry stand or
+fall together. If the entry can't be recorded, the action doesn't happen, and a refused
+action records nothing. Any Staff member can read the whole log, newest first. Everyone else
+gets a 403.
 
 ---
 

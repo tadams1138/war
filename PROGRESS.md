@@ -104,6 +104,20 @@ Staging and production both run as a single application per environment containi
   exception. Deleting a War now also deletes its reports as part of the same
   transaction (`deleteReportsForWar`, called from `deleteWarRow`, `wars/warsRepository.ts`) —
   a report only ever disappears as a side effect of its War being deleted.
+- **Admin self-removal guard** (spec §6.7). `grantRole` returns 403 when an Admin revokes
+  their own `admin` role. Demoting yourself to Moderator also needs that revoke, so it's
+  blocked too. Another Admin can still do either.
+- **`GET /auth/me` carries `is_moderator`/`is_admin`** so the UI can gate Staff-only routes.
+- **Moderation log** (spec §6.7). It's an append-only `moderation_log` table: `action`,
+  `staff_voter_id`, nullable `target_war_id`/`target_voter_id`, and `created_at`.
+  `moderation/moderationLogRepository.ts` has `logAction` and `listModerationLog`, and there
+  is no update or delete. Role grants and revokes write `grant_role_<role>` /
+  `revoke_role_<role>` in the same transaction as the role change. If the log write fails,
+  the role change rolls back. Refused calls (403/404) log nothing. Staff read the whole log,
+  newest first, via `GET /moderation-log` (`moderation/routes.ts`,
+  `requireModeratorOrAdmin`). It isn't paginated. Nothing else writes to the log yet,
+  because the actions it will cover (Remove a War, Suspend/Ban, the kill switch) aren't
+  built. Each should call `logAction` inside its own transaction.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
   existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
   *Operational prerequisites* below.
@@ -128,10 +142,9 @@ Staging and production both run as a single application per environment containi
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
-- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Spec only — no Remove-War
-  soft-delete, no Suspend/Ban, no creation kill switch, no moderation-log table, and no
-  self-removal guard on an Admin's own role. Admin/Moderator roles, role grants, and abuse
-  reporting (the narrower part of §6.7, plus §8.5) are already specified and built.
+- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Not built: the Remove-War
+  soft delete, Suspend/Ban, and the creation kill switch. Admin/Moderator roles, role
+  grants, the self-removal guard, the moderation log, and abuse reporting are built.
 
 ---
 
@@ -507,10 +520,10 @@ Requested 2026-09-24, to work through one at a time.
 5. ~~Spec the broad admin dashboard.~~ **Spec done** — `war-spec.md` §3, §6.7 (role grants,
    self-removal guard, visibility, Remove a War, Suspend/Ban, the kill switch, the
    moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
-   Moderator roles, role grants, and abuse reporting are also **built** (see the war-api
-   "Moderator/Admin roles and abuse reporting" entry above). Not yet built: Remove a War,
-   Suspend/Ban, the kill switch, the moderation log, the self-removal guard, and the Admin
-   Dashboard page — see the "Not built" entries above.
+   Moderator roles, role grants, abuse reporting, the self-removal guard, and the moderation
+   log are also **built** (see the war-api entries above). Not yet built: Remove a War,
+   Suspend/Ban, the kill switch, and the Admin Dashboard page. See the "Not built" entries
+   above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.
 7. ~~Export/import should carry the share image.~~ **Done** — see "Export/import carries the

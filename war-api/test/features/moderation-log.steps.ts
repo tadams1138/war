@@ -70,4 +70,89 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(rows[0]?.staff_voter_id).toBe(adminId);
     });
   });
+
+  Scenario('A refused self-removal writes no moderation log entry', ({ Given, When, Then }) => {
+    let adminId: string;
+    let response: request.Response;
+
+    Given('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    When('the Admin PUTs granted false for the admin role on themselves', async () => {
+      // Act
+      response = await putRole(adminId, adminId, 'admin', false);
+    });
+
+    Then('no moderation log entry exists', async () => {
+      // Assert
+      expect(response.status).toBe(403);
+      const rows = await harness.db.selectFrom('moderation_log').selectAll().execute();
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  Scenario('Staff read the moderation log newest first', ({ Given, And, When, Then }) => {
+    let adminId: string;
+    let targetId: string;
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('an Admin who granted and then revoked the moderator role on a Voter', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      targetId = (await makeVoter(harness.db, 'target')).id;
+      await putRole(adminId, targetId, 'moderator', true);
+      await putRole(adminId, targetId, 'moderator', false);
+    });
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the moderation log', async () => {
+      // Act
+      response = await getLog(moderatorId);
+    });
+
+    Then('the response lists the revoke before the grant, each naming the Admin, the Voter, and when', () => {
+      // Assert
+      expect(response.status).toBe(200);
+      const entries = response.body.entries as Array<Record<string, unknown>>;
+      expect(entries.map((entry) => entry.action)).toEqual(['revoke_role_moderator', 'grant_role_moderator']);
+      for (const entry of entries) {
+        expect(entry.staff_voter_id).toBe(adminId);
+        expect(entry.target_voter_id).toBe(targetId);
+        expect(entry.target_war_id).toBeNull();
+        expect(Number.isNaN(Date.parse(entry.created_at as string))).toBe(false);
+      }
+    });
+  });
+
+  Scenario('A plain Voter cannot read the moderation log', ({ Given, When, Then }) => {
+    let voterId: string;
+    let response: request.Response;
+
+    Given('a plain Voter', async () => {
+      // Arrange
+      voterId = (await makeVoter(harness.db, 'voter')).id;
+    });
+
+    When('that Voter GETs the moderation log', async () => {
+      // Act
+      response = await getLog(voterId);
+    });
+
+    Then('the response is 403', () => {
+      // Assert
+      expect(response.status).toBe(403);
+    });
+  });
+
+  async function getLog(callerId: string): Promise<request.Response> {
+    await harness.app.ready();
+    const jwt = await harness.jwtFor(callerId);
+    return request(harness.app.server).get('/api/v1/moderation-log').set('Authorization', `Bearer ${jwt}`);
+  }
 });
