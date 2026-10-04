@@ -479,6 +479,15 @@ intentional exception to §8.1's immutability, scoped to exactly this one modera
 because the alternative (an abusive Voter's votes standing forever) is worse than the
 exception.
 
+Suspend and Ban are open to any Staff member. Everyone else gets a 403. Neither can target
+the caller or any Staff member: a Moderator or Admin must first have their role revoked by an
+Admin. A Suspended Voter's creation attempt gets a "forbidden" response naming the
+suspension. While the kill switch is on, its response wins instead. A Ban takes effect at
+once: any session the Voter already holds stops working on their very next request, not when
+it would have expired. A Ban's data deletion and its moderation log entry happen together.
+Reclaiming the deleted Wars' media follows afterwards, best effort, as with Remove a War.
+Reports the banned Voter filed survive. Unban restores sign-in only.
+
 **A global War-creation kill switch** rejects every `POST /wars` request, from every Voter
 including Staff, while enabled. No exceptions and no special-casing — an emergency stop is
 only trustworthy if it actually stops everything. Nothing else is affected: existing Wars

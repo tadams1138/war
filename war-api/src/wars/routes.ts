@@ -5,6 +5,7 @@ import { bearerAuthRoute, optionalAuth, requireAuthIf } from '../auth/plugin.js'
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
 import { rejectWhileKillSwitchOn, warCreationDisabledResponseSchema } from '../killSwitch/routes.js';
+import { rejectWhileSuspended, suspendedResponseSchema } from '../voterModeration/routes.js';
 import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 import { extensionFor } from '../contestants/imageProcessing.js';
 import type { ObjectStorage } from '../contestants/storage.js';
@@ -173,12 +174,14 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         response: {
           201: { $ref: 'WarSummary#' },
           422: validationErrorResponseSchema,
+          403: suspendedResponseSchema,
           429: rateLimitedResponseSchema,
           503: warCreationDisabledResponseSchema,
         },
       },
       // Before the rate limit, so a refused attempt spends none of the budget.
-      [rejectWhileKillSwitchOn(db), rateLimitByVoter(deps.rateLimiter)],
+      // The kill switch (503) is checked first and wins over a suspension (403).
+      [rejectWhileKillSwitchOn(db), rejectWhileSuspended(db), rateLimitByVoter(deps.rateLimiter)],
     ),
     async (request, reply) => {
       const body = request.body as Record<string, unknown>;

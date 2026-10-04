@@ -19,6 +19,7 @@ import { registerReportsRoutes } from './reports/routes.js';
 import { registerModerationLogRoutes } from './moderation/routes.js';
 import { registerKillSwitchRoutes } from './killSwitch/routes.js';
 import { registerRolesRoutes } from './roles/routes.js';
+import { registerVoterModerationRoutes } from './voterModeration/routes.js';
 import { registerWarsRoutes } from './wars/routes.js';
 import type { AppConfig } from './config.js';
 import { redactedRequestSerializer } from './logging.js';
@@ -107,6 +108,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       registerRolesRoutes(instance, { db: deps.db, auth: authDeps });
       registerModerationLogRoutes(instance, { db: deps.db, auth: authDeps });
       registerKillSwitchRoutes(instance, { db: deps.db, auth: authDeps });
+      registerVoterModerationRoutes(instance, { db: deps.db, auth: authDeps, storage: deps.storage });
     },
     { prefix: API_PREFIX },
   );

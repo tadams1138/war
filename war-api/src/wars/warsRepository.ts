@@ -443,25 +443,34 @@ export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise
  * objects in place rather than reaching into the object store.
  */
 export async function deleteWarRow(db: Kysely<Database>, warId: string): Promise<void> {
-  await db.transaction().execute(async (trx) => {
-    const matchupRows = await trx.selectFrom('matchups').select('id').where('war_id', '=', warId).execute();
-    const matchupIds = matchupRows.map((row) => row.id);
-    if (matchupIds.length > 0) {
-      await trx.deleteFrom('votes').where('matchup_id', 'in', matchupIds).execute();
-      await trx.deleteFrom('matchups').where('id', 'in', matchupIds).execute();
-    }
+  await db.transaction().execute((trx) => deleteWarRowIn(trx, warId));
+}
 
-    const contestantRows = await trx.selectFrom('contestants').select('id').where('war_id', '=', warId).execute();
-    const contestantIds = contestantRows.map((row) => row.id);
-    if (contestantIds.length > 0) {
-      await trx.deleteFrom('contestant_media').where('contestant_id', 'in', contestantIds).execute();
-    }
+/** `deleteWarRow`'s body, run on an already-open transaction (Kysely cannot nest `.transaction()`) so callers such as banning a Voter can delete several Wars atomically with their own writes. */
+export async function deleteWarRowIn(trx: Kysely<Database>, warId: string): Promise<void> {
+  const matchupRows = await trx.selectFrom('matchups').select('id').where('war_id', '=', warId).execute();
+  const matchupIds = matchupRows.map((row) => row.id);
+  if (matchupIds.length > 0) {
+    await trx.deleteFrom('votes').where('matchup_id', 'in', matchupIds).execute();
+    await trx.deleteFrom('matchups').where('id', 'in', matchupIds).execute();
+  }
 
-    await trx.deleteFrom('contestants').where('war_id', '=', warId).execute();
-    await trx.deleteFrom('war_memberships').where('war_id', '=', warId).execute();
-    await deleteReportsForWar(trx, warId);
-    await trx.deleteFrom('wars').where('id', '=', warId).execute();
-  });
+  const contestantRows = await trx.selectFrom('contestants').select('id').where('war_id', '=', warId).execute();
+  const contestantIds = contestantRows.map((row) => row.id);
+  if (contestantIds.length > 0) {
+    await trx.deleteFrom('contestant_media').where('contestant_id', 'in', contestantIds).execute();
+  }
+
+  await trx.deleteFrom('contestants').where('war_id', '=', warId).execute();
+  await trx.deleteFrom('war_memberships').where('war_id', '=', warId).execute();
+  await deleteReportsForWar(trx, warId);
+  await trx.deleteFrom('wars').where('id', '=', warId).execute();
+}
+
+/** Ids of every War `creatorId` created, removed ones included (spec §6.7: a ban hard-deletes them all). */
+export async function listWarIdsByCreator(db: Kysely<Database>, creatorId: string): Promise<string[]> {
+  const rows = await db.selectFrom('wars').select('id').where('creator_id', '=', creatorId).execute();
+  return rows.map((row) => row.id);
 }
 
 export async function createMembership(db: Kysely<Database>, warId: string, voterId: string): Promise<void> {

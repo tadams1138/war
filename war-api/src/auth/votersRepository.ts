@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { newId } from '../db/uuid.js';
 import type { OAuthProfile } from './oauthProvider.js';
@@ -11,6 +11,8 @@ export interface Voter {
   avatarUrl: string | null;
   isModerator: boolean;
   isAdmin: boolean;
+  suspended: boolean;
+  banned: boolean;
 }
 
 function toVoter(row: {
@@ -21,6 +23,8 @@ function toVoter(row: {
   avatar_url: string | null;
   is_moderator: boolean;
   is_admin: boolean;
+  suspended_at: Date | string | null;
+  banned_at: Date | string | null;
 }): Voter {
   return {
     id: row.id,
@@ -30,6 +34,8 @@ function toVoter(row: {
     avatarUrl: row.avatar_url,
     isModerator: row.is_moderator,
     isAdmin: row.is_admin,
+    suspended: row.suspended_at !== null,
+    banned: row.banned_at !== null,
   };
 }
 
@@ -83,5 +89,27 @@ export async function setVoterRole(
 ): Promise<Voter | undefined> {
   const values = role === 'admin' ? { is_admin: granted } : { is_moderator: granted };
   const row = await db.updateTable('voters').set(values).where('id', '=', voterId).returningAll().executeTakeFirst();
+  return row ? toVoter(row) : undefined;
+}
+
+/** Suspends or unsuspends `voterId` (spec §6.7). Returns `undefined` if no such voter exists, for callers to 404. */
+export async function setVoterSuspended(db: Kysely<Database>, voterId: string, suspended: boolean): Promise<Voter | undefined> {
+  const row = await db
+    .updateTable('voters')
+    .set({ suspended_at: suspended ? sql<Date>`now()` : null })
+    .where('id', '=', voterId)
+    .returningAll()
+    .executeTakeFirst();
+  return row ? toVoter(row) : undefined;
+}
+
+/** Bans or unbans `voterId` (spec §6.7). Returns `undefined` if no such voter exists, for callers to 404. */
+export async function setVoterBanned(db: Kysely<Database>, voterId: string, banned: boolean): Promise<Voter | undefined> {
+  const row = await db
+    .updateTable('voters')
+    .set({ banned_at: banned ? sql<Date>`now()` : null })
+    .where('id', '=', voterId)
+    .returningAll()
+    .executeTakeFirst();
   return row ? toVoter(row) : undefined;
 }

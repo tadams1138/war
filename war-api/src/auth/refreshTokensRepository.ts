@@ -108,3 +108,13 @@ export async function revokeFamily(db: Kysely<Database>, familyId: string): Prom
     .where('revoked_at', 'is', null)
     .execute();
 }
+
+/** Revokes every not-yet-revoked refresh token of a Voter, across all their families (spec §6.7: a ban ends every session). */
+export async function revokeAllForVoter(db: Kysely<Database>, voterId: string): Promise<void> {
+  await db
+    .updateTable('refresh_tokens')
+    .set({ revoked_at: new Date() })
+    .where('voter_id', '=', voterId)
+    .where('revoked_at', 'is', null)
+    .execute();
+}

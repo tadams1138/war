@@ -113,3 +113,15 @@ export async function castVote(
     return { inserted: true, vote: toVote(inserted) };
   });
 }
+
+/** Deletes every vote `voterId` cast (spec §6.7: a ban removes them) and returns the ids of the Wars they were cast in, whose counters need recomputing. */
+export async function deleteVotesByVoter(db: Kysely<Database>, voterId: string): Promise<string[]> {
+  const deleted = await db.deleteFrom('votes').where('voter_id', '=', voterId).returning('matchup_id').execute();
+  if (deleted.length === 0) return [];
+  const matchups = await db
+    .selectFrom('matchups')
+    .select('war_id')
+    .where('id', 'in', deleted.map((row) => row.matchup_id))
+    .execute();
+  return [...new Set(matchups.map((row) => row.war_id))];
+}
