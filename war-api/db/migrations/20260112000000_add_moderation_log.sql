@@ -4,7 +4,7 @@ CREATE TABLE moderation_log (
   id              UUID PRIMARY KEY,
   action          TEXT NOT NULL,
   staff_voter_id  UUID REFERENCES voters(id),
-  target_war_id   UUID REFERENCES wars(id),
+  target_war_id   UUID,
   target_voter_id UUID REFERENCES voters(id),
   created_at      TIMESTAMPTZ DEFAULT now()
 );

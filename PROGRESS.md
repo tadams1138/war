@@ -113,9 +113,15 @@ Staging and production both run as a single application per environment containi
   `moderation/moderationLogRepository.ts` has `logAction` and `listModerationLog`, and there
   is no update or delete. Role grants and revokes write `grant_role_<role>` /
   `revoke_role_<role>` in the same transaction as the role change. If the log write fails,
-  the role change rolls back. Refused calls (403/404) log nothing. Staff read the whole log,
+  the role change rolls back. Refused calls (403/404) log nothing. Staff read the log,
   newest first, via `GET /moderation-log` (`moderation/routes.ts`,
-  `requireModeratorOrAdmin`). It isn't paginated. Nothing else writes to the log yet,
+  `requireModeratorOrAdmin`). The endpoint uses keyset paging: `limit` is 1–100, default 50,
+  and `cursor` is opaque. The response is `{ entries, next_cursor }`. A bad cursor or limit
+  gets a 400. The cursor is base64 JSON holding `created_at` as microsecond UTC text (from
+  `to_char`) plus `id`, so millisecond JS Dates never skip rows. `target_war_id` has no
+  foreign key on purpose, so a War hard delete (Ban, a creator's Delete) never blocks on log
+  entries or removes them. The voter columns keep their foreign keys, since voters are never
+  deleted. Nothing else writes to the log yet,
   because the actions it will cover (Remove a War, Suspend/Ban, the kill switch) aren't
   built. Each should call `logAction` inside its own transaction.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
