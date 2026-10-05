@@ -29,7 +29,7 @@ export const oauthDeclinedResponseSchema = {
   },
 };
 
-/** The callback's 403 is either a declined authorization (`reason` set) or a banned Voter (`error: 'banned'`). */
+/** The callback's 403 is a declined authorization (`reason` set). */
 const callbackForbiddenResponseSchema = {
   type: 'object',
   required: ['error'],
@@ -188,7 +188,8 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
       const result = await completeCallback(deps, provider.slug, exchange.profile);
       if (result.kind === 'banned') {
         clearOAuthCookies(reply);
-        return reply.code(403).send({ error: 'banned' });
+        // Not JSON: the browser is mid-navigation, so send it to the UI, which renders the ban.
+        return reply.redirect(`${config.uiOrigins[0]}/auth/callback?error=banned`);
       }
 
       void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, refreshCookieOptions());

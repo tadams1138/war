@@ -147,10 +147,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       callbackResponse = await callbackFor('returning-voter');
     });
 
-    Then('the callback reports banned and issues no refresh token', async () => {
+    Then('the callback redirects to the UI with error banned and issues no refresh token', async () => {
       // Assert
-      expect(callbackResponse.status).toBe(403);
-      expect(callbackResponse.body).toEqual({ error: 'banned' });
+      expect(callbackResponse.status).toBe(302);
+      expect(callbackResponse.get('Location')).toBe('https://app.test/auth/callback?error=banned');
       expect(extractCookieValue(callbackResponse.get('Set-Cookie'), 'refresh_token')).toBeUndefined();
       const families = await harness.db.selectFrom('refresh_tokens').selectAll().execute();
       expect(families).toHaveLength(1);

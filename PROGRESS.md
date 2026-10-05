@@ -175,8 +175,8 @@ Staging and production both run as a single application per environment containi
   - **Ban blocks access at once:** `authenticatedVoterId` does one primary-key lookup per
     authenticated request and rejects a banned Voter. `requireAuth` then gives 401 and
     `optionalAuth` treats them as anonymous. `refresh` treats a banned Voter as invalid (401).
-    `completeCallback` returns `banned`, and the callback replies 403
-    `{ error: 'banned' }` with no refresh token issued.
+    `completeCallback` returns `banned`. The callback then clears the OAuth cookies, issues no
+    refresh token, and 302-redirects to `<ui>/auth/callback?error=banned`.
   - **Unban** lifts the block. Deleted data stays gone.
   - **Known narrow races:**
     - A vote whose auth check passed just before a ban commits can land after the purge and
@@ -230,9 +230,7 @@ Staging and production both run as a single application per environment containi
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
 - **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). The war-api half is
-  fully built. One gap remains: the OAuth callback should redirect a banned Voter to
-  `<ui>/auth/callback?error=banned` rather than return JSON. The war-ui-default dashboard is
-  partly built (see below).
+  fully built. The war-ui-default dashboard is partly built (see below).
 - A creator's own **Delete** (§6.1) still leaves the War's media objects in storage. It
   could now reuse `deletePrefix`, the way Remove a War does.
 
@@ -519,9 +517,8 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
     error reason for 403s.
   - In the mock harness, recipes can now stub `PUT`, and the call log records `PUT` bodies.
   - `AuthCallback` shows "This account has been banned and cannot sign in." for
-    `/auth/callback?error=banned` and skips the refresh exchange. **The API doesn't send that
-    redirect yet**: it still returns a JSON 403 from its own origin, so a banned Voter sees
-    raw JSON.
+    `/auth/callback?error=banned` and skips the refresh exchange. The API's callback sends
+    banned Voters there.
 
 ### Not built
 
