@@ -403,3 +403,43 @@ export async function logout(): Promise<void> {
 export function providerLoginUrl(provider: string): string {
   return `${API_BASE_URL}/auth/${provider}/login`
 }
+
+// --- Staff-only endpoints (the Admin Dashboard, spec §6.7) -------------------
+
+export type KillSwitchState = paths['/kill-switch']['get']['responses'][200]['content']['application/json']
+
+// Every Staff-only endpoint's 403 means one thing: the caller isn't Staff.
+function classifyStaffForbidden(): ApiErrorReason {
+  return 'staff-only'
+}
+
+export async function getKillSwitch(): Promise<KillSwitchState> {
+  const response = await ensureOk(await apiFetch('/kill-switch'), classifyStaffForbidden)
+  return response.json() as Promise<KillSwitchState>
+}
+
+export async function setKillSwitch(enabled: boolean): Promise<KillSwitchState> {
+  const response = await ensureOk(
+    await apiFetch('/kill-switch', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    }),
+    classifyStaffForbidden,
+  )
+  return response.json() as Promise<KillSwitchState>
+}
+
+export type ModerationLogPage = paths['/moderation-log']['get']['responses'][200]['content']['application/json']
+export type ModerationLogEntry = ModerationLogPage['entries'][number]
+export type GetModerationLogParams = NonNullable<paths['/moderation-log']['get']['parameters']['query']>
+
+export async function getModerationLog(params: GetModerationLogParams = {}): Promise<ModerationLogPage> {
+  const search = new URLSearchParams(
+    Object.entries(params)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, String(value)]),
+  ).toString()
+  const response = await ensureOk(await apiFetch(`/moderation-log${search ? `?${search}` : ''}`), classifyStaffForbidden)
+  return response.json() as Promise<ModerationLogPage>
+}

@@ -792,7 +792,11 @@ for any unmatched path so deep links work. An unauthenticated visit to a protect
 redirects to sign-in carrying the intended destination, and returns there afterwards. An
 authenticated visit to the Admin Dashboard by neither a Moderator nor an Admin redirects
 Home instead — unlike a private War (§6.1), whether this route exists at all isn't
-sensitive, so there is no need for a not-found-shaped response here.
+sensitive, so there is no need for a not-found-shaped response here. A way into the Admin
+Dashboard appears in the navigation only for Staff. Turning the War-creation kill switch on
+from the dashboard asks for confirmation first, since it stops all creation. Turning it off
+needs none. A banned Voter who tries to sign in is told plainly that the account is banned,
+not shown a generic failure.
 
 **Every route renders beneath a persistent navigation header**, rendered once by a shell
 wrapping the whole route tree rather than added page by page — a page that forgets it is then

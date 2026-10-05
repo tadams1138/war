@@ -7,7 +7,7 @@ export interface MswCallLogEntry {
   method: string
   url: string
   time: number
-  // Only captured for methods that can carry one (POST) — see main.tsx's
+  // Only captured for methods that can carry one (POST, PUT, PATCH) — see main.tsx's
   // request:start handler. Lets a test assert *which* contestant a vote
   // request named, not just that a request happened.
   body?: string
