@@ -7,6 +7,7 @@ import {
   clearVotes,
   createWar,
   deleteContestantMedia,
+  getKillSwitch,
   getMe,
   getNextMatchup,
   getRankings,
@@ -19,6 +20,7 @@ import {
   providerLoginUrl,
   publishWar,
   refreshSession,
+  setKillSwitch,
   reorderContestantMedia,
   unpublishWar,
   uploadContestantImages,
@@ -943,5 +945,36 @@ describe('providerLoginUrl', () => {
 
     // Assert
     expect(url).toBe(`${BASE}/auth/google/login`)
+  })
+})
+
+describe('the kill switch endpoints', () => {
+  it('getKillSwitch classifies a 403 as staff-only', async () => {
+    // Arrange
+    server.use(http.get(`${BASE}/kill-switch`, () => HttpResponse.json({ error: 'forbidden' }, { status: 403 })))
+
+    // Act
+    const result = getKillSwitch()
+
+    // Assert
+    await expect(result).rejects.toMatchObject({ reason: 'staff-only', status: 403 })
+  })
+
+  it('setKillSwitch PUTs { enabled } and returns the new state', async () => {
+    // Arrange
+    let received: unknown
+    server.use(
+      http.put(`${BASE}/kill-switch`, async ({ request }) => {
+        received = await request.json()
+        return HttpResponse.json({ enabled: true })
+      }),
+    )
+
+    // Act
+    const result = await setKillSwitch(true)
+
+    // Assert
+    expect(received).toEqual({ enabled: true })
+    expect(result).toEqual({ enabled: true })
   })
 })

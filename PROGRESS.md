@@ -230,7 +230,9 @@ Staging and production both run as a single application per environment containi
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
 - **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). The war-api half is
-  fully built. The Admin Dashboard page in war-ui-default is not.
+  fully built. One gap remains: the OAuth callback should redirect a banned Voter to
+  `<ui>/auth/callback?error=banned` rather than return JSON. The war-ui-default dashboard is
+  partly built (see below).
 - A creator's own **Delete** (§6.1) still leaves the War's media objects in storage. It
   could now reuse `deletePrefix`, the way Remove a War does.
 
@@ -498,12 +500,36 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   settled search text drops the cache and starts over at page 1. A `requestSeq` counter
   guards against a slower, now-stale fetch resolving after a newer one and overwriting fresher
   state. `WarCard` renders `creator_name` when present, alongside the existing `ends_at`.
+- **Admin Dashboard, first slice** (`war-spec.md` §10.1, §6.7; backlog item 5). It lives at
+  route `/admin` (`pages/AdminDashboard.tsx`).
+  - **Gating:** `router/RequireStaff.tsx` wraps `RequireAuth`, so a signed-out visit goes to
+    sign-in with `returnTo`. It then checks `GET /auth/me` (`auth/staff.ts` `isStaff`) and
+    sends anyone who isn't Staff Home. Staff see an "Admin Dashboard" item in the
+    `IdentityMenu` that no one else sees. `/auth/me` is fetched twice on `/admin`, once by the
+    menu and once by the gate, and the result isn't shared yet.
+  - **Kill switch panel** (`admin/KillSwitchPanel.tsx`, `useKillSwitch.ts`): shows the state.
+    Turning it on needs confirming in the existing `Modal`; turning it off doesn't. A failed
+    PUT shows an error and keeps the state shown.
+  - **Moderation log panel** (`admin/ModerationLogPanel.tsx`, `useModerationLog.ts`): lists
+    entries newest first. `moderationLogLabels.ts` gives readable action labels and falls back
+    to the raw string. "Load more" follows `next_cursor`, and the log refetches after a kill
+    switch toggle. Staff and targets show as ids, not names, because looking up names costs
+    one request per id.
+  - The client adds `getKillSwitch`, `setKillSwitch`, `getModerationLog`, and a `staff-only`
+    error reason for 403s.
+  - In the mock harness, recipes can now stub `PUT`, and the call log records `PUT` bodies.
+  - `AuthCallback` shows "This account has been banned and cannot sign in." for
+    `/auth/callback?error=banned` and skips the refresh exchange. **The API doesn't send that
+    redirect yet**: it still returns a JSON 403 from its own origin, so a banned Voter sees
+    raw JSON.
 
 ### Not built
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
-- Admin Dashboard page (`war-spec.md` §10.1, §6.7; backlog item 5).
+- The rest of the Admin Dashboard (`war-spec.md` §10.1, §6.7; backlog item 5): the War and
+  Voter lists and detail views, vote history, Remove a War, Suspend/Ban, role grants, and the
+  reports queue.
 
 ---
 
@@ -610,7 +636,7 @@ Requested 2026-09-24, to work through one at a time.
    moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
    Moderator roles, role grants, abuse reporting, the self-removal guard, the moderation
    log, the kill switch, Remove a War, Suspend/Ban, and Staff visibility are also **built**
-   (see the war-api entries above). Not yet built: the Admin Dashboard page. See the "Not built" entries
+   (see the war-api entries above). Admin Dashboard page partly built (gating, kill switch, moderation log). See the "Not built" entries
    above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.

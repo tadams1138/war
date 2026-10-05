@@ -19,7 +19,7 @@ async function enableMocking(): Promise<void> {
     // needed for POST/PATCH assertions, is attached once its clone resolves.
     const entry: MswCallLogEntry = { method: request.method, url: request.url, time: Date.now() }
     window.__mswCallLog?.push(entry)
-    if (request.method === 'POST' || request.method === 'PATCH') {
+    if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH') {
       void request
         .clone()
         .text()
