@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { KillSwitchPanel } from '../admin/KillSwitchPanel'
 import { ModerationLogPanel } from '../admin/ModerationLogPanel'
+import { AdminWarsPanel } from '../admin/wars/AdminWarsPanel'
+import { UnaddressedQueuePanel } from '../admin/wars/UnaddressedQueuePanel'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
@@ -16,6 +18,8 @@ export function AdminDashboard() {
     <main data-theme={theme}>
       <h1>Admin Dashboard</h1>
       <KillSwitchPanel onChanged={() => setLogRefreshToken((token) => token + 1)} />
+      <UnaddressedQueuePanel />
+      <AdminWarsPanel />
       <ModerationLogPanel refreshToken={logRefreshToken} />
     </main>
   )

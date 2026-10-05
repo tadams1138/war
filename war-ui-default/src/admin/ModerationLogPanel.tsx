@@ -1,13 +1,16 @@
 // The append-only moderation log (the spec, §6.7), newest first. The API's
 // entries carry Voter and War ids only; this panel shows those ids as they
-// are rather than fanning out one lookup per id.
+// are rather than fanning out one lookup per id. A War id links to that War's
+// Staff detail.
+import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import type { ModerationLogEntry } from '../api/client'
 import { actionLabel } from './moderationLogLabels'
 import { useModerationLog } from './useModerationLog'
 
-function targetOf(entry: ModerationLogEntry): string {
+function targetOf(entry: ModerationLogEntry): ReactNode {
   if (entry.target_voter_id) return `Voter ${entry.target_voter_id}`
-  if (entry.target_war_id) return `War ${entry.target_war_id}`
+  if (entry.target_war_id) return <Link to={`/admin/wars/${entry.target_war_id}`}>War {entry.target_war_id}</Link>
   return 'No target'
 }
 
