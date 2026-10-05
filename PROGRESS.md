@@ -519,14 +519,33 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   - `AuthCallback` shows "This account has been banned and cannot sign in." for
     `/auth/callback?error=banned` and skips the refresh exchange. The API's callback sends
     banned Voters there.
+- **Admin Dashboard, Wars side** (§6.7, §8.5). The dashboard stacks four sections: kill
+  switch, unaddressed-reports queue, Wars list, then moderation log. Code is in
+  `src/admin/wars/`.
+  - **Wars list** (`AdminWarsPanel`, `useAdminWars`): status filter (all, draft, published,
+    closed, removed), debounced search, and "Load more". It shows a Removed marker and a pill
+    badge with the unaddressed-report count, and untitled Wars get a placeholder. Old rows
+    stay on screen while a refetch is in flight.
+  - **Staff War detail** is its own route, `/admin/wars/:id` (`pages/AdminWarDetail.tsx`),
+    gated by `RequireStaff`. It shows contestant standings and the War's reports, each with a
+    mark-addressed or mark-unaddressed button (`WarReportsSection`). It also has the Remove
+    War action: a `Modal` confirm, then `POST /wars/:id/remove`, then a refetch so the page
+    shows the War as removed (`RemoveWarControl`, `useRemoveWar`). A removed War shows no
+    Remove action. It also doesn't request reports, since that public-namespace route 404s
+    for removed Wars.
+  - **Queue panel** (`UnaddressedQueuePanel`): each entry opens the War's detail. Empty
+    queues get their own state.
+  - **Moderation log:** a War target links to its detail. Names are still ids.
+  - **Client** adds `getAdminWars`, `getAdminWar`, `getWarReports`, `setReportAddressed`,
+    `removeWar`, `getUnaddressedReports`. Types come from the generated schema.
+  - **Layout:** `theme/layout.css` lets rows and controls wrap at narrow widths.
 
 ### Not built
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
-- The rest of the Admin Dashboard (`war-spec.md` §10.1, §6.7; backlog item 5): the War and
-  Voter lists and detail views, vote history, Remove a War, Suspend/Ban, role grants, and the
-  reports queue.
+- The Voters side of the Admin Dashboard (`war-spec.md` §10.1, §6.7; backlog item 5): the
+  Voter list and detail, vote history, Suspend/Ban, and role grants.
 
 ---
 
@@ -633,7 +652,7 @@ Requested 2026-09-24, to work through one at a time.
    moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
    Moderator roles, role grants, abuse reporting, the self-removal guard, the moderation
    log, the kill switch, Remove a War, Suspend/Ban, and Staff visibility are also **built**
-   (see the war-api entries above). Admin Dashboard page partly built (gating, kill switch, moderation log). See the "Not built" entries
+   (see the war-api entries above). Admin Dashboard page built except the Voters side. See the "Not built" entries
    above.
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.

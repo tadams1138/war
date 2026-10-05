@@ -15,6 +15,7 @@ import { EditWar } from './pages/EditWar'
 import { ImportWar } from './pages/ImportWar'
 import { MyWars } from './pages/MyWars'
 import { AdminDashboard } from './pages/AdminDashboard'
+import { AdminWarDetail } from './pages/AdminWarDetail'
 import { PrivacyPolicy } from './pages/PrivacyPolicy'
 import { TermsOfService } from './pages/TermsOfService'
 import { DataDeletion } from './pages/DataDeletion'
@@ -78,6 +79,14 @@ export default function App() {
               element={
                 <RequireStaff>
                   <AdminDashboard />
+                </RequireStaff>
+              }
+            />
+            <Route
+              path="/admin/wars/:id"
+              element={
+                <RequireStaff>
+                  <AdminWarDetail />
                 </RequireStaff>
               }
             />

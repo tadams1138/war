@@ -443,3 +443,62 @@ export async function getModerationLog(params: GetModerationLogParams = {}): Pro
   const response = await ensureOk(await apiFetch(`/moderation-log${search ? `?${search}` : ''}`), classifyStaffForbidden)
   return response.json() as Promise<ModerationLogPage>
 }
+
+// --- Staff-only War moderation (spec §6.7, §8.5) ------------------------------
+
+export type AdminWarsPage = paths['/admin/wars']['get']['responses'][200]['content']['application/json']
+export type AdminWarItem = AdminWarsPage['wars'][number]
+export type GetAdminWarsParams = NonNullable<paths['/admin/wars']['get']['parameters']['query']>
+export type AdminWarStatus = NonNullable<GetAdminWarsParams['status']>
+
+function queryString(params: object): string {
+  const search = new URLSearchParams(
+    Object.entries(params)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, String(value)]),
+  ).toString()
+  return search ? `?${search}` : ''
+}
+
+export async function getAdminWars(params: GetAdminWarsParams = {}): Promise<AdminWarsPage> {
+  const response = await ensureOk(await apiFetch(`/admin/wars${queryString(params)}`), classifyStaffForbidden)
+  return response.json() as Promise<AdminWarsPage>
+}
+
+export type AdminWarDetail = paths['/admin/wars/{id}']['get']['responses'][200]['content']['application/json']
+export type AdminContestantStanding = AdminWarDetail['contestants'][number]
+export type WarReport =
+  paths['/wars/{id}/reports']['get']['responses'][200]['content']['application/json']['reports'][number]
+
+export async function getAdminWar(warId: string): Promise<AdminWarDetail> {
+  const response = await ensureOk(await apiFetch(`/admin/wars/${warId}`), classifyStaffForbidden)
+  return response.json() as Promise<AdminWarDetail>
+}
+
+export async function getWarReports(warId: string): Promise<WarReport[]> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/reports`), classifyStaffForbidden)
+  return ((await response.json()) as { reports: WarReport[] }).reports
+}
+
+export async function setReportAddressed(reportId: string, addressed: boolean): Promise<void> {
+  await ensureOk(
+    await apiFetch(`/reports/${reportId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ addressed }),
+    }),
+    classifyStaffForbidden,
+  )
+}
+
+export async function removeWar(warId: string): Promise<void> {
+  await ensureOk(await apiFetch(`/wars/${warId}/remove`, { method: 'POST' }), classifyStaffForbidden)
+}
+
+export type UnaddressedReportsWar =
+  paths['/reports/unaddressed']['get']['responses'][200]['content']['application/json']['wars'][number]
+
+export async function getUnaddressedReports(): Promise<UnaddressedReportsWar[]> {
+  const response = await ensureOk(await apiFetch('/reports/unaddressed'), classifyStaffForbidden)
+  return ((await response.json()) as { wars: UnaddressedReportsWar[] }).wars
+}
