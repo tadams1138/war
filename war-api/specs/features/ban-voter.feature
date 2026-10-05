@@ -19,7 +19,7 @@ Feature: Ban a Voter
     Given an Admin and a Voter who signed in
     When the Admin bans the Voter
     And the Voter completes the OAuth callback again
-    Then the callback reports banned and issues no refresh token
+    Then the callback redirects to the UI with error banned and issues no refresh token
 
   Scenario: Banning deletes every War the Voter created
     Given an Admin and a Voter who created a draft, a published and a removed War, each with contestants and images
