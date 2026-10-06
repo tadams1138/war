@@ -14,7 +14,7 @@ export interface ModerationLogRouteDeps {
 
 const moderationLogEntryViewSchema = {
   type: 'object',
-  required: ['id', 'action', 'staff_voter_id', 'target_war_id', 'target_voter_id', 'created_at'],
+  required: ['id', 'action', 'staff_voter_id', 'target_war_id', 'target_voter_id', 'created_at', 'staff_name', 'target_voter_name', 'target_war_title'],
   properties: {
     id: { type: 'string', format: 'uuid' },
     action: { type: 'string' },
@@ -22,6 +22,9 @@ const moderationLogEntryViewSchema = {
     target_war_id: { type: ['string', 'null'], format: 'uuid' },
     target_voter_id: { type: ['string', 'null'], format: 'uuid' },
     created_at: { type: 'string', format: 'date-time' },
+    staff_name: { type: ['string', 'null'] },
+    target_voter_name: { type: ['string', 'null'] },
+    target_war_title: { type: ['string', 'null'] },
   },
 };
 
@@ -33,6 +36,9 @@ function presentEntry(entry: ModerationLogEntry) {
     target_war_id: entry.targetWarId,
     target_voter_id: entry.targetVoterId,
     created_at: entry.createdAt.toISOString(),
+    staff_name: entry.staffName,
+    target_voter_name: entry.targetVoterName,
+    target_war_title: entry.targetWarTitle,
   };
 }
 

@@ -520,10 +520,15 @@ export type AdminVoterWar = AdminVoterDetail['wars'][number]
 // The shared not-found copy names a War; a missing Voter needs its own.
 const VOTER_NOT_FOUND_MESSAGE = "This Voter doesn't exist"
 
-export async function getAdminVoter(voterId: string): Promise<AdminVoterDetail> {
-  const response = await apiFetch(`/admin/voters/${voterId}`)
+// Every Staff endpoint addressed at one Voter: a 404 means that Voter is missing.
+async function ensureVoterOk(response: Response): Promise<Response> {
   if (response.status === 404) throw new ApiError('not-found', 404, VOTER_NOT_FOUND_MESSAGE)
-  return (await ensureOk(response, classifyStaffForbidden)).json() as Promise<AdminVoterDetail>
+  return ensureOk(response, classifyStaffForbidden)
+}
+
+export async function getAdminVoter(voterId: string): Promise<AdminVoterDetail> {
+  const response = await ensureVoterOk(await apiFetch(`/admin/voters/${voterId}`))
+  return response.json() as Promise<AdminVoterDetail>
 }
 
 export type AdminVoterVotesPage = paths['/admin/voters/{id}/votes']['get']['responses'][200]['content']['application/json']
@@ -534,30 +539,26 @@ export async function getAdminVoterVotes(
   voterId: string,
   params: GetAdminVoterVotesParams = {},
 ): Promise<AdminVoterVotesPage> {
-  const response = await ensureOk(
-    await apiFetch(`/admin/voters/${voterId}/votes${queryString(params)}`),
-    classifyStaffForbidden,
-  )
+  const response = await ensureVoterOk(await apiFetch(`/admin/voters/${voterId}/votes${queryString(params)}`))
   return response.json() as Promise<AdminVoterVotesPage>
 }
 
-async function putJson(path: string, body: object): Promise<void> {
-  await ensureOk(
+async function putVoterJson(path: string, body: object): Promise<void> {
+  await ensureVoterOk(
     await apiFetch(path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-    classifyStaffForbidden,
   )
 }
 
 export async function setVoterSuspension(voterId: string, suspended: boolean): Promise<void> {
-  await putJson(`/voters/${voterId}/suspension`, { suspended })
+  await putVoterJson(`/voters/${voterId}/suspension`, { suspended })
 }
 
 export async function setVoterBan(voterId: string, banned: boolean): Promise<void> {
-  await putJson(`/voters/${voterId}/ban`, { banned })
+  await putVoterJson(`/voters/${voterId}/ban`, { banned })
 }
 
 export type VoterRole = paths['/voters/{id}/roles/{role}']['put']['parameters']['path']['role']
 
 export async function setVoterRole(voterId: string, role: VoterRole, granted: boolean): Promise<void> {
-  await putJson(`/voters/${voterId}/roles/${role}`, { granted })
+  await putVoterJson(`/voters/${voterId}/roles/${role}`, { granted })
 }

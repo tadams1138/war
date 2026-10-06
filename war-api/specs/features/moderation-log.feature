@@ -45,3 +45,22 @@ Feature: Moderation log
     Given a Moderator
     When the Moderator GETs the moderation log with limit 101
     Then the response is 400
+
+  Scenario: Entries carry the names of the acting Staff member and the targets
+    Given an Admin named "admin" who granted the moderator role to a Voter named "target" and logged an action on a War titled "Doomed War"
+    And a Moderator
+    When the Moderator GETs the moderation log
+    Then the role entry names the Admin as staff and the Voter as target, with a null War title
+    And the War entry names the Admin as staff and the War by title, with a null Voter name
+
+  Scenario: A removed War's title is still shown
+    Given an Admin who removed a War titled "Removed War"
+    And a Moderator
+    When the Moderator GETs the moderation log
+    Then the entry carries the War title "Removed War"
+
+  Scenario: A hard-deleted War leaves the entry with a null title
+    Given an Admin who logged an action on a War that was later hard-deleted
+    And a Moderator
+    When the Moderator GETs the moderation log
+    Then the entry remains, still naming the deleted War's id, with a null War title

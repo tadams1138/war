@@ -530,6 +530,9 @@ gets a 403. The log is read a page at a time (at most 100 entries per page, 50 b
 by following an opaque continuation token. Paging never skips or repeats an entry, even when
 several entries share a timestamp. A malformed token or an out-of-range page size gets a 400.
 Entries outlive their targets: deleting a War never removes or blocks on its log entries.
+Each entry, as read, names the acting Staff member and the target by their current display
+name or title. A removed War still shows its title. A War since deleted outright shows no
+title, but its entry remains.
 
 ---
 

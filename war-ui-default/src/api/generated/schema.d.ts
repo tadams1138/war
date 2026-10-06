@@ -2102,6 +2102,9 @@ export interface paths {
                                 target_voter_id: null | string;
                                 /** Format: date-time */
                                 created_at: string;
+                                staff_name: null | string;
+                                target_voter_name: null | string;
+                                target_war_title: null | string;
                             }[];
                             next_cursor: null | string;
                         };
