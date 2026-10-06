@@ -617,14 +617,14 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   environment's database and war-api's dev dependencies installed; the script compiles via
   `tsc` before it runs. Nothing else grants the Admin role, since the role-grant endpoint
   itself is Admin-only.
-- **Owner action, four items — complete each provider's own app/site verification before
+- **Owner action, three items — complete each provider's own app/site verification before
   production sign-in with it can go live to the public (each is a manual step on that
-  provider's own developer console, not something the pipeline or this repo can do):**
-  1. Google — complete OAuth consent screen verification for this site.
-  2. Microsoft — complete Microsoft Entra app verification (publisher/domain verification)
+  provider's own developer console, not something the pipeline or this repo can do).**
+  Google's is already complete (above).
+  1. Microsoft — complete Microsoft Entra app verification (publisher/domain verification)
      for this site.
-  3. Facebook — complete Facebook App Review for the Login product on this site.
-  4. Twitter/X — complete the developer app's own review/elevated-access approval for this
+  2. Facebook — complete Facebook App Review for the Login product on this site.
+  3. Twitter/X — complete the developer app's own review/elevated-access approval for this
      site.
 
 ---
