@@ -180,13 +180,23 @@ test('A failed kill switch update shows an error and leaves the state unchanged'
   await expect(page.getByTestId('kill-switch-state')).toHaveText('Off')
 })
 
-function logEntry(id: string, action: string, createdAt: string, target: { voter?: string; war?: string } = {}) {
+function nulls(target: { voter?: string; voterName?: string; war?: string; warTitle?: string }) {
+  const orNull = (value?: string) => value ?? null
+  return {
+    target_voter_id: orNull(target.voter),
+    target_voter_name: orNull(target.voterName),
+    target_war_id: orNull(target.war),
+    target_war_title: orNull(target.warTitle),
+  }
+}
+
+function logEntry(id: string, action: string, createdAt: string, target: { voter?: string; voterName?: string; war?: string; warTitle?: string } = {}) {
   return {
     id,
     action,
     staff_voter_id: 'staff-voter-1',
-    target_voter_id: target.voter ?? null,
-    target_war_id: target.war ?? null,
+    staff_name: 'Stella Staff',
+    ...nulls(target),
     created_at: createdAt,
   }
 }
@@ -199,7 +209,7 @@ test('The moderation log lists entries newest first with readable labels', async
   // Arrange
   const entries = [
     logEntry('e3', 'ban_voter', '2026-10-03T12:00:00Z', { voter: 'voter-banned' }),
-    logEntry('e2', 'remove_war', '2026-10-02T12:00:00Z', { war: 'war-removed' }),
+    logEntry('e2', 'remove_war', '2026-10-02T12:00:00Z', { war: 'war-removed', warTitle: 'Removed Title' }),
     logEntry('e1', 'brand_new_action', '2026-10-01T12:00:00Z'),
   ]
   await useScenario(page, [me({ is_admin: true }), killSwitchGet(false), logGet({ entries, next_cursor: null })])
@@ -213,11 +223,11 @@ test('The moderation log lists entries newest first with readable labels', async
   const rows = page.getByTestId('moderation-log-entry')
   await expect(rows).toHaveCount(3)
   await expect(rows.nth(0)).toContainText('Banned a Voter')
-  await expect(rows.nth(0)).toContainText('staff-voter-1')
+  await expect(rows.nth(0)).toContainText('Stella Staff')
   await expect(rows.nth(0)).toContainText('voter-banned')
   await expect(rows.nth(0).locator('time')).toHaveAttribute('datetime', '2026-10-03T12:00:00Z')
   await expect(rows.nth(1)).toContainText('Removed a War')
-  await expect(rows.nth(1)).toContainText('war-removed')
+  await expect(rows.nth(1)).toContainText('Removed Title')
   await expect(rows.nth(2)).toContainText('brand_new_action')
 })
 
@@ -728,7 +738,7 @@ test("A moderation log entry targeting a War links to its detail", async ({ page
   await useScenario(page, [
     me({ is_moderator: true }),
     killSwitchGet(false),
-    logGet({ entries: [logEntry('e1', 'remove_war', '2026-10-02T12:00:00Z', { war: 'w-1' })], next_cursor: null }),
+    logGet({ entries: [logEntry('e1', 'remove_war', '2026-10-02T12:00:00Z', { war: 'w-1', warTitle: 'Alpha War' })], next_cursor: null }),
     adminWarDetailGet('w-1', adminWarDetail('w-1', { title: 'Alpha War', removed_at: REMOVED_AT })),
   ])
   await page.goto('/')
@@ -736,11 +746,31 @@ test("A moderation log entry targeting a War links to its detail", async ({ page
   await navigateAuthenticated(page, '/admin')
 
   // Act
-  await page.getByTestId('moderation-log-entry').getByRole('link', { name: /War w-1/ }).click()
+  await page.getByTestId('moderation-log-entry').getByRole('link', { name: 'Alpha War' }).click()
 
   // Assert
   await expect(page).toHaveURL(/\/admin\/wars\/w-1$/)
   await expect(page.getByRole('heading', { name: 'Alpha War' })).toBeVisible()
+})
+
+test("A moderation log entry targeting a deleted War shows no link", async ({ page }) => {
+  // Arrange
+  await useScenario(page, [
+    me({ is_moderator: true }),
+    killSwitchGet(false),
+    logGet({ entries: [logEntry('e1', 'remove_war', '2026-10-02T12:00:00Z', { war: 'w-gone' })], next_cursor: null }),
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/admin')
+
+  // Assert
+  const entry = page.getByTestId('moderation-log-entry')
+  await expect(entry).toContainText('a deleted War')
+  await expect(entry).toContainText('w-gone')
+  await expect(entry.locator('a[href="/admin/wars/w-gone"]')).toHaveCount(0)
 })
 
 test("A plain Voter cannot reach a War's Staff detail", async ({ page }) => {
@@ -1473,7 +1503,7 @@ test("A moderation log entry's Voter ids link to the Voter's detail", async ({ p
   await useScenario(page, [
     me({ is_moderator: true }),
     killSwitchGet(false),
-    logGet({ entries: [logEntry('e1', 'ban_voter', '2026-10-02T12:00:00Z', { voter: 'v-1' })], next_cursor: null }),
+    logGet({ entries: [logEntry('e1', 'ban_voter', '2026-10-02T12:00:00Z', { voter: 'v-1', voterName: 'Casey Creator' })], next_cursor: null }),
     adminVoterGet('v-1', adminVoterDetail('v-1', { display_name: 'Casey Creator' })),
     noVotes('v-1'),
     adminVoterGet('staff-voter-1', adminVoterDetail('staff-voter-1', { display_name: 'Stella Staff', is_moderator: true })),
@@ -1485,7 +1515,7 @@ test("A moderation log entry's Voter ids link to the Voter's detail", async ({ p
   const entry = page.getByTestId('moderation-log-entry')
 
   // Act
-  await entry.getByRole('link', { name: /Voter v-1/ }).click()
+  await entry.getByRole('link', { name: 'Casey Creator' }).click()
 
   // Assert
   await expect(page).toHaveURL(/\/admin\/voters\/v-1$/)
@@ -1493,7 +1523,7 @@ test("A moderation log entry's Voter ids link to the Voter's detail", async ({ p
 
   // Act
   await navigateAuthenticated(page, '/admin')
-  await page.getByTestId('moderation-log-entry').getByRole('link', { name: /Staff staff-voter-1/ }).click()
+  await page.getByTestId('moderation-log-entry').getByRole('link', { name: 'Stella Staff' }).click()
 
   // Assert
   await expect(page).toHaveURL(/\/admin\/voters\/staff-voter-1$/)
