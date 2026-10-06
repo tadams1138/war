@@ -16,6 +16,7 @@ import { ImportWar } from './pages/ImportWar'
 import { MyWars } from './pages/MyWars'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { AdminWarDetail } from './pages/AdminWarDetail'
+import { AdminVoterDetail } from './pages/AdminVoterDetail'
 import { PrivacyPolicy } from './pages/PrivacyPolicy'
 import { TermsOfService } from './pages/TermsOfService'
 import { DataDeletion } from './pages/DataDeletion'
@@ -87,6 +88,14 @@ export default function App() {
               element={
                 <RequireStaff>
                   <AdminWarDetail />
+                </RequireStaff>
+              }
+            />
+            <Route
+              path="/admin/voters/:id"
+              element={
+                <RequireStaff>
+                  <AdminVoterDetail />
                 </RequireStaff>
               }
             />

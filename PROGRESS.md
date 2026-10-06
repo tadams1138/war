@@ -229,8 +229,6 @@ Staging and production both run as a single application per environment containi
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
-- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). The war-api half is
-  fully built. The war-ui-default dashboard is partly built (see below).
 - A creator's own **Delete** (§6.1) still leaves the War's media objects in storage. It
   could now reuse `deletePrefix`, the way Remove a War does.
 
@@ -539,13 +537,37 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   - **Client** adds `getAdminWars`, `getAdminWar`, `getWarReports`, `setReportAddressed`,
     `removeWar`, `getUnaddressedReports`. Types come from the generated schema.
   - **Layout:** `theme/layout.css` lets rows and controls wrap at narrow widths.
+- **Admin Dashboard, Voters side** (§6.7). Code is in `src/admin/voters/`.
+  - **Voters list** (`AdminVotersPanel`, `useAdminVoters`): sits below the Wars list. It has a
+    status filter (all, suspended, banned, staff), debounced search, and "Load more".
+    `VoterBadges` shows Moderator, Admin, Suspended, and Banned badges, plus the War count.
+    The labels read "Show Voters" and "Find Voters", which keeps them distinct from the Wars
+    panel's.
+  - **Staff Voter detail** is its own route, `/admin/voters/:id` (`pages/AdminVoterDetail.tsx`),
+    gated by `RequireStaff`. It shows badges, actions, and the Voter's Wars, a removed one
+    marked Removed, each linking to `/admin/wars/:id`. Below that is the paged vote history
+    (`VoterVotesSection`, `useVoterVotes`), showing winner, loser, and a link to each War.
+  - **Actions** (`VoterActions`, `VoterActionControl`, `useVoterAction`):
+    - Suspend/Unsuspend, Ban/Unban, and role grant/revoke share one control. The control
+      owns the `Modal` confirm, the failure message, and the refetch.
+    - Ban's confirm says it permanently deletes every War the Voter created and every vote
+      they cast, and blocks sign-in.
+    - Role controls show only to Admins (the viewer's `is_admin` from `/auth/me`). Revoking
+      Admin always asks for confirmation.
+    - Suspend/Ban controls give way to a note when the target is the viewer or is Staff.
+      Revoke Admin is hidden on the viewer's own detail.
+  - **Not found:** a 404 for the Voter detail reads "This Voter doesn't exist" instead of the
+    shared War copy. A 404 on a Voter *action* still uses the shared War copy.
+  - **Moderation log:** Voter targets and acting Staff link to the Voter detail.
+  - **Client** adds `getAdminVoters`, `getAdminVoter`, `getAdminVoterVotes`,
+    `setVoterSuspension`, `setVoterBan`, and `setVoterRole`, all typed from the generated
+    schema.
 
 ### Not built
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
-- The Voters side of the Admin Dashboard (`war-spec.md` §10.1, §6.7; backlog item 5): the
-  Voter list and detail, vote history, Suspend/Ban, and role grants.
+- Moderation log entries show ids, not names. Looking up a name costs one request per id.
 
 ---
 
@@ -647,13 +669,13 @@ Requested 2026-09-24, to work through one at a time.
    above, and `war-spec.md`'s §4 (no longer documents it).
 4. ~~Drop the category from the results page's meta description.~~ **Done** — see the
    war-infra "Link-preview tags" entry above.
-5. ~~Spec the broad admin dashboard.~~ **Spec done** — `war-spec.md` §3, §6.7 (role grants,
+5. ~~Spec and build the broad admin dashboard.~~ **Done** — `war-spec.md` §3, §6.7 (role grants,
    self-removal guard, visibility, Remove a War, Suspend/Ban, the kill switch, the
    moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
    Moderator roles, role grants, abuse reporting, the self-removal guard, the moderation
    log, the kill switch, Remove a War, Suspend/Ban, and Staff visibility are also **built**
-   (see the war-api entries above). Admin Dashboard page built except the Voters side. See the "Not built" entries
-   above.
+   (see the war-api entries above). The Admin Dashboard page is built too (see the
+   war-ui-default entries above).
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.
 7. ~~Export/import should carry the share image.~~ **Done** — see "Export/import carries the
