@@ -434,9 +434,8 @@ export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise
  * (matchups generate incrementally as contestants are added, §4), so unlike
  * the old draft-only version this must clean up every dependent table, in
  * FK dependency order, in one transaction: none of `20260101000000_init.sql`'s
- * foreign keys cascade. Contestant media rows go first, matching
- * `deleteContestant`'s own precedent of leaving the underlying storage
- * objects in place rather than reaching into the object store.
+ * foreign keys cascade. Contestant media rows go first. The storage objects
+ * are the caller's job, after commit (`deleteWar`, `warMediaStorage.ts`).
  */
 export async function deleteWarRow(db: Kysely<Database>, warId: string): Promise<void> {
   await db.transaction().execute((trx) => deleteWarRowIn(trx, warId));

@@ -1,6 +1,9 @@
+import type { FastifyBaseLogger } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { loadOwnedWar } from '../wars/warAccess.js';
+import { contestantMediaPrefixes, deleteMediaObjects } from '../wars/warMediaStorage.js';
+import type { ObjectStorage } from './storage.js';
 import type { War } from '../wars/warsRepository.js';
 import type { MutationOutcome } from '../shared/outcomes.js';
 import {
@@ -128,6 +131,8 @@ export async function patchContestant(
  */
 export async function removeContestant(
   db: Kysely<Database>,
+  storage: ObjectStorage,
+  log: FastifyBaseLogger,
   warId: string,
   contestantId: string,
   voterId: string,
@@ -150,5 +155,6 @@ export async function removeContestant(
       await recomputeContestantCounters(trx, warId);
     }
   });
+  await deleteMediaObjects(storage, log, contestantMediaPrefixes([contestantId]), { warId, contestantId });
   return { kind: 'ok', value: undefined };
 }

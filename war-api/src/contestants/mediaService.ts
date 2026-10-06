@@ -1,6 +1,8 @@
+import type { FastifyBaseLogger } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { loadOwnedWar } from '../wars/warAccess.js';
+import { deleteMediaObjects, imageMediaPrefixes } from '../wars/warMediaStorage.js';
 import type { War } from '../wars/warsRepository.js';
 import type { MutationOutcome } from '../shared/outcomes.js';
 import { findContestantById, type Contestant } from './contestantsRepository.js';
@@ -78,8 +80,11 @@ export async function reorderContestantMedia(
   return { kind: 'ok', value: undefined };
 }
 
+/** Deletes the row, then (after it is gone) the image's stored variants and original, best effort. */
 export async function removeContestantMedia(
   db: Kysely<Database>,
+  storage: ObjectStorage,
+  log: FastifyBaseLogger,
   warId: string,
   contestantId: string,
   mediaId: string,
@@ -93,5 +98,6 @@ export async function removeContestantMedia(
   if (!media || media.contestantId !== contestantId) return { kind: 'notFound' };
 
   await deleteMedia(db, mediaId);
+  await deleteMediaObjects(storage, log, imageMediaPrefixes(contestantId, media.storageKey), { warId, contestantId, mediaId });
   return { kind: 'ok', value: undefined };
 }
