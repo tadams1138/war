@@ -309,3 +309,23 @@ Feature: Admin Dashboard
     Given no Voter exists with the requested id
     When a Staff member opens that Voter's Staff detail
     Then they are told the Voter doesn't exist, not that a War is missing
+
+  Scenario: A Staff action on a Voter who no longer exists says the Voter doesn't exist
+    Given a plain Voter's Staff detail and suspending will find no such Voter
+    When a Staff member suspends the Voter and confirms
+    Then they are told the Voter doesn't exist, not that a War is missing
+
+  Scenario: The current Voter's identity is fetched once per visit to the Admin Dashboard
+    Given an authenticated Moderator
+    When they open the Admin Dashboard
+    Then the current Voter's identity was requested exactly once
+
+  Scenario: The current Voter's identity is fetched once per visit to a Voter's Staff detail
+    Given an authenticated Moderator
+    When they open a Voter's Staff detail
+    Then the current Voter's identity was requested exactly once
+
+  Scenario: Signing in as another Voter does not reuse the previous Voter's identity
+    Given an authenticated Moderator is on the Admin Dashboard
+    When they log out and a plain Voter signs in and opens the Admin Dashboard
+    Then they are redirected to "/" and the identity was requested once per sign-in

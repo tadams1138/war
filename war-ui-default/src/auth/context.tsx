@@ -6,13 +6,17 @@
 // failed-refresh redirect.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { logout as apiLogout } from '../api/client'
+import { logout as apiLogout, type VoterMe } from '../api/client'
 import { getToken, registerUnauthorizedHandler, setToken } from '../api/authState'
+import type { AsyncResourceState } from '../hooks/useAsyncResource'
 import { useAuthTestHooks } from '../mocks/authTestHooks'
 import { loginUrlFor } from './returnTo'
+import { useVoterMe } from './useVoterMe'
 
 interface AuthContextValue {
   isAuthenticated: boolean
+  // GET /auth/me for the signed-in Voter, fetched once per sign-in.
+  me: AsyncResourceState<VoterMe>
   login: (token: string) => void
   logout: () => void
 }
@@ -25,10 +29,15 @@ function returnToFromLocation(): string {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => getToken() !== null)
+  // Bumped on every login so the identity is refetched for a new sign-in
+  // even when no logout came between (a different Voter, or a re-login).
+  const [session, setSession] = useState(0)
   const navigate = useNavigate()
+  const me = useVoterMe(isAuthenticated, session)
 
   const login = useCallback((token: string) => {
     setToken(token)
+    setSession((current) => current + 1)
     setIsAuthenticated(true)
   }, [])
 
@@ -58,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useAuthTestHooks(login, navigate)
 
-  const value = useMemo(() => ({ isAuthenticated, login, logout }), [isAuthenticated, login, logout])
+  const value = useMemo(() => ({ isAuthenticated, me, login, logout }), [isAuthenticated, me, login, logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
