@@ -178,11 +178,29 @@ Staging and production both run as a single application per environment containi
     `completeCallback` returns `banned`. The callback then clears the OAuth cookies, issues no
     refresh token, and 302-redirects to `<ui>/auth/callback?error=banned`.
   - **Unban** lifts the block. Deleted data stays gone.
-  - **Known narrow races:**
-    - A vote whose auth check passed just before a ban commits can land after the purge and
-      survive.
-    - A role grant landing between `findModerationTarget` and the write isn't caught, since
-      there is no row lock.
+  - **Row locks close the Ban races** (`test/integration/voterRowLocking.test.ts` proves each
+    interleaving with two real transactions, polling `pg_locks` to confirm blocking).
+    - `findModerationTarget` locks the target row with `findVoterByIdForUpdate`
+      (`FOR UPDATE`). This is the first statement of a Suspend or Ban transaction.
+    - `castVote` opens with `isVoterBannedLockingShared` (`FOR SHARE` on the voter row) and
+      refuses a banned Voter. The vote service returns `banned`, and the route answers 401.
+    - A vote that locked first commits, then the ban purges it. A vote arriving mid-ban
+      waits, then sees `banned_at`.
+    - A role grant's UPDATE waits behind the target lock. A grant that committed first makes
+      the target Staff, so the action gets 403.
+    - Both sides lock the voter row before contestant rows, so the lock order matches and
+      the two can't deadlock.
+- **Deletes reclaim storage.** Every delete path removes its files after commit, best effort,
+  via `wars/warMediaStorage.ts` (`deleteMediaObjects`). A storage failure is logged, and the
+  request still succeeds.
+  - A creator's Delete (`deleteWar`) collects the contestant ids and runs `deleteWarRowIn` in
+    one transaction. Then it deletes `mediaPrefixes`: the contestant variants and originals,
+    plus the share image and its original.
+  - Removing a contestant deletes `contestantMediaPrefixes`: `contestants/<cid>/` and
+    `originals/<cid>/`.
+  - Removing one image deletes `imageMediaPrefixes`: `<storage_key>-` for the variants and
+    `originals/<cid>/<imageId>.` for the original, matched by prefix so the extension isn't
+    needed.
 - **Staff visibility** (spec §6.7 "Visibility"). Staff-only (`requireModeratorOrAdmin`),
   read-only endpoints live under `/admin/` (`admin/`). Public routes and `isWarVisibleTo`
   are unchanged.
@@ -229,8 +247,6 @@ Staging and production both run as a single application per environment containi
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
-- A creator's own **Delete** (§6.1) still leaves the War's media objects in storage. It
-  could now reuse `deletePrefix`, the way Remove a War does.
 
 ---
 

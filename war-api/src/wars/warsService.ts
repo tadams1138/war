@@ -1,3 +1,4 @@
+import type { FastifyBaseLogger } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { listContestantsByWar, recomputeContestantCounters } from '../contestants/contestantsRepository.js';
@@ -8,11 +9,12 @@ import type { Forbidden, MutationOutcome, NotFound, NotPublished } from '../shar
 import { effectiveStatus } from './effectiveStatus.js';
 import { processShareImage } from './shareImageProcessing.js';
 import { loadOwnedWar, loadWarOwnedBy } from './warAccess.js';
+import { deleteMediaObjects, mediaPrefixes } from './warMediaStorage.js';
 import { isWarTheme } from './theme.js';
 import {
   createMembership,
   createWar,
-  deleteWarRow,
+  deleteWarRowIn,
   findWarById,
   isMember,
   setWarShareImageKey,
@@ -199,12 +201,28 @@ export async function patchWar(
 
 export type DeleteWarOutcome = MutationOutcome<void>;
 
-/** Any status, creator-only (spec §6.1 "Deletion") -- `loadOwnedWar` enforces ownership and existence; `deleteWarRow` cascades everything the War owns. */
-export async function deleteWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<DeleteWarOutcome> {
+/**
+ * Any status, creator-only (spec §6.1 "Deletion") -- `loadOwnedWar` enforces ownership and existence;
+ * `deleteWarRowIn` cascades everything the War owns in one transaction. The War's media objects are deleted best
+ * effort only after that commit (a storage failure is logged and the delete still succeeds), like Remove a War and Ban.
+ */
+export async function deleteWar(
+  db: Kysely<Database>,
+  storage: ObjectStorage,
+  log: FastifyBaseLogger,
+  warId: string,
+  voterId: string,
+  now: Date,
+): Promise<DeleteWarOutcome> {
   const guard = await loadOwnedWar(db, warId, voterId, now);
   if (guard.kind !== 'ok') return guard;
 
-  await deleteWarRow(db, warId);
+  const prefixes = await db.transaction().execute(async (trx) => {
+    const contestantIds = (await listContestantsByWar(trx, warId)).map((contestant) => contestant.id);
+    await deleteWarRowIn(trx, warId);
+    return mediaPrefixes(warId, contestantIds);
+  });
+  await deleteMediaObjects(storage, log, prefixes, { warId });
   return { kind: 'ok', value: undefined };
 }
 

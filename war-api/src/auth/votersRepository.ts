@@ -113,3 +113,24 @@ export async function setVoterBanned(db: Kysely<Database>, voterId: string, bann
     .executeTakeFirst();
   return row ? toVoter(row) : undefined;
 }
+
+/**
+ * Like `findVoterById`, but takes a row lock (`FOR UPDATE`) held to the end of the caller's transaction.
+ * For a check-then-write on the Voter that a concurrent write to the same row (a role grant, a ban) must not
+ * slip between (spec §6.7 Suspend/Ban target check).
+ */
+export async function findVoterByIdForUpdate(db: Kysely<Database>, id: string): Promise<Voter | undefined> {
+  const row = await db.selectFrom('voters').selectAll().where('id', '=', id).forUpdate().executeTakeFirst();
+  return row ? toVoter(row) : undefined;
+}
+
+/**
+ * Whether the Voter is banned, taking a shared row lock (`FOR SHARE`) held to the end of the caller's transaction.
+ * A ban's own write to the row waits for the holder, and a holder arriving after an uncommitted ban waits for it
+ * and then sees `banned_at` set -- so a write made under this lock can never survive the ban's purge (spec §6.7).
+ * An unknown Voter reads as not banned; the caller's own foreign key rejects the write.
+ */
+export async function isVoterBannedLockingShared(db: Kysely<Database>, id: string): Promise<boolean> {
+  const row = await db.selectFrom('voters').select('banned_at').where('id', '=', id).forShare().executeTakeFirst();
+  return row?.banned_at != null;
+}

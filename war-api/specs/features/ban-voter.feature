@@ -34,6 +34,12 @@ Feature: Ban a Voter
     Then the Voter's votes and memberships are gone and the counters reflect only the remaining vote
     And the other Voter's War, vote and membership remain
 
+  Scenario: A vote attempt that got past authentication just before the ban is rejected
+    Given an Admin and a Voter who joined a published War
+    And the Admin bans the Voter after the Voter's request authenticated
+    When the Voter's vote attempt reaches the vote service
+    Then the vote is rejected as banned and no vote exists
+
   Scenario: Banning revokes every refresh-token family of the Voter
     Given an Admin and a Voter who signed in twice
     When the Admin bans the Voter

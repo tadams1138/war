@@ -32,3 +32,8 @@ Feature: Image Processing
     When an eleventh image is uploaded
     Then the response status is 422
     And the response explains that a contestant may hold at most 10 images
+
+  Scenario: Deleting one image reclaims its stored objects but leaves the contestant's other image
+    Given a contestant with two uploaded images
+    When the creator deletes the first image
+    Then only the second image's variants and original remain in storage
