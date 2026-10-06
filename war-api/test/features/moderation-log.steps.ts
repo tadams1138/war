@@ -4,7 +4,9 @@ import { sql } from 'kysely';
 import { expect } from 'vitest';
 import { newId } from '../../src/db/uuid.js';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeVoter, makeAdmin, makeModerator } from '../setup/fixtures.js';
+import { logAction } from '../../src/moderation/moderationLogRepository.js';
+import { deleteWarRow, markWarRemoved } from '../../src/wars/warsRepository.js';
+import { makeVoter, makeAdmin, makeModerator, makeDraftWar } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -249,6 +251,115 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(response.status).toBe(400);
     });
   });
+
+  Scenario('Entries carry the names of the acting Staff member and the targets', ({ Given, And, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given(
+      'an Admin named "admin" who granted the moderator role to a Voter named "target" and logged an action on a War titled "Doomed War"',
+      async () => {
+        // Arrange
+        const adminId = (await makeAdmin(harness.db, 'admin')).id;
+        const targetId = (await makeVoter(harness.db, 'target')).id;
+        const creatorId = (await makeVoter(harness.db, 'creator')).id;
+        const war = await makeDraftWar(harness.db, creatorId, { title: 'Doomed War' });
+        await putRole(adminId, targetId, 'moderator', true);
+        await logAction(harness.db, { action: 'warn_war', staffVoterId: adminId, targetWarId: war.id });
+      },
+    );
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the moderation log', async () => {
+      // Act
+      response = await getLog(moderatorId);
+    });
+
+    Then('the role entry names the Admin as staff and the Voter as target, with a null War title', () => {
+      // Assert
+      const entry = entryWithAction(response, 'grant_role_moderator');
+      expect(entry.staff_name).toBe('admin');
+      expect(entry.target_voter_name).toBe('target');
+      expect(entry.target_war_title).toBeNull();
+    });
+
+    And('the War entry names the Admin as staff and the War by title, with a null Voter name', () => {
+      // Assert
+      const entry = entryWithAction(response, 'warn_war');
+      expect(entry.staff_name).toBe('admin');
+      expect(entry.target_war_title).toBe('Doomed War');
+      expect(entry.target_voter_name).toBeNull();
+    });
+  });
+
+  Scenario("A removed War's title is still shown", ({ Given, And, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('an Admin who removed a War titled "Removed War"', async () => {
+      // Arrange
+      const adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const creatorId = (await makeVoter(harness.db, 'creator')).id;
+      const war = await makeDraftWar(harness.db, creatorId, { title: 'Removed War' });
+      await markWarRemoved(harness.db, war.id);
+      await logAction(harness.db, { action: 'remove_war', staffVoterId: adminId, targetWarId: war.id });
+    });
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the moderation log', async () => {
+      // Act
+      response = await getLog(moderatorId);
+    });
+
+    Then('the entry carries the War title "Removed War"', () => {
+      // Assert
+      expect(entryWithAction(response, 'remove_war').target_war_title).toBe('Removed War');
+    });
+  });
+
+  Scenario('A hard-deleted War leaves the entry with a null title', ({ Given, And, When, Then }) => {
+    let moderatorId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('an Admin who logged an action on a War that was later hard-deleted', async () => {
+      // Arrange
+      const adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const creatorId = (await makeVoter(harness.db, 'creator')).id;
+      warId = (await makeDraftWar(harness.db, creatorId, { title: 'Gone War' })).id;
+      await logAction(harness.db, { action: 'remove_war', staffVoterId: adminId, targetWarId: warId });
+      await deleteWarRow(harness.db, warId);
+    });
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the moderation log', async () => {
+      // Act
+      response = await getLog(moderatorId);
+    });
+
+    Then("the entry remains, still naming the deleted War's id, with a null War title", () => {
+      // Assert
+      const entry = entryWithAction(response, 'remove_war');
+      expect(entry.target_war_id).toBe(warId);
+      expect(entry.target_war_title).toBeNull();
+    });
+  });
+
+  function entryWithAction(response: request.Response, action: string): Record<string, unknown> {
+    expect(response.status).toBe(200);
+    const entry = (response.body.entries as Array<Record<string, unknown>>).find((e) => e.action === action);
+    expect(entry).toBeDefined();
+    return entry!;
+  }
 
   /** Inserts `count` entries whose created_at differ only in microseconds; returns their ids newest first. */
   async function seedEntriesWithinOneMillisecond(staffId: string, count: number): Promise<string[]> {
