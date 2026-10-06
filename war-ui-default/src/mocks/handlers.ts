@@ -52,6 +52,6 @@ export const handlers = [
   http.delete('/api/v1/auth/session', () => new HttpResponse(null, { status: 204 })),
 
   http.get('/api/v1/auth/me', () =>
-    HttpResponse.json({ voter: { id: 'voter-1', display_name: 'Test Voter', avatar_url: null } }),
+    HttpResponse.json({ voter: { id: 'voter-1', display_name: 'Test Voter', avatar_url: null, is_moderator: false, is_admin: false } }),
   ),
 ]

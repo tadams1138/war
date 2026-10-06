@@ -403,3 +403,161 @@ export async function logout(): Promise<void> {
 export function providerLoginUrl(provider: string): string {
   return `${API_BASE_URL}/auth/${provider}/login`
 }
+
+// --- Staff-only endpoints (the Admin Dashboard, spec §6.7) -------------------
+
+export type KillSwitchState = paths['/kill-switch']['get']['responses'][200]['content']['application/json']
+
+// Every Staff-only endpoint's 403 means one thing: the caller isn't Staff.
+function classifyStaffForbidden(): ApiErrorReason {
+  return 'staff-only'
+}
+
+export async function getKillSwitch(): Promise<KillSwitchState> {
+  const response = await ensureOk(await apiFetch('/kill-switch'), classifyStaffForbidden)
+  return response.json() as Promise<KillSwitchState>
+}
+
+export async function setKillSwitch(enabled: boolean): Promise<KillSwitchState> {
+  const response = await ensureOk(
+    await apiFetch('/kill-switch', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    }),
+    classifyStaffForbidden,
+  )
+  return response.json() as Promise<KillSwitchState>
+}
+
+export type ModerationLogPage = paths['/moderation-log']['get']['responses'][200]['content']['application/json']
+export type ModerationLogEntry = ModerationLogPage['entries'][number]
+export type GetModerationLogParams = NonNullable<paths['/moderation-log']['get']['parameters']['query']>
+
+export async function getModerationLog(params: GetModerationLogParams = {}): Promise<ModerationLogPage> {
+  const search = new URLSearchParams(
+    Object.entries(params)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, String(value)]),
+  ).toString()
+  const response = await ensureOk(await apiFetch(`/moderation-log${search ? `?${search}` : ''}`), classifyStaffForbidden)
+  return response.json() as Promise<ModerationLogPage>
+}
+
+// --- Staff-only War moderation (spec §6.7, §8.5) ------------------------------
+
+export type AdminWarsPage = paths['/admin/wars']['get']['responses'][200]['content']['application/json']
+export type AdminWarItem = AdminWarsPage['wars'][number]
+export type GetAdminWarsParams = NonNullable<paths['/admin/wars']['get']['parameters']['query']>
+export type AdminWarStatus = NonNullable<GetAdminWarsParams['status']>
+
+function queryString(params: object): string {
+  const search = new URLSearchParams(
+    Object.entries(params)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, String(value)]),
+  ).toString()
+  return search ? `?${search}` : ''
+}
+
+export async function getAdminWars(params: GetAdminWarsParams = {}): Promise<AdminWarsPage> {
+  const response = await ensureOk(await apiFetch(`/admin/wars${queryString(params)}`), classifyStaffForbidden)
+  return response.json() as Promise<AdminWarsPage>
+}
+
+export type AdminWarDetail = paths['/admin/wars/{id}']['get']['responses'][200]['content']['application/json']
+export type AdminContestantStanding = AdminWarDetail['contestants'][number]
+export type WarReport =
+  paths['/wars/{id}/reports']['get']['responses'][200]['content']['application/json']['reports'][number]
+
+export async function getAdminWar(warId: string): Promise<AdminWarDetail> {
+  const response = await ensureOk(await apiFetch(`/admin/wars/${warId}`), classifyStaffForbidden)
+  return response.json() as Promise<AdminWarDetail>
+}
+
+export async function getWarReports(warId: string): Promise<WarReport[]> {
+  const response = await ensureOk(await apiFetch(`/wars/${warId}/reports`), classifyStaffForbidden)
+  return ((await response.json()) as { reports: WarReport[] }).reports
+}
+
+export async function setReportAddressed(reportId: string, addressed: boolean): Promise<void> {
+  await ensureOk(
+    await apiFetch(`/reports/${reportId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ addressed }),
+    }),
+    classifyStaffForbidden,
+  )
+}
+
+export async function removeWar(warId: string): Promise<void> {
+  await ensureOk(await apiFetch(`/wars/${warId}/remove`, { method: 'POST' }), classifyStaffForbidden)
+}
+
+export type UnaddressedReportsWar =
+  paths['/reports/unaddressed']['get']['responses'][200]['content']['application/json']['wars'][number]
+
+export async function getUnaddressedReports(): Promise<UnaddressedReportsWar[]> {
+  const response = await ensureOk(await apiFetch('/reports/unaddressed'), classifyStaffForbidden)
+  return ((await response.json()) as { wars: UnaddressedReportsWar[] }).wars
+}
+
+// --- Staff-only Voter moderation (spec §6.7) ---------------------------------
+
+export type AdminVotersPage = paths['/admin/voters']['get']['responses'][200]['content']['application/json']
+export type AdminVoterItem = AdminVotersPage['voters'][number]
+export type GetAdminVotersParams = NonNullable<paths['/admin/voters']['get']['parameters']['query']>
+
+export async function getAdminVoters(params: GetAdminVotersParams = {}): Promise<AdminVotersPage> {
+  const response = await ensureOk(await apiFetch(`/admin/voters${queryString(params)}`), classifyStaffForbidden)
+  return response.json() as Promise<AdminVotersPage>
+}
+
+export type AdminVoterDetail = paths['/admin/voters/{id}']['get']['responses'][200]['content']['application/json']
+export type AdminVoterWar = AdminVoterDetail['wars'][number]
+
+// The shared not-found copy names a War; a missing Voter needs its own.
+const VOTER_NOT_FOUND_MESSAGE = "This Voter doesn't exist"
+
+export async function getAdminVoter(voterId: string): Promise<AdminVoterDetail> {
+  const response = await apiFetch(`/admin/voters/${voterId}`)
+  if (response.status === 404) throw new ApiError('not-found', 404, VOTER_NOT_FOUND_MESSAGE)
+  return (await ensureOk(response, classifyStaffForbidden)).json() as Promise<AdminVoterDetail>
+}
+
+export type AdminVoterVotesPage = paths['/admin/voters/{id}/votes']['get']['responses'][200]['content']['application/json']
+export type AdminVoterVote = AdminVoterVotesPage['votes'][number]
+export type GetAdminVoterVotesParams = NonNullable<paths['/admin/voters/{id}/votes']['get']['parameters']['query']>
+
+export async function getAdminVoterVotes(
+  voterId: string,
+  params: GetAdminVoterVotesParams = {},
+): Promise<AdminVoterVotesPage> {
+  const response = await ensureOk(
+    await apiFetch(`/admin/voters/${voterId}/votes${queryString(params)}`),
+    classifyStaffForbidden,
+  )
+  return response.json() as Promise<AdminVoterVotesPage>
+}
+
+async function putJson(path: string, body: object): Promise<void> {
+  await ensureOk(
+    await apiFetch(path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+    classifyStaffForbidden,
+  )
+}
+
+export async function setVoterSuspension(voterId: string, suspended: boolean): Promise<void> {
+  await putJson(`/voters/${voterId}/suspension`, { suspended })
+}
+
+export async function setVoterBan(voterId: string, banned: boolean): Promise<void> {
+  await putJson(`/voters/${voterId}/ban`, { banned })
+}
+
+export type VoterRole = paths['/voters/{id}/roles/{role}']['put']['parameters']['path']['role']
+
+export async function setVoterRole(voterId: string, role: VoterRole, granted: boolean): Promise<void> {
+  await putJson(`/voters/${voterId}/roles/${role}`, { granted })
+}

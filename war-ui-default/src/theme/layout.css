@@ -692,3 +692,34 @@ label {
 .win-bar-fill {
   height: 100%;
 }
+
+/* Admin Dashboard lists (Wars, unaddressed-reports queue, War reports):
+   plain stacked rows that wrap long titles/ids instead of overflowing a
+   narrow viewport; filter controls stack and wrap the same way. */
+.admin-wars,
+.unaddressed-queue,
+.war-reports {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+.admin-wars li,
+.unaddressed-queue li,
+.war-reports li {
+  padding: 0.5rem 0;
+  overflow-wrap: anywhere;
+}
+.admin-wars .badge,
+.unaddressed-queue .badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.85em;
+}
+.war-list-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}

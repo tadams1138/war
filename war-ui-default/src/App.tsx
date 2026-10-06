@@ -3,6 +3,7 @@ import { AuthProvider } from './auth/context'
 import { Footer } from './components/Footer'
 import { NavBar } from './components/NavBar'
 import { RequireAuth } from './router/RequireAuth'
+import { RequireStaff } from './router/RequireStaff'
 import { ThemeProvider } from './theme/ThemeContext'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
@@ -13,6 +14,9 @@ import { CreateWar } from './pages/CreateWar'
 import { EditWar } from './pages/EditWar'
 import { ImportWar } from './pages/ImportWar'
 import { MyWars } from './pages/MyWars'
+import { AdminDashboard } from './pages/AdminDashboard'
+import { AdminWarDetail } from './pages/AdminWarDetail'
+import { AdminVoterDetail } from './pages/AdminVoterDetail'
 import { PrivacyPolicy } from './pages/PrivacyPolicy'
 import { TermsOfService } from './pages/TermsOfService'
 import { DataDeletion } from './pages/DataDeletion'
@@ -69,6 +73,30 @@ export default function App() {
                 <RequireAuth>
                   <MyWars />
                 </RequireAuth>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <RequireStaff>
+                  <AdminDashboard />
+                </RequireStaff>
+              }
+            />
+            <Route
+              path="/admin/wars/:id"
+              element={
+                <RequireStaff>
+                  <AdminWarDetail />
+                </RequireStaff>
+              }
+            />
+            <Route
+              path="/admin/voters/:id"
+              element={
+                <RequireStaff>
+                  <AdminVoterDetail />
+                </RequireStaff>
               }
             />
           </Routes>

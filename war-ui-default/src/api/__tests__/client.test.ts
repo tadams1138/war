@@ -7,6 +7,9 @@ import {
   clearVotes,
   createWar,
   deleteContestantMedia,
+  getAdminVoterVotes,
+  getAdminVoters,
+  getKillSwitch,
   getMe,
   getNextMatchup,
   getRankings,
@@ -19,6 +22,10 @@ import {
   providerLoginUrl,
   publishWar,
   refreshSession,
+  setKillSwitch,
+  setVoterBan,
+  setVoterRole,
+  setVoterSuspension,
   reorderContestantMedia,
   unpublishWar,
   uploadContestantImages,
@@ -943,5 +950,96 @@ describe('providerLoginUrl', () => {
 
     // Assert
     expect(url).toBe(`${BASE}/auth/google/login`)
+  })
+})
+
+describe('the kill switch endpoints', () => {
+  it('getKillSwitch classifies a 403 as staff-only', async () => {
+    // Arrange
+    server.use(http.get(`${BASE}/kill-switch`, () => HttpResponse.json({ error: 'forbidden' }, { status: 403 })))
+
+    // Act
+    const result = getKillSwitch()
+
+    // Assert
+    await expect(result).rejects.toMatchObject({ reason: 'staff-only', status: 403 })
+  })
+
+  it('setKillSwitch PUTs { enabled } and returns the new state', async () => {
+    // Arrange
+    let received: unknown
+    server.use(
+      http.put(`${BASE}/kill-switch`, async ({ request }) => {
+        received = await request.json()
+        return HttpResponse.json({ enabled: true })
+      }),
+    )
+
+    // Act
+    const result = await setKillSwitch(true)
+
+    // Assert
+    expect(received).toEqual({ enabled: true })
+    expect(result).toEqual({ enabled: true })
+  })
+})
+
+describe('the Staff Voter endpoints', () => {
+  it('getAdminVoters serializes only the defined params and classifies a 403 as staff-only', async () => {
+    // Arrange
+    let search = ''
+    server.use(
+      http.get(`${BASE}/admin/voters`, ({ request }) => {
+        search = new URL(request.url).search
+        return HttpResponse.json({ error: 'forbidden' }, { status: 403 })
+      }),
+    )
+
+    // Act
+    const result = getAdminVoters({ status: 'banned', q: 'ann' })
+
+    // Assert
+    await expect(result).rejects.toMatchObject({ reason: 'staff-only', status: 403 })
+    expect(search).toBe('?status=banned&q=ann')
+  })
+
+  it('getAdminVoterVotes pages by cursor', async () => {
+    // Arrange
+    let search = ''
+    server.use(
+      http.get(`${BASE}/admin/voters/v-1/votes`, ({ request }) => {
+        search = new URL(request.url).search
+        return HttpResponse.json({ votes: [], next_cursor: null })
+      }),
+    )
+
+    // Act
+    const page = await getAdminVoterVotes('v-1', { cursor: 'c-2' })
+
+    // Assert
+    expect(search).toBe('?cursor=c-2')
+    expect(page).toEqual({ votes: [], next_cursor: null })
+  })
+
+  it.each([
+    ['setVoterSuspension', '/voters/v-1/suspension', { suspended: true }, () => setVoterSuspension('v-1', true)],
+    ['setVoterBan', '/voters/v-1/ban', { banned: false }, () => setVoterBan('v-1', false)],
+    ['setVoterRole', '/voters/v-1/roles/admin', { granted: true }, () => setVoterRole('v-1', 'admin', true)],
+  ])('%s PUTs its body and classifies a 403 as staff-only', async (_name, path, body, call) => {
+    // Arrange
+    let received: unknown
+    server.use(
+      http.put(`${BASE}${path}`, async ({ request }) => {
+        received = await request.json()
+        return HttpResponse.json({ error: 'forbidden' }, { status: 403 })
+      }),
+    )
+
+    // Act
+    const result = call()
+
+    // Assert
+    await expect(result).rejects.toMatchObject({ reason: 'staff-only', status: 403 })
+    expect(received).toEqual(body)
   })
 })
