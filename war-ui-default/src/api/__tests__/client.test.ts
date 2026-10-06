@@ -23,6 +23,7 @@ import {
   publishWar,
   refreshSession,
   setKillSwitch,
+  setReportAddressed,
   setVoterBan,
   setVoterRole,
   setVoterSuspension,
@@ -1057,5 +1058,16 @@ describe('the Staff Voter endpoints', () => {
     // Assert
     await expect(result).rejects.toMatchObject({ reason: 'staff-only', status: 403 })
     expect(received).toEqual(body)
+  })
+
+  it('setReportAddressed reports a 404 as the report not existing', async () => {
+    // Arrange
+    server.use(http.patch(`${BASE}/reports/r-missing`, () => HttpResponse.json({ error: 'not found' }, { status: 404 })))
+
+    // Act
+    const result = setReportAddressed('r-missing', true)
+
+    // Assert
+    await expect(result).rejects.toMatchObject({ reason: 'not-found', status: 404, message: "This report doesn't exist" })
   })
 })

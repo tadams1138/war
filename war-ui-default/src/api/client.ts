@@ -481,13 +481,13 @@ export async function getWarReports(warId: string): Promise<WarReport[]> {
 }
 
 export async function setReportAddressed(reportId: string, addressed: boolean): Promise<void> {
-  await ensureOk(
+  await ensureEntityOk(
     await apiFetch(`/reports/${reportId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ addressed }),
     }),
-    classifyStaffForbidden,
+    REPORT_NOT_FOUND_MESSAGE,
   )
 }
 
@@ -517,13 +517,19 @@ export async function getAdminVoters(params: GetAdminVotersParams = {}): Promise
 export type AdminVoterDetail = paths['/admin/voters/{id}']['get']['responses'][200]['content']['application/json']
 export type AdminVoterWar = AdminVoterDetail['wars'][number]
 
-// The shared not-found copy names a War; a missing Voter needs its own.
+// The shared not-found copy names a War; specific entities need their own.
 const VOTER_NOT_FOUND_MESSAGE = "This Voter doesn't exist"
+const REPORT_NOT_FOUND_MESSAGE = "This report doesn't exist"
+
+// Generalized handler for Staff endpoints addressing a specific entity: a 404 means that entity is missing.
+async function ensureEntityOk(response: Response, notFoundMessage: string): Promise<Response> {
+  if (response.status === 404) throw new ApiError('not-found', 404, notFoundMessage)
+  return ensureOk(response, classifyStaffForbidden)
+}
 
 // Every Staff endpoint addressed at one Voter: a 404 means that Voter is missing.
 async function ensureVoterOk(response: Response): Promise<Response> {
-  if (response.status === 404) throw new ApiError('not-found', 404, VOTER_NOT_FOUND_MESSAGE)
-  return ensureOk(response, classifyStaffForbidden)
+  return ensureEntityOk(response, VOTER_NOT_FOUND_MESSAGE)
 }
 
 export async function getAdminVoter(voterId: string): Promise<AdminVoterDetail> {

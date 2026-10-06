@@ -30,6 +30,12 @@ Feature: Admin visibility
     When the Moderator GETs the admin Wars with q "BOB"
     Then the response lists only bob's War
 
+  Scenario: Searching the admin Wars lists a War matching on title and creator name once
+    Given Voters "sam" and "tess" with Wars titled "Sam Rematch", "Sam Day" and "Other"
+    And a Moderator
+    When the Moderator GETs the admin Wars with q "sam"
+    Then the response lists each of the three Wars exactly once, newest first
+
   Scenario: Searching the admin Wars treats wildcard characters literally
     Given a Voter with Wars titled "100% Cats" and "Dogs"
     And a Moderator
