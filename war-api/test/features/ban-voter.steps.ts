@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { beginLogin, loginAndCallback, postRefresh } from '../setup/authFlow.js';
 import { extractCookieValue } from '../setup/httpHelpers.js';
 import { newId } from '../../src/db/uuid.js';
+import { castVoteForVoter, type CastVoteOutcome } from '../../src/votes/votesService.js';
 import { recomputeContestantCounters } from '../../src/contestants/contestantsRepository.js';
 import { markWarRemoved } from '../../src/wars/warsRepository.js';
 import { joinWarAsVoter, makeAdmin, makeDraftWar, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
@@ -274,7 +275,44 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Banning revokes every refresh-token family of the Voter', ({ Given, When, Then }) => {
+  Scenario('A vote attempt that got past authentication just before the ban is rejected', ({ Given, And, When, Then }) => {
+    let adminId: string;
+    let voterId: string;
+    let warId: string;
+    let matchup: { id: string; contestant_a_id: string };
+    let outcome: CastVoteOutcome;
+
+    Given('an Admin and a Voter who joined a published War', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      voterId = (await makeVoter(harness.db, 'voter')).id;
+      const creatorId = (await makeVoter(harness.db, 'creator')).id;
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
+      warId = (await publishWarForTest(harness.db, war)).id;
+      await joinWarAsVoter(harness.db, warId, voterId);
+      matchup = await harness.db.selectFrom('matchups').select(['id', 'contestant_a_id']).where('war_id', '=', warId).executeTakeFirstOrThrow();
+    });
+
+    And("the Admin bans the Voter after the Voter's request authenticated", async () => {
+      // Arrange
+      expect((await putBan(adminId, voterId, true)).status).toBe(200);
+      // The ban purged the membership; restore it so only the ban can reject the vote.
+      await joinWarAsVoter(harness.db, warId, voterId);
+    });
+
+    When("the Voter's vote attempt reaches the vote service", async () => {
+      // Act
+      outcome = await castVoteForVoter(harness.db, { warId, matchupId: matchup.id, voterId, winnerId: matchup.contestant_a_id });
+    });
+
+    Then('the vote is rejected as banned and no vote exists', async () => {
+      // Assert
+      expect(outcome.kind).toBe('banned');
+      expect(await harness.db.selectFrom('votes').selectAll().execute()).toHaveLength(0);
+    });
+  });
+
+  Scenario('Banning revokes every refresh-token family of the Voter',({ Given, When, Then }) => {
     let adminId: string;
     let voterId: string;
 

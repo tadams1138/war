@@ -84,6 +84,7 @@ const VOTE_OUTCOME_RESPONSES: Record<CastVoteOutcome['kind'], (outcome: CastVote
   warNotPublished: () => ({ status: 403, body: { error: 'War is not published', reason: 'war_not_published' } satisfies VoteForbiddenView }),
   notJoined: () => ({ status: 403, body: { error: 'voter has not joined this War', reason: 'not_joined' } satisfies VoteForbiddenView }),
   notFound: () => ({ status: 404, body: { error: 'not found' } }),
+  banned: () => ({ status: 401, body: { error: 'unauthorized' } }),
 };
 
 /**
@@ -160,6 +161,7 @@ export function registerMatchupsRoutes(app: FastifyInstance, deps: MatchupsRoute
             properties: { status: { type: 'string', enum: ['already recorded'] } },
           },
           400: validationErrorResponseSchema,
+          401: errorResponseSchema,
           409: errorResponseSchema,
           422: errorResponseSchema,
           403: voteForbiddenResponseSchema,

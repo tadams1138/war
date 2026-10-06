@@ -134,7 +134,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     '/wars/:id/contestants/:cId',
     bearerAuthRoute(auth),
     async (request, reply) => {
-      const outcome = await removeContestant(db, request.params.id, request.params.cId, request.voterId!, new Date());
+      const outcome = await removeContestant(db, deps.storage, request.log, request.params.id, request.params.cId, request.voterId!, new Date());
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -235,6 +235,8 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     async (request, reply) => {
       const outcome = await removeContestantMedia(
         db,
+        deps.storage,
+        request.log,
         request.params.id,
         request.params.cId,
         request.params.mId,

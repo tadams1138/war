@@ -47,7 +47,10 @@ describe('castVote concurrency (war-spec.md §6.3, idempotent retry)', () => {
     ]);
 
     // Assert: exactly one insert won.
-    const results = [first, second];
+    const results = [first, second].map((r) => {
+      if ('banned' in r) throw new Error('voter unexpectedly banned');
+      return r;
+    });
     expect(results.filter((r) => r.inserted)).toHaveLength(1);
     expect(results.filter((r) => !r.inserted)).toHaveLength(1);
 
