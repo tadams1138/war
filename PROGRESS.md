@@ -604,7 +604,6 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 ## Operational prerequisites
 
-- **Google OAuth app verification: complete.**
 - Each provider's redirect URI must be registered by hand with that provider, per
   environment. Nothing in the pipeline does it.
 - Google, Microsoft, Facebook, and Twitter/X apps must all be registered, with secrets set in
@@ -617,15 +616,14 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   environment's database and war-api's dev dependencies installed; the script compiles via
   `tsc` before it runs. Nothing else grants the Admin role, since the role-grant endpoint
   itself is Admin-only.
-- **Owner action, three items — complete each provider's own app/site verification before
-  production sign-in with it can go live to the public (each is a manual step on that
-  provider's own developer console, not something the pipeline or this repo can do).**
-  Google's is already complete (above).
-  1. Microsoft — complete Microsoft Entra app verification (publisher/domain verification)
-     for this site.
-  2. Facebook — complete Facebook App Review for the Login product on this site.
-  3. Twitter/X — complete the developer app's own review/elevated-access approval for this
-     site.
+- **Provider app/site verification** is a manual step on each provider's own developer
+  console, not something the pipeline or this repo can do. Production sign-in with a
+  provider can't go live to the public until it's done.
+  - Google, Microsoft (Entra publisher/domain verification), and Twitter/X (developer app
+    review): **verified**.
+  - **Owner action, still TODO: Facebook.** Complete Facebook App Review for the Login
+    product on this site. It's blocked: Facebook won't verify the app without a verified
+    business account, so a verified business must be set up first.
 
 ---
 
