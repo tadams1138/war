@@ -502,3 +502,62 @@ export async function getUnaddressedReports(): Promise<UnaddressedReportsWar[]> 
   const response = await ensureOk(await apiFetch('/reports/unaddressed'), classifyStaffForbidden)
   return ((await response.json()) as { wars: UnaddressedReportsWar[] }).wars
 }
+
+// --- Staff-only Voter moderation (spec §6.7) ---------------------------------
+
+export type AdminVotersPage = paths['/admin/voters']['get']['responses'][200]['content']['application/json']
+export type AdminVoterItem = AdminVotersPage['voters'][number]
+export type GetAdminVotersParams = NonNullable<paths['/admin/voters']['get']['parameters']['query']>
+
+export async function getAdminVoters(params: GetAdminVotersParams = {}): Promise<AdminVotersPage> {
+  const response = await ensureOk(await apiFetch(`/admin/voters${queryString(params)}`), classifyStaffForbidden)
+  return response.json() as Promise<AdminVotersPage>
+}
+
+export type AdminVoterDetail = paths['/admin/voters/{id}']['get']['responses'][200]['content']['application/json']
+export type AdminVoterWar = AdminVoterDetail['wars'][number]
+
+// The shared not-found copy names a War; a missing Voter needs its own.
+const VOTER_NOT_FOUND_MESSAGE = "This Voter doesn't exist"
+
+export async function getAdminVoter(voterId: string): Promise<AdminVoterDetail> {
+  const response = await apiFetch(`/admin/voters/${voterId}`)
+  if (response.status === 404) throw new ApiError('not-found', 404, VOTER_NOT_FOUND_MESSAGE)
+  return (await ensureOk(response, classifyStaffForbidden)).json() as Promise<AdminVoterDetail>
+}
+
+export type AdminVoterVotesPage = paths['/admin/voters/{id}/votes']['get']['responses'][200]['content']['application/json']
+export type AdminVoterVote = AdminVoterVotesPage['votes'][number]
+export type GetAdminVoterVotesParams = NonNullable<paths['/admin/voters/{id}/votes']['get']['parameters']['query']>
+
+export async function getAdminVoterVotes(
+  voterId: string,
+  params: GetAdminVoterVotesParams = {},
+): Promise<AdminVoterVotesPage> {
+  const response = await ensureOk(
+    await apiFetch(`/admin/voters/${voterId}/votes${queryString(params)}`),
+    classifyStaffForbidden,
+  )
+  return response.json() as Promise<AdminVoterVotesPage>
+}
+
+async function putJson(path: string, body: object): Promise<void> {
+  await ensureOk(
+    await apiFetch(path, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+    classifyStaffForbidden,
+  )
+}
+
+export async function setVoterSuspension(voterId: string, suspended: boolean): Promise<void> {
+  await putJson(`/voters/${voterId}/suspension`, { suspended })
+}
+
+export async function setVoterBan(voterId: string, banned: boolean): Promise<void> {
+  await putJson(`/voters/${voterId}/ban`, { banned })
+}
+
+export type VoterRole = paths['/voters/{id}/roles/{role}']['put']['parameters']['path']['role']
+
+export async function setVoterRole(voterId: string, role: VoterRole, granted: boolean): Promise<void> {
+  await putJson(`/voters/${voterId}/roles/${role}`, { granted })
+}

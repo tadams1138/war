@@ -798,6 +798,17 @@ from the dashboard asks for confirmation first, since it stops all creation. Tur
 needs none. A banned Voter who tries to sign in is told plainly that the account is banned,
 not shown a generic failure.
 
+From the dashboard, Staff open any War or Voter in a detail view of its own. Each detail view
+has a stable address, so lists, the reports queue, and the moderation log can link to it.
+- **Wars:** Remove a War, Suspend, and Ban each ask for confirmation. Ban's confirmation
+  states plainly that it permanently deletes everything the Voter created and every vote they
+  cast.
+- **Reports:** Staff mark a War's reports addressed or unaddressed from its detail view.
+- **Role controls** appear only to Admins. Revoking the Admin role asks for confirmation.
+- **Hidden controls:** the dashboard never offers an action the rules forbid. A Voter's own
+  detail view has no Suspend, Ban, or revoke-Admin control, and a Staff member's detail view
+  has no Suspend or Ban control.
+
 **Every route renders beneath a persistent navigation header**, rendered once by a shell
 wrapping the whole route tree rather than added page by page — a page that forgets it is then
 not a possible failure mode. Every route likewise renders above a persistent footer carrying
