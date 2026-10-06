@@ -64,3 +64,21 @@ Feature: Moderation log
     And a Moderator
     When the Moderator GETs the moderation log
     Then the entry remains, still naming the deleted War's id, with a null War title
+
+  Scenario: A hard-deleted War is flagged as deleted
+    Given an Admin who logged an action on a War that was later hard-deleted
+    And a Moderator
+    When the Moderator GETs the moderation log
+    Then the entry is flagged as targeting a deleted War
+
+  Scenario: A live War with no title is not flagged as deleted
+    Given an Admin who logged an action on a live War with no title
+    And a Moderator
+    When the Moderator GETs the moderation log
+    Then the entry has a null War title and is not flagged as targeting a deleted War
+
+  Scenario: An entry with no War target is not flagged as deleted
+    Given an Admin who granted the moderator role to a Voter
+    And a Moderator
+    When the Moderator GETs the moderation log
+    Then the entry is not flagged as targeting a deleted War

@@ -180,17 +180,20 @@ test('A failed kill switch update shows an error and leaves the state unchanged'
   await expect(page.getByTestId('kill-switch-state')).toHaveText('Off')
 })
 
-function nulls(target: { voter?: string; voterName?: string; war?: string; warTitle?: string }) {
+type LogTarget = { voter?: string; voterName?: string; war?: string; warTitle?: string; warDeleted?: boolean }
+
+function nulls(target: LogTarget) {
   const orNull = (value?: string) => value ?? null
   return {
     target_voter_id: orNull(target.voter),
     target_voter_name: orNull(target.voterName),
     target_war_id: orNull(target.war),
     target_war_title: orNull(target.warTitle),
+    target_war_deleted: target.warDeleted === true,
   }
 }
 
-function logEntry(id: string, action: string, createdAt: string, target: { voter?: string; voterName?: string; war?: string; warTitle?: string } = {}) {
+function logEntry(id: string, action: string, createdAt: string, target: LogTarget = {}) {
   return {
     id,
     action,
@@ -559,6 +562,29 @@ test('A failed report update shows an error and leaves the report unchanged', as
   await expect(row).toContainText('Unaddressed')
 })
 
+test('Marking a report addressed when the report is gone shows "This report doesn\'t exist"', async ({ page }) => {
+  // Arrange
+  await useScenario(page, [
+    me({ is_moderator: true }),
+    killSwitchGet(false),
+    quietLog,
+    adminWarDetailGet('w-1', adminWarDetail('w-1')),
+    reportsGet('w-1', [report('r-1', 'w-1')]),
+    reportPatch('r-1', 404),
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/admin/wars/w-1')
+  const row = page.getByTestId('admin-report-row')
+
+  // Act
+  await row.getByRole('button', { name: 'Mark addressed' }).click()
+
+  // Assert
+  await expect(row.getByRole('alert')).toHaveText("This report doesn't exist")
+  await expect(row).toContainText('Unaddressed')
+})
+
 function removePost(warId: string, status = 204) {
   return {
     method: 'POST' as const,
@@ -758,7 +784,7 @@ test("A moderation log entry targeting a deleted War shows no link", async ({ pa
   await useScenario(page, [
     me({ is_moderator: true }),
     killSwitchGet(false),
-    logGet({ entries: [logEntry('e1', 'remove_war', '2026-10-02T12:00:00Z', { war: 'w-gone' })], next_cursor: null }),
+    logGet({ entries: [logEntry('e1', 'remove_war', '2026-10-02T12:00:00Z', { war: 'w-gone', warDeleted: true })], next_cursor: null }),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -1649,4 +1675,23 @@ test("Signing in as another Voter does not reuse the previous Voter's identity",
   await expect(page).toHaveURL(/\/$/)
   await expect(nav(page).getByTestId('nav-identity')).toHaveText('Plain Pat')
   expect(await meCalls(page)).toHaveLength(2)
+})
+
+test('A moderation log entry targeting an untitled live War links to it', async ({ page }) => {
+  // Arrange
+  await useScenario(page, [
+    me({ is_moderator: true }),
+    killSwitchGet(false),
+    logGet({ entries: [logEntry('e1', 'remove_war', '2026-10-02T12:00:00Z', { war: 'w-untitled' })], next_cursor: null }),
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/admin')
+
+  // Assert
+  const entry = page.getByTestId('moderation-log-entry')
+  await expect(entry).not.toContainText('a deleted War')
+  await expect(entry.getByRole('link', { name: 'Untitled War' })).toHaveAttribute('href', '/admin/wars/w-untitled')
 })

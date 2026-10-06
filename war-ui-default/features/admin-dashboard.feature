@@ -119,6 +119,12 @@ Feature: Admin Dashboard
     When a Staff member marks the report addressed
     Then an error is shown and the report is still unaddressed
 
+  Scenario: Marking a report addressed when the report is gone says so
+    Given a War with an unaddressed report that no longer exists on the server
+    When a Staff member marks the report addressed
+    Then they are told the report doesn't exist, not that a War is missing
+    And the report is still shown unaddressed
+
   Scenario: Removing a War requires confirmation
     Given a published War's Staff detail
     When a Staff member chooses Remove War
@@ -164,6 +170,11 @@ Feature: Admin Dashboard
     Given a moderation log entry targets a War that no longer exists
     When a Staff member opens the Admin Dashboard
     Then the entry says a deleted War was targeted, with its id and no link
+
+  Scenario: A moderation log entry targeting an untitled War links to it
+    Given a moderation log entry targets a live War that has no title
+    When a Staff member opens the Admin Dashboard
+    Then the entry names it as an untitled War and links to its Staff detail
 
   Scenario: A plain Voter cannot reach a War's Staff detail
     Given an authenticated voter who is neither a Moderator nor an Admin
