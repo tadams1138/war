@@ -21,6 +21,8 @@ export interface VotersTable {
   avatar_url: string | null;
   is_moderator: Generated<boolean>;
   is_admin: Generated<boolean>;
+  suspended_at: Timestamp | null;
+  banned_at: Timestamp | null;
   created_at: GeneratedTimestamp;
 }
 
@@ -36,6 +38,7 @@ export interface WarsTable {
   ends_at: Timestamp | null;
   ui_slug: string | null;
   share_image_key: string | null;
+  removed_at: Timestamp | null;
   created_at: GeneratedTimestamp;
 }
 
@@ -112,6 +115,22 @@ export interface ReportsTable {
   created_at: GeneratedTimestamp;
 }
 
+export interface ModerationLogTable {
+  id: string;
+  action: string;
+  staff_voter_id: string;
+  target_war_id: string | null;
+  target_voter_id: string | null;
+  created_at: GeneratedTimestamp;
+}
+
+/** Single-row settings table; the row, when present, always has `id` 1. */
+export interface PlatformSettingsTable {
+  id: number;
+  war_creation_kill_switch: boolean;
+  updated_at: GeneratedTimestamp;
+}
+
 export interface Database {
   voters: VotersTable;
   wars: WarsTable;
@@ -122,4 +141,6 @@ export interface Database {
   war_memberships: WarMembershipsTable;
   votes: VotesTable;
   reports: ReportsTable;
+  moderation_log: ModerationLogTable;
+  platform_settings: PlatformSettingsTable;
 }

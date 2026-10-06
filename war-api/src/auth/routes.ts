@@ -29,6 +29,13 @@ export const oauthDeclinedResponseSchema = {
   },
 };
 
+/** The callback's 403 is a declined authorization (`reason` set). */
+const callbackForbiddenResponseSchema = {
+  type: 'object',
+  required: ['error'],
+  properties: { error: { type: 'string' }, reason: { type: 'string' } },
+};
+
 export interface AuthRouteConfig {
   uiOrigins: string[];
   apiBaseUrl: string;
@@ -140,7 +147,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
     // stale 200-body example is superseded by the spec's cookie flow).
     // The four failure responses are the spec's "Callback failure
     // responses" table, checked in that exact order below.
-    { schema: { response: { 400: errorResponseSchema, 403: oauthDeclinedResponseSchema, 502: errorResponseSchema } } },
+    { schema: { response: { 400: errorResponseSchema, 403: callbackForbiddenResponseSchema, 502: errorResponseSchema } } },
     async (request, reply) => {
       const provider = deps.providers.get(request.params.provider);
       if (!provider) {
@@ -179,6 +186,11 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
         return reply.code(502).send({ error: `authentication with ${provider.slug} failed` });
       }
       const result = await completeCallback(deps, provider.slug, exchange.profile);
+      if (result.kind === 'banned') {
+        clearOAuthCookies(reply);
+        // Not JSON: the browser is mid-navigation, so send it to the UI, which renders the ban.
+        return reply.redirect(`${config.uiOrigins[0]}/auth/callback?error=banned`);
+      }
 
       void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, refreshCookieOptions());
       clearOAuthCookies(reply);
@@ -242,11 +254,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
           properties: {
             voter: {
               type: 'object',
-              required: ['id', 'display_name', 'avatar_url'],
+              required: ['id', 'display_name', 'avatar_url', 'is_moderator', 'is_admin'],
               properties: {
                 id: { type: 'string', format: 'uuid' },
                 display_name: { type: ['string', 'null'] },
                 avatar_url: { type: ['string', 'null'] },
+                is_moderator: { type: 'boolean' },
+                is_admin: { type: 'boolean' },
               },
             },
           },
@@ -256,7 +270,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
     async (request, reply) => {
       const voter = await currentVoter(deps, request.headers.authorization);
       return reply.send({
-        voter: { id: voter.id, display_name: voter.displayName, avatar_url: voter.avatarUrl },
+        voter: {
+          id: voter.id,
+          display_name: voter.displayName,
+          avatar_url: voter.avatarUrl,
+          is_moderator: voter.isModerator,
+          is_admin: voter.isAdmin,
+        },
       });
     },
   );

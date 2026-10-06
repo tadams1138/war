@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { getMe } from '../api/client'
 import { useAuth } from '../auth/context'
+import { isStaff } from '../auth/staff'
 import { useAsyncResource } from '../hooks/useAsyncResource'
 import { resolveVoterIdentity } from './voterIdentity'
 
@@ -69,6 +70,11 @@ export function IdentityMenu() {
           <NavLink role="menuitem" to="/wars/import" onClick={closeThen()}>
             Import a War
           </NavLink>
+          {identityState.status === 'loaded' && isStaff(identityState.value) && (
+            <NavLink role="menuitem" to="/admin" onClick={closeThen()}>
+              Admin Dashboard
+            </NavLink>
+          )}
           <button type="button" role="menuitem" data-testid="nav-logout" onClick={closeThen(logout)}>
             Log out
           </button>

@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { signAccessToken, verifyAccessToken, type JwtOptions } from './jwt.js';
-import { decideRefresh, generateRefreshTokenValue, hashRefreshToken } from './refreshTokens.js';
+import { decideRefresh, generateRefreshTokenValue, hashRefreshToken, type StoredRefreshToken } from './refreshTokens.js';
 import {
   createRefreshTokenFamily,
   findRefreshTokenByHash,
@@ -17,11 +17,15 @@ export interface AuthDependencies {
   jwt: JwtOptions;
 }
 
-export interface CallbackResult {
+export interface SignedIn {
+  kind: 'signedIn';
   voter: Voter;
   created: boolean;
   refreshTokenValue: string;
 }
+
+/** A banned Voter cannot sign in at all (spec §6.7): no refresh token is issued. */
+export type CallbackResult = SignedIn | { kind: 'banned' };
 
 export async function beginLogin(
   deps: AuthDependencies,
@@ -63,10 +67,14 @@ export async function exchangeAuthorizationCode(
 export async function completeCallback(deps: AuthDependencies, providerSlug: string, profile: OAuthProfile): Promise<CallbackResult> {
   const { voter, created } = await findOrCreateVoter(deps.db, providerSlug, profile);
 
+  if (voter.banned) {
+    return { kind: 'banned' };
+  }
+
   const refreshTokenValue = generateRefreshTokenValue();
   await createRefreshTokenFamily(deps.db, voter.id, hashRefreshToken(refreshTokenValue));
 
-  return { voter, created, refreshTokenValue };
+  return { kind: 'signedIn', voter, created, refreshTokenValue };
 }
 
 export type RefreshResult =
@@ -87,12 +95,21 @@ export async function refresh(deps: AuthDependencies, presentedTokenValue: strin
     return { kind: 'reused' };
   }
 
+  return rotateForVoter(deps, decision.token);
+}
+
+/** Rotates a valid refresh token into a new JWT -- unless its Voter is banned (spec §6.7: no sign-in at all; their tokens are also revoked at ban time), which counts as invalid. */
+async function rotateForVoter(deps: AuthDependencies, token: StoredRefreshToken): Promise<RefreshResult> {
+  if ((await findVoterById(deps.db, token.voterId))?.banned) {
+    return { kind: 'invalid' };
+  }
+
   const newTokenValue = generateRefreshTokenValue();
-  const rotated = await rotateRefreshToken(deps.db, decision.token, hashRefreshToken(newTokenValue));
+  const rotated = await rotateRefreshToken(deps.db, token, hashRefreshToken(newTokenValue));
   if (rotated.kind === 'lost-race') {
     // Another request already rotated this exact token concurrently — the
     // same signal as presenting an already-used token (spec §5.2).
-    await revokeFamily(deps.db, decision.token.familyId);
+    await revokeFamily(deps.db, token.familyId);
     return { kind: 'reused' };
   }
 
@@ -125,7 +142,7 @@ export async function currentVoter(deps: AuthDependencies, authorizationHeader: 
   return voter;
 }
 
-/** Verifies the Bearer JWT and returns the voter id it carries, or throws. */
+/** Verifies the Bearer JWT and returns the voter id it carries, or throws -- including for a banned Voter, whose tokens stop working at once (spec §6.7). One primary-key lookup per call. */
 export async function authenticatedVoterId(
   deps: AuthDependencies,
   authorizationHeader: string | undefined,
@@ -135,5 +152,9 @@ export async function authenticatedVoterId(
   }
   const token = authorizationHeader.slice('Bearer '.length);
   const payload = await verifyAccessToken(token, deps.jwt);
+  const voter = await findVoterById(deps.db, payload.voterId);
+  if (voter?.banned) {
+    throw new Error('voter is banned');
+  }
   return payload.voterId;
 }

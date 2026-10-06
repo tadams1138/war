@@ -123,6 +123,11 @@ export async function setDisplayOrder(db: Kysely<Database>, id: string, displayO
   await db.updateTable('contestant_media').set({ display_order: displayOrder }).where('id', '=', id).execute();
 }
 
+export async function deleteMediaForContestants(db: Kysely<Database>, contestantIds: string[]): Promise<void> {
+  if (contestantIds.length === 0) return;
+  await db.deleteFrom('contestant_media').where('contestant_id', 'in', contestantIds).execute();
+}
+
 export async function deleteMedia(db: Kysely<Database>, id: string): Promise<void> {
   await db.deleteFrom('contestant_media').where('id', '=', id).execute();
 }

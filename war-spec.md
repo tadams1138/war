@@ -450,14 +450,38 @@ trail, otherwise kept for future tooling, surfaced here to a human instead). Thi
 only way visibility scoping (§6.1's default scoping, and "a War not currently published is
 invisible to everyone but its creator") is ever bypassed.
 
+That bypass lives only in Staff's own read-only views, never on the ordinary routes. A
+Moderator browsing the public site sees exactly what any Voter sees. Being Staff never lets
+someone vote in, join, or edit a War they otherwise couldn't. Staff's views also include
+removed Wars, which no ordinary route ever shows. These views cover:
+- every War, filterable by status (including "removed") and by text matching its title or
+  creator's name, with each War's count of unaddressed reports
+- one War in full, removed or not, with its contestants and their standings
+- every Voter, filterable to the suspended, the banned, or Staff, with how many Wars each
+  created
+- one Voter with all their Wars
+- one Voter's complete vote history, newest first: every matchup they decided, in whatever
+  War, removed ones included
+
+Every list is paged like the moderation log. Reading never changes anything and writes
+nothing to the moderation log. No view exposes how a Voter signs in.
+
 **Remove a War** takes down a War Staff have moderated for cause. It is deliberately not
 the same operation as a creator's own **Delete** (§6.1): Remove soft-deletes the War —
 marked removed and hidden from everyone, including its own creator, but its row and its
-votes persist — while hard-deleting its media outright, the same two-prefix
-originals-and-variants cleanup Delete already needs (§6.1's implementation note). Keeping
-the War and its votes intact under the hood preserves the audit trail (§8.3) for whatever
-the moderation was investigating; only the media, typically the reason for the removal, is
-actually reclaimed.
+votes persist — while hard-deleting its media outright. That means every stored copy of
+every contestant image (the original and each variant) and the share image (the original
+and its rendered copy). Keeping the War and its votes intact under the hood preserves the
+audit trail (§8.3) for whatever the moderation was investigating. Only the media, typically
+the reason for the removal, is actually reclaimed.
+
+A removed War behaves as if it doesn't exist, everywhere. It can't be viewed, listed,
+voted on, edited, published, reported, or deleted, not even by its own creator. A creator's
+Delete can't erase what the moderation preserved. Removing is Staff only, and everyone else
+gets a 403. Removing a War that doesn't exist or is already removed gets a not-found
+response. The removal and its moderation log entry happen together. Media is reclaimed only
+after the removal commits. If reclaiming fails, the War stays removed: an orphaned file costs
+storage, not correctness.
 
 **Suspend** and **Ban** are two severities of Staff acting against a Voter, not one:
 
@@ -471,17 +495,35 @@ intentional exception to §8.1's immutability, scoped to exactly this one modera
 because the alternative (an abusive Voter's votes standing forever) is worse than the
 exception.
 
+Suspend and Ban are open to any Staff member. Everyone else gets a 403. Neither can target
+the caller or any Staff member: a Moderator or Admin must first have their role revoked by an
+Admin. A Suspended Voter's creation attempt gets a "forbidden" response naming the
+suspension. While the kill switch is on, its response wins instead. A Ban takes effect at
+once: any session the Voter already holds stops working on their very next request, not when
+it would have expired. A Ban's data deletion and its moderation log entry happen together.
+Reclaiming the deleted Wars' media follows afterwards, best effort, as with Remove a War.
+Reports the banned Voter filed survive. Unban restores sign-in only.
+
 **A global War-creation kill switch** rejects every `POST /wars` request, from every Voter
 including Staff, while enabled. No exceptions and no special-casing — an emergency stop is
 only trustworthy if it actually stops everything. Nothing else is affected: existing Wars
 keep running, voting continues, and disabling the switch requires the same Staff capability
-as enabling it.
+as enabling it. Any Staff member, Moderator or Admin, may read or set the switch. Everyone else
+gets a 403. A refused creation attempt gets a "service unavailable" response that names War
+creation as disabled, and it counts against no rate limit. The switch is off until first set.
+Its state is shared by every running API instance and survives restarts.
 
 **An append-only moderation log** records every Staff action — Remove a War,
 Suspend/unsuspend, Ban/unban, an Admin granting or revoking a role, toggling the kill
 switch — with which Staff member, the target, and when. Never edited or deleted, mirroring
 votes' own immutability (§8.1), and for the same reason: several Staff may exist, and each
-must be individually accountable for what they did.
+must be individually accountable for what they did. An action and its log entry stand or
+fall together. If the entry can't be recorded, the action doesn't happen, and a refused
+action records nothing. Any Staff member can read the whole log, newest first. Everyone else
+gets a 403. The log is read a page at a time (at most 100 entries per page, 50 by default)
+by following an opaque continuation token. Paging never skips or repeats an entry, even when
+several entries share a timestamp. A malformed token or an out-of-range page size gets a 400.
+Entries outlive their targets: deleting a War never removes or blocks on its log entries.
 
 ---
 
@@ -750,7 +792,22 @@ for any unmatched path so deep links work. An unauthenticated visit to a protect
 redirects to sign-in carrying the intended destination, and returns there afterwards. An
 authenticated visit to the Admin Dashboard by neither a Moderator nor an Admin redirects
 Home instead — unlike a private War (§6.1), whether this route exists at all isn't
-sensitive, so there is no need for a not-found-shaped response here.
+sensitive, so there is no need for a not-found-shaped response here. A way into the Admin
+Dashboard appears in the navigation only for Staff. Turning the War-creation kill switch on
+from the dashboard asks for confirmation first, since it stops all creation. Turning it off
+needs none. A banned Voter who tries to sign in is told plainly that the account is banned,
+not shown a generic failure.
+
+From the dashboard, Staff open any War or Voter in a detail view of its own. Each detail view
+has a stable address, so lists, the reports queue, and the moderation log can link to it.
+- **Wars:** Remove a War, Suspend, and Ban each ask for confirmation. Ban's confirmation
+  states plainly that it permanently deletes everything the Voter created and every vote they
+  cast.
+- **Reports:** Staff mark a War's reports addressed or unaddressed from its detail view.
+- **Role controls** appear only to Admins. Revoking the Admin role asks for confirmation.
+- **Hidden controls:** the dashboard never offers an action the rules forbid. A Voter's own
+  detail view has no Suspend, Ban, or revoke-Admin control, and a Staff member's detail view
+  has no Suspend or Ban control.
 
 **Every route renders beneath a persistent navigation header**, rendered once by a shell
 wrapping the whole route tree rather than added page by page — a page that forgets it is then

@@ -4,6 +4,8 @@ import type { Database } from '../db/types.js';
 import { bearerAuthRoute, optionalAuth, requireAuthIf } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
+import { rejectWhileKillSwitchOn, warCreationDisabledResponseSchema } from '../killSwitch/routes.js';
+import { rejectWhileSuspended, suspendedResponseSchema } from '../voterModeration/routes.js';
 import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 import { extensionFor } from '../contestants/imageProcessing.js';
 import type { ObjectStorage } from '../contestants/storage.js';
@@ -22,6 +24,8 @@ import {
   setShareImage,
   unpublishWar,
 } from './warsService.js';
+import { requireModeratorOrAdmin } from '../roles/rolesAccess.js';
+import { removeWar } from './removeWarService.js';
 import { closeExpiredWars, listWars, type WarsSort } from './warsRepository.js';
 
 export interface WarsRouteDeps {
@@ -166,8 +170,18 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     '/wars',
     bearerAuthRoute(
       auth,
-      { response: { 201: { $ref: 'WarSummary#' }, 422: validationErrorResponseSchema, 429: rateLimitedResponseSchema } },
-      [rateLimitByVoter(deps.rateLimiter)],
+      {
+        response: {
+          201: { $ref: 'WarSummary#' },
+          422: validationErrorResponseSchema,
+          403: suspendedResponseSchema,
+          429: rateLimitedResponseSchema,
+          503: warCreationDisabledResponseSchema,
+        },
+      },
+      // Before the rate limit, so a refused attempt spends none of the budget.
+      // The kill switch (503) is checked first and wins over a suspension (403).
+      [rejectWhileKillSwitchOn(db), rejectWhileSuspended(db), rateLimitByVoter(deps.rateLimiter)],
     ),
     async (request, reply) => {
       const body = request.body as Record<string, unknown>;
@@ -390,6 +404,18 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     bearerAuthRoute(auth, { response: { 204: {}, 403: errorResponseSchema, 404: errorResponseSchema } }),
     async (request, reply) => {
       const outcome = await joinWar(db, request.params.id, request.voterId!, new Date());
+      if (outcome.kind !== 'ok') {
+        return replyForOutcome(reply, outcome);
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    '/wars/:id/remove',
+    bearerAuthRoute(auth, { response: { 204: {}, 403: errorResponseSchema, 404: errorResponseSchema } }, [requireModeratorOrAdmin(db)]),
+    async (request, reply) => {
+      const outcome = await removeWar(db, deps.storage, request.log, request.voterId!, request.params.id);
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }

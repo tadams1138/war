@@ -104,6 +104,107 @@ Staging and production both run as a single application per environment containi
   exception. Deleting a War now also deletes its reports as part of the same
   transaction (`deleteReportsForWar`, called from `deleteWarRow`, `wars/warsRepository.ts`) —
   a report only ever disappears as a side effect of its War being deleted.
+- **Admin self-removal guard** (spec §6.7). `grantRole` returns 403 when an Admin revokes
+  their own `admin` role. Demoting yourself to Moderator also needs that revoke, so it's
+  blocked too. Another Admin can still do either.
+- **`GET /auth/me` carries `is_moderator`/`is_admin`** so the UI can gate Staff-only routes.
+- **Moderation log** (spec §6.7). It's an append-only `moderation_log` table: `action`,
+  `staff_voter_id`, nullable `target_war_id`/`target_voter_id`, and `created_at`.
+  `moderation/moderationLogRepository.ts` has `logAction` and `listModerationLog`, and there
+  is no update or delete. Role grants and revokes write `grant_role_<role>` /
+  `revoke_role_<role>` in the same transaction as the role change. If the log write fails,
+  the role change rolls back. Refused calls (403/404) log nothing. Staff read the log,
+  newest first, via `GET /moderation-log` (`moderation/routes.ts`,
+  `requireModeratorOrAdmin`). The endpoint uses keyset paging: `limit` is 1–100, default 50,
+  and `cursor` is opaque. The response is `{ entries, next_cursor }`. A bad cursor or limit
+  gets a 400. The cursor is base64 JSON holding `created_at` as microsecond UTC text (from
+  `to_char`) plus `id`, so millisecond JS Dates never skip rows. `target_war_id` has no
+  foreign key on purpose, so a War hard delete (Ban, a creator's Delete) never blocks on log
+  entries or removes them. The voter columns keep their foreign keys, since voters are never
+  deleted. Every Staff action the spec lists writes to the log: role grants/revokes, the
+  kill switch, Remove a War, and Suspend/Ban.
+- **War-creation kill switch** (spec §6.7). State lives in `platform_settings`, a single-row
+  table (`CHECK (id = 1)`). No row means off, and `setKillSwitch` upserts the row, so every
+  API instance agrees. `GET /kill-switch` returns `{ enabled }`. `PUT /kill-switch` takes
+  `{ enabled }`. Both are Staff only (Moderator or Admin). Each accepted PUT writes
+  `enable_war_creation_kill_switch` or `disable_war_creation_kill_switch` to the moderation
+  log in the same transaction (`killSwitch/killSwitchService.ts`). While on, the
+  `rejectWhileKillSwitchOn` preHandler answers `POST /wars` with 503
+  `{ error: 'war_creation_disabled' }` for everyone, Staff included. It runs after auth and
+  before the rate limiter, so a refused attempt costs no rate-limit budget. `POST /wars` is
+  the only route that creates Wars. `truncateAll` clears `platform_settings` between tests.
+- **Remove a War** (spec §6.7). `POST /wars/:id/remove` is Staff only (Moderator or Admin)
+  and returns 204. A missing or already-removed War gets 404 and logs nothing further.
+  `removeWar` (`wars/removeWarService.ts`) uses one transaction: `markWarRemoved` sets
+  `wars.removed_at` and clears `share_image_key`. The same transaction deletes the War's
+  `contestant_media` rows and writes a `remove_war` log entry. The War, its contestants,
+  matchups, votes, memberships, and reports all persist. After commit, the War's media
+  objects are hard-deleted via the new `ObjectStorage.deletePrefix`, prefix by prefix:
+  `contestants/<cid>/` and `originals/<cid>/` for each contestant, then `share-images/<warId>.`
+  and `originals/share-images/<warId>.`. The S3 version pages through `ListObjectsV2` and
+  deletes each page with `DeleteObjects`. A storage failure is logged and leaves orphaned
+  objects. The War stays removed and the request still returns 204. Removed Wars are hidden
+  from everyone, Staff and the creator included. `findWarById` and `baseWarsQuery` filter
+  `removed_at IS NULL`, and every War route reads through one of them. The
+  unaddressed-reports queue also excludes removed Wars. So the creator can't DELETE a
+  removed War and erase the audit trail. `deleteWarRow` stays unfiltered, so a future Ban
+  can still hard-delete a removed War. The S3 `deletePrefix` has no automated test. Tests use
+  `InMemoryObjectStorage`.
+- **Suspend and Ban** (spec §6.7). `voters.suspended_at`/`banned_at` are exposed as `Voter`
+  booleans `suspended`/`banned`. Endpoints (`voterModeration/`) are Staff only:
+  `PUT /voters/:id/suspension` takes `{ suspended }` and `PUT /voters/:id/ban` takes
+  `{ banned }`. Both return `{ id, suspended, banned }`. `findModerationTarget` runs inside
+  the transaction, before any write. An unknown target gets 404. Targeting yourself or any
+  Staff member gets 403, so an Admin must revoke the role first. Refused calls change and
+  log nothing. Each accepted call logs `suspend_voter`, `unsuspend_voter`, `ban_voter` or
+  `unban_voter` in the same transaction.
+  - **Suspend:** a `rejectWhileSuspended` preHandler on `POST /wars` returns 403
+    `{ error: 'suspended' }`. It runs after the kill switch, whose 503 wins, and before the
+    rate limiter. A suspended Voter can still vote and edit their existing Wars.
+  - **Ban** runs one transaction:
+    - `purgeBannedVoterData` (`voterModeration/banPurge.ts`) hard-deletes every War the Voter
+      created, removed ones included. It uses `deleteWarRowIn`, the transaction-taking core
+      of `deleteWarRow`, which is now a thin wrapper.
+    - It deletes every vote the Voter cast and runs `recomputeContestantCounters` for each
+      affected War.
+    - It revokes all the Voter's refresh tokens (`revokeAllForVoter`) and deletes their
+      memberships.
+  - After commit, Ban deletes the deleted Wars' media objects best effort. It uses
+    `wars/warMediaStorage.ts` (`mediaPrefixes`, `deleteMediaObjects`), which is shared with
+    Remove a War. Reports the Voter filed and log rows naming them persist.
+  - **Ban blocks access at once:** `authenticatedVoterId` does one primary-key lookup per
+    authenticated request and rejects a banned Voter. `requireAuth` then gives 401 and
+    `optionalAuth` treats them as anonymous. `refresh` treats a banned Voter as invalid (401).
+    `completeCallback` returns `banned`. The callback then clears the OAuth cookies, issues no
+    refresh token, and 302-redirects to `<ui>/auth/callback?error=banned`.
+  - **Unban** lifts the block. Deleted data stays gone.
+  - **Known narrow races:**
+    - A vote whose auth check passed just before a ban commits can land after the purge and
+      survive.
+    - A role grant landing between `findModerationTarget` and the write isn't caught, since
+      there is no row lock.
+- **Staff visibility** (spec §6.7 "Visibility"). Staff-only (`requireModeratorOrAdmin`),
+  read-only endpoints live under `/admin/` (`admin/`). Public routes and `isWarVisibleTo`
+  are unchanged.
+  - `GET /admin/wars?status=&q=`: every War, removed included. `status` is one of `draft`,
+    `published`, `closed`, `removed`. Items carry `unaddressed_report_count`.
+  - `GET /admin/wars/:id`: the War plus `contestants` (with counters) and `report_count`.
+  - `GET /admin/voters?status=&q=`: `status` is one of `suspended`, `banned`, `staff`. Items
+    carry `war_count`.
+  - `GET /admin/voters/:id`: the Voter plus all their `wars`, unpaged.
+  - `GET /admin/voters/:id/votes`: full history with winner/loser names, removed Wars
+    included.
+  - Lists use keyset paging (`limit` 1–100, default 50, `cursor`, `next_cursor`).
+    `shared/keysetCursor.ts` holds the paging code, now shared with the moderation log.
+  - A malformed id gets 404 and a bad `status`/`cursor`/`limit` gets 400.
+  - War `status` is the stored column, so an expired War not yet closed shows `published`.
+  - `shared/likePattern.ts` holds the ILIKE escaping, now shared with `GET /wars`.
+  - Migration `20260116000000_admin_read_indexes.sql` adds
+    `votes (voter_id, created_at DESC, id DESC)`, `wars (creator_id)`, and
+    `(created_at DESC, id DESC)` on `wars` and `voters`. It doesn't use `CONCURRENTLY`, so
+    each build locks writes on its table. That's fine at current size, but not later on a
+    big `votes` table.
+  - No `EXPLAIN` has been run on these queries yet.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
   existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
   *Operational prerequisites* below.
@@ -128,10 +229,8 @@ Staging and production both run as a single application per environment containi
 - Apple sign-in (see *To revisit*); linking providers to one voter.
 - `video` media mode. The media table's video columns exist and are unused.
 - Custom UI registry endpoints. The registry table and the War's slug column exist, unused.
-- **Broad admin dashboard** (`war-spec.md` §6.7; backlog item 5). Spec only — no Remove-War
-  soft-delete, no Suspend/Ban, no creation kill switch, no moderation-log table, and no
-  self-removal guard on an Admin's own role. Admin/Moderator roles, role grants, and abuse
-  reporting (the narrower part of §6.7, plus §8.5) are already specified and built.
+- A creator's own **Delete** (§6.1) still leaves the War's media objects in storage. It
+  could now reuse `deletePrefix`, the way Remove a War does.
 
 ---
 
@@ -397,12 +496,78 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   settled search text drops the cache and starts over at page 1. A `requestSeq` counter
   guards against a slower, now-stale fetch resolving after a newer one and overwriting fresher
   state. `WarCard` renders `creator_name` when present, alongside the existing `ends_at`.
+- **Admin Dashboard, first slice** (`war-spec.md` §10.1, §6.7; backlog item 5). It lives at
+  route `/admin` (`pages/AdminDashboard.tsx`).
+  - **Gating:** `router/RequireStaff.tsx` wraps `RequireAuth`, so a signed-out visit goes to
+    sign-in with `returnTo`. It then checks `GET /auth/me` (`auth/staff.ts` `isStaff`) and
+    sends anyone who isn't Staff Home. Staff see an "Admin Dashboard" item in the
+    `IdentityMenu` that no one else sees. `/auth/me` is fetched twice on `/admin`, once by the
+    menu and once by the gate, and the result isn't shared yet.
+  - **Kill switch panel** (`admin/KillSwitchPanel.tsx`, `useKillSwitch.ts`): shows the state.
+    Turning it on needs confirming in the existing `Modal`; turning it off doesn't. A failed
+    PUT shows an error and keeps the state shown.
+  - **Moderation log panel** (`admin/ModerationLogPanel.tsx`, `useModerationLog.ts`): lists
+    entries newest first. `moderationLogLabels.ts` gives readable action labels and falls back
+    to the raw string. "Load more" follows `next_cursor`, and the log refetches after a kill
+    switch toggle. Staff and targets show as ids, not names, because looking up names costs
+    one request per id.
+  - The client adds `getKillSwitch`, `setKillSwitch`, `getModerationLog`, and a `staff-only`
+    error reason for 403s.
+  - In the mock harness, recipes can now stub `PUT`, and the call log records `PUT` bodies.
+  - `AuthCallback` shows "This account has been banned and cannot sign in." for
+    `/auth/callback?error=banned` and skips the refresh exchange. The API's callback sends
+    banned Voters there.
+- **Admin Dashboard, Wars side** (§6.7, §8.5). The dashboard stacks four sections: kill
+  switch, unaddressed-reports queue, Wars list, then moderation log. Code is in
+  `src/admin/wars/`.
+  - **Wars list** (`AdminWarsPanel`, `useAdminWars`): status filter (all, draft, published,
+    closed, removed), debounced search, and "Load more". It shows a Removed marker and a pill
+    badge with the unaddressed-report count, and untitled Wars get a placeholder. Old rows
+    stay on screen while a refetch is in flight.
+  - **Staff War detail** is its own route, `/admin/wars/:id` (`pages/AdminWarDetail.tsx`),
+    gated by `RequireStaff`. It shows contestant standings and the War's reports, each with a
+    mark-addressed or mark-unaddressed button (`WarReportsSection`). It also has the Remove
+    War action: a `Modal` confirm, then `POST /wars/:id/remove`, then a refetch so the page
+    shows the War as removed (`RemoveWarControl`, `useRemoveWar`). A removed War shows no
+    Remove action. It also doesn't request reports, since that public-namespace route 404s
+    for removed Wars.
+  - **Queue panel** (`UnaddressedQueuePanel`): each entry opens the War's detail. Empty
+    queues get their own state.
+  - **Moderation log:** a War target links to its detail. Names are still ids.
+  - **Client** adds `getAdminWars`, `getAdminWar`, `getWarReports`, `setReportAddressed`,
+    `removeWar`, `getUnaddressedReports`. Types come from the generated schema.
+  - **Layout:** `theme/layout.css` lets rows and controls wrap at narrow widths.
+- **Admin Dashboard, Voters side** (§6.7). Code is in `src/admin/voters/`.
+  - **Voters list** (`AdminVotersPanel`, `useAdminVoters`): sits below the Wars list. It has a
+    status filter (all, suspended, banned, staff), debounced search, and "Load more".
+    `VoterBadges` shows Moderator, Admin, Suspended, and Banned badges, plus the War count.
+    The labels read "Show Voters" and "Find Voters", which keeps them distinct from the Wars
+    panel's.
+  - **Staff Voter detail** is its own route, `/admin/voters/:id` (`pages/AdminVoterDetail.tsx`),
+    gated by `RequireStaff`. It shows badges, actions, and the Voter's Wars, a removed one
+    marked Removed, each linking to `/admin/wars/:id`. Below that is the paged vote history
+    (`VoterVotesSection`, `useVoterVotes`), showing winner, loser, and a link to each War.
+  - **Actions** (`VoterActions`, `VoterActionControl`, `useVoterAction`):
+    - Suspend/Unsuspend, Ban/Unban, and role grant/revoke share one control. The control
+      owns the `Modal` confirm, the failure message, and the refetch.
+    - Ban's confirm says it permanently deletes every War the Voter created and every vote
+      they cast, and blocks sign-in.
+    - Role controls show only to Admins (the viewer's `is_admin` from `/auth/me`). Revoking
+      Admin always asks for confirmation.
+    - Suspend/Ban controls give way to a note when the target is the viewer or is Staff.
+      Revoke Admin is hidden on the viewer's own detail.
+  - **Not found:** a 404 for the Voter detail reads "This Voter doesn't exist" instead of the
+    shared War copy. A 404 on a Voter *action* still uses the shared War copy.
+  - **Moderation log:** Voter targets and acting Staff link to the Voter detail.
+  - **Client** adds `getAdminVoters`, `getAdminVoter`, `getAdminVoterVotes`,
+    `setVoterSuspension`, `setVoterBan`, and `setVoterRole`, all typed from the generated
+    schema.
 
 ### Not built
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
-- Admin Dashboard page (`war-spec.md` §10.1, §6.7; backlog item 5).
+- Moderation log entries show ids, not names. Looking up a name costs one request per id.
 
 ---
 
@@ -504,13 +669,13 @@ Requested 2026-09-24, to work through one at a time.
    above, and `war-spec.md`'s §4 (no longer documents it).
 4. ~~Drop the category from the results page's meta description.~~ **Done** — see the
    war-infra "Link-preview tags" entry above.
-5. ~~Spec the broad admin dashboard.~~ **Spec done** — `war-spec.md` §3, §6.7 (role grants,
+5. ~~Spec and build the broad admin dashboard.~~ **Done** — `war-spec.md` §3, §6.7 (role grants,
    self-removal guard, visibility, Remove a War, Suspend/Ban, the kill switch, the
    moderation log), §8.5 (abuse reporting), and §10.1 (the Admin Dashboard route). Admin/
-   Moderator roles, role grants, and abuse reporting are also **built** (see the war-api
-   "Moderator/Admin roles and abuse reporting" entry above). Not yet built: Remove a War,
-   Suspend/Ban, the kill switch, the moderation log, the self-removal guard, and the Admin
-   Dashboard page — see the "Not built" entries above.
+   Moderator roles, role grants, abuse reporting, the self-removal guard, the moderation
+   log, the kill switch, Remove a War, Suspend/Ban, and Staff visibility are also **built**
+   (see the war-api entries above). The Admin Dashboard page is built too (see the
+   war-ui-default entries above).
 6. ~~Home page: remove the "Login to vote" link and the redundant "War" heading above it.~~
    **Done** — see "Home's redundant heading and login link removed" above.
 7. ~~Export/import should carry the share image.~~ **Done** — see "Export/import carries the

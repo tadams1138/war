@@ -23,4 +23,12 @@ export class InMemoryObjectStorage implements ObjectStorage {
   async putPrivate(key: string, body: Buffer): Promise<void> {
     this.privateObjects.set(key, body);
   }
+
+  async deletePrefix(prefix: string): Promise<void> {
+    for (const objects of [this.publicObjects, this.privateObjects]) {
+      for (const key of [...objects.keys()]) {
+        if (key.startsWith(prefix)) objects.delete(key);
+      }
+    }
+  }
 }

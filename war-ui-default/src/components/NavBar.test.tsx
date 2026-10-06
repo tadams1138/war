@@ -63,7 +63,7 @@ describe('NavBar', () => {
   it('shows the Home brand mark regardless of GET /auth/me succeeding', async () => {
     // Arrange
     vi.mocked(client.getMe).mockResolvedValue({
-      voter: { id: 'voter-1', display_name: 'Jordan', avatar_url: null },
+      voter: { id: 'voter-1', display_name: 'Jordan', avatar_url: null, is_moderator: false, is_admin: false },
     })
 
     // Act
@@ -76,7 +76,7 @@ describe('NavBar', () => {
   it('shows an avatar image beside the name when avatar_url is present', async () => {
     // Arrange
     vi.mocked(client.getMe).mockResolvedValue({
-      voter: { id: 'voter-1', display_name: 'Jordan', avatar_url: 'https://cdn.example.test/a.png' },
+      voter: { id: 'voter-1', display_name: 'Jordan', avatar_url: 'https://cdn.example.test/a.png', is_moderator: false, is_admin: false },
     })
 
     // Act
@@ -92,7 +92,7 @@ describe('NavBar', () => {
   it('shows no avatar image when avatar_url is null', async () => {
     // Arrange
     vi.mocked(client.getMe).mockResolvedValue({
-      voter: { id: 'voter-1', display_name: 'Jordan', avatar_url: null },
+      voter: { id: 'voter-1', display_name: 'Jordan', avatar_url: null, is_moderator: false, is_admin: false },
     })
 
     // Act

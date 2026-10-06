@@ -2,6 +2,7 @@ import type { Kysely, Selectable } from 'kysely';
 import { sql } from 'kysely';
 import type { Database, WarsTable } from '../db/types.js';
 import { newId } from '../db/uuid.js';
+import { containsPattern } from '../shared/likePattern.js';
 import { deleteReportsForWar } from '../reports/reportsRepository.js';
 
 export interface War {
@@ -64,8 +65,20 @@ export async function createWar(db: Kysely<Database>, input: CreateWarInput): Pr
 }
 
 export async function findWarById(db: Kysely<Database>, id: string): Promise<War | undefined> {
-  const row = await db.selectFrom('wars').selectAll().where('id', '=', id).executeTakeFirst();
+  const row = await db.selectFrom('wars').selectAll().where('id', '=', id).where('removed_at', 'is', null).executeTakeFirst();
   return row ? toWar(row) : undefined;
+}
+
+/** Marks a not-yet-removed War removed (spec §6.7). `false` if it doesn't exist or was already removed. */
+export async function markWarRemoved(db: Kysely<Database>, id: string): Promise<boolean> {
+  const row = await db
+    .updateTable('wars')
+    .set({ removed_at: sql<Date>`now()`, share_image_key: null })
+    .where('id', '=', id)
+    .where('removed_at', 'is', null)
+    .returning('id')
+    .executeTakeFirst();
+  return row !== undefined;
 }
 
 export type WarsSort = 'newest' | 'oldest' | 'alphabetical' | 'expiring_soonest';
@@ -121,7 +134,8 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
     .selectFrom('wars')
     .leftJoin('voters', 'voters.id', 'wars.creator_id')
     .selectAll('wars')
-    .select((eb) => eb.ref('voters.display_name').as('creator_name'));
+    .select((eb) => eb.ref('voters.display_name').as('creator_name'))
+    .where('wars.removed_at', 'is', null);
 
   if (filter.creatorId) {
     const ownScoped = query.where('wars.creator_id', '=', filter.creatorId);
@@ -144,11 +158,6 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
 
 type WarsQuery = ReturnType<typeof baseWarsQuery>;
 
-/** Escapes `%`, `_`, and `\` so a raw search term is matched literally by `ILIKE`, never as a wildcard. */
-function escapeLikePattern(raw: string): string {
-  return raw.replace(/[\\%_]/g, (char) => `\\${char}`);
-}
-
 /**
  * Case-insensitive substring match against `wars.title` OR the creator's
  * `voters.display_name` (spec). A null or whitespace-only title never
@@ -157,7 +166,7 @@ function escapeLikePattern(raw: string): string {
  */
 function applySearch(query: WarsQuery, q: string | undefined): WarsQuery {
   if (!q) return query;
-  const pattern = `%${escapeLikePattern(q)}%`;
+  const pattern = containsPattern(q);
   return query.where(
     () =>
       sql<boolean>`(wars.title IS NOT NULL AND trim(wars.title) != '' AND wars.title ILIKE ${pattern}) OR voters.display_name ILIKE ${pattern}`,
@@ -430,25 +439,34 @@ export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise
  * objects in place rather than reaching into the object store.
  */
 export async function deleteWarRow(db: Kysely<Database>, warId: string): Promise<void> {
-  await db.transaction().execute(async (trx) => {
-    const matchupRows = await trx.selectFrom('matchups').select('id').where('war_id', '=', warId).execute();
-    const matchupIds = matchupRows.map((row) => row.id);
-    if (matchupIds.length > 0) {
-      await trx.deleteFrom('votes').where('matchup_id', 'in', matchupIds).execute();
-      await trx.deleteFrom('matchups').where('id', 'in', matchupIds).execute();
-    }
+  await db.transaction().execute((trx) => deleteWarRowIn(trx, warId));
+}
 
-    const contestantRows = await trx.selectFrom('contestants').select('id').where('war_id', '=', warId).execute();
-    const contestantIds = contestantRows.map((row) => row.id);
-    if (contestantIds.length > 0) {
-      await trx.deleteFrom('contestant_media').where('contestant_id', 'in', contestantIds).execute();
-    }
+/** `deleteWarRow`'s body, run on an already-open transaction (Kysely cannot nest `.transaction()`) so callers such as banning a Voter can delete several Wars atomically with their own writes. */
+export async function deleteWarRowIn(trx: Kysely<Database>, warId: string): Promise<void> {
+  const matchupRows = await trx.selectFrom('matchups').select('id').where('war_id', '=', warId).execute();
+  const matchupIds = matchupRows.map((row) => row.id);
+  if (matchupIds.length > 0) {
+    await trx.deleteFrom('votes').where('matchup_id', 'in', matchupIds).execute();
+    await trx.deleteFrom('matchups').where('id', 'in', matchupIds).execute();
+  }
 
-    await trx.deleteFrom('contestants').where('war_id', '=', warId).execute();
-    await trx.deleteFrom('war_memberships').where('war_id', '=', warId).execute();
-    await deleteReportsForWar(trx, warId);
-    await trx.deleteFrom('wars').where('id', '=', warId).execute();
-  });
+  const contestantRows = await trx.selectFrom('contestants').select('id').where('war_id', '=', warId).execute();
+  const contestantIds = contestantRows.map((row) => row.id);
+  if (contestantIds.length > 0) {
+    await trx.deleteFrom('contestant_media').where('contestant_id', 'in', contestantIds).execute();
+  }
+
+  await trx.deleteFrom('contestants').where('war_id', '=', warId).execute();
+  await trx.deleteFrom('war_memberships').where('war_id', '=', warId).execute();
+  await deleteReportsForWar(trx, warId);
+  await trx.deleteFrom('wars').where('id', '=', warId).execute();
+}
+
+/** Ids of every War `creatorId` created, removed ones included (spec §6.7: a ban hard-deletes them all). */
+export async function listWarIdsByCreator(db: Kysely<Database>, creatorId: string): Promise<string[]> {
+  const rows = await db.selectFrom('wars').select('id').where('creator_id', '=', creatorId).execute();
+  return rows.map((row) => row.id);
 }
 
 export async function createMembership(db: Kysely<Database>, warId: string, voterId: string): Promise<void> {
