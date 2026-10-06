@@ -111,7 +111,9 @@ Staging and production both run as a single application per environment containi
 - **Moderation log** (spec §6.7). It's an append-only `moderation_log` table: `action`,
   `staff_voter_id`, nullable `target_war_id`/`target_voter_id`, and `created_at`.
   `moderation/moderationLogRepository.ts` has `logAction` and `listModerationLog`, and there
-  is no update or delete. Role grants and revokes write `grant_role_<role>` /
+  is no update or delete. Each listed entry also carries `staff_name`, `target_voter_name`,
+  and `target_war_title`, from LEFT JOINs in the same keyset-paged statement. A removed War
+  keeps its title. A hard-deleted War gives `null`, but its entry stays. Role grants and revokes write `grant_role_<role>` /
   `revoke_role_<role>` in the same transaction as the role change. If the log write fails,
   the role change rolls back. Refused calls (403/404) log nothing. Staff read the log,
   newest first, via `GET /moderation-log` (`moderation/routes.ts`,
@@ -148,8 +150,12 @@ Staging and production both run as a single application per environment containi
   `removed_at IS NULL`, and every War route reads through one of them. The
   unaddressed-reports queue also excludes removed Wars. So the creator can't DELETE a
   removed War and erase the audit trail. `deleteWarRow` stays unfiltered, so a future Ban
-  can still hard-delete a removed War. The S3 `deletePrefix` has no automated test. Tests use
-  `InMemoryObjectStorage`.
+  can still hard-delete a removed War. Feature tests use `InMemoryObjectStorage`.
+  `test/integration/s3ObjectStorage.test.ts` runs the real `S3ObjectStorage.deletePrefix`
+  against an S3-compatible container. The container is `adobe/s3mock:4.11.0`, because
+  `minio/minio` refuses anonymous pulls. The test checks that lookalike prefixes survive, that
+  an empty prefix is a no-op, and that deleting 2500 objects pages through 3 list pages. A
+  deliberate break of the continuation loop turned that last case red.
 - **Suspend and Ban** (spec §6.7). `voters.suspended_at`/`banned_at` are exposed as `Voter`
   booleans `suspended`/`banned`. Endpoints (`voterModeration/`) are Staff only:
   `PUT /voters/:id/suspension` takes `{ suspended }` and `PUT /voters/:id/ban` takes
@@ -222,7 +228,21 @@ Staging and production both run as a single application per environment containi
     `(created_at DESC, id DESC)` on `wars` and `voters`. It doesn't use `CONCURRENTLY`, so
     each build locks writes on its table. That's fine at current size, but not later on a
     big `votes` table.
-  - No `EXPLAIN` has been run on these queries yet.
+  - **Query plans:** `npm --prefix war-api run explain-admin`
+    (`scripts/explainAdminQueries.ts`) checks these queries.
+    - The script starts a throwaway Postgres and seeds 20k voters, 50k wars, 500k votes,
+      25k reports, and 100k log rows. It then runs `EXPLAIN (ANALYZE, BUFFERS)` on the
+      exact SQL the repositories emit.
+    - `-- --before-migration <name>` compares plans before and after a migration, and
+      `-- --plans` prints full plans.
+    - Its findings drove migration `20260117000000_admin_query_indexes.sql`:
+      `moderation_log (created_at DESC, id DESC)` takes a log page from 83 ms to 1 ms. There
+      are also partial `(created_at DESC, id DESC)` indexes for removed Wars and for
+      banned, suspended, and Staff Voters.
+    - **Known slow spot:** `GET /admin/wars?q=` with a rare term seq-scans `wars` (about
+      40 ms at 50k Wars, growing linearly). It ORs a title match with a creator-name match
+      across a join, so neither trigram index applies. A fix means rewriting the query, for
+      example as a UNION of a title arm and a name arm.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
   existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
   *Operational prerequisites* below.
