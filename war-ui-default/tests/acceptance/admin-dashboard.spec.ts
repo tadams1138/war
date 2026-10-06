@@ -1531,3 +1531,92 @@ test("An unknown Voter's Staff detail says the Voter doesn't exist", async ({ pa
   // Assert
   await expect(page.getByRole('alert')).toHaveText("This Voter doesn't exist")
 })
+
+test("A Staff action on a Voter who no longer exists says the Voter doesn't exist", async ({ page }) => {
+  // Arrange
+  await useScenario(page, [
+    me({ is_moderator: true }),
+    killSwitchGet(false),
+    quietLog,
+    adminVoterGet('v-1', adminVoterDetail('v-1')),
+    noVotes('v-1'),
+    voterPut('/voters/v-1/suspension', 404),
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/admin/voters/v-1')
+  await page.getByRole('button', { name: 'Suspend' }).click()
+
+  // Act
+  await page.getByTestId('voter-suspend-confirm-submit').click()
+
+  // Assert
+  await expect(page.getByTestId('voter-suspend-error')).toHaveText("This Voter doesn't exist")
+})
+
+function meCalls(page: import('@playwright/test').Page) {
+  return getCallLog(page).then((log) => log.filter((entry) => entry.url.endsWith('/auth/me')))
+}
+
+test("The current Voter's identity is fetched once per visit to the Admin Dashboard", async ({ page }) => {
+  // Arrange
+  await useScenario(page, [me({ is_moderator: true }), killSwitchGet(false), quietLog])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/admin')
+
+  // Assert
+  await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible()
+  expect(await meCalls(page)).toHaveLength(1)
+})
+
+test("The current Voter's identity is fetched once per visit to a Voter's Staff detail", async ({ page }) => {
+  // Arrange
+  await useScenario(page, [
+    me({ is_admin: true }),
+    killSwitchGet(false),
+    quietLog,
+    adminVoterGet('v-1', adminVoterDetail('v-1')),
+    noVotes('v-1'),
+  ])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+
+  // Act
+  await navigateAuthenticated(page, '/admin/voters/v-1')
+
+  // Assert
+  await expect(page.getByRole('button', { name: 'Grant Moderator' })).toBeVisible()
+  expect(await meCalls(page)).toHaveLength(1)
+})
+
+test("Signing in as another Voter does not reuse the previous Voter's identity", async ({ page }) => {
+  // Arrange
+  const meSequence = {
+    method: 'GET' as const,
+    path: `${API}/auth/me`,
+    responses: [
+      { status: 200, body: { voter: { id: 'voter-1', display_name: 'Staff Stu', avatar_url: null, is_moderator: true, is_admin: false } } },
+      { status: 200, body: { voter: { id: 'voter-2', display_name: 'Plain Pat', avatar_url: null, is_moderator: false, is_admin: false } } },
+    ],
+  }
+  await useScenario(page, [meSequence, killSwitchGet(false), quietLog])
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/admin')
+  await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible()
+  await nav(page).getByTestId('nav-identity').click()
+  await nav(page).getByTestId('nav-logout').click()
+  await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible()
+
+  // Act
+  await loginAsTestVoter(page, 'second-voter-token')
+  await navigateAuthenticated(page, '/admin')
+
+  // Assert
+  await expect(page).toHaveURL(/\/$/)
+  await expect(nav(page).getByTestId('nav-identity')).toHaveText('Plain Pat')
+  expect(await meCalls(page)).toHaveLength(2)
+})

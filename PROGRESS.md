@@ -517,8 +517,14 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   - **Gating:** `router/RequireStaff.tsx` wraps `RequireAuth`, so a signed-out visit goes to
     sign-in with `returnTo`. It then checks `GET /auth/me` (`auth/staff.ts` `isStaff`) and
     sends anyone who isn't Staff Home. Staff see an "Admin Dashboard" item in the
-    `IdentityMenu` that no one else sees. `/auth/me` is fetched twice on `/admin`, once by the
-    menu and once by the gate, and the result isn't shared yet.
+    `IdentityMenu` that no one else sees.
+  - **One `/auth/me` per session.** `AuthProvider` holds `me` (`useAuth().me`), fetched
+    once per sign-in by `auth/useVoterMe.ts`. `IdentityMenu`, `RequireStaff`, and
+    `AdminVoterDetail` all read it there.
+    - A `session` counter bumps on each `login()`. A result stamped with an older session
+      is never served, so signing out or switching identity shows loading, never a stale
+      Voter.
+    - Acceptance tests pin exactly 1 call on `/admin` and on a Voter detail.
   - **Kill switch panel** (`admin/KillSwitchPanel.tsx`, `useKillSwitch.ts`): shows the state.
     Turning it on needs confirming in the existing `Modal`; turning it off doesn't. A failed
     PUT shows an error and keeps the state shown.
@@ -573,7 +579,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
     - Suspend/Ban controls give way to a note when the target is the viewer or is Staff.
       Revoke Admin is hidden on the viewer's own detail.
   - **Not found:** a 404 for the Voter detail reads "This Voter doesn't exist" instead of the
-    shared War copy. A 404 on a Voter *action* still uses the shared War copy.
+    shared War copy. So does a 404 from vote history or a Voter action: `ensureVoterOk` in
+    `client.ts` reuses `VOTER_NOT_FOUND_MESSAGE`. A 404 on `setReportAddressed` (a missing
+    report) still reads with the War copy.
   - **Moderation log:** Voter targets and acting Staff link to the Voter detail.
   - **Client** adds `getAdminVoters`, `getAdminVoter`, `getAdminVoterVotes`,
     `setVoterSuspension`, `setVoterBan`, and `setVoterRole`, all typed from the generated

@@ -1003,6 +1003,22 @@ describe('the Staff Voter endpoints', () => {
     expect(search).toBe('?status=banned&q=ann')
   })
 
+  it.each([
+    ['getAdminVoterVotes', 'get', '/admin/voters/v-1/votes', () => getAdminVoterVotes('v-1')],
+    ['setVoterSuspension', 'put', '/voters/v-1/suspension', () => setVoterSuspension('v-1', true)],
+    ['setVoterBan', 'put', '/voters/v-1/ban', () => setVoterBan('v-1', true)],
+    ['setVoterRole', 'put', '/voters/v-1/roles/admin', () => setVoterRole('v-1', 'admin', true)],
+  ] as const)("%s reports a 404 as the Voter not existing, not a War", async (_name, verb, path, call) => {
+    // Arrange
+    server.use(http[verb](`${BASE}${path}`, () => HttpResponse.json({ error: 'not found' }, { status: 404 })))
+
+    // Act
+    const result = call()
+
+    // Assert
+    await expect(result).rejects.toMatchObject({ reason: 'not-found', status: 404, message: "This Voter doesn't exist" })
+  })
+
   it('getAdminVoterVotes pages by cursor', async () => {
     // Arrange
     let search = ''
