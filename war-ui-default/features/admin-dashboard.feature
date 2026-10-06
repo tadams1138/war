@@ -158,7 +158,12 @@ Feature: Admin Dashboard
   Scenario: A moderation log entry targeting a War links to its detail
     Given a moderation log entry targets a War
     When a Staff member opens the Admin Dashboard
-    Then the entry's War id links to that War's Staff detail
+    Then the entry shows the War's title, linked to that War's Staff detail
+
+  Scenario: A moderation log entry targeting a deleted War shows no link
+    Given a moderation log entry targets a War that no longer exists
+    When a Staff member opens the Admin Dashboard
+    Then the entry says a deleted War was targeted, with its id and no link
 
   Scenario: A plain Voter cannot reach a War's Staff detail
     Given an authenticated voter who is neither a Moderator nor an Admin
@@ -298,7 +303,7 @@ Feature: Admin Dashboard
   Scenario: A moderation log entry's Voter ids link to the Voter's detail
     Given a moderation log entry targets a Voter
     When a Staff member opens the Admin Dashboard
-    Then the target Voter id and the acting Staff id link to their Voter detail
+    Then the target Voter's name and the acting Staff member's name link to their Voter detail
 
   Scenario: A plain Voter cannot reach a Voter's Staff detail
     Given an authenticated voter who is neither a Moderator nor an Admin

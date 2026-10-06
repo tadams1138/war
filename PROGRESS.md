@@ -551,8 +551,11 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   - **Moderation log panel** (`admin/ModerationLogPanel.tsx`, `useModerationLog.ts`): lists
     entries newest first. `moderationLogLabels.ts` gives readable action labels and falls back
     to the raw string. "Load more" follows `next_cursor`, and the log refetches after a kill
-    switch toggle. Staff and targets show as ids, not names, because looking up names costs
-    one request per id.
+    switch toggle. Staff, target Voters, and target Wars show by name, from the API's
+    `staff_name`, `target_voter_name`, and `target_war_title`. Each links to its Staff
+    detail. A null Voter name falls back to the id. A null War title shows "a deleted War
+    (id …)" with no link. A live War with no title can't be told apart from a deleted one
+    in the entry, so it shows that text too.
   - The client adds `getKillSwitch`, `setKillSwitch`, `getModerationLog`, and a `staff-only`
     error reason for 403s.
   - In the mock harness, recipes can now stub `PUT`, and the call log records `PUT` bodies.
@@ -575,7 +578,7 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
     for removed Wars.
   - **Queue panel** (`UnaddressedQueuePanel`): each entry opens the War's detail. Empty
     queues get their own state.
-  - **Moderation log:** a War target links to its detail. Names are still ids.
+  - **Moderation log:** a War target links to its detail.
   - **Client** adds `getAdminWars`, `getAdminWar`, `getWarReports`, `setReportAddressed`,
     `removeWar`, `getUnaddressedReports`. Types come from the generated schema.
   - **Layout:** `theme/layout.css` lets rows and controls wrap at narrow widths.
@@ -611,7 +614,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
-- Moderation log entries show ids, not names. Looking up a name costs one request per id.
+- **Untitled Wars in the moderation log:** a live War with no title reads as "a deleted War"
+  in the log. Fix: have the API flag a missing War row, for example
+  `target_war_deleted`.
 
 ---
 
