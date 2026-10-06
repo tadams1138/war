@@ -2,7 +2,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import type { Forbidden, MutationOutcome, NotFound } from '../shared/outcomes.js';
-import { findVoterById, setVoterBanned, setVoterSuspended, type Voter } from '../auth/votersRepository.js';
+import { findVoterByIdForUpdate, setVoterBanned, setVoterSuspended, type Voter } from '../auth/votersRepository.js';
 import type { ObjectStorage } from '../contestants/storage.js';
 import { deleteMediaObjects } from '../wars/warMediaStorage.js';
 import { purgeBannedVoterData } from './banPurge.js';
@@ -13,14 +13,18 @@ export type ChangeSuspensionOutcome = MutationOutcome<Voter, NotFound | Forbidde
 /**
  * Looks up the target of a Staff moderation action (spec §6.7). Staff (and so
  * the caller themself) can never be a target: a Moderator or Admin must have
- * their role revoked by an Admin first.
+ * their role revoked by an Admin first. The target's row is locked (`FOR UPDATE`)
+ * until the caller's transaction ends, so a concurrent role grant (whose UPDATE
+ * needs the same row) cannot slip in between this check and the write, and a
+ * vote holding a shared lock on the row finishes before a ban's purge begins.
+ * It is the ban transaction's first statement, ahead of the purge.
  */
 async function findModerationTarget(
   db: Kysely<Database>,
   staffVoterId: string,
   targetVoterId: string,
 ): Promise<{ kind: 'ok'; value: Voter } | NotFound | Forbidden> {
-  const target = await findVoterById(db, targetVoterId);
+  const target = await findVoterByIdForUpdate(db, targetVoterId);
   if (!target) return { kind: 'notFound' };
   if (target.id === staffVoterId || target.isModerator || target.isAdmin) return { kind: 'forbidden' };
   return { kind: 'ok', value: target };

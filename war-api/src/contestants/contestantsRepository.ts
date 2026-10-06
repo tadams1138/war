@@ -127,8 +127,8 @@ export async function updateContestant(db: Kysely<Database>, id: string, patch: 
 }
 
 /** Removes a contestant's own media rows first -- the FK from `contestant_media` to `contestants` has no cascade,
- *  so deleting a contestant with any image would otherwise violate it. Matches `deleteWarRow`'s own precedent of
- *  leaving the underlying storage objects in place rather than reaching into the object store. */
+ *  so deleting a contestant with any image would otherwise violate it. The storage objects are the caller's job,
+ *  after commit (`removeContestant`). */
 export async function deleteContestant(db: Kysely<Database>, id: string): Promise<void> {
   await db.deleteFrom('contestant_media').where('contestant_id', '=', id).execute();
   await db.deleteFrom('contestants').where('id', '=', id).execute();

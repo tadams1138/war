@@ -13,7 +13,9 @@ export type CastVoteOutcome =
   | { kind: 'invalidWinner' }
   | { kind: 'warNotPublished' }
   | { kind: 'notJoined' }
-  | { kind: 'notFound' };
+  | { kind: 'notFound' }
+  /** The Voter was banned after their request authenticated (spec §6.7); answered like any banned Voter, 401. */
+  | { kind: 'banned' };
 
 export interface CastVoteInput {
   warId: string;
@@ -63,6 +65,7 @@ async function insertOrIdempotentOutcome(
 ): Promise<CastVoteOutcome> {
   const presentedLeftId = isLeftSide(matchup.id, input.voterId) ? matchup.contestantAId : matchup.contestantBId;
   const result = await castVote(db, matchup, input.voterId, input.winnerId, presentedLeftId);
+  if ('banned' in result) return { kind: 'banned' };
   if (!result.inserted) return outcomeForVote(result.vote.winnerId, input.winnerId);
   return { kind: 'created', vote: result.vote };
 }

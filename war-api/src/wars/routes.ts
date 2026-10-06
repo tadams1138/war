@@ -230,7 +230,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       },
     }),
     async (request, reply) => {
-      const outcome = await deleteWar(db, request.params.id, request.voterId!, new Date());
+      const outcome = await deleteWar(db, deps.storage, request.log, request.params.id, request.voterId!, new Date());
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }

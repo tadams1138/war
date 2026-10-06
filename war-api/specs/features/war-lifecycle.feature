@@ -121,6 +121,23 @@ Feature: War Lifecycle
     And its matchups no longer exist
     And its votes no longer exist
 
+  Scenario: Deleting a War reclaims its media but leaves another War's media untouched
+    Given a War with contestant images and a share image, and another War with images
+    When the creator DELETEs the first War
+    Then the response status is 204
+    And only the other War's stored objects remain
+
+  Scenario: A storage failure while deleting a War's media still deletes the War
+    Given a War with 2 contestants and storage that fails to delete
+    When the creator DELETEs the War
+    Then the response status is 204
+    And the War no longer exists
+
+  Scenario: Removing a contestant reclaims its media but leaves the other contestants' media untouched
+    Given a War with 3 contestants that each have an image
+    When the creator removes one of the contestants
+    Then only the other contestants' stored objects remain
+
   Scenario: Adding a contestant generates matchups against the existing roster
     Given a published War with 2 contestants
     When the creator adds a third contestant

@@ -328,7 +328,10 @@ War — and, like every destructive action on this page, asks for confirmation f
 what will be lost.
 
 **Deletion** removes a War, its contestants, its media, its votes, and any reports filed
-against it, entirely, in any status. Only the creator may delete, and confirmation is always
+against it, entirely, in any status. Media means every stored file too, not just the record of
+it, and the same holds when a creator removes a single contestant or image. Files are
+reclaimed after the deletion itself succeeds. A failure there leaves an orphaned file, never a
+half-deleted War. Only the creator may delete, and confirmation is always
 required first — this app's standard guard on anything that cannot be undone (§10.4).
 
 **Clear Votes**, reachable by the creator from the Edit page in any status, deletes every vote
@@ -500,7 +503,10 @@ the caller or any Staff member: a Moderator or Admin must first have their role 
 Admin. A Suspended Voter's creation attempt gets a "forbidden" response naming the
 suspension. While the kill switch is on, its response wins instead. A Ban takes effect at
 once: any session the Voter already holds stops working on their very next request, not when
-it would have expired. A Ban's data deletion and its moderation log entry happen together.
+it would have expired. No vote the Voter is casting at that moment survives the Ban: one
+already underway is erased by the Ban, and one arriving during it is refused. A role granted
+concurrently is never missed either. If the target became Staff first, the action is refused
+as for any Staff target. A Ban's data deletion and its moderation log entry happen together.
 Reclaiming the deleted Wars' media follows afterwards, best effort, as with Remove a War.
 Reports the banned Voter filed survive. Unban restores sign-in only.
 

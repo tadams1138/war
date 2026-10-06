@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { newId } from '../db/uuid.js';
+import { isVoterBannedLockingShared } from '../auth/votersRepository.js';
 import type { Matchup } from '../matchups/matchupsRepository.js';
 
 export interface Vote {
@@ -57,9 +58,17 @@ export interface CastVoteResult {
   vote: Vote;
 }
 
+/** The Voter was banned before this vote could be recorded (spec §6.7); nothing was written. */
+export interface BannedVoter {
+  banned: true;
+}
+
 /**
  * Casts a vote and increments both denormalised counters in one transaction
- * (war-spec.md §6.3). The insert is `ON CONFLICT DO NOTHING` against the
+ * (war-spec.md §6.3). The transaction first takes a shared lock on the
+ * Voter's row and refuses a banned Voter: a ban's write to that row waits for
+ * this transaction (so the ban's purge then deletes the vote), and a vote
+ * arriving after an uncommitted ban waits for it and then sees the ban. The insert is `ON CONFLICT DO NOTHING` against the
  * `UNIQUE (matchup_id, voter_id)` constraint, which is the real arbiter when
  * two requests for the same voter race — the caller's pre-check is only a
  * fast path, not the source of truth. When the insert is skipped, the
@@ -73,8 +82,10 @@ export async function castVote(
   voterId: string,
   winnerId: string,
   presentedLeftId: string,
-): Promise<CastVoteResult> {
+): Promise<CastVoteResult | BannedVoter> {
   return db.transaction().execute(async (trx) => {
+    if (await isVoterBannedLockingShared(trx, voterId)) return { banned: true };
+
     const inserted = await trx
       .insertInto('votes')
       .values({

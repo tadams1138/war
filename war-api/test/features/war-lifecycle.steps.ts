@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import request from 'supertest';
-import { expect } from 'vitest';
+import { expect, vi } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { findWarById } from '../../src/wars/warsRepository.js';
 import { countMatchupsForWar } from '../../src/matchups/matchupsRepository.js';
@@ -708,6 +708,111 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('the War has exactly 3 matchups', async () => {
       expect(await countMatchupsForWar(harness.db, warId)).toBe(3);
+    });
+  });
+
+  Scenario("Deleting a War reclaims its media but leaves another War's media untouched", ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let warId: string;
+    let otherKeysBefore: string[];
+    let response: request.Response;
+
+    const allKeys = () => [...harness.storage.publicObjects.keys(), ...harness.storage.privateObjects.keys()];
+
+    Given('a War with contestant images and a share image, and another War with images', async () => {
+      // Arrange
+      creatorId = (await makeVoter(harness.db, 'creator')).id;
+      const first = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
+      const other = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
+      warId = first.war.id;
+      await harness.storage.putPublic(`share-images/${warId}.jpg`, Buffer.from('s'));
+      await harness.storage.putPrivate(`originals/share-images/${warId}.png`, Buffer.from('o'));
+      await harness.storage.putPublic(`share-images/${other.war.id}.jpg`, Buffer.from('s'));
+      const firstIds = first.contestants.map((c) => c.id);
+      otherKeysBefore = allKeys().filter((key) => !key.includes(warId) && !firstIds.some((id) => key.includes(id)));
+      expect(otherKeysBefore.length).toBeGreaterThan(0);
+    });
+
+    When('the creator DELETEs the first War', async () => {
+      // Act
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+    });
+
+    Then('the response status is 204', () => {
+      // Assert
+      expect(response.status).toBe(204);
+    });
+
+    And("only the other War's stored objects remain", () => {
+      // Assert
+      expect(allKeys().sort()).toEqual([...otherKeysBefore].sort());
+    });
+  });
+
+  Scenario("A storage failure while deleting a War's media still deletes the War", ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('a War with 2 contestants and storage that fails to delete', async () => {
+      // Arrange
+      creatorId = (await makeVoter(harness.db, 'creator')).id;
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
+      warId = war.id;
+      vi.spyOn(harness.storage, 'deletePrefix').mockRejectedValue(new Error('storage unavailable'));
+    });
+
+    When('the creator DELETEs the War', async () => {
+      // Act
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+    });
+
+    Then('the response status is 204', () => {
+      // Assert
+      expect(response.status).toBe(204);
+    });
+
+    And('the War no longer exists', async () => {
+      // Assert
+      expect(await findWarById(harness.db, warId)).toBeUndefined();
+    });
+  });
+
+  Scenario("Removing a contestant reclaims its media but leaves the other contestants' media untouched", ({ Given, When, Then }) => {
+    let creatorId: string;
+    let warId: string;
+    let removedId: string;
+    let otherKeysBefore: string[];
+
+    const allKeys = () => [...harness.storage.publicObjects.keys(), ...harness.storage.privateObjects.keys()];
+
+    Given('a War with 3 contestants that each have an image', async () => {
+      // Arrange
+      creatorId = (await makeVoter(harness.db, 'creator')).id;
+      const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
+      warId = war.id;
+      removedId = contestants[0]!.id;
+      otherKeysBefore = allKeys().filter((key) => !key.includes(removedId));
+      expect(otherKeysBefore.length).toBeLessThan(allKeys().length);
+    });
+
+    When('the creator removes one of the contestants', async () => {
+      // Act
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(creatorId);
+      await request(harness.app.server)
+        .delete(`/api/v1/wars/${warId}/contestants/${removedId}`)
+        .set('Authorization', `Bearer ${jwt}`)
+        .send();
+    });
+
+    Then("only the other contestants' stored objects remain", () => {
+      // Assert
+      expect(allKeys().sort()).toEqual([...otherKeysBefore].sort());
     });
   });
 

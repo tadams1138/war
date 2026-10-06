@@ -176,7 +176,42 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A contestant may hold up to ten images', ({ Given, When, Then, And }) => {
+  Scenario("Deleting one image reclaims its stored objects but leaves the contestant's other image", ({ Given, When, Then }) => {
+    let firstMediaId: string;
+    let secondImageId: string;
+
+    const allKeys = () => [...harness.storage.publicObjects.keys(), ...harness.storage.privateObjects.keys()];
+
+    Given('a contestant with two uploaded images', async () => {
+      // Arrange
+      const first = await uploadImage(await smallJpeg(500, 400));
+      const second = await uploadImage(await smallJpeg(500, 400));
+      expect(first.status).toBe(201);
+      expect(second.status).toBe(201);
+      const rows = await harness.db.selectFrom('contestant_media').selectAll().orderBy('display_order').execute();
+      firstMediaId = rows[0]!.id;
+      secondImageId = rows[1]!.storage_key!.split('/').pop()!;
+    });
+
+    When('the creator deletes the first image', async () => {
+      // Act
+      const jwt = await harness.jwtFor(creatorId);
+      const response = await request(harness.app.server)
+        .delete(`/api/v1/wars/${warId}/contestants/${contestantId}/media/${firstMediaId}`)
+        .set('Authorization', `Bearer ${jwt}`);
+      expect(response.status).toBe(204);
+    });
+
+    Then("only the second image's variants and original remain in storage", () => {
+      // Assert
+      expect(allKeys().sort()).toEqual([
+        `contestants/${contestantId}/${secondImageId}-400.webp`,
+        `originals/${contestantId}/${secondImageId}.jpg`,
+      ]);
+    });
+  });
+
+  Scenario('A contestant may hold up to ten images',({ Given, When, Then, And }) => {
     let eleventhResponse: request.Response;
 
     Given('a contestant with ten images in a draft War', async () => {
