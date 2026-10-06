@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { newId } from '../db/uuid.js';
 import { createdAtText, decodeKeysetCursor, isAfterCursor, sliceKeysetPage } from '../shared/keysetCursor.js';
@@ -16,6 +16,8 @@ export interface ModerationLogEntry {
   targetVoterName: string | null;
   /** The target War's title, removed Wars included; null when there is no target War, it was hard-deleted, or it has no title. */
   targetWarTitle: string | null;
+  /** True only when the entry targets a War whose row no longer exists (hard-deleted); a live untitled War is false. */
+  targetWarDeleted: boolean;
 }
 
 function toEntry(row: ModerationLogRow): ModerationLogEntry {
@@ -29,6 +31,7 @@ function toEntry(row: ModerationLogRow): ModerationLogEntry {
     staffName: row.staff_name,
     targetVoterName: row.target_voter_name,
     targetWarTitle: row.target_war_title,
+    targetWarDeleted: row.target_war_deleted,
   };
 }
 
@@ -51,6 +54,7 @@ function moderationLogQuery(db: Kysely<Database>) {
       'staff.display_name as staff_name',
       'target_voter.display_name as target_voter_name',
       'target_war.title as target_war_title',
+      sql<boolean>`moderation_log.target_war_id is not null and target_war.id is null`.as('target_war_deleted'),
     ])
     .select(createdAtText('moderation_log.created_at').as('created_at_text'))
     .orderBy('moderation_log.created_at', 'desc')

@@ -67,7 +67,12 @@ function applyStatus(query: AdminWarsQuery, status: string | undefined): AdminWa
 function applySearch(query: AdminWarsQuery, q: string | undefined): AdminWarsQuery {
   if (!q) return query;
   const pattern = containsPattern(q);
-  return query.where((eb) => eb.or([eb('wars.title', 'ilike', pattern), eb('voters.display_name', 'ilike', pattern)]));
+  return query.where((eb) =>
+    eb.or([
+      eb('wars.title', 'ilike', pattern),
+      sql<boolean>`wars.creator_id = any(array(select id from voters where display_name ilike ${pattern}))`,
+    ]),
+  );
 }
 
 function toAdminWar(row: AdminWarRow): AdminWar {

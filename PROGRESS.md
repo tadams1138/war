@@ -113,7 +113,9 @@ Staging and production both run as a single application per environment containi
   `moderation/moderationLogRepository.ts` has `logAction` and `listModerationLog`, and there
   is no update or delete. Each listed entry also carries `staff_name`, `target_voter_name`,
   and `target_war_title`, from LEFT JOINs in the same keyset-paged statement. A removed War
-  keeps its title. A hard-deleted War gives `null`, but its entry stays. Role grants and revokes write `grant_role_<role>` /
+  keeps its title. A hard-deleted War gives `null`, but its entry stays.
+  `target_war_deleted` is true only when the entry names a War whose row is gone, so a live
+  untitled War (also a `null` title) isn't mistaken for a deleted one. Role grants and revokes write `grant_role_<role>` /
   `revoke_role_<role>` in the same transaction as the role change. If the log write fails,
   the role change rolls back. Refused calls (403/404) log nothing. Staff read the log,
   newest first, via `GET /moderation-log` (`moderation/routes.ts`,
@@ -239,10 +241,16 @@ Staging and production both run as a single application per environment containi
       `moderation_log (created_at DESC, id DESC)` takes a log page from 83 ms to 1 ms. There
       are also partial `(created_at DESC, id DESC)` indexes for removed Wars and for
       banned, suspended, and Staff Voters.
-    - **Known slow spot:** `GET /admin/wars?q=` with a rare term seq-scans `wars` (about
-      40 ms at 50k Wars, growing linearly). It ORs a title match with a creator-name match
-      across a join, so neither trigram index applies. A fix means rewriting the query, for
-      example as a UNION of a title arm and a name arm.
+    - **Search predicate:** `GET /admin/wars?q=` and the public `GET /wars?q=` both match
+      `wars.title ILIKE p OR wars.creator_id = ANY(ARRAY(SELECT id FROM voters WHERE
+      display_name ILIKE p))`. The array subquery runs once up front, so the planner can
+      combine the title trigram index with the `creator_id` index.
+      - A rare-term admin search fell from about 41 ms (a seq scan over the joined
+        tables) to about 1.2 ms.
+      - A common creator-name search rose from about 1.1 ms to about 8.9 ms. That's the
+        accepted cost.
+      - A `UNION` of a title arm and a name arm did worse on common terms (15–22 ms).
+      - The public `GET /wars` plan wasn't measured. `explain-admin` doesn't cover it.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
   existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
   *Operational prerequisites* below.
@@ -553,9 +561,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
     to the raw string. "Load more" follows `next_cursor`, and the log refetches after a kill
     switch toggle. Staff, target Voters, and target Wars show by name, from the API's
     `staff_name`, `target_voter_name`, and `target_war_title`. Each links to its Staff
-    detail. A null Voter name falls back to the id. A null War title shows "a deleted War
-    (id …)" with no link. A live War with no title can't be told apart from a deleted one
-    in the entry, so it shows that text too.
+    detail. A null Voter name falls back to the id. A War with `target_war_deleted` shows as
+    "a deleted War (id …)" with no link. A live War with no title shows as "Untitled War"
+    (`warTitle`) and still links.
   - The client adds `getKillSwitch`, `setKillSwitch`, `getModerationLog`, and a `staff-only`
     error reason for 403s.
   - In the mock harness, recipes can now stub `PUT`, and the call log records `PUT` bodies.
@@ -603,8 +611,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
       Revoke Admin is hidden on the viewer's own detail.
   - **Not found:** a 404 for the Voter detail reads "This Voter doesn't exist" instead of the
     shared War copy. So does a 404 from vote history or a Voter action: `ensureVoterOk` in
-    `client.ts` reuses `VOTER_NOT_FOUND_MESSAGE`. A 404 on `setReportAddressed` (a missing
-    report) still reads with the War copy.
+    `client.ts` reuses `VOTER_NOT_FOUND_MESSAGE`. Both go through `ensureEntityOk(response,
+    message)`. A 404 on `setReportAddressed` (a missing report) reads "This report doesn't
+    exist".
   - **Moderation log:** Voter targets and acting Staff link to the Voter detail.
   - **Client** adds `getAdminVoters`, `getAdminVoter`, `getAdminVoterVotes`,
     `setVoterSuspension`, `setVoterBan`, and `setVoterRole`, all typed from the generated
@@ -614,9 +623,6 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
-- **Untitled Wars in the moderation log:** a live War with no title reads as "a deleted War"
-  in the log. Fix: have the API flag a missing War row, for example
-  `target_war_deleted`.
 
 ---
 
