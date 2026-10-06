@@ -158,7 +158,12 @@ Feature: Admin Dashboard
   Scenario: A moderation log entry targeting a War links to its detail
     Given a moderation log entry targets a War
     When a Staff member opens the Admin Dashboard
-    Then the entry's War id links to that War's Staff detail
+    Then the entry shows the War's title, linked to that War's Staff detail
+
+  Scenario: A moderation log entry targeting a deleted War shows no link
+    Given a moderation log entry targets a War that no longer exists
+    When a Staff member opens the Admin Dashboard
+    Then the entry says a deleted War was targeted, with its id and no link
 
   Scenario: A plain Voter cannot reach a War's Staff detail
     Given an authenticated voter who is neither a Moderator nor an Admin
@@ -298,7 +303,7 @@ Feature: Admin Dashboard
   Scenario: A moderation log entry's Voter ids link to the Voter's detail
     Given a moderation log entry targets a Voter
     When a Staff member opens the Admin Dashboard
-    Then the target Voter id and the acting Staff id link to their Voter detail
+    Then the target Voter's name and the acting Staff member's name link to their Voter detail
 
   Scenario: A plain Voter cannot reach a Voter's Staff detail
     Given an authenticated voter who is neither a Moderator nor an Admin
@@ -309,3 +314,23 @@ Feature: Admin Dashboard
     Given no Voter exists with the requested id
     When a Staff member opens that Voter's Staff detail
     Then they are told the Voter doesn't exist, not that a War is missing
+
+  Scenario: A Staff action on a Voter who no longer exists says the Voter doesn't exist
+    Given a plain Voter's Staff detail and suspending will find no such Voter
+    When a Staff member suspends the Voter and confirms
+    Then they are told the Voter doesn't exist, not that a War is missing
+
+  Scenario: The current Voter's identity is fetched once per visit to the Admin Dashboard
+    Given an authenticated Moderator
+    When they open the Admin Dashboard
+    Then the current Voter's identity was requested exactly once
+
+  Scenario: The current Voter's identity is fetched once per visit to a Voter's Staff detail
+    Given an authenticated Moderator
+    When they open a Voter's Staff detail
+    Then the current Voter's identity was requested exactly once
+
+  Scenario: Signing in as another Voter does not reuse the previous Voter's identity
+    Given an authenticated Moderator is on the Admin Dashboard
+    When they log out and a plain Voter signs in and opens the Admin Dashboard
+    Then they are redirected to "/" and the identity was requested once per sign-in

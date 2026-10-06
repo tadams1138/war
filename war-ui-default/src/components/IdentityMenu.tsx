@@ -3,19 +3,15 @@
 // Import a War, and Log out — collapsed by default so the persistent
 // chrome stays small. Home lives outside this menu now, as the brand
 // mark every visitor sees regardless of auth state (NavBar.tsx).
-// Fetches identity once per authenticated session, same as before this
-// collapsed behind a menu.
+// Reads the identity the auth context fetched once for this sign-in.
 import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { getMe } from '../api/client'
 import { useAuth } from '../auth/context'
 import { isStaff } from '../auth/staff'
-import { useAsyncResource } from '../hooks/useAsyncResource'
 import { resolveVoterIdentity } from './voterIdentity'
 
 export function IdentityMenu() {
-  const { logout } = useAuth()
-  const identityState = useAsyncResource(() => getMe(), [])
+  const { logout, me: identityState } = useAuth()
   const identity = resolveVoterIdentity(identityState)
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)

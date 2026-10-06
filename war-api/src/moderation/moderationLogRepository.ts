@@ -1,5 +1,5 @@
-import type { Kysely, Selectable } from 'kysely';
-import type { Database, ModerationLogTable } from '../db/types.js';
+import type { Kysely } from 'kysely';
+import type { Database } from '../db/types.js';
 import { newId } from '../db/uuid.js';
 import { createdAtText, decodeKeysetCursor, isAfterCursor, sliceKeysetPage } from '../shared/keysetCursor.js';
 
@@ -10,9 +10,15 @@ export interface ModerationLogEntry {
   targetWarId: string | null;
   targetVoterId: string | null;
   createdAt: Date;
+  /** The acting Staff member's display name; null if they have none. */
+  staffName: string | null;
+  /** The target Voter's display name; null when there is no target Voter. */
+  targetVoterName: string | null;
+  /** The target War's title, removed Wars included; null when there is no target War, it was hard-deleted, or it has no title. */
+  targetWarTitle: string | null;
 }
 
-function toEntry(row: Selectable<ModerationLogTable>): ModerationLogEntry {
+function toEntry(row: ModerationLogRow): ModerationLogEntry {
   return {
     id: row.id,
     action: row.action,
@@ -20,6 +26,9 @@ function toEntry(row: Selectable<ModerationLogTable>): ModerationLogEntry {
     targetWarId: row.target_war_id,
     targetVoterId: row.target_voter_id,
     createdAt: new Date(row.created_at),
+    staffName: row.staff_name,
+    targetVoterName: row.target_voter_name,
+    targetWarTitle: row.target_war_title,
   };
 }
 
@@ -30,22 +39,37 @@ export type ListModerationLogOutcome =
   | { kind: 'invalidCursor' };
 
 
+/** Names come from LEFT JOINs in the same statement: the log is append-only and its War target has no foreign key, so a deleted War or Voter yields a null name, never a dropped entry. */
+function moderationLogQuery(db: Kysely<Database>) {
+  return db
+    .selectFrom('moderation_log')
+    .leftJoin('voters as staff', 'staff.id', 'moderation_log.staff_voter_id')
+    .leftJoin('voters as target_voter', 'target_voter.id', 'moderation_log.target_voter_id')
+    .leftJoin('wars as target_war', 'target_war.id', 'moderation_log.target_war_id')
+    .selectAll('moderation_log')
+    .select([
+      'staff.display_name as staff_name',
+      'target_voter.display_name as target_voter_name',
+      'target_war.title as target_war_title',
+    ])
+    .select(createdAtText('moderation_log.created_at').as('created_at_text'))
+    .orderBy('moderation_log.created_at', 'desc')
+    .orderBy('moderation_log.id', 'desc');
+}
+
+type ModerationLogRow = Awaited<ReturnType<ReturnType<typeof moderationLogQuery>['execute']>>[number];
+
 /** One page of logged Staff actions, newest first (spec §6.7); `nextCursor` is set only when a further entry exists. */
 export async function listModerationLog(
   db: Kysely<Database>,
   options: { limit: number; cursor?: string },
 ): Promise<ListModerationLogOutcome> {
-  let query = db
-    .selectFrom('moderation_log')
-    .selectAll()
-    .select(createdAtText('created_at').as('created_at_text'))
-    .orderBy('created_at', 'desc')
-    .orderBy('id', 'desc');
+  let query = moderationLogQuery(db);
 
   if (options.cursor !== undefined) {
     const cursor = decodeKeysetCursor(options.cursor);
     if (!cursor) return { kind: 'invalidCursor' };
-    query = query.where(isAfterCursor('created_at', 'id', cursor));
+    query = query.where(isAfterCursor('moderation_log.created_at', 'moderation_log.id', cursor));
   }
 
   const { page, nextCursor } = sliceKeysetPage(await query.limit(options.limit + 1).execute(), options.limit);

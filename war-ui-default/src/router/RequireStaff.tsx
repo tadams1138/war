@@ -3,9 +3,8 @@
 // nor an Admin redirects Home.
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { getMe } from '../api/client'
+import { useAuth } from '../auth/context'
 import { isStaff } from '../auth/staff'
-import { useAsyncResource } from '../hooks/useAsyncResource'
 import { RequireAuth } from './RequireAuth'
 
 export function RequireStaff({ children }: { children: ReactNode }) {
@@ -17,7 +16,7 @@ export function RequireStaff({ children }: { children: ReactNode }) {
 }
 
 function StaffGate({ children }: { children: ReactNode }) {
-  const me = useAsyncResource(() => getMe(), [])
+  const { me } = useAuth()
 
   if (me.status === 'loading') return <p>Loading…</p>
   if (me.status === 'error') return <p role="alert">{me.message}</p>

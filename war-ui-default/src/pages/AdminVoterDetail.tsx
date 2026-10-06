@@ -3,7 +3,8 @@
 // Admin Dashboard's Voters list and the moderation log.
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getAdminVoter, getMe, type AdminVoterDetail as AdminVoterDetailData, type VoterMe } from '../api/client'
+import { getAdminVoter, type AdminVoterDetail as AdminVoterDetailData, type VoterMe } from '../api/client'
+import { useAuth } from '../auth/context'
 import { VoterActions } from '../admin/voters/VoterActions'
 import { VoterBadges } from '../admin/voters/VoterBadges'
 import { VoterVotesSection } from '../admin/voters/VoterVotesSection'
@@ -41,7 +42,7 @@ export function AdminVoterDetail() {
 }
 
 function useViewer(): VoterMe['voter'] | null {
-  const me = useAsyncResource(() => getMe(), [])
+  const { me } = useAuth()
   return me.status === 'loaded' ? me.value.voter : null
 }
 

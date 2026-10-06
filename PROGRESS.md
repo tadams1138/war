@@ -111,7 +111,9 @@ Staging and production both run as a single application per environment containi
 - **Moderation log** (spec §6.7). It's an append-only `moderation_log` table: `action`,
   `staff_voter_id`, nullable `target_war_id`/`target_voter_id`, and `created_at`.
   `moderation/moderationLogRepository.ts` has `logAction` and `listModerationLog`, and there
-  is no update or delete. Role grants and revokes write `grant_role_<role>` /
+  is no update or delete. Each listed entry also carries `staff_name`, `target_voter_name`,
+  and `target_war_title`, from LEFT JOINs in the same keyset-paged statement. A removed War
+  keeps its title. A hard-deleted War gives `null`, but its entry stays. Role grants and revokes write `grant_role_<role>` /
   `revoke_role_<role>` in the same transaction as the role change. If the log write fails,
   the role change rolls back. Refused calls (403/404) log nothing. Staff read the log,
   newest first, via `GET /moderation-log` (`moderation/routes.ts`,
@@ -148,8 +150,12 @@ Staging and production both run as a single application per environment containi
   `removed_at IS NULL`, and every War route reads through one of them. The
   unaddressed-reports queue also excludes removed Wars. So the creator can't DELETE a
   removed War and erase the audit trail. `deleteWarRow` stays unfiltered, so a future Ban
-  can still hard-delete a removed War. The S3 `deletePrefix` has no automated test. Tests use
-  `InMemoryObjectStorage`.
+  can still hard-delete a removed War. Feature tests use `InMemoryObjectStorage`.
+  `test/integration/s3ObjectStorage.test.ts` runs the real `S3ObjectStorage.deletePrefix`
+  against an S3-compatible container. The container is `adobe/s3mock:4.11.0`, because
+  `minio/minio` refuses anonymous pulls. The test checks that lookalike prefixes survive, that
+  an empty prefix is a no-op, and that deleting 2500 objects pages through 3 list pages. A
+  deliberate break of the continuation loop turned that last case red.
 - **Suspend and Ban** (spec §6.7). `voters.suspended_at`/`banned_at` are exposed as `Voter`
   booleans `suspended`/`banned`. Endpoints (`voterModeration/`) are Staff only:
   `PUT /voters/:id/suspension` takes `{ suspended }` and `PUT /voters/:id/ban` takes
@@ -222,7 +228,21 @@ Staging and production both run as a single application per environment containi
     `(created_at DESC, id DESC)` on `wars` and `voters`. It doesn't use `CONCURRENTLY`, so
     each build locks writes on its table. That's fine at current size, but not later on a
     big `votes` table.
-  - No `EXPLAIN` has been run on these queries yet.
+  - **Query plans:** `npm --prefix war-api run explain-admin`
+    (`scripts/explainAdminQueries.ts`) checks these queries.
+    - The script starts a throwaway Postgres and seeds 20k voters, 50k wars, 500k votes,
+      25k reports, and 100k log rows. It then runs `EXPLAIN (ANALYZE, BUFFERS)` on the
+      exact SQL the repositories emit.
+    - `-- --before-migration <name>` compares plans before and after a migration, and
+      `-- --plans` prints full plans.
+    - Its findings drove migration `20260117000000_admin_query_indexes.sql`:
+      `moderation_log (created_at DESC, id DESC)` takes a log page from 83 ms to 1 ms. There
+      are also partial `(created_at DESC, id DESC)` indexes for removed Wars and for
+      banned, suspended, and Staff Voters.
+    - **Known slow spot:** `GET /admin/wars?q=` with a rare term seq-scans `wars` (about
+      40 ms at 50k Wars, growing linearly). It ORs a title match with a creator-name match
+      across a join, so neither trigram index applies. A fix means rewriting the query, for
+      example as a UNION of a title arm and a name arm.
 - **`seed-admin` script** bootstraps the first Admin account in an environment with no
   existing one (`war-api/scripts/seedAdmin.ts`, `npm run seed-admin -- <voterId>`) — see
   *Operational prerequisites* below.
@@ -517,16 +537,25 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
   - **Gating:** `router/RequireStaff.tsx` wraps `RequireAuth`, so a signed-out visit goes to
     sign-in with `returnTo`. It then checks `GET /auth/me` (`auth/staff.ts` `isStaff`) and
     sends anyone who isn't Staff Home. Staff see an "Admin Dashboard" item in the
-    `IdentityMenu` that no one else sees. `/auth/me` is fetched twice on `/admin`, once by the
-    menu and once by the gate, and the result isn't shared yet.
+    `IdentityMenu` that no one else sees.
+  - **One `/auth/me` per session.** `AuthProvider` holds `me` (`useAuth().me`), fetched
+    once per sign-in by `auth/useVoterMe.ts`. `IdentityMenu`, `RequireStaff`, and
+    `AdminVoterDetail` all read it there.
+    - A `session` counter bumps on each `login()`. A result stamped with an older session
+      is never served, so signing out or switching identity shows loading, never a stale
+      Voter.
+    - Acceptance tests pin exactly 1 call on `/admin` and on a Voter detail.
   - **Kill switch panel** (`admin/KillSwitchPanel.tsx`, `useKillSwitch.ts`): shows the state.
     Turning it on needs confirming in the existing `Modal`; turning it off doesn't. A failed
     PUT shows an error and keeps the state shown.
   - **Moderation log panel** (`admin/ModerationLogPanel.tsx`, `useModerationLog.ts`): lists
     entries newest first. `moderationLogLabels.ts` gives readable action labels and falls back
     to the raw string. "Load more" follows `next_cursor`, and the log refetches after a kill
-    switch toggle. Staff and targets show as ids, not names, because looking up names costs
-    one request per id.
+    switch toggle. Staff, target Voters, and target Wars show by name, from the API's
+    `staff_name`, `target_voter_name`, and `target_war_title`. Each links to its Staff
+    detail. A null Voter name falls back to the id. A null War title shows "a deleted War
+    (id …)" with no link. A live War with no title can't be told apart from a deleted one
+    in the entry, so it shows that text too.
   - The client adds `getKillSwitch`, `setKillSwitch`, `getModerationLog`, and a `staff-only`
     error reason for 403s.
   - In the mock harness, recipes can now stub `PUT`, and the call log records `PUT` bodies.
@@ -549,7 +578,7 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
     for removed Wars.
   - **Queue panel** (`UnaddressedQueuePanel`): each entry opens the War's detail. Empty
     queues get their own state.
-  - **Moderation log:** a War target links to its detail. Names are still ids.
+  - **Moderation log:** a War target links to its detail.
   - **Client** adds `getAdminWars`, `getAdminWar`, `getWarReports`, `setReportAddressed`,
     `removeWar`, `getUnaddressedReports`. Types come from the generated schema.
   - **Layout:** `theme/layout.css` lets rows and controls wrap at narrow widths.
@@ -573,7 +602,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
     - Suspend/Ban controls give way to a note when the target is the viewer or is Staff.
       Revoke Admin is hidden on the viewer's own detail.
   - **Not found:** a 404 for the Voter detail reads "This Voter doesn't exist" instead of the
-    shared War copy. A 404 on a Voter *action* still uses the shared War copy.
+    shared War copy. So does a 404 from vote history or a Voter action: `ensureVoterOk` in
+    `client.ts` reuses `VOTER_NOT_FOUND_MESSAGE`. A 404 on `setReportAddressed` (a missing
+    report) still reads with the War copy.
   - **Moderation log:** Voter targets and acting Staff link to the Voter detail.
   - **Client** adds `getAdminVoters`, `getAdminVoter`, `getAdminVoterVotes`,
     `setVoterSuspension`, `setVoterBan`, and `setVoterRole`, all typed from the generated
@@ -583,7 +614,9 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 - Video-mode matchups.
 - The shared runtime artifact for custom UIs.
-- Moderation log entries show ids, not names. Looking up a name costs one request per id.
+- **Untitled Wars in the moderation log:** a live War with no title reads as "a deleted War"
+  in the log. Fix: have the API flag a missing War row, for example
+  `target_war_deleted`.
 
 ---
 
