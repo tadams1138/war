@@ -2105,6 +2105,7 @@ export interface paths {
                                 staff_name: null | string;
                                 target_voter_name: null | string;
                                 target_war_title: null | string;
+                                target_war_deleted: boolean;
                             }[];
                             next_cursor: null | string;
                         };

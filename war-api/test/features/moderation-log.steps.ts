@@ -354,6 +354,89 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario('A hard-deleted War is flagged as deleted', ({ Given, And, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('an Admin who logged an action on a War that was later hard-deleted', async () => {
+      // Arrange
+      const adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const creatorId = (await makeVoter(harness.db, 'creator')).id;
+      const warId = (await makeDraftWar(harness.db, creatorId, { title: 'Gone War' })).id;
+      await logAction(harness.db, { action: 'remove_war', staffVoterId: adminId, targetWarId: warId });
+      await deleteWarRow(harness.db, warId);
+    });
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the moderation log', async () => {
+      // Act
+      response = await getLog(moderatorId);
+    });
+
+    Then('the entry is flagged as targeting a deleted War', () => {
+      // Assert
+      expect(entryWithAction(response, 'remove_war').target_war_deleted).toBe(true);
+    });
+  });
+
+  Scenario('A live War with no title is not flagged as deleted', ({ Given, And, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('an Admin who logged an action on a live War with no title', async () => {
+      // Arrange
+      const adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const creatorId = (await makeVoter(harness.db, 'creator')).id;
+      const war = await makeDraftWar(harness.db, creatorId, { title: null });
+      await logAction(harness.db, { action: 'warn_war', staffVoterId: adminId, targetWarId: war.id });
+    });
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the moderation log', async () => {
+      // Act
+      response = await getLog(moderatorId);
+    });
+
+    Then('the entry has a null War title and is not flagged as targeting a deleted War', () => {
+      // Assert
+      const entry = entryWithAction(response, 'warn_war');
+      expect(entry.target_war_title).toBeNull();
+      expect(entry.target_war_deleted).toBe(false);
+    });
+  });
+
+  Scenario('An entry with no War target is not flagged as deleted', ({ Given, And, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('an Admin who granted the moderator role to a Voter', async () => {
+      // Arrange
+      const adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const targetId = (await makeVoter(harness.db, 'target')).id;
+      await putRole(adminId, targetId, 'moderator', true);
+    });
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the moderation log', async () => {
+      // Act
+      response = await getLog(moderatorId);
+    });
+
+    Then('the entry is not flagged as targeting a deleted War', () => {
+      // Assert
+      expect(entryWithAction(response, 'grant_role_moderator').target_war_deleted).toBe(false);
+    });
+  });
+
   function entryWithAction(response: request.Response, action: string): Record<string, unknown> {
     expect(response.status).toBe(200);
     const entry = (response.body.entries as Array<Record<string, unknown>>).find((e) => e.action === action);

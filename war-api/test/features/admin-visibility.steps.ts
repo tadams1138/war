@@ -225,6 +225,41 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
   });
 
+  Scenario('Searching the admin Wars lists a War matching on title and creator name once', ({ Given, And, When, Then }) => {
+    let bothWarId: string;
+    let titleOnlyWarId: string;
+    let creatorOnlyWarId: string;
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given(
+      'Voters "sam" and "tess" with Wars titled "Sam Rematch", "Sam Day" and "Other"',
+      async () => {
+        // Arrange
+        const samId = (await makeVoter(harness.db, 'sam')).id;
+        const tessId = (await makeVoter(harness.db, 'tess')).id;
+        creatorOnlyWarId = (await makeDraftWar(harness.db, samId, { title: 'Other' })).id;
+        titleOnlyWarId = (await makeDraftWar(harness.db, tessId, { title: 'Sam Day' })).id;
+        bothWarId = (await makeDraftWar(harness.db, samId, { title: 'Sam Rematch' })).id;
+      },
+    );
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the admin Wars with q "sam"', async () => {
+      // Act
+      response = await getAs(moderatorId, '/admin/wars', { q: 'sam' });
+    });
+
+    Then('the response lists each of the three Wars exactly once, newest first', () => {
+      // Assert
+      expect(response.status).toBe(200);
+      expect((response.body.wars as Item[]).map((war) => war.id)).toEqual([bothWarId, titleOnlyWarId, creatorOnlyWarId]);
+    });
+  });
+
   Scenario('Searching the admin Wars treats wildcard characters literally', ({ Given, And, When, Then }) => {
     let percentWarId: string;
     let moderatorId: string;

@@ -169,7 +169,7 @@ function applySearch(query: WarsQuery, q: string | undefined): WarsQuery {
   const pattern = containsPattern(q);
   return query.where(
     () =>
-      sql<boolean>`(wars.title IS NOT NULL AND trim(wars.title) != '' AND wars.title ILIKE ${pattern}) OR voters.display_name ILIKE ${pattern}`,
+      sql<boolean>`((wars.title IS NOT NULL AND trim(wars.title) != '' AND wars.title ILIKE ${pattern}) OR wars.creator_id = any(array(select id from voters where display_name ilike ${pattern})))`,
   );
 }
 
