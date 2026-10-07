@@ -30,6 +30,25 @@ Staging and production both run as a single application per environment containi
 - **Published API contract**, generated from route definitions. A CI guard fails the build
   if the committed client types drift.
 - **Health check.**
+- **War expiry** (spec §4 "Effective status", §12.8). `effectiveStatus` reads a War as
+  closed the instant `ends_at` passes. `POST /internal/close-expired-wars` (`x-internal-token`,
+  scheduled from war-infra) converges the stored column with one atomic UPDATE, so
+  repeated or concurrent runs close each War once. `specs/features/war-expiry.feature` is
+  bound.
+  - **Lists and filters:** `wars/effectiveStatusSql.ts` `hasEffectiveStatus(status, now)`
+    makes SQL filters agree with `effectiveStatus`. `closed` means `status='closed' OR
+    ends_at <= now`, and any other status means `status = X AND (ends_at IS NULL OR
+    ends_at > now)`.
+    - `GET /wars` (public and `creator=me`) and `GET /admin/wars` use it, with one `now`
+      per request for both the filter and the presenter.
+    - The admin War/Voter detail views report the effective status too.
+  - **Expired drafts:** a draft whose `ends_at` passes reads as `closed`, but only to its
+    creator and Staff. `isWarVisibleTo` gates on the *stored* `draft`, so `GET /wars/:id`
+    (and rankings/matchups) 404 it for anyone else. The public listing keeps its stored
+    `status != 'draft'` guard. Before this fix, an expired draft was publicly readable. The
+    nightly task closes only `published` Wars, so an expired draft stays stored as `draft`.
+  - **`expiring_soonest`** has no special case for already-expired Wars. They are no longer
+    under `published`, and under `closed` they sort by `ends_at` ascending.
 - **War lifecycle: Publish/Unpublish, always-editable, Clear Votes, cascading Delete**
   (spec §6.1, §4). The one-way `active` status and its `activate` route are gone; `status` is
   now `draft` → `published` → `closed`, with `publishWar`/`unpublishWar` (`warsService.ts`,
@@ -223,7 +242,8 @@ Staging and production both run as a single application per environment containi
   - Lists use keyset paging (`limit` 1–100, default 50, `cursor`, `next_cursor`).
     `shared/keysetCursor.ts` holds the paging code, now shared with the moderation log.
   - A malformed id gets 404 and a bad `status`/`cursor`/`limit` gets 400.
-  - War `status` is the stored column, so an expired War not yet closed shows `published`.
+  - War `status` (list, War detail, Voter detail `wars[]`) is the effective status, and the
+    `status` filter matches it via `hasEffectiveStatus`.
   - `shared/likePattern.ts` holds the ILIKE escaping, now shared with `GET /wars`.
   - Migration `20260116000000_admin_read_indexes.sql` adds
     `votes (voter_id, created_at DESC, id DESC)`, `wars (creator_id)`, and
@@ -648,8 +668,8 @@ navigation header with an auth-aware Home empty state. Live in staging and produ
 
 ## Test coverage gaps
 
-- Video mode and three War-expiry scenarios sit unbound in `war-api/specs/features/pending/`
-  and describe behaviour that is not built.
+- Video mode scenarios sit unbound in `war-api/specs/features/pending/` and describe
+  behaviour that is not built.
 - `war-ui-default/features/pending/` holds 13 unbound scenarios — video mode, plus wording
   variants of scenarios that already run under other names.
 - `war-infra/specs/features/pending/` holds 27 routing and edge scenarios with no runner,

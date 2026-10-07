@@ -33,3 +33,18 @@ Feature: My Wars
     When they GET /api/v1/wars?creator=someone-else
     Then the response status is 400
     And the response is Fastify's own validation-error envelope, not this API's "error" shape
+
+  Scenario: creator=me filters by effective status before the close task runs
+    Given a voter has created a published War whose end date passed a minute ago
+    And the close-expired-wars task has not yet run
+    When they GET /api/v1/wars?creator=me&status=closed
+    Then their expired War is returned as "closed"
+    When they GET /api/v1/wars?creator=me&status=published
+    Then their expired War is not returned
+
+  Scenario: A voter's own draft whose end date has passed counts as closed
+    Given a voter has created a draft War whose end date passed a minute ago
+    When they GET /api/v1/wars?creator=me&status=closed
+    Then their expired draft War is returned as "closed"
+    When they GET /api/v1/wars?creator=me&status=draft
+    Then their expired draft War is not returned

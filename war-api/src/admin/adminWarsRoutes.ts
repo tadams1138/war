@@ -101,7 +101,7 @@ export function registerAdminWarsRoutes(app: FastifyInstance, deps: AdminRouteDe
     async (request, reply) => {
       // ajv has already applied the default and bounds, so `limit` is always a valid integer here.
       const { status, q, limit, cursor } = request.query as { status?: string; q?: string; limit: number; cursor?: string };
-      const outcome = await listAdminWars(db, { status, q, limit, cursor });
+      const outcome = await listAdminWars(db, { now: new Date(), status, q, limit, cursor });
       if (outcome.kind === 'invalidCursor') {
         return sendInvalidCursor(reply);
       }
@@ -120,7 +120,7 @@ export function registerAdminWarsRoutes(app: FastifyInstance, deps: AdminRouteDe
       [requireModeratorOrAdmin(db)],
     ),
     async (request, reply) => {
-      const war = await findAdminWar(db, request.params.id);
+      const war = await findAdminWar(db, request.params.id, new Date());
       if (!war) {
         return reply.code(404).send({ error: 'not found' });
       }

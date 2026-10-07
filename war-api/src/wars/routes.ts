@@ -140,7 +140,9 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       const limit = resolveWarsListLimit(request.query.limit);
       const creatorId = wantsOwnWars(request.query) ? request.voterId : undefined;
       const sort = resolveWarsListSort(request.query.sort);
+      const now = new Date();
       const outcome = await listWars(db, {
+        now,
         status: request.query.status,
         category: request.query.category,
         cursor: request.query.cursor,
@@ -152,7 +154,6 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       if (outcome.kind === 'invalidCursor') {
         return reply.code(400).send({ error: 'invalid cursor' });
       }
-      const now = new Date();
       const counts = await countContestantsByWarIds(
         db,
         outcome.wars.map((war) => war.id),

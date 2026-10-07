@@ -152,20 +152,21 @@ const cursorOf = (outcome: Paged): string | undefined => (outcome.kind === 'ok' 
 async function buildCases(db: Kysely<Database>): Promise<Case[]> {
   const heavy = await sql<{ id: string }>`select voter_id as id from votes group by voter_id order by count(*) desc limit 1`.execute(db);
   const voterId = heavy.rows[0]!.id;
-  const wc = cursorOf(await listAdminWars(db, { limit: 10_000 }));
+  const wc = cursorOf(await listAdminWars(db, { now: new Date(), limit: 10_000 }));
   const vc = cursorOf(await listAdminVoters(db, { limit: 10_000 }));
   const lc = cursorOf(await listModerationLog(db, { limit: 10_000 }));
   const vvc = cursorOf(await listAdminVotes(db, voterId, { limit: 5 }));
   return [
-    { name: 'wars: no filter', run: (d) => listAdminWars(d, { limit: PAGE }) },
-    { name: 'wars: status=published', run: (d) => listAdminWars(d, { limit: PAGE, status: 'published' }) },
-    { name: 'wars: status=draft', run: (d) => listAdminWars(d, { limit: PAGE, status: 'draft' }) },
-    { name: 'wars: status=removed', run: (d) => listAdminWars(d, { limit: PAGE, status: 'removed' }) },
-    { name: 'wars: q (common title words)', run: (d) => listAdminWars(d, { limit: PAGE, q: 'pizza war 4' }) },
-    { name: 'wars: q (creator name)', run: (d) => listAdminWars(d, { limit: PAGE, q: 'Novak 1' }) },
-    { name: 'wars: q (rare)', run: (d) => listAdminWars(d, { limit: PAGE, q: 'war 49999' }) },
-    { name: 'wars: cursor (deep)', run: (d) => listAdminWars(d, { limit: PAGE, cursor: wc }) },
-    { name: 'wars: status=published + cursor', run: (d) => listAdminWars(d, { limit: PAGE, status: 'published', cursor: wc }) },
+    { name: 'wars: no filter', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE }) },
+    { name: 'wars: status=published', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE, status: 'published' }) },
+    { name: 'wars: status=closed', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE, status: 'closed' }) },
+    { name: 'wars: status=draft', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE, status: 'draft' }) },
+    { name: 'wars: status=removed', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE, status: 'removed' }) },
+    { name: 'wars: q (common title words)', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE, q: 'pizza war 4' }) },
+    { name: 'wars: q (creator name)', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE, q: 'Novak 1' }) },
+    { name: 'wars: q (rare)', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE, q: 'war 49999' }) },
+    { name: 'wars: cursor (deep)', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE, cursor: wc }) },
+    { name: 'wars: status=published + cursor', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE, status: 'published', cursor: wc }) },
     { name: 'voters: no filter', run: (d) => listAdminVoters(d, { limit: PAGE }) },
     { name: 'voters: status=suspended', run: (d) => listAdminVoters(d, { limit: PAGE, status: 'suspended' }) },
     { name: 'voters: status=banned', run: (d) => listAdminVoters(d, { limit: PAGE, status: 'banned' }) },
@@ -173,7 +174,7 @@ async function buildCases(db: Kysely<Database>): Promise<Case[]> {
     { name: 'voters: q', run: (d) => listAdminVoters(d, { limit: PAGE, q: 'jordan smith' }) },
     { name: 'voters: q (rare)', run: (d) => listAdminVoters(d, { limit: PAGE, q: '19999' }) },
     { name: 'voters: cursor (deep)', run: (d) => listAdminVoters(d, { limit: PAGE, cursor: vc }) },
-    { name: 'voter detail (war_count)', run: (d) => findAdminVoter(d, voterId) },
+    { name: 'voter detail (war_count)', run: (d) => findAdminVoter(d, voterId, new Date()) },
     { name: 'voter votes: first page', run: (d) => listAdminVotes(d, voterId, { limit: PAGE }) },
     { name: 'voter votes: cursor', run: (d) => listAdminVotes(d, voterId, { limit: PAGE, cursor: vvc }) },
     { name: 'moderation log: first page', run: (d) => listModerationLog(d, { limit: PAGE }) },

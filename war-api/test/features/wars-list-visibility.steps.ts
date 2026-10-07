@@ -122,4 +122,91 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(idsOf(response)).not.toContain(closedInviteOnlyWarId);
     });
   });
+
+  async function makeExpiredUnclosedWar(title: string): Promise<string> {
+    const creator = await makeVoter(harness.db, 'creator');
+    const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { title });
+    await publishWarForTest(harness.db, war);
+    await harness.db
+      .updateTable('wars')
+      .set({ ends_at: new Date(Date.now() - 60_000) })
+      .where('id', '=', war.id)
+      .execute();
+    return war.id;
+  }
+
+  Scenario(
+    'A War whose end date has passed is absent from the default listing before the close task runs',
+    ({ Given, And, When, Then }) => {
+      let expiredWarId: string;
+      let response: request.Response;
+
+      Given('a voter has created a public published War whose end date passed a minute ago', async () => {
+        expiredWarId = await makeExpiredUnclosedWar('Expired Unclosed War');
+      });
+
+      And('the close-expired-wars task has not yet run', () => {
+        // No-op: nothing in this scenario calls the internal endpoint.
+      });
+
+      When('anyone GETs /api/v1/wars', async () => {
+        response = await getWars();
+      });
+
+      Then('that War is not returned', () => {
+        expect(response.status).toBe(200);
+        expect(idsOf(response)).not.toContain(expiredWarId);
+      });
+    },
+  );
+
+  Scenario(
+    'A War whose end date has passed is listed as closed before the close task runs',
+    ({ Given, And, When, Then }) => {
+      let expiredWarId: string;
+      let response: request.Response;
+
+      Given('a voter has created a public published War whose end date passed a minute ago', async () => {
+        expiredWarId = await makeExpiredUnclosedWar('Expired Unclosed War');
+      });
+
+      And('the close-expired-wars task has not yet run', () => {
+        // No-op: nothing in this scenario calls the internal endpoint.
+      });
+
+      When('anyone GETs /api/v1/wars?status=closed', async () => {
+        response = await getWars('?status=closed');
+      });
+
+      Then('that War is returned', () => {
+        expect(response.status).toBe(200);
+        expect(idsOf(response)).toContain(expiredWarId);
+      });
+
+      And('that War reports its status as "closed"', () => {
+        const listed = (response.body.wars as { id: string; status: string }[]).find((war) => war.id === expiredWarId);
+        expect(listed?.status).toBe('closed');
+      });
+    },
+  );
+
+  Scenario('A draft War whose end date has passed is never listed publicly', ({ Given, When, Then }) => {
+    let draftWarId: string;
+    let response: request.Response;
+
+    Given('a voter has created a public draft War whose end date passed a minute ago', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      const draft = await makeDraftWar(harness.db, creator.id, { title: 'Expired Draft', endsAt: new Date(Date.now() - 60_000) });
+      draftWarId = draft.id;
+    });
+
+    When('anyone GETs /api/v1/wars?status=closed', async () => {
+      response = await getWars('?status=closed');
+    });
+
+    Then('that draft War is not returned', () => {
+      expect(response.status).toBe(200);
+      expect(idsOf(response)).not.toContain(draftWarId);
+    });
+  });
 });

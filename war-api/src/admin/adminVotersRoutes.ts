@@ -118,7 +118,7 @@ export function registerAdminVotersRoutes(app: FastifyInstance, deps: AdminRoute
       [requireModeratorOrAdmin(db)],
     ),
     async (request, reply) => {
-      const voter = await findAdminVoter(db, request.params.id);
+      const voter = await findAdminVoter(db, request.params.id, new Date());
       if (!voter) {
         return reply.code(404).send({ error: 'not found' });
       }
