@@ -21,6 +21,9 @@ export interface WarSummaryView {
   creator_name: string | null;
 }
 
+/** `wars.category` is `VARCHAR(64)`. */
+export const MAX_CATEGORY_LENGTH = 64;
+
 /**
  * Properties shared by {@link WarSummaryView}'s schema and
  * {@link WarDetailView}'s (which is a `WarSummary` plus `contestants`).
@@ -32,7 +35,7 @@ export interface WarSummaryView {
 export const warSummaryProperties = {
   id: { type: 'string', format: 'uuid' },
   title: { type: ['string', 'null'] },
-  category: { type: ['string', 'null'] },
+  category: { type: ['string', 'null'], maxLength: MAX_CATEGORY_LENGTH },
   status: { type: 'string', enum: ['draft', 'published', 'closed'] },
   visibility: { type: 'string', enum: ['public', 'invite_only'] },
   media_mode: { type: 'string', enum: ['image'] },

@@ -68,3 +68,9 @@ Feature: War Creation
     When they create a War with a contestant_schema and add a contestant with attributes
     Then the created War has no contestant_schema field
     And the created contestant has no attributes field
+
+  Scenario: A category longer than 64 characters is rejected at creation
+    Given an authenticated voter
+    When they POST a title and a 65-character category to /api/v1/wars
+    Then the response status is 422
+    And no War is created

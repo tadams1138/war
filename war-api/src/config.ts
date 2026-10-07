@@ -41,6 +41,14 @@ export interface AppConfig {
     twitter: OAuthClientConfig;
   };
   internalTaskToken: string;
+  /**
+   * How many reverse-proxy hops sit between the internet and this process
+   * (env `TRUST_PROXY_HOPS`). Address-keyed rate limits (war-spec.md §8.4) read
+   * the client address from `X-Forwarded-For` only across this many hops. Unset
+   * means the hop count isn't known yet, so those limits stay off rather than
+   * throttle every client as one address.
+   */
+  trustProxyHops: number | undefined;
   s3: {
     endpoint: string | undefined;
     region: string;
@@ -99,6 +107,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       twitter: oauthClientConfig(env.TWITTER_CLIENT_ID, env.TWITTER_CLIENT_SECRET),
     },
     internalTaskToken: envOr(env.INTERNAL_TASK_TOKEN, DEFAULT_INTERNAL_TASK_TOKEN),
+    trustProxyHops: env.TRUST_PROXY_HOPS === undefined ? undefined : Number(env.TRUST_PROXY_HOPS),
     s3: s3ConfigFrom(env),
   };
 }

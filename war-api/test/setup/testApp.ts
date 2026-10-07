@@ -15,6 +15,8 @@ export function testConfig(): AppConfig {
     INTERNAL_TASK_TOKEN: 'test-internal-token',
     S3_PUBLIC_BASE_URL: 'https://cdn.test',
     PUBLIC_BASE_URL: 'https://api.test',
+    // One trusted hop, so tests can stand in for distinct client addresses with X-Forwarded-For.
+    TRUST_PROXY_HOPS: '1',
   } as NodeJS.ProcessEnv);
 }
 

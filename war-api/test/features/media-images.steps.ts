@@ -235,4 +235,39 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(eleventhResponse.body.details).toContain('a contestant may hold at most 10 images');
     });
   });
+
+  Scenario('Reordering an image requires a display order', ({ Given, When, Then, And }) => {
+    let mediaId: string;
+    let orderBefore: number;
+    let response: request.Response;
+
+    Given('a contestant with two uploaded images', async () => {
+      // Arrange
+      expect((await uploadImage(await smallJpeg(500, 400))).status).toBe(201);
+      const second = await uploadImage(await smallJpeg(500, 400));
+      expect(second.status).toBe(201);
+      mediaId = second.body.id;
+      orderBefore = second.body.display_order;
+    });
+
+    When('the creator PATCHes the second image with no display_order', async () => {
+      // Act
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server)
+        .patch(`/api/v1/wars/${warId}/contestants/${contestantId}/media/${mediaId}`)
+        .set('Authorization', `Bearer ${jwt}`)
+        .send({});
+    });
+
+    Then('the response status is 422', () => {
+      // Assert
+      expect(response.status).toBe(422);
+    });
+
+    And('the second image keeps its display order', async () => {
+      // Assert
+      const row = await harness.db.selectFrom('contestant_media').select('display_order').where('id', '=', mediaId).executeTakeFirstOrThrow();
+      expect(row.display_order).toBe(orderBefore);
+    });
+  });
 });

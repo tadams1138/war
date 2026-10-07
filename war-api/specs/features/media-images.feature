@@ -37,3 +37,9 @@ Feature: Image Processing
     Given a contestant with two uploaded images
     When the creator deletes the first image
     Then only the second image's variants and original remain in storage
+
+  Scenario: Reordering an image requires a display order
+    Given a contestant with two uploaded images
+    When the creator PATCHes the second image with no display_order
+    Then the response status is 422
+    And the second image keeps its display order

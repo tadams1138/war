@@ -37,3 +37,23 @@ Feature: Wars List Sorting and Pagination
     Given two published Wars
     When anyone GETs a first page of /api/v1/wars?sort=newest&limit=1, then reuses its next_cursor against /api/v1/wars?sort=oldest&limit=1
     Then the response status is 400
+
+  Scenario: Paging newest first neither skips nor repeats Wars created within the same millisecond
+    Given three published Wars whose creation times differ by less than a millisecond
+    When anyone pages through /api/v1/wars?limit=1 by following next_cursor until it is null
+    Then the three Wars are returned exactly once each, newest first
+
+  Scenario: Paging oldest first neither skips nor repeats Wars created within the same millisecond
+    Given three published Wars whose creation times differ by less than a millisecond
+    When anyone pages through /api/v1/wars?sort=oldest&limit=1 by following next_cursor until it is null
+    Then the three Wars are returned exactly once each, oldest first
+
+  Scenario: A last page that exactly fills the limit has no next_cursor
+    Given two published Wars
+    When anyone GETs /api/v1/wars?limit=2
+    Then next_cursor is null
+
+  Scenario: A page size outside 1 to 100 is rejected
+    Given a published War
+    When anyone GETs /api/v1/wars with a limit of 0, -5, 101, 1.5 and "many"
+    Then every response status is 400
