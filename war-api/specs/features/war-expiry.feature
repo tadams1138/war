@@ -29,6 +29,13 @@ Feature: War Expiry
     Then zero Wars are modified
     And the response status is 200
 
+  Scenario: The close task is safe to run concurrently
+    Given a published War whose ends_at passed six hours ago
+    When the close-expired-wars task runs twice at the same moment
+    Then both responses have status 200
+    And the War's stored status is "closed"
+    And the two responses together report 1 War closed
+
   Scenario: Internal endpoints reject a missing or wrong token
     When POST /api/v1/internal/close-expired-wars is called without a valid X-Internal-Token
     Then the response status is 401
@@ -38,3 +45,9 @@ Feature: War Expiry
     Given a valid user JWT for any voter
     When POST /api/v1/internal/close-expired-wars is called with that JWT and no internal token
     Then the response status is 401
+
+  Scenario: A draft whose end date passes stays hidden from everyone but its creator
+    Given a draft War whose ends_at passed one minute ago
+    When another Voter GETs /api/v1/wars/:id
+    Then the response status is 404
+    And its creator still sees it, reported as closed

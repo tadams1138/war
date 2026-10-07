@@ -3,6 +3,7 @@ import { sql } from 'kysely';
 import type { Database } from '../db/types.js';
 import { isUuid } from '../db/uuid.js';
 import { createdAtText, decodeKeysetCursor, isAfterCursor, sliceKeysetPage } from '../shared/keysetCursor.js';
+import { effectiveStatus } from '../wars/effectiveStatus.js';
 import { containsPattern } from '../shared/likePattern.js';
 
 export interface AdminVoter {
@@ -106,10 +107,10 @@ export interface AdminVoterDetail extends AdminVoter {
   wars: AdminVoterWar[];
 }
 
-async function listVoterWars(db: Kysely<Database>, voterId: string): Promise<AdminVoterWar[]> {
+async function listVoterWars(db: Kysely<Database>, voterId: string, now: Date): Promise<AdminVoterWar[]> {
   const rows = await db
     .selectFrom('wars')
-    .select(['id', 'title', 'status', 'removed_at'])
+    .select(['id', 'title', 'status', 'ends_at', 'removed_at'])
     .where('creator_id', '=', voterId)
     .orderBy('created_at', 'desc')
     .orderBy('id', 'desc')
@@ -117,15 +118,15 @@ async function listVoterWars(db: Kysely<Database>, voterId: string): Promise<Adm
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
-    status: row.status,
+    status: effectiveStatus({ status: row.status, endsAt: row.ends_at }, now),
     removedAt: row.removed_at ? new Date(row.removed_at) : null,
   }));
 }
 
 /** One Voter by id with every War they created, removed ones included, newest first and unpaged; `undefined` only when no row exists. */
-export async function findAdminVoter(db: Kysely<Database>, id: string): Promise<AdminVoterDetail | undefined> {
+export async function findAdminVoter(db: Kysely<Database>, id: string, now: Date): Promise<AdminVoterDetail | undefined> {
   if (!isUuid(id)) return undefined;
   const row = await baseAdminVotersQuery(db).where('voters.id', '=', id).executeTakeFirst();
   if (!row) return undefined;
-  return { ...toAdminVoter(row), wars: await listVoterWars(db, id) };
+  return { ...toAdminVoter(row), wars: await listVoterWars(db, id, now) };
 }
