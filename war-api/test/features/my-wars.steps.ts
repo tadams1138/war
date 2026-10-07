@@ -206,4 +206,85 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(response.body.message).toEqual(expect.any(String));
     });
   });
+
+  async function expireWar(warId: string): Promise<void> {
+    await harness.db
+      .updateTable('wars')
+      .set({ ends_at: new Date(Date.now() - 60_000) })
+      .where('id', '=', warId)
+      .execute();
+  }
+
+  function statusOf(response: request.Response, warId: string): string | undefined {
+    return (response.body.wars as { id: string; status: string }[]).find((war) => war.id === warId)?.status;
+  }
+
+  Scenario('creator=me filters by effective status before the close task runs', ({ Given, And, When, Then }) => {
+    let creatorId: string;
+    let expiredId: string;
+    let response: request.Response;
+
+    Given('a voter has created a published War whose end date passed a minute ago', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, { title: 'Expired Unclosed' });
+      await publishWarForTest(harness.db, war);
+      await expireWar(war.id);
+      expiredId = war.id;
+    });
+
+    And('the close-expired-wars task has not yet run', () => {
+      // No-op: nothing in this scenario calls the internal endpoint.
+    });
+
+    When('they GET /api/v1/wars?creator=me&status=closed', async () => {
+      response = await getWars('?creator=me&status=closed', creatorId);
+    });
+
+    Then('their expired War is returned as "closed"', () => {
+      expect(response.status).toBe(200);
+      expect(statusOf(response, expiredId)).toBe('closed');
+    });
+
+    When('they GET /api/v1/wars?creator=me&status=published', async () => {
+      response = await getWars('?creator=me&status=published', creatorId);
+    });
+
+    Then('their expired War is not returned', () => {
+      expect(response.status).toBe(200);
+      expect(idsOf(response)).not.toContain(expiredId);
+    });
+  });
+
+  Scenario("A voter's own draft whose end date has passed counts as closed", ({ Given, When, Then }) => {
+    let creatorId: string;
+    let expiredDraftId: string;
+    let response: request.Response;
+
+    Given('a voter has created a draft War whose end date passed a minute ago', async () => {
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      const draft = await makeDraftWar(harness.db, creatorId, { title: 'Expired Draft' });
+      await expireWar(draft.id);
+      expiredDraftId = draft.id;
+    });
+
+    When('they GET /api/v1/wars?creator=me&status=closed', async () => {
+      response = await getWars('?creator=me&status=closed', creatorId);
+    });
+
+    Then('their expired draft War is returned as "closed"', () => {
+      expect(response.status).toBe(200);
+      expect(statusOf(response, expiredDraftId)).toBe('closed');
+    });
+
+    When('they GET /api/v1/wars?creator=me&status=draft', async () => {
+      response = await getWars('?creator=me&status=draft', creatorId);
+    });
+
+    Then('their expired draft War is not returned', () => {
+      expect(response.status).toBe(200);
+      expect(idsOf(response)).not.toContain(expiredDraftId);
+    });
+  });
 });

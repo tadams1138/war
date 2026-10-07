@@ -59,5 +59,7 @@ export async function loadOwnedWar(db: Kysely<Database>, warId: string, voterId:
  * an expired War still succeeds, reporting `status: "closed"`).
  */
 export function isWarVisibleTo(war: War, now: Date, voterId: string | undefined | null): boolean {
-  return effectiveStatus(war, now) !== 'draft' || war.creatorId === voterId;
+  // The stored status, not `effectiveStatus`: a draft whose end date passes reads as closed,
+  // but it was never published, so expiry must not make it public.
+  return war.status !== 'draft' || war.creatorId === voterId;
 }

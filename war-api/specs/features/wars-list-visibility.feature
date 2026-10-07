@@ -14,3 +14,21 @@ Feature: Public Wars List Visibility
     Given a voter has created a closed, invite-only War
     When anyone GETs /api/v1/wars?status=closed
     Then that War is not returned
+
+  Scenario: A War whose end date has passed is absent from the default listing before the close task runs
+    Given a voter has created a public published War whose end date passed a minute ago
+    And the close-expired-wars task has not yet run
+    When anyone GETs /api/v1/wars
+    Then that War is not returned
+
+  Scenario: A War whose end date has passed is listed as closed before the close task runs
+    Given a voter has created a public published War whose end date passed a minute ago
+    And the close-expired-wars task has not yet run
+    When anyone GETs /api/v1/wars?status=closed
+    Then that War is returned
+    And that War reports its status as "closed"
+
+  Scenario: A draft War whose end date has passed is never listed publicly
+    Given a voter has created a public draft War whose end date passed a minute ago
+    When anyone GETs /api/v1/wars?status=closed
+    Then that draft War is not returned
