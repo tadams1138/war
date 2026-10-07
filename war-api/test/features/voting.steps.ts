@@ -7,6 +7,7 @@ import { updateContestant } from '../../src/contestants/contestantsRepository.js
 import { stableHash } from '../../src/matchups/stableHash.js';
 import type { War } from '../../src/wars/warsRepository.js';
 import {
+  closeWarForTest,
   publishWarForTest,
   joinWarAsVoter,
   makeDraftWarWithContestants,
@@ -439,9 +440,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const matchup = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', setup.war.id).executeTakeFirstOrThrow();
       matchupId = matchup.id;
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(setup.war.creatorId!);
-      await request(harness.app.server).post(`/api/v1/wars/${setup.war.id}/close`).set('Authorization', `Bearer ${jwt}`).send();
+      await closeWarForTest(harness.db, setup.war);
     });
 
     When('a voter POSTs a vote', async () => {

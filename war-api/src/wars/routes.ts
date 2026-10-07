@@ -6,6 +6,7 @@ import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
 import { rejectWhileKillSwitchOn, warCreationDisabledResponseSchema } from '../killSwitch/routes.js';
 import { rejectWhileSuspended, suspendedResponseSchema } from '../voterModeration/routes.js';
+import { reportSchemaViolations, rejectInvalidBody } from '../shared/bodyValidation.js';
 import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 import { extensionFor } from '../contestants/imageProcessing.js';
 import type { ObjectStorage } from '../contestants/storage.js';
@@ -14,7 +15,6 @@ import { isWarVisibleTo } from './warAccess.js';
 import { presentWarDetail, presentWarSummary, warDetailResponseSchema, warSummaryProperties } from './warPresenter.js';
 import {
   clearVotes,
-  closeWar,
   createWarForVoter,
   deleteWar,
   getWar,
@@ -67,14 +67,28 @@ function wantsOwnWars(query: { creator?: string }): boolean {
   return query.creator === 'me';
 }
 
-/** `Math.min(Number(raw ?? 20) || 20, 100)`, pulled out purely to keep the `GET /wars` handler's own branch count down. */
-function resolveWarsListLimit(raw: string | undefined): number {
-  return Math.min(Number(raw ?? 20) || 20, 100);
-}
+const DEFAULT_WARS_PAGE_LIMIT = 20;
 
 /** Defaults to `'newest'` (spec) -- ajv's querystring enum already guarantees `raw`, when present, is one of the four valid sort modes. */
 function resolveWarsListSort(raw: string | undefined): WarsSort {
   return (raw as WarsSort | undefined) ?? 'newest';
+}
+
+interface CreateWarBody {
+  title?: string | null;
+  category?: string | null;
+  visibility?: string;
+  media_mode?: string;
+  theme?: string;
+  ends_at?: string | null;
+}
+
+interface PatchWarBody {
+  title?: string;
+  category?: string | null;
+  visibility?: string;
+  theme?: string;
+  ends_at?: string | null;
 }
 
 export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): void {
@@ -85,7 +99,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       status?: string;
       category?: string;
       cursor?: string;
-      limit?: string;
+      limit?: number;
       creator?: string;
       sort?: string;
       q?: string;
@@ -100,7 +114,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
             status: { type: 'string' },
             category: { type: 'string' },
             cursor: { type: 'string' },
-            limit: { type: 'string' },
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: DEFAULT_WARS_PAGE_LIMIT },
             // The only accepted value is the literal "me"; anything else
             // fails Fastify's own ajv validation and returns its standard
             // envelope, never this API's `{ error }` shape.
@@ -137,7 +151,8 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       preHandler: requireAuthIf(auth, (request) => wantsOwnWars(request.query as { creator?: string })),
     },
     async (request, reply) => {
-      const limit = resolveWarsListLimit(request.query.limit);
+      // ajv has already enforced 1-100 and applied the default.
+      const limit = request.query.limit ?? DEFAULT_WARS_PAGE_LIMIT;
       const creatorId = wantsOwnWars(request.query) ? request.voterId : undefined;
       const sort = resolveWarsListSort(request.query.sort);
       const now = new Date();
@@ -167,33 +182,47 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     },
   );
 
-  app.post(
+  app.post<{ Body: CreateWarBody }>(
     '/wars',
-    bearerAuthRoute(
-      auth,
-      {
-        response: {
-          201: { $ref: 'WarSummary#' },
-          422: validationErrorResponseSchema,
-          403: suspendedResponseSchema,
-          429: rateLimitedResponseSchema,
-          503: warCreationDisabledResponseSchema,
+    {
+      ...reportSchemaViolations,
+      ...bearerAuthRoute(
+        auth,
+        {
+          body: {
+            type: 'object',
+            properties: {
+              title: warSummaryProperties.title,
+              category: warSummaryProperties.category,
+              visibility: { type: 'string' },
+              media_mode: { type: 'string' },
+              theme: { type: 'string' },
+              ends_at: { type: ['string', 'null'] },
+            },
+          },
+          response: {
+            201: { $ref: 'WarSummary#' },
+            422: validationErrorResponseSchema,
+            403: suspendedResponseSchema,
+            429: rateLimitedResponseSchema,
+            503: warCreationDisabledResponseSchema,
+          },
         },
-      },
-      // Before the rate limit, so a refused attempt spends none of the budget.
-      // The kill switch (503) is checked first and wins over a suspension (403).
-      [rejectWhileKillSwitchOn(db), rejectWhileSuspended(db), rateLimitByVoter(deps.rateLimiter)],
-    ),
+        // Before the rate limit, so a refused attempt spends none of the budget.
+        // The kill switch (503) is checked first and wins over a suspension (403).
+        [rejectWhileKillSwitchOn(db), rejectWhileSuspended(db), rejectInvalidBody, rateLimitByVoter(deps.rateLimiter)],
+      ),
+    },
     async (request, reply) => {
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const outcome = await createWarForVoter(db, {
         creatorId: request.voterId!,
-        title: body.title as string | null | undefined,
-        category: (body.category as string | null | undefined) ?? null,
-        visibility: body.visibility as string | undefined,
-        mediaMode: body.media_mode as string | undefined,
-        theme: body.theme as string | undefined,
-        endsAt: body.ends_at as string | null | undefined,
+        title: body.title,
+        category: body.category ?? null,
+        visibility: body.visibility,
+        mediaMode: body.media_mode,
+        theme: body.theme,
+        endsAt: body.ends_at,
       });
 
       if (outcome.kind === 'validationError') {
@@ -239,38 +268,45 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     },
   );
 
-  app.patch<{ Params: { id: string } }>(
+  app.patch<{ Params: { id: string }; Body: PatchWarBody }>(
     '/wars/:id',
-    bearerAuthRoute(auth, {
-      body: {
-        type: 'object',
-        properties: {
-          title: warSummaryProperties.title,
-          category: warSummaryProperties.category,
-          visibility: warSummaryProperties.visibility,
-          theme: warSummaryProperties.theme,
-          ends_at: warSummaryProperties.ends_at,
+    {
+      ...reportSchemaViolations,
+      ...bearerAuthRoute(
+        auth,
+        {
+          body: {
+            type: 'object',
+            properties: {
+              title: warSummaryProperties.title,
+              category: warSummaryProperties.category,
+              visibility: warSummaryProperties.visibility,
+              theme: warSummaryProperties.theme,
+              ends_at: warSummaryProperties.ends_at,
+            },
+          },
+          response: {
+            200: { $ref: 'WarSummary#' },
+            403: errorResponseSchema,
+            404: errorResponseSchema,
+            422: validationErrorResponseSchema,
+          },
         },
-      },
-      response: {
-        200: { $ref: 'WarSummary#' },
-        403: errorResponseSchema,
-        404: errorResponseSchema,
-        422: validationErrorResponseSchema,
-      },
-    }),
+        [rejectInvalidBody],
+      ),
+    },
     async (request, reply) => {
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const outcome = await patchWar(
         db,
         request.params.id,
         request.voterId!,
         {
-          title: body.title as string | undefined,
-          category: body.category as string | null | undefined,
-          visibility: body.visibility as string | undefined,
-          theme: body.theme as string | undefined,
-          endsAt: body.ends_at as string | null | undefined,
+          title: body.title,
+          category: body.category,
+          visibility: body.visibility,
+          theme: body.theme,
+          endsAt: body.ends_at,
         },
         new Date(),
       );
@@ -383,20 +419,6 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return replyForOutcome(reply, outcome);
       }
       return reply.send(presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl, null));
-    },
-  );
-
-  app.post<{ Params: { id: string } }>(
-    '/wars/:id/close',
-    bearerAuthRoute(auth),
-    async (request, reply) => {
-      const outcome = await closeWar(db, request.params.id, request.voterId!, new Date());
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send(
-        presentWarSummary(outcome.value, new Date(), await countContestantsForWar(db, outcome.value.id), deps.publicBaseUrl, null),
-      );
     },
   );
 

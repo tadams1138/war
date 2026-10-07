@@ -3,8 +3,8 @@ import sharp from 'sharp';
 import type { Kysely } from 'kysely';
 import type { Database } from '../../src/db/types.js';
 import { findOrCreateVoter, setVoterRole, type Voter } from '../../src/auth/votersRepository.js';
-import { createWar, type War } from '../../src/wars/warsRepository.js';
-import { publishWar, closeWar } from '../../src/wars/warsService.js';
+import { createWar, setWarStatus, type War } from '../../src/wars/warsRepository.js';
+import { publishWar } from '../../src/wars/warsService.js';
 import { createContestant, type Contestant } from '../../src/contestants/contestantsRepository.js';
 import { uploadContestantImage } from '../../src/contestants/imageUploadService.js';
 import { generateMatchupsForNewContestant } from '../../src/matchups/matchupsRepository.js';
@@ -123,11 +123,7 @@ export async function joinWarAsVoter(db: Kysely<Database>, warId: string, voterI
   await createMembership(db, warId, voterId);
 }
 
-/** Closes an already-published War as its creator. Throws if closing is rejected. */
+/** Marks a War closed, as the expiry task does once its end date has passed. */
 export async function closeWarForTest(db: Kysely<Database>, war: War): Promise<War> {
-  const outcome = await closeWar(db, war.id, war.creatorId!, new Date());
-  if (outcome.kind !== 'ok') {
-    throw new Error(`failed to close War in test fixture: ${outcome.kind}`);
-  }
-  return outcome.value;
+  return setWarStatus(db, war.id, 'closed');
 }

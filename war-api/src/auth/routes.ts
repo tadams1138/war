@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { beginLogin, completeCallback, currentVoter, exchangeAuthorizationCode, logout, refresh, type AuthDependencies } from './authService.js';
 import { bearerAuthRoute } from './plugin.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
+import { rateLimitByAddress, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 
 const REFRESH_COOKIE = 'refresh_token';
 const STATE_COOKIE = 'oauth_state';
@@ -36,9 +37,18 @@ const callbackForbiddenResponseSchema = {
   properties: { error: { type: 'string' }, reason: { type: 'string' } },
 };
 
+/** The address-keyed limit as a preHandler list, empty while address limits are off. */
+function addressLimit(limiter: RateLimiter | undefined) {
+  return limiter ? [rateLimitByAddress(limiter)] : [];
+}
+
 export interface AuthRouteConfig {
   uiOrigins: string[];
   apiBaseUrl: string;
+  /** Per-client-address limit on starting sign-in (spec §8.4: 10/minute); absent while address limits are off. */
+  signInRateLimiter?: RateLimiter;
+  /** Per-client-address limit on token refresh (spec §8.4: 30/minute); absent while address limits are off. */
+  tokenRefreshRateLimiter?: RateLimiter;
 }
 
 /** Every provider's callback lives at the same path shape, so the redirect_uri is derived, not configured. */
@@ -127,7 +137,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
     // Success is a bare 302 redirect (no body); the only bodied outcome is
     // an unsupported provider's 404 (spec, discrepancy 2: "confirmed
     // redirect-or-empty-404 only -- no body to schema on that route").
-    { schema: { response: { 404: {} } } },
+    { schema: { response: { 404: {}, 429: rateLimitedResponseSchema } }, preHandler: addressLimit(config.signInRateLimiter) },
     async (request, reply) => {
       const provider = deps.providers.get(request.params.provider);
       if (!provider) {
@@ -203,11 +213,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
   app.post(
     '/auth/refresh',
     {
+      preHandler: addressLimit(config.tokenRefreshRateLimiter),
       schema: {
         response: {
           200: { type: 'object', required: ['token'], properties: { token: { type: 'string' } } },
           401: errorResponseSchema,
           403: errorResponseSchema,
+          429: rateLimitedResponseSchema,
         },
       },
     },

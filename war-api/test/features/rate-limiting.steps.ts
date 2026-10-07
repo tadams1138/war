@@ -6,7 +6,8 @@ import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { countVotesByVoterInWar } from '../../src/matchups/matchupsRepository.js';
 import { findVote } from '../../src/votes/votesRepository.js';
 import { publishWarForTest, makeContestant, makeDraftWar, makeDraftWarWithContestants, makeVoter, joinWarAsVoter } from '../setup/fixtures.js';
-import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
+import { buildApp } from '../../src/app.js';
+import { buildTestHarness, testConfig, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/rate-limiting.feature', import.meta.url)));
@@ -232,6 +233,137 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     And('a Retry-After header is present', () => {
       expect(response.headers['retry-after']).toBeDefined();
+    });
+  });
+
+  // Address-keyed limits read the client address the proxy reports; the test
+  // harness trusts one proxy hop, so X-Forwarded-For stands in for the client.
+  async function startSignIn(address: string) {
+    await harness.app.ready();
+    return request(harness.app.server).get('/api/v1/auth/google/login').set('X-Forwarded-For', address);
+  }
+
+  async function attemptRefresh(address: string) {
+    await harness.app.ready();
+    return request(harness.app.server).post('/api/v1/auth/refresh').set('X-Forwarded-For', address).set('Origin', 'https://app.test');
+  }
+
+  async function repeat(times: number, action: () => Promise<request.Response>): Promise<void> {
+    for (let i = 0; i < times; i += 1) {
+      await action();
+    }
+  }
+
+  Scenario('Starting sign-in beyond the per-address limit is throttled', ({ Given, When, Then, And }) => {
+    let response: request.Response;
+
+    Given('a client address that has started sign-in 10 times within one minute', async () => {
+      // Arrange
+      await repeat(10, () => startSignIn('203.0.113.7'));
+    });
+
+    When('that address starts sign-in again', async () => {
+      // Act
+      response = await startSignIn('203.0.113.7');
+    });
+
+    Then('the response status is 429', () => {
+      // Assert
+      expect(response.status).toBe(429);
+    });
+
+    And('a Retry-After header is present', () => {
+      // Assert
+      expect(response.headers['retry-after']).toBeDefined();
+    });
+  });
+
+  Scenario('The sign-in limit is keyed by client address', ({ Given, When, Then }) => {
+    let response: request.Response;
+
+    Given('a client address that has been throttled on starting sign-in', async () => {
+      // Arrange
+      await repeat(10, () => startSignIn('203.0.113.7'));
+      expect((await startSignIn('203.0.113.7')).status).toBe(429);
+    });
+
+    When('a different client address starts sign-in', async () => {
+      // Act
+      response = await startSignIn('198.51.100.9');
+    });
+
+    Then('the response redirects to the provider', () => {
+      // Assert
+      expect(response.status).toBe(302);
+    });
+  });
+
+  Scenario('Refreshing a token beyond the per-address limit is throttled', ({ Given, When, Then, And }) => {
+    let response: request.Response;
+
+    Given('a client address that has attempted 30 token refreshes within one minute', async () => {
+      // Arrange
+      await repeat(30, () => attemptRefresh('203.0.113.7'));
+    });
+
+    When('that address attempts another refresh', async () => {
+      // Act
+      response = await attemptRefresh('203.0.113.7');
+    });
+
+    Then('the response status is 429', () => {
+      // Assert
+      expect(response.status).toBe(429);
+    });
+
+    And('a Retry-After header is present', () => {
+      // Assert
+      expect(response.headers['retry-after']).toBeDefined();
+    });
+  });
+
+  Scenario('The refresh limit is keyed by client address', ({ Given, When, Then }) => {
+    let response: request.Response;
+
+    Given('a client address that has been throttled on token refresh', async () => {
+      // Arrange
+      await repeat(30, () => attemptRefresh('203.0.113.7'));
+      expect((await attemptRefresh('203.0.113.7')).status).toBe(429);
+    });
+
+    When('a different client address attempts a refresh', async () => {
+      // Act
+      response = await attemptRefresh('198.51.100.9');
+    });
+
+    Then('the response is not throttled', () => {
+      // Assert
+      expect(response.status).not.toBe(429);
+    });
+  });
+
+  Scenario('Address limits stay off until the proxy hop count is configured', ({ Given, When, Then }) => {
+    let app: Awaited<ReturnType<typeof buildApp>>;
+    const statuses: number[] = [];
+
+    Given('the API has no proxy hop count configured', async () => {
+      // Arrange
+      const config = { ...testConfig(), trustProxyHops: undefined };
+      app = await buildApp({ db: harness.db, providers: harness.providers, storage: harness.storage, config });
+      await app.ready();
+    });
+
+    When('one client address starts sign-in 11 times within one minute', async () => {
+      // Act
+      for (let i = 0; i < 11; i += 1) {
+        statuses.push((await request(app.server).get('/api/v1/auth/google/login')).status);
+      }
+    });
+
+    Then('every attempt redirects to the provider', async () => {
+      // Assert
+      expect(statuses).toEqual(Array(11).fill(302));
+      await app.close();
     });
   });
 });

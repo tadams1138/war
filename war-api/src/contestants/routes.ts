@@ -4,6 +4,7 @@ import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
+import { reportSchemaViolations, rejectInvalidBody } from '../shared/bodyValidation.js';
 import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 import type { ObjectStorage } from './storage.js';
 import { addContestant, patchContestant, removeContestant } from './contestantsService.js';
@@ -60,25 +61,40 @@ const imageUploadErrorResponseSchema = {
 export function registerContestantsRoutes(app: FastifyInstance, deps: ContestantsRouteDeps): void {
   const { db, auth } = deps;
 
-  app.post<{ Params: { id: string } }>(
+  app.post<{ Params: { id: string }; Body: { name: string; bio?: string | null } }>(
     '/wars/:id/contestants',
-    bearerAuthRoute(auth, {
-      response: {
-        201: { $ref: 'ContestantDetail#' },
-        403: errorResponseSchema,
-        404: errorResponseSchema,
-        422: validationErrorResponseSchema,
-      },
-    }),
+    {
+      ...reportSchemaViolations,
+      ...bearerAuthRoute(
+        auth,
+        {
+          body: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+              name: { type: 'string' },
+              bio: { type: ['string', 'null'] },
+            },
+          },
+          response: {
+            201: { $ref: 'ContestantDetail#' },
+            403: errorResponseSchema,
+            404: errorResponseSchema,
+            422: validationErrorResponseSchema,
+          },
+        },
+        [rejectInvalidBody],
+      ),
+    },
     async (request, reply) => {
-      const body = request.body as Record<string, unknown>;
+      const { name, bio } = request.body;
       const outcome = await addContestant(
         db,
         {
           warId: request.params.id,
           voterId: request.voterId!,
-          name: body.name as string,
-          bio: body.bio as string | null | undefined,
+          name,
+          bio,
         },
         new Date(),
       );
@@ -192,28 +208,37 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     },
   );
 
-  app.patch<{ Params: { id: string; cId: string; mId: string } }>(
+  app.patch<{ Params: { id: string; cId: string; mId: string }; Body: { display_order: number } }>(
     '/wars/:id/contestants/:cId/media/:mId',
-    bearerAuthRoute(auth, {
-      body: {
-        type: 'object',
-        properties: { display_order: { type: 'integer' } },
-      },
-      response: {
-        204: {},
-        403: errorResponseSchema,
-        404: errorResponseSchema,
-      },
-    }),
+    {
+      ...reportSchemaViolations,
+      ...bearerAuthRoute(
+        auth,
+        {
+          body: {
+            type: 'object',
+            required: ['display_order'],
+            properties: { display_order: { type: 'integer' } },
+          },
+          response: {
+            204: {},
+            403: errorResponseSchema,
+            404: errorResponseSchema,
+            422: validationErrorResponseSchema,
+          },
+        },
+        [rejectInvalidBody],
+      ),
+    },
     async (request, reply) => {
-      const body = request.body as { display_order?: number };
+      const body = request.body;
       const outcome = await reorderContestantMedia(
         db,
         request.params.id,
         request.params.cId,
         request.params.mId,
         request.voterId!,
-        body.display_order ?? 0,
+        body.display_order,
         new Date(),
       );
       if (outcome.kind !== 'ok') {

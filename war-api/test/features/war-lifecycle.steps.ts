@@ -348,6 +348,42 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario('A War cannot be closed by hand', ({ Given, When, Then, And }) => {
+    let warId: string;
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('a published War', async () => {
+      // Arrange
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
+      const published = await publishWarForTest(harness.db, war);
+      warId = published.id;
+    });
+
+    When('the creator POSTs to /api/v1/wars/:id/close', async () => {
+      // Act
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server)
+        .post(`/api/v1/wars/${warId}/close`)
+        .set('Authorization', `Bearer ${jwt}`)
+        .send();
+    });
+
+    Then('the response status is 404', () => {
+      // Assert
+      expect(response.status).toBe(404);
+    });
+
+    And('the War remains "published"', async () => {
+      // Assert
+      const war = await findWarById(harness.db, warId);
+      expect(war?.status).toBe('published');
+    });
+  });
+
   Scenario('A War remains editable after publishing', ({ Given, When, Then }) => {
     let warId: string;
     let creatorId: string;
@@ -372,6 +408,35 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('the response status is 200', () => {
       expect(response.status).toBe(200);
+    });
+  });
+
+  Scenario('A category longer than 64 characters is rejected on edit', ({ Given, When, Then }) => {
+    let warId: string;
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('a War in "draft" status', async () => {
+      // Arrange
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      const war = await makeDraftWar(harness.db, creatorId);
+      warId = war.id;
+    });
+
+    When('the creator PATCHes the category to 65 characters', async () => {
+      // Act
+      await harness.app.ready();
+      const jwt = await harness.jwtFor(creatorId);
+      response = await request(harness.app.server)
+        .patch(`/api/v1/wars/${warId}`)
+        .set('Authorization', `Bearer ${jwt}`)
+        .send({ category: 'c'.repeat(65) });
+    });
+
+    Then('the response status is 422', () => {
+      // Assert
+      expect(response.status).toBe(422);
     });
   });
 

@@ -67,6 +67,16 @@ export const rateLimitedResponseSchema = {
 };
 
 /**
+ * A Fastify preHandler enforcing `limiter` keyed by the client address
+ * (`request.ip`, which honours `trustProxyHops` -- see `config.ts`) for the
+ * limits that apply before any identity exists: sign-in start and token
+ * refresh (spec §8.4). Replies exactly as {@link rateLimitByVoter} does.
+ */
+export function rateLimitByAddress(limiter: RateLimiter) {
+  return enforce(limiter, (request) => request.ip);
+}
+
+/**
  * A Fastify preHandler enforcing `limiter` keyed by `request.voterId`
  * (spec §8.4's per-identity limits) -- must run after the preHandler
  * that populates it (`requireAuth`). Replies 429 with a `Retry-After`
@@ -75,8 +85,12 @@ export const rateLimitedResponseSchema = {
  * to honour, not built here).
  */
 export function rateLimitByVoter(limiter: RateLimiter) {
+  return enforce(limiter, (request) => request.voterId!);
+}
+
+function enforce(limiter: RateLimiter, keyOf: (request: FastifyRequest) => string) {
   return async function preHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    const result = limiter.attempt(request.voterId!, new Date());
+    const result = limiter.attempt(keyOf(request), new Date());
     if (!result.allowed) {
       await reply
         .code(429)

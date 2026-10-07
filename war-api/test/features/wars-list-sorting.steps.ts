@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import request from 'supertest';
+import { sql } from 'kysely';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { makeVoter, makeDraftWarWithContestants, publishWarForTest } from '../setup/fixtures.js';
@@ -223,6 +224,114 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('the response status is 400', () => {
       expect(response.status).toBe(400);
+    });
+  });
+
+  /** Publishes three Wars and pins their creation times 100 microseconds apart, inside one millisecond. Returns ids oldest-first. */
+  async function publishThreeWarsWithinOneMillisecond(): Promise<string[]> {
+    const wars = [
+      await publishWarWithOptions('creator-us-1', { title: 'Micro One' }),
+      await publishWarWithOptions('creator-us-2', { title: 'Micro Two' }),
+      await publishWarWithOptions('creator-us-3', { title: 'Micro Three' }),
+    ];
+    for (const [i, war] of wars.entries()) {
+      const microseconds = 100 * (i + 1);
+      await sql`update wars set created_at = '2026-01-01T00:00:00Z'::timestamptz + ${microseconds} * interval '1 microsecond' where id = ${war.id}::uuid`.execute(harness.db);
+    }
+    return wars.map((war) => war.id);
+  }
+
+  async function collectIdsByPaging(baseQuery: string): Promise<string[]> {
+    const ids: string[] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < 10; i += 1) {
+      const page: request.Response = await getWars(cursor ? `${baseQuery}&cursor=${encodeURIComponent(cursor)}` : baseQuery);
+      expect(page.status).toBe(200);
+      ids.push(...(page.body.wars as { id: string }[]).map((war) => war.id));
+      cursor = page.body.next_cursor;
+      if (!cursor) break;
+    }
+    return ids;
+  }
+
+  Scenario('Paging newest first neither skips nor repeats Wars created within the same millisecond', ({ Given, When, Then }) => {
+    let idsOldestFirst: string[];
+    let paged: string[];
+
+    Given('three published Wars whose creation times differ by less than a millisecond', async () => {
+      // Arrange
+      idsOldestFirst = await publishThreeWarsWithinOneMillisecond();
+    });
+
+    When('anyone pages through /api/v1/wars?limit=1 by following next_cursor until it is null', async () => {
+      // Act
+      paged = await collectIdsByPaging('?limit=1');
+    });
+
+    Then('the three Wars are returned exactly once each, newest first', () => {
+      // Assert
+      expect(paged).toEqual([...idsOldestFirst].reverse());
+    });
+  });
+
+  Scenario('Paging oldest first neither skips nor repeats Wars created within the same millisecond', ({ Given, When, Then }) => {
+    let idsOldestFirst: string[];
+    let paged: string[];
+
+    Given('three published Wars whose creation times differ by less than a millisecond', async () => {
+      // Arrange
+      idsOldestFirst = await publishThreeWarsWithinOneMillisecond();
+    });
+
+    When('anyone pages through /api/v1/wars?sort=oldest&limit=1 by following next_cursor until it is null', async () => {
+      // Act
+      paged = await collectIdsByPaging('?sort=oldest&limit=1');
+    });
+
+    Then('the three Wars are returned exactly once each, oldest first', () => {
+      // Assert
+      expect(paged).toEqual(idsOldestFirst);
+    });
+  });
+
+  Scenario('A last page that exactly fills the limit has no next_cursor', ({ Given, When, Then }) => {
+    let response: request.Response;
+
+    Given('two published Wars', async () => {
+      // Arrange
+      await publishWarWithOptions('creator-1', { title: 'War One' });
+      await publishWarWithOptions('creator-2', { title: 'War Two' });
+    });
+
+    When('anyone GETs /api/v1/wars?limit=2', async () => {
+      // Act
+      response = await getWars('?limit=2');
+    });
+
+    Then('next_cursor is null', () => {
+      // Assert
+      expect(response.body.wars).toHaveLength(2);
+      expect(response.body.next_cursor).toBeNull();
+    });
+  });
+
+  Scenario('A page size outside 1 to 100 is rejected', ({ Given, When, Then }) => {
+    let statuses: number[];
+
+    Given('a published War', async () => {
+      // Arrange
+      await publishWarWithOptions('creator-1', { title: 'Some War' });
+    });
+
+    When('anyone GETs /api/v1/wars with a limit of 0, -5, 101, 1.5 and "many"', async () => {
+      // Act
+      const responses = await Promise.all(['0', '-5', '101', '1.5', 'many'].map((limit) => getWars(`?limit=${limit}`)));
+      statuses = responses.map((response) => response.status);
+    });
+
+    Then('every response status is 400', () => {
+      // Assert
+      expect(statuses).toEqual([400, 400, 400, 400, 400]);
     });
   });
 });

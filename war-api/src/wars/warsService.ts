@@ -5,10 +5,10 @@ import { listContestantsByWar, recomputeContestantCounters } from '../contestant
 import { validateImageUpload } from '../contestants/imageProcessing.js';
 import type { ObjectStorage } from '../contestants/storage.js';
 import { deleteVotesForWar } from '../votes/votesRepository.js';
-import type { Forbidden, MutationOutcome, NotFound, NotPublished } from '../shared/outcomes.js';
+import type { MutationOutcome, NotFound, NotPublished } from '../shared/outcomes.js';
 import { effectiveStatus } from './effectiveStatus.js';
 import { processShareImage } from './shareImageProcessing.js';
-import { loadOwnedWar, loadWarOwnedBy } from './warAccess.js';
+import { loadOwnedWar } from './warAccess.js';
 import { deleteMediaObjects, mediaPrefixes } from './warMediaStorage.js';
 import { isWarTheme } from './theme.js';
 import {
@@ -315,17 +315,6 @@ export async function setShareImage(
 
   const updated = await setWarShareImageKey(db, input.warId, key);
   return { kind: 'ok', value: updated };
-}
-
-export type CloseOutcome = MutationOutcome<War, NotFound | Forbidden | NotPublished>;
-
-export async function closeWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<CloseOutcome> {
-  const guard = await loadWarOwnedBy(db, warId, voterId, now, 'published');
-  if (guard.kind === 'wrongStatus') return { kind: 'notPublished' };
-  if (guard.kind !== 'ok') return guard;
-
-  const closed = await setWarStatus(db, warId, 'closed');
-  return { kind: 'ok', value: closed };
 }
 
 export type JoinOutcome = MutationOutcome<void, NotFound | NotPublished>;

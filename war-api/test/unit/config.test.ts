@@ -177,3 +177,27 @@ describe('assertProductionConfig', () => {
     expect(config.uiOrigins).toEqual(['https://staging.war.tmad.dev']);
   });
 });
+
+describe('loadConfig trustProxyHops', () => {
+  it('leaves the proxy hop count unset by default, which turns address-keyed rate limits off', () => {
+    // Arrange
+    const env = {} as NodeJS.ProcessEnv;
+
+    // Act
+    const config = loadConfig(env);
+
+    // Assert
+    expect(config.trustProxyHops).toBeUndefined();
+  });
+
+  it('reads the number of reverse-proxy hops from TRUST_PROXY_HOPS', () => {
+    // Arrange
+    const env = { TRUST_PROXY_HOPS: '2' } as NodeJS.ProcessEnv;
+
+    // Act
+    const config = loadConfig(env);
+
+    // Assert
+    expect(config.trustProxyHops).toBe(2);
+  });
+});

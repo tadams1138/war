@@ -307,4 +307,32 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(contestantResponse.body).not.toHaveProperty('attributes');
     });
   });
+
+  Scenario('A category longer than 64 characters is rejected at creation', ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('an authenticated voter', async () => {
+      // Arrange
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+    });
+
+    When('they POST a title and a 65-character category to /api/v1/wars', async () => {
+      // Act
+      response = await authedPost(creatorId, '/api/v1/wars', { title: 'Some War', category: 'c'.repeat(65) });
+    });
+
+    Then('the response status is 422', () => {
+      // Assert
+      expect(response.status).toBe(422);
+      expect(response.body.error).toBe('validation error');
+    });
+
+    And('no War is created', async () => {
+      // Assert
+      const rows = await harness.db.selectFrom('wars').selectAll().where('creator_id', '=', creatorId).execute();
+      expect(rows).toHaveLength(0);
+    });
+  });
 });

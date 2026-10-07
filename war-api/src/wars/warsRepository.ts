@@ -1,7 +1,8 @@
 import type { Kysely, Selectable } from 'kysely';
 import { sql } from 'kysely';
 import type { Database, WarsTable } from '../db/types.js';
-import { newId } from '../db/uuid.js';
+import { isUuid, newId } from '../db/uuid.js';
+import { createdAtText } from '../shared/keysetCursor.js';
 import { containsPattern } from '../shared/likePattern.js';
 import { hasEffectiveStatus } from './effectiveStatusSql.js';
 import { deleteReportsForWar } from '../reports/reportsRepository.js';
@@ -115,7 +116,8 @@ export type ListWarsOutcome =
   | { kind: 'invalidCursor' };
 
 type WarRow = Selectable<WarsTable>;
-type WarRowWithCreatorName = WarRow & { creator_name: string | null };
+/** Carries the sort keys as the database's own microsecond-precision UTC text, so a cursor never truncates them to a JS Date's milliseconds. */
+type WarRowWithCreatorName = WarRow & { creator_name: string | null; created_at_text: string; ends_at_text: string | null };
 
 function toWarWithCreatorName(row: WarRowWithCreatorName): WarWithCreatorName {
   return { ...toWar(row), creatorName: row.creator_name };
@@ -138,6 +140,8 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
     .leftJoin('voters', 'voters.id', 'wars.creator_id')
     .selectAll('wars')
     .select((eb) => eb.ref('voters.display_name').as('creator_name'))
+    .select(createdAtText('wars.created_at').as('created_at_text'))
+    .select(createdAtText('wars.ends_at').as('ends_at_text'))
     .where('wars.removed_at', 'is', null);
 
   if (filter.creatorId) {
@@ -254,12 +258,6 @@ const CURSOR_APPLIERS: Record<WarsSort, (query: WarsQuery, cursor: Cursor) => Wa
   expiring_soonest: cursorExpiringSoonest,
 };
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isValidCursorId(id: unknown): id is string {
-  return typeof id === 'string' && UUID_PATTERN.test(id);
-}
-
 function isValidTimestamp(value: string): boolean {
   return !Number.isNaN(new Date(value).getTime());
 }
@@ -277,7 +275,7 @@ function isCursorRecord(value: unknown): value is Record<string, unknown> {
 
 function hasValidCursorFields(value: Record<string, unknown>, sort: WarsSort): boolean {
   if (value.sort !== sort) return false;
-  if (!isValidCursorId(value.id)) return false;
+  if (!isUuid(value.id)) return false;
   if (typeof value.isNull !== 'boolean') return false;
   return isValidCursorValue(sort, value.v);
 }
@@ -304,27 +302,27 @@ function decodeCursor(raw: string, sort: WarsSort): DecodedCursor {
   }
 }
 
-function cursorValueFor(sort: WarsSort, row: WarRow): { v: string | null; isNull: boolean } {
+function cursorValueFor(sort: WarsSort, row: WarRowWithCreatorName): { v: string | null; isNull: boolean } {
   if (sort === 'newest' || sort === 'oldest') {
-    return { v: row.created_at.toISOString(), isNull: false };
+    return { v: row.created_at_text, isNull: false };
   }
   if (sort === 'alphabetical') {
     return { v: row.title, isNull: row.title === null };
   }
-  return { v: row.ends_at ? row.ends_at.toISOString() : null, isNull: row.ends_at === null };
+  return { v: row.ends_at_text, isNull: row.ends_at_text === null };
 }
 
-function encodeCursor(sort: WarsSort, row: WarRow): string {
+function encodeCursor(sort: WarsSort, row: WarRowWithCreatorName): string {
   const { v, isNull } = cursorValueFor(sort, row);
   const cursor: Cursor = { sort, v, isNull, id: row.id };
   return Buffer.from(JSON.stringify(cursor)).toString('base64');
 }
 
-/** `null` once a page comes back short (fewer than `limit` rows) -- there is nothing more to fetch. */
-function nextCursorFor(sort: WarsSort, rows: WarRowWithCreatorName[], limit: number): string | null {
-  if (rows.length !== limit) return null;
-  const lastRow = rows[rows.length - 1];
-  return lastRow ? encodeCursor(sort, lastRow) : null;
+/** Fetching `limit + 1` rows is how "more exist" is known: a cursor is emitted only when the extra row came back, and it anchors on the last row of the page proper. */
+function pageOf(sort: WarsSort, rows: WarRowWithCreatorName[], limit: number): { page: WarRowWithCreatorName[]; nextCursor: string | null } {
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return { page, nextCursor: rows.length > limit && last ? encodeCursor(sort, last) : null };
 }
 
 export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Promise<ListWarsOutcome> {
@@ -345,8 +343,9 @@ export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Pr
     query = CURSOR_APPLIERS[sort](query, decoded.cursor);
   }
 
-  const rows = await query.limit(filter.limit).execute();
-  return { kind: 'ok', wars: rows.map(toWarWithCreatorName), nextCursor: nextCursorFor(sort, rows, filter.limit) };
+  const rows = await query.limit(filter.limit + 1).execute();
+  const { page, nextCursor } = pageOf(sort, rows, filter.limit);
+  return { kind: 'ok', wars: page.map(toWarWithCreatorName), nextCursor };
 }
 
 export interface WarPatch {

@@ -28,3 +28,30 @@ Feature: Rate Limiting
     When they upload another image
     Then the response status is 429
     And a Retry-After header is present
+
+  Scenario: Starting sign-in beyond the per-address limit is throttled
+    Given a client address that has started sign-in 10 times within one minute
+    When that address starts sign-in again
+    Then the response status is 429
+    And a Retry-After header is present
+
+  Scenario: The sign-in limit is keyed by client address
+    Given a client address that has been throttled on starting sign-in
+    When a different client address starts sign-in
+    Then the response redirects to the provider
+
+  Scenario: Refreshing a token beyond the per-address limit is throttled
+    Given a client address that has attempted 30 token refreshes within one minute
+    When that address attempts another refresh
+    Then the response status is 429
+    And a Retry-After header is present
+
+  Scenario: The refresh limit is keyed by client address
+    Given a client address that has been throttled on token refresh
+    When a different client address attempts a refresh
+    Then the response is not throttled
+
+  Scenario: Address limits stay off until the proxy hop count is configured
+    Given the API has no proxy hop count configured
+    When one client address starts sign-in 11 times within one minute
+    Then every attempt redirects to the provider

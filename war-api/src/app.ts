@@ -44,7 +44,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // whether a request had even reached this process. `req`'s url is
   // redacted because the auth callback route's query string carries a
   // provider's one-time OAuth code/state.
-  const app = Fastify({ logger: { level: 'info', serializers: { req: redactedRequestSerializer } } });
+  // `trustProxy` is the reverse-proxy hop count (config.trustProxyHops): it decides which
+  // `X-Forwarded-For` entry `request.ip` reports, which the address-keyed rate limits rely on.
+  const app = Fastify({
+    logger: { level: 'info', serializers: { req: redactedRequestSerializer } },
+    trustProxy: deps.config.trustProxyHops ?? 0,
+  });
 
   await app.register(cookie);
   await app.register(cors, { origin: deps.config.uiOrigins, credentials: true });
@@ -74,6 +79,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   ]);
   const warCreationRateLimiter = new RateLimiter([{ windowMs: 3_600_000, max: 10 }]);
   const imageUploadRateLimiter = new RateLimiter([{ windowMs: 3_600_000, max: 100 }]);
+  // Per-client-address limits for the endpoints that run before a voter is identified (spec §8.4).
+  // Off until the proxy hop count is configured: without it every client shares one address.
+  const addressLimited = deps.config.trustProxyHops !== undefined;
+  const signInRateLimiter = addressLimited ? new RateLimiter([{ windowMs: 60_000, max: 10 }]) : undefined;
+  const tokenRefreshRateLimiter = addressLimited ? new RateLimiter([{ windowMs: 60_000, max: 30 }]) : undefined;
 
   await app.register(
     async (instance) => {
@@ -81,6 +91,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       registerAuthRoutes(instance, authDeps, {
         uiOrigins: deps.config.uiOrigins,
         apiBaseUrl: deps.config.apiBaseUrl,
+        signInRateLimiter,
+        tokenRefreshRateLimiter,
       });
       registerWarsRoutes(instance, {
         db: deps.db,
