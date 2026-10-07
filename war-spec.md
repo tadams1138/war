@@ -105,10 +105,15 @@ freely reversed by unpublishing (§6.1). Closing ends voting for good; rankings 
 
 **Effective status.** An end date is enforced *lazily, on every read and write*. A War is
 treated as closed the instant its end date passes, regardless of its stored status. A vote
-cast one second later is rejected, and the War reports itself as closed. A scheduled task
-converges the stored value so list queries can filter on an indexed column, but correctness
-never depends on that task having run — a missed run degrades query efficiency and reporting
-freshness only.
+cast one second later is rejected, and the War reports itself as closed. Every list and
+filter agrees, Staff views included. A War past its end date is listed under closed and never
+under published, whether or not its stored status has caught up. A scheduled task converges
+the stored value, but correctness never depends on that task having run. A missed run
+degrades query efficiency and reporting freshness only. The task is safe to run repeatedly
+and concurrently. Each expired War is closed exactly once.
+
+Expiry never publishes anything. A draft whose end date passes reads as closed to its creator
+and to Staff. It stays invisible to everyone else, and it never appears in any public list.
 
 ### Contestant
 

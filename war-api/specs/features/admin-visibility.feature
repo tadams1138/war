@@ -182,3 +182,26 @@ Feature: Admin visibility
     And a Moderator
     When the Moderator GETs all 5 admin endpoints
     Then the moderation log is empty
+
+  Scenario: The admin Wars report and filter by effective status before the close task runs
+    Given a Voter who created a published War whose end date passed a minute ago
+    And the close-expired-wars task has not yet run
+    And a Moderator
+    When the Moderator GETs the admin Wars with status closed
+    Then the response lists that War with status "closed"
+    When the Moderator GETs the admin Wars with status published
+    Then the response does not list that War
+
+  Scenario: The admin War detail reports effective status before the close task runs
+    Given a Voter who created a published War whose end date passed a minute ago
+    And the close-expired-wars task has not yet run
+    And a Moderator
+    When the Moderator GETs that War from the admin endpoint
+    Then the response shows that War with status "closed"
+
+  Scenario: The admin Voter detail reports each War's effective status before the close task runs
+    Given a Voter who created a published War whose end date passed a minute ago
+    And the close-expired-wars task has not yet run
+    And a Moderator
+    When the Moderator GETs that Voter from the admin endpoint
+    Then the response lists that War with status "closed"

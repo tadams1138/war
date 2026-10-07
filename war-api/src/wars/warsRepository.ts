@@ -3,6 +3,7 @@ import { sql } from 'kysely';
 import type { Database, WarsTable } from '../db/types.js';
 import { newId } from '../db/uuid.js';
 import { containsPattern } from '../shared/likePattern.js';
+import { hasEffectiveStatus } from './effectiveStatusSql.js';
 import { deleteReportsForWar } from '../reports/reportsRepository.js';
 
 export interface War {
@@ -88,6 +89,8 @@ export interface ListWarsFilter {
   category?: string;
   cursor?: string;
   limit: number;
+  /** The instant status filters are evaluated at -- a War ending at or before it is closed (spec §4, "Effective status"). */
+  now: Date;
   /**
    * Scopes the list to Wars created by this voter, across every status --
    * including their own drafts and invite-only Wars (war-spec.md §6.1).
@@ -139,7 +142,7 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
 
   if (filter.creatorId) {
     const ownScoped = query.where('wars.creator_id', '=', filter.creatorId);
-    return filter.status ? ownScoped.where('wars.status', '=', filter.status) : ownScoped;
+    return filter.status ? ownScoped.where(hasEffectiveStatus(filter.status, filter.now)) : ownScoped;
   }
   // Default visibility/status scoping, applied whenever `creatorId` is
   // absent (spec, "Default scoping (no `creator=me`)"): never a
@@ -151,7 +154,7 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
   // `listWars` inherits it, so a future caller cannot bypass it by
   // forgetting to ask.
   return query
-    .where('wars.status', '=', filter.status ?? 'published')
+    .where(hasEffectiveStatus(filter.status ?? 'published', filter.now))
     .where('wars.status', '!=', 'draft')
     .where('wars.visibility', '!=', 'invite_only');
 }

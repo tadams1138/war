@@ -28,12 +28,13 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     return request(harness.app.server).get(`/api/v1${path}`).query(query).set('Authorization', `Bearer ${jwt}`);
   }
 
-  async function setWarColumns(warId: string, columns: { status?: string; removed?: boolean }): Promise<void> {
+  async function setWarColumns(warId: string, columns: { status?: string; removed?: boolean; endsAt?: Date }): Promise<void> {
     await harness.db
       .updateTable('wars')
       .set({
         ...(columns.status ? { status: columns.status } : {}),
         ...(columns.removed ? { removed_at: sql<Date>`now()` } : {}),
+        ...(columns.endsAt ? { ends_at: columns.endsAt } : {}),
       })
       .where('id', '=', warId)
       .execute();
@@ -65,6 +66,14 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     await addReport(closed.id, creatorId, false);
     await addReport(closed.id, creatorId, true);
     return { creatorId, warIds: { draft: draft.id, invite: invite.id, closed: closed.id, removed: removed.id } };
+  }
+
+  /** A published War whose end date passed a minute ago and which the close task has not touched, so its stored status still says published. */
+  async function seedExpiredUnclosedWar(): Promise<{ creatorId: string; warId: string }> {
+    const creatorId = (await makeVoter(harness.db, 'alice')).id;
+    const war = await makeDraftWar(harness.db, creatorId, { title: 'Expired War' });
+    await setWarColumns(war.id, { status: 'published', endsAt: new Date(Date.now() - 60_000) });
+    return { creatorId, warId: war.id };
   }
 
   Scenario('A Moderator lists every War whatever its status',({ Given, And, When, Then }) => {
@@ -882,6 +891,110 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     Then('the moderation log is empty', async () => {
       // Assert
       expect(await harness.db.selectFrom('moderation_log').selectAll().execute()).toHaveLength(0);
+    });
+  });
+
+  Scenario('The admin Wars report and filter by effective status before the close task runs', ({ Given, And, When, Then }) => {
+    let warId: string;
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('a Voter who created a published War whose end date passed a minute ago', async () => {
+      // Arrange
+      ({ warId } = await seedExpiredUnclosedWar());
+    });
+
+    And('the close-expired-wars task has not yet run', () => {
+      // No-op: nothing in this scenario calls the internal endpoint.
+    });
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs the admin Wars with status closed', async () => {
+      // Act
+      response = await getAs(moderatorId, '/admin/wars', { status: 'closed' });
+    });
+
+    Then('the response lists that War with status "closed"', () => {
+      // Assert
+      expect(response.status).toBe(200);
+      const wars = response.body.wars as Item[];
+      expect(wars.map((war) => [war.id, war.status])).toEqual([[warId, 'closed']]);
+    });
+
+    When('the Moderator GETs the admin Wars with status published', async () => {
+      // Act
+      response = await getAs(moderatorId, '/admin/wars', { status: 'published' });
+    });
+
+    Then('the response does not list that War', () => {
+      // Assert
+      expect(response.status).toBe(200);
+      expect((response.body.wars as Item[]).map((war) => war.id)).not.toContain(warId);
+    });
+  });
+
+  Scenario('The admin War detail reports effective status before the close task runs', ({ Given, And, When, Then }) => {
+    let warId: string;
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('a Voter who created a published War whose end date passed a minute ago', async () => {
+      // Arrange
+      ({ warId } = await seedExpiredUnclosedWar());
+    });
+
+    And('the close-expired-wars task has not yet run', () => {
+      // No-op: nothing in this scenario calls the internal endpoint.
+    });
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs that War from the admin endpoint', async () => {
+      // Act
+      response = await getAs(moderatorId, `/admin/wars/${warId}`);
+    });
+
+    Then('the response shows that War with status "closed"', () => {
+      // Assert
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({ id: warId, status: 'closed' });
+    });
+  });
+
+  Scenario("The admin Voter detail reports each War's effective status before the close task runs", ({ Given, And, When, Then }) => {
+    let creatorId: string;
+    let warId: string;
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('a Voter who created a published War whose end date passed a minute ago', async () => {
+      // Arrange
+      ({ creatorId, warId } = await seedExpiredUnclosedWar());
+    });
+
+    And('the close-expired-wars task has not yet run', () => {
+      // No-op: nothing in this scenario calls the internal endpoint.
+    });
+
+    And('a Moderator', async () => {
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator GETs that Voter from the admin endpoint', async () => {
+      // Act
+      response = await getAs(moderatorId, `/admin/voters/${creatorId}`);
+    });
+
+    Then('the response lists that War with status "closed"', () => {
+      // Assert
+      expect(response.status).toBe(200);
+      const wars = response.body.wars as Item[];
+      expect(wars.map((war) => [war.id, war.status])).toEqual([[warId, 'closed']]);
     });
   });
 });
