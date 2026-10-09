@@ -6,12 +6,12 @@
 // suite instead (browse-wars.spec.ts, my-wars.spec.ts).
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import * as client from '../api/client'
-import { buildWarSummary } from '../mocks/fixtures'
-import { useWarListPage } from './useWarListPage'
+import * as client from '../../api/client'
+import { buildWarSummary } from '../../mocks/fixtures'
+import { useWarListPage } from '../useWarListPage'
 
-vi.mock('../api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api/client')>()
+vi.mock('../../api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../api/client')>()
   return { ...actual, getWars: vi.fn() }
 })
 

@@ -3,44 +3,40 @@
 // alongside Publish/Unpublish and Clear Votes. Two-pane layout: a left nav
 // list (Metadata, each contestant, Add contestant) selects what the right
 // pane shows — only one section renders at a time, Metadata by default.
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { buildContestant, buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
-import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
+import { API, getCallLog, useScenario, waitForCallLog } from './support/mocking'
+import { ok, reply } from './support/recipes'
+import { gotoEditPage } from './support/pages'
 
 const WAR_ID = 'war-edit-1'
 
-async function gotoEditPage(page: import('@playwright/test').Page) {
-  await page.goto('/')
-  await loginAsTestVoter(page)
-  await navigateAuthenticated(page, `/wars/${WAR_ID}/edit`)
-}
-
-async function selectContestant(page: import('@playwright/test').Page, name: string) {
+async function selectContestant(page: Page, name: string) {
   await page.getByTestId('edit-war-nav-contestant').filter({ hasText: name }).click()
 }
 
 test('Metadata is shown by default', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
 
   // Act
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Assert
   await expect(page.getByTestId('edit-war-title-input')).toBeVisible()
   await expect(page.getByTestId('edit-war-contestant')).toHaveCount(0)
 })
 
-test('Selecting a contestant shows its editor and hides Metadata; only one section shows at a time', async ({ page }) => {
+test('Selecting a contestant shows only its editor', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
     id: WAR_ID,
     status: 'draft',
     contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await selectContestant(page, 'Ada')
@@ -58,7 +54,7 @@ test('Selecting a contestant shows its editor and hides Metadata; only one secti
   await expect(page.getByTestId('edit-war-contestant').filter({ hasText: 'Grace' })).toBeVisible()
 })
 
-test('Switching to a different contestant shows fresh field values, not the previous selection', async ({ page }) => {
+test('Switching contestants shows fresh field values, not a leftover selection', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
     id: WAR_ID,
@@ -68,8 +64,8 @@ test('Switching to a different contestant shows fresh field values, not the prev
       buildContestant({ id: 'c-2', name: 'Grace', bio: 'Grace bio' }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const adaItem = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -92,10 +88,10 @@ test('Removing a contestant with no votes deletes it immediately and returns to 
     contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1`, responses: [{ status: 204 }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    reply('DELETE', `${API}/wars/${WAR_ID}/contestants/c-1`, 204),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -118,10 +114,10 @@ test('A failed contestant removal shows an error and keeps the contestant', asyn
     contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1`, responses: [{ status: 500, body: { error: 'boom' } }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    reply('DELETE', `${API}/wars/${WAR_ID}/contestants/c-1`, 500, { error: 'boom' }),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -143,8 +139,8 @@ test('Removing a contestant with votes asks for confirmation, naming how many vo
       buildContestant({ id: 'c-2', name: 'Grace' }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
 
   // Act
@@ -167,10 +163,10 @@ test('Confirming removal of a contestant with votes deletes it', async ({ page }
     ],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1`, responses: [{ status: 204 }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    reply('DELETE', `${API}/wars/${WAR_ID}/contestants/c-1`, 204),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   await page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' }).getByTestId('edit-war-contestant-remove').click()
 
@@ -193,8 +189,8 @@ test('Cancelling removal of a contestant with votes leaves it untouched', async 
       buildContestant({ id: 'c-2', name: 'Grace' }),
     ],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   await page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' }).getByTestId('edit-war-contestant-remove').click()
 
@@ -208,15 +204,15 @@ test('Cancelling removal of a contestant with votes leaves it untouched', async 
   expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
 })
 
-test('Add contestant shows a form; submitting adds it to the nav and selects it', async ({ page }) => {
+test('Adding a contestant adds it to the navigation and selects it', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [] })
   const created = buildContestant({ id: 'c-new', name: 'Mae' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/contestants`, responses: [{ status: 201, body: created }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    reply('POST', `${API}/wars/${WAR_ID}/contestants`, 201, created),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('edit-war-nav-add-contestant').click()
@@ -228,11 +224,11 @@ test('Add contestant shows a form; submitting adds it to the nav and selects it'
   await expect(page.getByTestId('edit-war-contestant').filter({ hasText: 'Mae' })).toBeVisible()
 })
 
-test('Adding a contestant with a blank name shows a client-side error, no API call', async ({ page }) => {
+test('Adding a contestant with a blank name is rejected client-side', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await page.getByTestId('edit-war-nav-add-contestant').click()
 
   // Act
@@ -249,10 +245,10 @@ test('Changing the title persists it', async ({ page }) => {
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', title: 'Old Title' })
   const patched = buildWarSummary({ id: WAR_ID, status: 'draft', title: 'New Title' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: patched }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    ok('PATCH', `${API}/wars/${WAR_ID}`, patched),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('edit-war-title-input').fill('New Title')
@@ -267,15 +263,15 @@ test('Changing the title persists it', async ({ page }) => {
   expect(JSON.parse(patchCall!.body ?? '{}')).toMatchObject({ title: 'New Title' })
 })
 
-test('Saving metadata shows a success toast that disappears on its own', async ({ page }) => {
+test('Saving metadata confirms with a toast that disappears on its own', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', title: 'Old Title' })
   const patched = buildWarSummary({ id: WAR_ID, status: 'draft', title: 'New Title' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: patched }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    ok('PATCH', `${API}/wars/${WAR_ID}`, patched),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('edit-war-title-input').fill('New Title')
@@ -288,20 +284,20 @@ test('Saving metadata shows a success toast that disappears on its own', async (
   await expect(toast).toBeHidden()
 })
 
-test("Saving a contestant shows a success toast", async ({ page }) => {
+test('Saving a contestant shows a success toast', async ({ page }) => {
   // Arrange
   const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: 'Old bio' })
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
   const patchedContestant = buildContestant({ id: 'c-1', name: 'Ada Lovelace', bio: 'Old bio' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
     {
       method: 'PATCH',
       path: `${API}/wars/${WAR_ID}/contestants/c-1`,
       responses: [{ status: 200, body: patchedContestant }],
     },
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -319,14 +315,14 @@ test('A blank title shows a validation error', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', title: 'Old Title' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
     {
       method: 'PATCH',
       path: `${API}/wars/${WAR_ID}`,
       responses: [{ status: 422, body: { error: 'validation error', details: ['title must be a non-empty string'] } }],
     },
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('edit-war-title-input').fill('')
@@ -341,10 +337,10 @@ test('Changing visibility to invite-only persists', async ({ page }) => {
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', visibility: 'public' })
   const patched = buildWarSummary({ id: WAR_ID, status: 'draft', visibility: 'invite_only' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: patched }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    ok('PATCH', `${API}/wars/${WAR_ID}`, patched),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('edit-war-visibility-select').selectOption('invite_only')
@@ -364,10 +360,10 @@ test('Changing the theme persists it', async ({ page }) => {
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', theme: 'arcade' })
   const patched = buildWarSummary({ id: WAR_ID, status: 'draft', theme: 'fight_card' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: patched }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    ok('PATCH', `${API}/wars/${WAR_ID}`, patched),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('edit-war-theme-select').selectOption('fight_card')
@@ -385,10 +381,10 @@ test('Metadata remains editable on a published War', async ({ page }) => {
   const detail = buildWarDetail({ id: WAR_ID, status: 'published', title: 'Old Title' })
   const patched = buildWarSummary({ id: WAR_ID, status: 'published', title: 'New Title' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: patched }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    ok('PATCH', `${API}/wars/${WAR_ID}`, patched),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('edit-war-title-input').fill('New Title')
@@ -402,8 +398,8 @@ test('Metadata remains editable on a published War', async ({ page }) => {
 test('The bio toolbar wraps selected text in bold markdown syntax', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'hello world' })] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
   const textarea = item.getByTestId('bio-textarea')
@@ -420,8 +416,8 @@ test('The bio toolbar wraps selected text in bold markdown syntax', async ({ pag
 test('A heading toolbar button inserts a markdown heading, rendered live', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: 'Section title' })] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
   const textarea = item.getByTestId('bio-textarea')
@@ -439,8 +435,8 @@ test('A heading toolbar button inserts a markdown heading, rendered live', async
 test('The bio preview updates live as the bio changes, with no save required', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: '' })] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -454,8 +450,8 @@ test('The bio preview updates live as the bio changes, with no save required', a
 test('The bio editor links to the markdown syntax reference', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await selectContestant(page, 'Ada')
@@ -467,8 +463,8 @@ test('The bio editor links to the markdown syntax reference', async ({ page }) =
 test('The bio preview renders lists and a visibly distinct, underlined link', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: '' })] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -487,8 +483,8 @@ test('A contestant with fewer than the image cap still shows a control to add mo
   // Arrange
   const media = buildMediaItem({ id: 'm-1', display_order: 0 })
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media] })] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await selectContestant(page, 'Ada')
@@ -509,9 +505,9 @@ test('Adding an image shows it alongside the existing ones, in order', async ({ 
   })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }, { status: 200, body: refreshedDetail }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/contestants/c-1/images`, responses: [{ status: 201, body: uploaded }] },
+    reply('POST', `${API}/wars/${WAR_ID}/contestants/c-1/images`, 201, uploaded),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -526,14 +522,14 @@ test('A failed image upload shows an error', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
     {
       method: 'POST',
       path: `${API}/wars/${WAR_ID}/contestants/c-1/images`,
       responses: [{ status: 422, body: { error: 'invalid image upload' } }],
     },
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -548,14 +544,14 @@ test('Rate-limited image upload is shown as a wait, not an error', async ({ page
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
     {
       method: 'POST',
       path: `${API}/wars/${WAR_ID}/contestants/c-1/images`,
       responses: [{ status: 429, headers: { 'Retry-After': '1' }, body: { error: 'rate limited' } }],
     },
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -576,9 +572,9 @@ test('Removing an image drops it from the gallery', async ({ page }) => {
   const refreshedDetail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media2] })] })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }, { status: 200, body: refreshedDetail }] },
-    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, responses: [{ status: 204 }] },
+    reply('DELETE', `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, 204),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -595,10 +591,10 @@ test('A failed image removal shows an error and keeps the image', async ({ page 
   const media2 = buildMediaItem({ id: 'm-2', display_order: 1 })
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media1, media2] })] })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, responses: [{ status: 500, body: { error: 'boom' } }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    reply('DELETE', `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, 500, { error: 'boom' }),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -616,11 +612,11 @@ test('A failed image reorder shows an error', async ({ page }) => {
   const media2 = buildMediaItem({ id: 'm-2', display_order: 1 })
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media1, media2] })] })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, responses: [{ status: 500, body: { error: 'boom' } }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-2`, responses: [{ status: 500, body: { error: 'boom' } }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    reply('PATCH', `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, 500, { error: 'boom' }),
+    reply('PATCH', `${API}/wars/${WAR_ID}/contestants/c-1/media/m-2`, 500, { error: 'boom' }),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -638,10 +634,10 @@ test('Reordering images persists the new order', async ({ page }) => {
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media1, media2] })] })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }, { status: 200, body: detail }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, responses: [{ status: 204 }] },
-    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-2`, responses: [{ status: 204 }] },
+    reply('PATCH', `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, 204),
+    reply('PATCH', `${API}/wars/${WAR_ID}/contestants/c-1/media/m-2`, 204),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -658,8 +654,8 @@ test('At the per-contestant image cap, the add-more control is replaced by an ex
   // Arrange
   const media = Array.from({ length: 10 }, (_, i) => buildMediaItem({ id: `m-${i}`, display_order: i }))
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media })] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await selectContestant(page, 'Ada')
@@ -675,10 +671,10 @@ test('Images remain editable on a published War', async ({ page }) => {
   const detail = buildWarDetail({ id: WAR_ID, status: 'published', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
   const uploaded = { id: 'm-2', display_order: 1 }
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/contestants/c-1/images`, responses: [{ status: 201, body: uploaded }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    reply('POST', `${API}/wars/${WAR_ID}/contestants/c-1/images`, 201, uploaded),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await selectContestant(page, 'Ada')
   const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
 
@@ -690,13 +686,13 @@ test('Images remain editable on a published War', async ({ page }) => {
   expect(calls.some((c) => c.method === 'POST' && c.url.includes('/images'))).toBe(true)
 })
 
-test('Export button is shown on the edit page', async ({ page }) => {
+test('Export is available on the Edit page', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
 
   // Act
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Assert
   await expect(page.getByTestId('edit-war-export-button')).toBeVisible()
@@ -707,13 +703,13 @@ test('Clicking Export downloads a zip of the draft War definition', async ({ pag
   const media = buildMediaItem({ id: 'm-1', variants: [{ width: 400, url: 'https://cdn.example.test/m-1/400.jpg' }] })
   const contestant = buildContestant({ id: 'c-1', name: 'Ada', media: [media] })
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [contestant] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
   await page.route('https://cdn.example.test/**', (route) =>
     route.fulfill({ status: 200, contentType: 'image/jpeg', body: Buffer.from('fake-image-bytes') }),
   )
 
   // Act
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('edit-war-export-button').click()])
 
   // Assert
@@ -723,10 +719,10 @@ test('Clicking Export downloads a zip of the draft War definition', async ({ pag
 test('Delete button is shown on the edit page', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
 
   // Act
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Assert
   await expect(page.getByTestId('edit-war-delete-button')).toBeVisible()
@@ -735,8 +731,8 @@ test('Delete button is shown on the edit page', async ({ page }) => {
 test('Clicking Delete asks for confirmation before removing the War', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('edit-war-delete-button').click()
@@ -747,15 +743,15 @@ test('Clicking Delete asks for confirmation before removing the War', async ({ p
   expect(deleteCalls).toHaveLength(0)
 })
 
-test('Confirming delete removes the War and navigates to My Wars', async ({ page }) => {
+test('Confirming delete removes the War and returns to My Wars', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'DELETE', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    reply('DELETE', `${API}/wars/${WAR_ID}`, 204),
+    ok('GET', `${API}/wars?creator=me`, { wars: [], next_cursor: null }),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await page.getByTestId('edit-war-delete-button').click()
 
   // Act
@@ -770,8 +766,8 @@ test('Confirming delete removes the War and navigates to My Wars', async ({ page
 test('Cancelling delete leaves the War untouched', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await page.getByTestId('edit-war-delete-button').click()
 
   // Act
@@ -788,11 +784,11 @@ test('Deleting a published War works the same as deleting a draft', async ({ pag
   // Arrange — Delete works in any status (spec §6.1)
   const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'DELETE', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    reply('DELETE', `${API}/wars/${WAR_ID}`, 204),
+    ok('GET', `${API}/wars?creator=me`, { wars: [], next_cursor: null }),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('edit-war-delete-button').click()
@@ -810,10 +806,10 @@ test('The top action row lays out horizontally, shares consistent button styling
     theme: 'arcade',
     contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
 
   // Act
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Assert — a horizontal row: Publish War sits to the right of Export,
   // both at roughly the same vertical position rather than stacked.
@@ -832,45 +828,45 @@ test('The top action row lays out horizontally, shares consistent button styling
   expect(exportBg).toBe(publishBg)
 })
 
-test('Publish War is disabled with fewer than 2 contestants', async ({ page }) => {
+test('Publish is disabled with fewer than two contestants', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada' })] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
 
   // Act
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Assert
   await expect(page.getByTestId('publish-toggle-submit')).toBeDisabled()
   await expect(page.getByTestId('publish-requirements')).toContainText('at least 2 contestants')
 })
 
-test('Publish War is enabled even when a contestant has no image', async ({ page }) => {
+test('A contestant with no image does not block publishing', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
     id: WAR_ID,
     status: 'draft',
     contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [] }), buildContestant({ id: 'c-2', name: 'Grace' })],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
 
   // Act
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Assert
   await expect(page.getByTestId('publish-toggle-submit')).toBeEnabled()
   await expect(page.getByTestId('publish-requirements')).toHaveCount(0)
 })
 
-test('Clicking Publish War shows a confirmation naming that it becomes reachable by anyone', async ({ page }) => {
+test('Publishing asks for confirmation, naming that the War becomes reachable by anyone', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
     id: WAR_ID,
     status: 'draft',
     contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('publish-toggle-submit').click()
@@ -888,8 +884,8 @@ test('Cancelling the publish confirmation leaves the draft untouched', async ({ 
     status: 'draft',
     contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
   })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await page.getByTestId('publish-toggle-submit').click()
 
   // Act
@@ -901,7 +897,7 @@ test('Cancelling the publish confirmation leaves the draft untouched', async ({ 
   expect(publishCalls).toHaveLength(0)
 })
 
-test("Confirming Publish War publishes and navigates to the War's vote page", async ({ page }) => {
+test('Confirming publish publishes the War and moves to voting', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
     id: WAR_ID,
@@ -910,17 +906,17 @@ test("Confirming Publish War publishes and navigates to the War's vote page", as
   })
   const published = buildWarSummary({ id: WAR_ID, status: 'published' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/publish`, responses: [{ status: 200, body: published }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    ok('POST', `${API}/wars/${WAR_ID}/publish`, published),
     // The post-publish redirect lands on VoteMode, which joins and
     // requests the next matchup -- a real one, since a 204 here (no
     // matchups left) now redirects straight on to the results page
     // (VoteMode's useRedirectWhenCompleted), which isn't what this test is
     // checking.
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: buildMatchupResponse() }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
+    ok('GET', `${API}/wars/${WAR_ID}/matchups/next`, buildMatchupResponse()),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('publish-toggle-submit').click()
@@ -938,14 +934,14 @@ test("A failed publish shows the API's validation messages", async ({ page }) =>
     contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
     {
       method: 'POST',
       path: `${API}/wars/${WAR_ID}/publish`,
       responses: [{ status: 422, body: { error: 'validation error', details: ['every contestant needs media'] } }],
     },
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('publish-toggle-submit').click()
@@ -959,8 +955,8 @@ test("A failed publish shows the API's validation messages", async ({ page }) =>
 test('Unpublishing a published War asks for confirmation, naming that it becomes reachable only by them', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('publish-toggle-submit').click()
@@ -976,10 +972,10 @@ test('Confirming unpublish returns the War to draft and stays on the Edit page',
   const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
   const unpublished = buildWarSummary({ id: WAR_ID, status: 'draft' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/unpublish`, responses: [{ status: 200, body: unpublished }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
+    ok('POST', `${API}/wars/${WAR_ID}/unpublish`, unpublished),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await page.getByTestId('publish-toggle-submit').click()
 
   // Act
@@ -993,10 +989,10 @@ test('Confirming unpublish returns the War to draft and stays on the Edit page',
 test('A closed War offers neither Publish nor Unpublish, and explains why', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'closed' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
 
   // Act
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Assert
   await expect(page.getByTestId('publish-toggle-submit')).toHaveCount(0)
@@ -1006,20 +1002,20 @@ test('A closed War offers neither Publish nor Unpublish, and explains why', asyn
 test('Clear Votes is available in any status', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
 
   // Act
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
 
   // Assert
   await expect(page.getByTestId('clear-votes-submit')).toBeVisible()
 })
 
-test('Clicking Clear Votes asks for confirmation before clearing', async ({ page }) => {
+test('Clicking Clear Votes asks for confirmation', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
 
   // Act
   await page.getByTestId('clear-votes-submit').click()
@@ -1036,9 +1032,9 @@ test('Confirming Clear Votes clears every vote and shows a success toast', async
   const cleared = buildWarSummary({ id: WAR_ID, status: 'published' })
   await useScenario(page, [
     { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }, { status: 200, body: detail }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/clear-votes`, responses: [{ status: 200, body: cleared }] },
+    ok('POST', `${API}/wars/${WAR_ID}/clear-votes`, cleared),
   ])
-  await gotoEditPage(page)
+  await gotoEditPage(page, WAR_ID)
   await page.getByTestId('clear-votes-submit').click()
 
   // Act
@@ -1055,8 +1051,8 @@ test('Confirming Clear Votes clears every vote and shows a success toast', async
 test('Cancelling Clear Votes leaves votes untouched', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'published' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] }])
-  await gotoEditPage(page)
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
   await page.getByTestId('clear-votes-submit').click()
 
   // Act

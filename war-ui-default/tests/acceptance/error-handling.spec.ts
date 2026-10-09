@@ -2,6 +2,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { buildMatchupResponse } from '../../src/mocks/fixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { ok, reply } from './support/recipes'
+import { gotoVotePage } from './support/pages'
 import type { RecipeResponse } from '../../src/mocks/scenarios'
 
 const WAR_ID = 'war-errors-1'
@@ -12,21 +14,19 @@ async function gotoVotePageWithMatchup(page: Page, voteResponse: RecipeResponse)
     matchup: { id: MATCHUP_ID, left: { id: 'a', name: 'A', bio: null, media: [] }, right: { id: 'b', name: 'B', bio: null, media: [] } },
   })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchup }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
+    ok('GET', `${API}/wars/${WAR_ID}/matchups/next`, matchup),
     { method: 'POST', path: `${API}/wars/${WAR_ID}/matchups/${MATCHUP_ID}/vote`, responses: [voteResponse] },
   ])
-  await page.goto('/')
-  await loginAsTestVoter(page)
-  await navigateAuthenticated(page, `/wars/${WAR_ID}/vote`)
+  await gotoVotePage(page, WAR_ID)
 }
 
 test('Session expiry sends the voter to log in again', async ({ page }) => {
   // Arrange — /login has no data fetch of its own on mount, so the
   // request below is the only thing that can trigger the 401.
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 401, body: { error: 'expired' } }] },
-    { method: 'POST', path: `${API}/auth/refresh`, responses: [{ status: 401, body: { error: 'invalid' } }] },
+    reply('GET', `${API}/wars`, 401, { error: 'expired' }),
+    reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid' }),
   ])
   await page.goto('/login')
   await loginAsTestVoter(page)
@@ -68,9 +68,9 @@ test('Voting shows a join message as a defensive fallback', async ({ page }) => 
 test('A missing War shows a not-found message', async ({ page }) => {
   // Arrange
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/missing-war`, responses: [{ status: 404, body: { error: 'not found' } }] },
-    { method: 'POST', path: `${API}/wars/missing-war/join`, responses: [{ status: 404, body: { error: 'not found' } }] },
-    { method: 'GET', path: `${API}/wars/missing-war/matchups/next`, responses: [{ status: 404, body: { error: 'not found' } }] },
+    reply('GET', `${API}/wars/missing-war`, 404, { error: 'not found' }),
+    reply('POST', `${API}/wars/missing-war/join`, 404, { error: 'not found' }),
+    reply('GET', `${API}/wars/missing-war/matchups/next`, 404, { error: 'not found' }),
   ])
   // Act — the War detail page (no auth needed)
   await page.goto('/wars/missing-war')

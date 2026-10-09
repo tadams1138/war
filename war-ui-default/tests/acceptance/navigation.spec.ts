@@ -1,32 +1,29 @@
 // Binds features/navigation.feature.
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { buildRankingsResponse, buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { ok, reply } from './support/recipes'
+import { nav, footer } from './support/pages'
 
-function nav(page: import('@playwright/test').Page) {
-  return page.getByRole('navigation', { name: 'Primary' })
-}
-
-function identityTrigger(page: import('@playwright/test').Page) {
+function identityTrigger(page: Page) {
   return nav(page).getByTestId('nav-identity')
 }
 
-function identityMenu(page: import('@playwright/test').Page) {
+function identityMenu(page: Page) {
   return nav(page).getByRole('menu')
 }
 
-async function openIdentityMenu(page: import('@playwright/test').Page): Promise<void> {
+async function openIdentityMenu(page: Page): Promise<void> {
   await identityTrigger(page).click()
   await expect(identityMenu(page)).toBeVisible()
 }
 
-function footer(page: import('@playwright/test').Page) {
-  return page.getByRole('contentinfo')
-}
-
 test("Every page shows a persistent footer with attribution and project links", async ({ page }) => {
-  // Arrange / Act
-  await page.goto('/')
+  // Arrange
+  const path = '/'
+
+  // Act
+  await page.goto(path)
 
   // Assert
   await expect(footer(page)).toContainText('©')
@@ -44,32 +41,44 @@ test("Every page shows a persistent footer with attribution and project links", 
 })
 
 test('The Privacy Policy page is reachable and shows its content', async ({ page }) => {
-  // Arrange / Act
-  await page.goto('/privacy')
+  // Arrange
+  const path = '/privacy'
+
+  // Act
+  await page.goto(path)
 
   // Assert
   await expect(page.getByRole('heading', { name: 'Privacy Policy' })).toBeVisible()
 })
 
 test('The Terms of Service page is reachable and shows its content', async ({ page }) => {
-  // Arrange / Act
-  await page.goto('/terms')
+  // Arrange
+  const path = '/terms'
+
+  // Act
+  await page.goto(path)
 
   // Assert
   await expect(page.getByRole('heading', { name: 'Terms of Service' })).toBeVisible()
 })
 
 test('The Data Deletion instructions page is reachable and shows its content', async ({ page }) => {
-  // Arrange / Act
-  await page.goto('/data-deletion')
+  // Arrange
+  const path = '/data-deletion'
+
+  // Act
+  await page.goto(path)
 
   // Assert
   await expect(page.getByRole('heading', { name: 'Data Deletion' })).toBeVisible()
 })
 
 test('An anonymous visitor sees a link to log in and the Home brand mark', async ({ page }) => {
-  // Arrange / Act
-  await page.goto('/')
+  // Arrange
+  const path = '/'
+
+  // Act
+  await page.goto(path)
 
   // Assert — visibility alone does not prove reachability; the destination
   // is the assertion the Gherkin's "a link to /login" actually makes. The
@@ -82,9 +91,11 @@ test('An anonymous visitor sees a link to log in and the Home brand mark', async
 })
 
 test('The Home brand mark sits left of the theme switcher and links to Home', async ({ page }) => {
-  // Arrange / Act
+  // Arrange
   await page.goto('/')
   await loginAsTestVoter(page)
+
+  // Act
   await navigateAuthenticated(page, '/')
 
   // Assert
@@ -161,7 +172,7 @@ test("The identity menu has its own background, not the page behind it", async (
   // Arrange — a themed War detail page is exactly the case that can put a
   // contestant's own media directly behind the header (war-spec.md 10.2).
   const detail = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-1`, detail)])
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, '/wars/war-1')
@@ -205,13 +216,13 @@ for (const { page: pageLabel, path } of REACHABILITY_ROWS) {
     // Arrange — a voter who has already created a War (CREATED_WAR), so
     // My Wars renders a non-empty list rather than its own empty-state CTA.
     await useScenario(page, [
-      { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [CREATED_WAR], next_cursor: null } }] },
+      ok('GET', `${API}/wars`, { wars: [CREATED_WAR], next_cursor: null }),
       {
         method: 'GET',
         path: `${API}/wars/${CREATED_WAR.id}/rankings`,
         responses: [{ status: 200, body: buildRankingsResponse({ war_id: CREATED_WAR.id }) }],
       },
-      { method: 'GET', path: `${API}/wars/${DRAFT_WAR.id}`, responses: [{ status: 200, body: DRAFT_WAR }] },
+      ok('GET', `${API}/wars/${DRAFT_WAR.id}`, DRAFT_WAR),
     ])
     await page.goto('/')
     await loginAsTestVoter(page)
@@ -235,8 +246,8 @@ test('Selecting an item in the identity menu navigates there and closes the menu
   const createdWar = buildWarSummary({ id: 'war-nav-menu-created', title: null, status: 'draft' })
   const detail = buildWarDetail({ id: 'war-nav-menu-created', title: null, status: 'draft', contestants: [] })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars`, responses: [{ status: 201, body: createdWar }] },
-    { method: 'GET', path: `${API}/wars/war-nav-menu-created`, responses: [{ status: 200, body: detail }] },
+    reply('POST', `${API}/wars`, 201, createdWar),
+    ok('GET', `${API}/wars/war-nav-menu-created`, detail),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -255,7 +266,7 @@ test('Selecting an item in the identity menu navigates there and closes the menu
 
 test('The current page is indicated within the identity menu', async ({ page }) => {
   // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars: [], next_cursor: null })])
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, '/my-wars')

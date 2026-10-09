@@ -27,6 +27,7 @@ Run from the repository root with `npm --prefix war-ui-default <script>`.
 - `src/**` unit tests (Vitest): `api/client.ts` logic, pure helpers, hooks.
 - `features/*.feature`: Gherkin scenarios for user-visible behaviour; `features/pending/` holds scenarios with no binding yet.
 - `tests/acceptance/*.spec.ts`: Playwright specs. Each loads the mock build and sets up its scenario with data-driven MSW recipes (`tests/acceptance/support/mocking.ts`, `src/mocks/scenarios.ts`).
+- Every scenario title in `features/<name>.feature` must equal the title of exactly one test in `tests/acceptance/<name>.spec.ts` (and vice versa); `tests/bindings/featureBindings.test.ts` fails `npm test` on any drift. Shared helpers live in `tests/acceptance/support/` (`pages.ts`, `recipes.ts`, `mocking.ts`, `adminFixtures.ts`).
 
 ## Layout
 

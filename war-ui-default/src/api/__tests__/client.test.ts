@@ -189,8 +189,11 @@ describe('getWar', () => {
     // Arrange
     server.use(http.get(`${BASE}/wars/missing`, () => HttpResponse.json({ error: 'not found' }, { status: 404 })))
 
-    // Act / Assert
-    await expect(getWar('missing')).rejects.toMatchObject({
+    // Act
+    const outcome = getWar('missing')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'not-found',
       message: "This War doesn't exist or has been removed",
     })
@@ -245,8 +248,11 @@ describe('getRankings', () => {
       http.post(`${BASE}/auth/refresh`, () => HttpResponse.json({ error: 'invalid refresh token' }, { status: 401 })),
     )
 
-    // Act / Assert
-    await expect(getRankings('war-1')).rejects.toMatchObject({
+    // Act
+    const outcome = getRankings('war-1')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'unauthorized',
       message: 'Please log in to continue',
     })
@@ -256,8 +262,11 @@ describe('getRankings', () => {
     // Arrange
     server.use(http.get(`${BASE}/wars/missing/rankings`, () => HttpResponse.json({ error: 'not found' }, { status: 404 })))
 
-    // Act / Assert
-    await expect(getRankings('missing')).rejects.toMatchObject({
+    // Act
+    const outcome = getRankings('missing')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'not-found',
       message: "This War doesn't exist or has been removed",
     })
@@ -269,8 +278,11 @@ describe('joinWar', () => {
     // Arrange
     server.use(http.post(`${BASE}/wars/war-1/join`, () => new HttpResponse(null, { status: 204 })))
 
-    // Act / Assert
-    await expect(joinWar('war-1')).resolves.toBeUndefined()
+    // Act
+    const outcome = joinWar('war-1')
+
+    // Assert
+    await expect(outcome).resolves.toBeUndefined()
   })
 
   // join's 403 has no `reason` field in war-api's schema (there is only
@@ -287,8 +299,11 @@ describe('joinWar', () => {
       http.post(`${BASE}/wars/war-1/join`, () => HttpResponse.json({ error: 'War is not published' }, { status: 403 })),
     )
 
-    // Act / Assert
-    await expect(joinWar('war-1')).rejects.toMatchObject({
+    // Act
+    const outcome = joinWar('war-1')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'war-closed',
       message: 'This War is locked — voting is closed',
     })
@@ -319,8 +334,11 @@ describe('castVote', () => {
       http.post(`${BASE}/wars/war-1/matchups/m1/vote`, () => HttpResponse.json({ status: 'already recorded' })),
     )
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).resolves.toBeUndefined()
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).resolves.toBeUndefined()
   })
 
   it('throws a conflict ApiError with no message on 409', async () => {
@@ -331,8 +349,11 @@ describe('castVote', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({ reason: 'conflict', message: '' })
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({ reason: 'conflict', message: '' })
   })
 
   it('classifies a war_not_published 403 as war-closed, via the typed reason field', async () => {
@@ -343,8 +364,11 @@ describe('castVote', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'war-closed',
       message: 'This War is locked — voting is closed',
     })
@@ -358,8 +382,11 @@ describe('castVote', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'not-joined',
       message: 'Join this War to vote',
     })
@@ -375,8 +402,11 @@ describe('castVote', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'not-joined',
       message: 'Join this War to vote',
     })
@@ -389,8 +419,11 @@ describe('castVote', () => {
       http.post(`${BASE}/wars/war-1/matchups/m1/vote`, () => HttpResponse.json({ error: 'forbidden' }, { status: 403 })),
     )
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'war-closed',
       message: 'This War is locked — voting is closed',
     })
@@ -404,8 +437,11 @@ describe('castVote', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'rate-limited',
       retryAfterSeconds: 5,
       message: 'Slow down a moment — try again in 5s',
@@ -420,8 +456,11 @@ describe('castVote', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'validation',
       message: 'Something went wrong — please try again',
     })
@@ -431,8 +470,11 @@ describe('castVote', () => {
     // Arrange
     server.use(http.post(`${BASE}/wars/war-1/matchups/m1/vote`, () => new HttpResponse(null, { status: 503 })))
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'server-error',
       message: 'Server error — please try again shortly',
     })
@@ -442,8 +484,11 @@ describe('castVote', () => {
     // Arrange
     server.use(http.post(`${BASE}/wars/war-1/matchups/m1/vote`, () => HttpResponse.error()))
 
-    // Act / Assert
-    await expect(castVote('war-1', 'm1', 'contestant-a')).rejects.toMatchObject({
+    // Act
+    const outcome = castVote('war-1', 'm1', 'contestant-a')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'network',
       message: 'Unable to reach the server — check your connection',
     })
@@ -481,8 +526,11 @@ describe('createWar', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(createWar({ title: '' })).rejects.toMatchObject({
+    // Act
+    const outcome = createWar({ title: '' })
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'validation',
       details: ['title must be a non-empty string of at most 256 characters'],
     })
@@ -516,8 +564,11 @@ describe('addContestant', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(addContestant('war-1', { name: '' })).rejects.toMatchObject({
+    // Act
+    const outcome = addContestant('war-1', { name: '' })
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'validation',
       details: ['name must be a non-empty string'],
     })
@@ -567,8 +618,11 @@ describe('uploadContestantImages', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(uploadContestantImages('war-1', 'contestant-1', [new File(['a'], 'a.jpg')])).rejects.toMatchObject({
+    // Act
+    const outcome = uploadContestantImages('war-1', 'contestant-1', [new File(['a'], 'a.jpg')])
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'validation',
       details: undefined,
     })
@@ -599,8 +653,11 @@ describe('publishWar', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(publishWar('war-1')).rejects.toMatchObject({
+    // Act
+    const outcome = publishWar('war-1')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'validation',
       details: ['a War needs at least 2 contestants to publish'],
     })
@@ -659,8 +716,11 @@ describe('patchWar', () => {
     // Arrange
     server.use(http.patch(`${BASE}/wars/war-1`, () => HttpResponse.json({ error: 'forbidden' }, { status: 403 })))
 
-    // Act / Assert
-    await expect(patchWar('war-1', { title: 'New Title' })).rejects.toMatchObject({
+    // Act
+    const outcome = patchWar('war-1', { title: 'New Title' })
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'forbidden',
       message: "This isn't your War",
     })
@@ -670,8 +730,11 @@ describe('patchWar', () => {
     // Arrange
     server.use(http.patch(`${BASE}/wars/missing`, () => HttpResponse.json({ error: 'not found' }, { status: 404 })))
 
-    // Act / Assert
-    await expect(patchWar('missing', { title: 'x' })).rejects.toMatchObject({ reason: 'not-found' })
+    // Act
+    const outcome = patchWar('missing', { title: 'x' })
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({ reason: 'not-found' })
   })
 
   it('carries the details array on a 422 validation failure', async () => {
@@ -682,8 +745,11 @@ describe('patchWar', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(patchWar('war-1', { title: '' })).rejects.toMatchObject({
+    // Act
+    const outcome = patchWar('war-1', { title: '' })
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'validation',
       details: ['title must be a non-empty string'],
     })
@@ -717,8 +783,11 @@ describe('patchContestant', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(patchContestant('war-1', 'contestant-1', { name: 'x' })).rejects.toMatchObject({
+    // Act
+    const outcome = patchContestant('war-1', 'contestant-1', { name: 'x' })
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'forbidden',
     })
   })
@@ -750,8 +819,11 @@ describe('reorderContestantMedia', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(reorderContestantMedia('war-1', 'contestant-1', 'missing', 0)).rejects.toMatchObject({
+    // Act
+    const outcome = reorderContestantMedia('war-1', 'contestant-1', 'missing', 0)
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'not-found',
     })
   })
@@ -764,8 +836,11 @@ describe('deleteContestantMedia', () => {
       http.delete(`${BASE}/wars/war-1/contestants/contestant-1/media/media-1`, () => new HttpResponse(null, { status: 204 })),
     )
 
-    // Act / Assert
-    await expect(deleteContestantMedia('war-1', 'contestant-1', 'media-1')).resolves.toBeUndefined()
+    // Act
+    const outcome = deleteContestantMedia('war-1', 'contestant-1', 'media-1')
+
+    // Assert
+    await expect(outcome).resolves.toBeUndefined()
   })
 
   it('classifies its 403 as forbidden — editing is never status-gated', async () => {
@@ -776,8 +851,11 @@ describe('deleteContestantMedia', () => {
       ),
     )
 
-    // Act / Assert
-    await expect(deleteContestantMedia('war-1', 'contestant-1', 'media-1')).rejects.toMatchObject({
+    // Act
+    const outcome = deleteContestantMedia('war-1', 'contestant-1', 'media-1')
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({
       reason: 'forbidden',
     })
   })
@@ -844,8 +922,11 @@ describe('401 handling', () => {
       http.post(`${BASE}/auth/refresh`, () => HttpResponse.json({ error: 'invalid refresh token' }, { status: 401 })),
     )
 
-    // Act / Assert
-    await expect(getWars()).rejects.toMatchObject({ reason: 'unauthorized', message: 'Please log in to continue' })
+    // Act
+    const outcome = getWars()
+
+    // Assert
+    await expect(outcome).rejects.toMatchObject({ reason: 'unauthorized', message: 'Please log in to continue' })
     expect(getToken()).toBeNull()
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
@@ -928,8 +1009,11 @@ describe('logout', () => {
     setToken('token-abc')
     server.use(http.delete(`${BASE}/auth/session`, () => new HttpResponse(null, { status: 503 })))
 
-    // Act / Assert — resolves, never rejects
-    await expect(logout()).resolves.toBeUndefined()
+    // Act
+    const outcome = logout()
+
+    // Assert — resolves, never rejects
+    await expect(outcome).resolves.toBeUndefined()
     expect(getToken()).toBeNull()
   })
 
@@ -938,16 +1022,22 @@ describe('logout', () => {
     setToken('token-abc')
     server.use(http.delete(`${BASE}/auth/session`, () => HttpResponse.error()))
 
-    // Act / Assert
-    await expect(logout()).resolves.toBeUndefined()
+    // Act
+    const outcome = logout()
+
+    // Assert
+    await expect(outcome).resolves.toBeUndefined()
     expect(getToken()).toBeNull()
   })
 })
 
 describe('providerLoginUrl', () => {
   it('builds the API login URL for the given provider', () => {
-    // Arrange / Act
-    const url = providerLoginUrl('google')
+    // Arrange
+    const input = 'google'
+
+    // Act
+    const url = providerLoginUrl(input)
 
     // Assert
     expect(url).toBe(`${BASE}/auth/google/login`)

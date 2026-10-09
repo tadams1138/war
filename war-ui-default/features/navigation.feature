@@ -59,7 +59,7 @@ Feature: Navigation
     When they open the identity menu
     Then the menu renders on an opaque or translucent surface of its own
 
-  Scenario Outline: My Wars, Start a War and Home remain reachable from every route
+  Scenario Outline: My Wars, Start a War and Home remain reachable from <page>
     Given an authenticated voter who has already created a War
     When they navigate to "<page>"
     Then the Home brand mark links to the home page
@@ -71,7 +71,7 @@ Feature: Navigation
       | page                       |
       | the home page              |
       | their My Wars page         |
-      | the Start a War page       |
+      | a draft War's Edit page    |
       | that War's detail page     |
       | that War's vote page       |
 

@@ -9,6 +9,7 @@ import {
   buildWarDetail,
 } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
+import { ok, reply } from './support/recipes'
 
 test('War overview loads with its results', async ({ page }) => {
   // Arrange
@@ -31,8 +32,8 @@ test('War overview loads with its results', async ({ page }) => {
     ],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-1/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-1`, detail),
+    ok('GET', `${API}/wars/war-1/rankings`, rankings),
   ])
 
   // Act
@@ -64,8 +65,8 @@ test('The primary image is the display_order 0 item, regardless of array order',
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada', media: outOfOrderMedia }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-order`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-order/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-order`, detail),
+    ok('GET', `${API}/wars/war-order/rankings`, rankings),
   ])
 
   // Act
@@ -84,8 +85,8 @@ test('The War detail page requires no authentication', async ({ page }) => {
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Contestant One' }, wins: 0, appearances: 0 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-1/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-1`, detail),
+    ok('GET', `${API}/wars/war-1/rankings`, rankings),
   ])
 
   // Act — no login step at all
@@ -96,7 +97,7 @@ test('The War detail page requires no authentication', async ({ page }) => {
   await expect(page.getByTestId('ranking-row')).toHaveCount(1)
 })
 
-test("A contestant's formatted bio renders on the War detail page", async ({ page }) => {
+test("A contestant's formatted bio renders inline with their result", async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
     id: 'war-bio',
@@ -113,8 +114,8 @@ test("A contestant's formatted bio renders on the War detail page", async ({ pag
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-bio`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-bio/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-bio`, detail),
+    ok('GET', `${API}/wars/war-bio/rankings`, rankings),
   ])
 
   // Act
@@ -163,8 +164,8 @@ test("A contestant's bio renders on the War detail page, but no attributes list 
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-legacy-attrs`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-legacy-attrs/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-legacy-attrs`, detail),
+    ok('GET', `${API}/wars/war-legacy-attrs/rankings`, rankings),
   ])
 
   // Act
@@ -188,8 +189,8 @@ test('Paragraphs in a bio separated by a blank line render with visible vertical
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-bio-paragraphs`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-bio-paragraphs/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-bio-paragraphs`, detail),
+    ok('GET', `${API}/wars/war-bio-paragraphs/rankings`, rankings),
   ])
 
   // Act
@@ -220,8 +221,8 @@ test('An adversarial bio never executes and never renders as raw HTML', async ({
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 0, appearances: 0 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-bio-xss`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-bio-xss/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-bio-xss`, detail),
+    ok('GET', `${API}/wars/war-bio-xss/rankings`, rankings),
   ])
 
   // Act
@@ -239,7 +240,7 @@ test('An adversarial bio never executes and never renders as raw HTML', async ({
 test("A War that doesn't exist shows a not-found message", async ({ page }) => {
   // Arrange
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/missing-war`, responses: [{ status: 404, body: { error: 'not found' } }] },
+    reply('GET', `${API}/wars/missing-war`, 404, { error: 'not found' }),
   ])
 
   // Act
@@ -261,8 +262,8 @@ test('On a wide viewport, the results list is capped in width and centered', asy
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-wide`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-wide/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-wide`, detail),
+    ok('GET', `${API}/wars/war-wide/rankings`, rankings),
   ])
 
   // Act
@@ -290,8 +291,8 @@ test('On a wide viewport, the wins/appearances/win-share group renders below the
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-wide-stack`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-wide-stack/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-wide-stack`, detail),
+    ok('GET', `${API}/wars/war-wide-stack/rankings`, rankings),
   ])
 
   // Act
@@ -318,8 +319,8 @@ test('On a wide viewport, the poster renders beside the bio, not above it', asyn
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-wide-poster`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-wide-poster/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-wide-poster`, detail),
+    ok('GET', `${API}/wars/war-wide-poster/rankings`, rankings),
   ])
 
   // Act
@@ -352,8 +353,8 @@ test('On a narrow but landscape viewport, the poster still renders beside the bi
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-landscape-poster`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-landscape-poster/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-landscape-poster`, detail),
+    ok('GET', `${API}/wars/war-landscape-poster/rankings`, rankings),
   ])
 
   // Act
@@ -381,8 +382,8 @@ test('On a narrow portrait viewport under 900px, the poster still stacks above t
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-narrow-portrait`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-narrow-portrait/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-narrow-portrait`, detail),
+    ok('GET', `${API}/wars/war-narrow-portrait/rankings`, rankings),
   ])
 
   // Act
@@ -410,8 +411,8 @@ test("There is visible space between the War's category and the first result", a
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-spacing`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-spacing/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-spacing`, detail),
+    ok('GET', `${API}/wars/war-spacing/rankings`, rankings),
   ])
 
   // Act
@@ -440,8 +441,8 @@ test("On a narrow viewport, a result's image is a large, prominent part of its c
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-narrow`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-narrow/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-narrow`, detail),
+    ok('GET', `${API}/wars/war-narrow/rankings`, rankings),
   ])
 
   // Act
@@ -469,8 +470,8 @@ test('A long bio renders in full, with no truncation control', async ({ page }) 
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada' }, wins: 1, appearances: 1 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-long-bio`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-long-bio/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-long-bio`, detail),
+    ok('GET', `${API}/wars/war-long-bio/rankings`, rankings),
   ])
 
   // Act
@@ -498,8 +499,8 @@ test('A contestant with multiple images is browsable in place', async ({ page })
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada', media }, wins: 0, appearances: 0 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-multi-image`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-multi-image/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-multi-image`, detail),
+    ok('GET', `${API}/wars/war-multi-image/rankings`, rankings),
   ])
 
   // Act
@@ -527,8 +528,8 @@ test('A contestant with no media shows no image at all', async ({ page }) => {
     rankings: [buildRankingEntry({ rank: 1, contestant: { id: 'c-1', name: 'Ada', media: [] }, wins: 0, appearances: 0 })],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-no-media`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-no-media/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-no-media`, detail),
+    ok('GET', `${API}/wars/war-no-media/rankings`, rankings),
   ])
 
   // Act
@@ -555,7 +556,7 @@ test('The detail page shows results with rank, image, wins, appearances, and a w
     ],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/${RESULTS_WAR_ID}/rankings`, rankings),
   ])
 
   // Act
@@ -598,7 +599,7 @@ test('The UI renders results in the order and ranks the API returns', async ({ p
     ],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/${RESULTS_WAR_ID}/rankings`, rankings),
   ])
 
   // Act
@@ -624,7 +625,7 @@ test('Unranked contestants are shown at the bottom of results', async ({ page })
     ],
   })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/${RESULTS_WAR_ID}/rankings`, rankings),
   ])
 
   // Act
@@ -756,7 +757,7 @@ test('Results do not poll once the War is closed', async ({ page }) => {
   })
   await page.clock.install()
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/rankings`, responses: [{ status: 200, body: closed }] },
+    ok('GET', `${API}/wars/${RESULTS_WAR_ID}/rankings`, closed),
   ])
   await page.goto(`/wars/${RESULTS_WAR_ID}`)
   await expect(page.getByTestId('ranking-row')).toHaveCount(1)
@@ -772,8 +773,8 @@ test('Results do not poll once the War is closed', async ({ page }) => {
 test("An invite-only War's results require sign-in", async ({ page }) => {
   // Arrange
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/rankings`, responses: [{ status: 401, body: { error: 'unauthorized' } }] },
-    { method: 'POST', path: `${API}/auth/refresh`, responses: [{ status: 401, body: { error: 'invalid refresh token' } }] },
+    reply('GET', `${API}/wars/${RESULTS_WAR_ID}/rankings`, 401, { error: 'unauthorized' }),
+    reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid refresh token' }),
   ])
 
   // Act
@@ -792,11 +793,11 @@ test("A completed vote flow redirects to the War's results", async ({ page }) =>
   })
   const rankings = buildRankingsResponse({ war_id: RESULTS_WAR_ID })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${RESULTS_WAR_ID}/join`, responses: [{ status: 204 }] },
+    reply('POST', `${API}/wars/${RESULTS_WAR_ID}/join`, 204),
     { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/matchups/next`, responses: [{ status: 200, body: lastMatchup }, { status: 204 }] },
-    { method: 'POST', path: `${API}/wars/${RESULTS_WAR_ID}/matchups/matchup-last/vote`, responses: [{ status: 201, body: { vote_id: 'v1' } }] },
-    { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/rankings`, responses: [{ status: 200, body: rankings }] },
-    { method: 'GET', path: `${API}/wars/${RESULTS_WAR_ID}/my-progress`, responses: [{ status: 200, body: { voted: 5, total: 5 } }] },
+    reply('POST', `${API}/wars/${RESULTS_WAR_ID}/matchups/matchup-last/vote`, 201, { vote_id: 'v1' }),
+    ok('GET', `${API}/wars/${RESULTS_WAR_ID}/rankings`, rankings),
+    ok('GET', `${API}/wars/${RESULTS_WAR_ID}/my-progress`, { voted: 5, total: 5 }),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -816,9 +817,9 @@ test('The completion notice is shown to a voter who has finished voting', async 
   const detail = buildWarDetail({ id: 'war-notice-done', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-notice-done' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-notice-done`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-notice-done/rankings`, responses: [{ status: 200, body: rankings }] },
-    { method: 'GET', path: `${API}/wars/war-notice-done/my-progress`, responses: [{ status: 200, body: { voted: 3, total: 3 } }] },
+    ok('GET', `${API}/wars/war-notice-done`, detail),
+    ok('GET', `${API}/wars/war-notice-done/rankings`, rankings),
+    ok('GET', `${API}/wars/war-notice-done/my-progress`, { voted: 3, total: 3 }),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -836,10 +837,12 @@ test("The completion notice is not shown to a voter who hasn't finished voting",
   const detail = buildWarDetail({ id: 'war-notice-partial', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-notice-partial' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-notice-partial`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-notice-partial/rankings`, responses: [{ status: 200, body: rankings }] },
-    { method: 'GET', path: `${API}/wars/war-notice-partial/my-progress`, responses: [{ status: 200, body: { voted: 1, total: 3 } }] },
+    ok('GET', `${API}/wars/war-notice-partial`, detail),
+    ok('GET', `${API}/wars/war-notice-partial/rankings`, rankings),
+    ok('GET', `${API}/wars/war-notice-partial/my-progress`, { voted: 1, total: 3 }),
   ])
+
+  // Act
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, '/wars/war-notice-partial')
@@ -854,8 +857,8 @@ test('The completion notice is not shown to an anonymous visitor', async ({ page
   const detail = buildWarDetail({ id: 'war-notice-anon', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-notice-anon' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-notice-anon`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-notice-anon/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-notice-anon`, detail),
+    ok('GET', `${API}/wars/war-notice-anon/rankings`, rankings),
   ])
 
   // Act
@@ -868,7 +871,7 @@ test('The completion notice is not shown to an anonymous visitor', async ({ page
 test("A War's creator sees Edit and Delete on its results page, in any status", async ({ page }) => {
   // Arrange — editing is never status-gated (spec §6.1)
   const detail = buildWarDetail({ id: 'war-own-published', status: 'published', is_owner: true })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-own-published`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-own-published`, detail)])
 
   // Act
   await page.goto('/wars/war-own-published')
@@ -881,7 +884,7 @@ test("A War's creator sees Edit and Delete on its results page, in any status", 
 test('A non-creator sees no Edit or Delete on a War\'s results page', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-other-published', status: 'published', is_owner: false })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-other-published`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-other-published`, detail)])
 
   // Act
   await page.goto('/wars/war-other-published')
@@ -894,7 +897,7 @@ test('A non-creator sees no Edit or Delete on a War\'s results page', async ({ p
 test('Delete from the results page asks for confirmation before removing the War', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-own-draft', status: 'draft', is_owner: true })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-own-draft`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-own-draft`, detail)])
   await page.goto('/wars/war-own-draft')
 
   // Act
@@ -910,9 +913,9 @@ test('Confirming delete removes the War and returns to My Wars', async ({ page }
   // Arrange
   const detail = buildWarDetail({ id: 'war-own-draft', status: 'draft', is_owner: true })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-own-draft`, responses: [{ status: 200, body: detail }] },
-    { method: 'DELETE', path: `${API}/wars/war-own-draft`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars?creator=me`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
+    ok('GET', `${API}/wars/war-own-draft`, detail),
+    reply('DELETE', `${API}/wars/war-own-draft`, 204),
+    ok('GET', `${API}/wars?creator=me`, { wars: [], next_cursor: null }),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -931,7 +934,7 @@ test('Confirming delete removes the War and returns to My Wars', async ({ page }
 test('Cancelling delete leaves the War untouched', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-own-draft', status: 'draft', is_owner: true })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-own-draft`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-own-draft`, detail)])
   await page.goto('/wars/war-own-draft')
   await page.getByTestId('war-detail-delete-button').click()
 
@@ -950,9 +953,9 @@ test("An authenticated voter who hasn't finished voting sees a Vote entry point"
   const detail = buildWarDetail({ id: 'war-partial', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-partial' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-partial`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-partial/rankings`, responses: [{ status: 200, body: rankings }] },
-    { method: 'GET', path: `${API}/wars/war-partial/my-progress`, responses: [{ status: 200, body: { voted: 1, total: 3 } }] },
+    ok('GET', `${API}/wars/war-partial`, detail),
+    ok('GET', `${API}/wars/war-partial/rankings`, rankings),
+    ok('GET', `${API}/wars/war-partial/my-progress`, { voted: 1, total: 3 }),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -969,10 +972,12 @@ test('A voter who has finished voting sees no Vote entry point', async ({ page }
   const detail = buildWarDetail({ id: 'war-complete', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-complete' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-complete`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-complete/rankings`, responses: [{ status: 200, body: rankings }] },
-    { method: 'GET', path: `${API}/wars/war-complete/my-progress`, responses: [{ status: 200, body: { voted: 3, total: 3 } }] },
+    ok('GET', `${API}/wars/war-complete`, detail),
+    ok('GET', `${API}/wars/war-complete/rankings`, rankings),
+    ok('GET', `${API}/wars/war-complete/my-progress`, { voted: 3, total: 3 }),
   ])
+
+  // Act
   await page.goto('/')
   await loginAsTestVoter(page)
   await navigateAuthenticated(page, '/wars/war-complete')
@@ -987,8 +992,8 @@ test("A creator sees Export on their own War's results page regardless of status
   const detail = buildWarDetail({ id: 'war-own-closed', status: 'closed', is_owner: true })
   const rankings = buildRankingsResponse({ war_id: 'war-own-closed' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-own-closed`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-own-closed/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-own-closed`, detail),
+    ok('GET', `${API}/wars/war-own-closed/rankings`, rankings),
   ])
 
   // Act
@@ -1003,7 +1008,7 @@ test('Clicking Export downloads a zip of the War definition', async ({ page }) =
   const media = buildMediaItem({ id: 'm-1', variants: [{ width: 400, url: 'https://cdn.example.test/m-1/400.jpg' }] })
   const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: null, media: [media] })
   const detail = buildWarDetail({ id: 'war-export', status: 'draft', is_owner: true, contestants: [contestant] })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-export`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-export`, detail)])
   await page.route('https://cdn.example.test/**', (route) =>
     route.fulfill({ status: 200, contentType: 'image/jpeg', body: Buffer.from('fake-image-bytes') }),
   )
@@ -1021,8 +1026,8 @@ test('A non-creator sees no Export button', async ({ page }) => {
   const detail = buildWarDetail({ id: 'war-other', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-other' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-other`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-other/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-other`, detail),
+    ok('GET', `${API}/wars/war-other/rankings`, rankings),
   ])
 
   // Act
@@ -1035,7 +1040,7 @@ test('A non-creator sees no Export button', async ({ page }) => {
 test('The results-page action row lays out horizontally, shares consistent button styling, and sets Delete apart', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-actions', status: 'draft', is_owner: true, theme: 'arcade' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-actions`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-actions`, detail)])
 
   // Act
   await page.goto('/wars/war-actions')
@@ -1068,8 +1073,8 @@ test('The Vote entry point is a large, centered callout above the action row', a
   const detail = buildWarDetail({ id: 'war-vote-callout', status: 'published', is_owner: true })
   const rankings = buildRankingsResponse({ war_id: 'war-vote-callout' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-vote-callout`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-vote-callout/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-vote-callout`, detail),
+    ok('GET', `${API}/wars/war-vote-callout/rankings`, rankings),
   ])
 
   // Act
@@ -1098,8 +1103,8 @@ test('An anonymous visitor sees a prominent Vote entry point on a published War'
   const detail = buildWarDetail({ id: 'war-anon', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-anon' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-anon`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-anon/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-anon`, detail),
+    ok('GET', `${API}/wars/war-anon/rankings`, rankings),
   ])
 
   // Act
@@ -1109,13 +1114,13 @@ test('An anonymous visitor sees a prominent Vote entry point on a published War'
   await expect(page.getByTestId('war-detail-vote-link')).toBeVisible()
 })
 
-test('An anonymous visitor tapping Vote on the results page is redirected to sign in', async ({ page }) => {
+test('Tapping Vote as an anonymous visitor redirects to sign in', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-anon', status: 'published', is_owner: false })
   const rankings = buildRankingsResponse({ war_id: 'war-anon' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-anon`, responses: [{ status: 200, body: detail }] },
-    { method: 'GET', path: `${API}/wars/war-anon/rankings`, responses: [{ status: 200, body: rankings }] },
+    ok('GET', `${API}/wars/war-anon`, detail),
+    ok('GET', `${API}/wars/war-anon/rankings`, rankings),
   ])
   await page.goto('/wars/war-anon')
 
@@ -1129,7 +1134,7 @@ test('An anonymous visitor tapping Vote on the results page is redirected to sig
 test('An anonymous visitor sees no Vote entry point on a draft War', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-anon-draft', status: 'draft', is_owner: false })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-anon-draft`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-anon-draft`, detail)])
 
   // Act
   await page.goto('/wars/war-anon-draft')

@@ -29,8 +29,17 @@ export async function loginAsTestVoter(page: Page, token = 'test-voter-token'): 
 // in-memory JWT loginAsTestVoter just set. This is how an authenticated
 // test reaches a protected route without a real OAuth round trip.
 export async function navigateAuthenticated(page: Page, path: string): Promise<void> {
+  await page.waitForFunction(() => Boolean(window.__auth))
+  const before = await page.evaluate(() => window.history.length)
   await page.evaluate((p) => window.__auth?.navigate(p), path)
-  await page.waitForFunction((p) => window.location.pathname + window.location.search === p, path)
+  // Wait for a history entry to be pushed, not for the location to equal
+  // `path`: a guarded route may redirect straight on (e.g. /admin to / for a
+  // plain Voter), and waiting for the exact target races that redirect.
+  await page.waitForFunction(
+    ([length, to]) =>
+      window.history.length !== length || window.location.pathname + window.location.search === to,
+    [before, path],
+  )
 }
 
 export interface MswCallLogEntry {

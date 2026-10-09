@@ -1,7 +1,9 @@
 // Binds features/contestant-images.feature.
 import { expect, test, type Page } from '@playwright/test'
 import { buildMediaItem, buildMatchupResponse } from '../../src/mocks/fixtures'
-import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { API, getCallLog, useScenario } from './support/mocking'
+import { ok, reply } from './support/recipes'
+import { gotoVotePage } from './support/pages'
 
 const WAR_ID = 'war-images-1'
 
@@ -9,12 +11,6 @@ function mediaSet(count: number, prefix: string) {
   return Array.from({ length: count }, (_, index) =>
     buildMediaItem({ id: `${prefix}-media-${index}`, display_order: index }),
   )
-}
-
-async function gotoVotePage(page: Page) {
-  await page.goto('/')
-  await loginAsTestVoter(page)
-  await navigateAuthenticated(page, `/wars/${WAR_ID}/vote`)
 }
 
 async function setupMatchup(page: Page, leftMedia: ReturnType<typeof mediaSet>) {
@@ -26,11 +22,11 @@ async function setupMatchup(page: Page, leftMedia: ReturnType<typeof mediaSet>) 
     },
   })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchup }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/matchups/matchup-images/vote`, responses: [{ status: 201, body: { vote_id: 'v1' } }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
+    ok('GET', `${API}/wars/${WAR_ID}/matchups/next`, matchup),
+    reply('POST', `${API}/wars/${WAR_ID}/matchups/matchup-images/vote`, 201, { vote_id: 'v1' }),
   ])
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 }
 
 function leftCarousel(page: Page) {
@@ -102,7 +98,10 @@ test('Tapping votes', async ({ page }) => {
 
 test('A single image shows no carousel affordance', async ({ page }) => {
   // Arrange
-  await setupMatchup(page, mediaSet(1, 'left'))
+  const media = mediaSet(1, 'left')
+
+  // Act
+  await setupMatchup(page, media)
 
   // Assert
   await expect(leftCarousel(page).getByTestId('carousel-dot')).toHaveCount(0)
@@ -111,7 +110,10 @@ test('A single image shows no carousel affordance', async ({ page }) => {
 
 test('Dot indicators and arrows appear with multiple images', async ({ page }) => {
   // Arrange
-  await setupMatchup(page, mediaSet(3, 'left'))
+  const media = mediaSet(3, 'left')
+
+  // Act
+  await setupMatchup(page, media)
 
   // Assert
   await expect(leftCarousel(page).getByTestId('carousel-dot')).toHaveCount(3)
@@ -159,6 +161,8 @@ test('Non-primary images are not loaded up front', async ({ page }) => {
   page.on('request', (request) => {
     if (request.url().includes('cdn.example.test/left-media')) requestedImageUrls.push(request.url())
   })
+
+  // Act
   await setupMatchup(page, mediaSet(10, 'left'))
   await expect(leftCarousel(page).getByTestId('carousel-image')).toBeVisible()
 

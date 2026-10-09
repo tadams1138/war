@@ -29,7 +29,7 @@ Feature: Edit War
     Then an error is shown
     And the contestant is still in the nav
 
-  Scenario: Removing a contestant with votes asks for confirmation, naming what will be lost
+  Scenario: Removing a contestant with votes asks for confirmation, naming how many votes will be lost
     Given an authenticated voter viewing the editor of a contestant with votes
     When they choose to remove the contestant
     Then a confirmation is shown naming how many votes will be lost
@@ -45,7 +45,7 @@ Feature: Edit War
     When the voter cancels
     Then the contestant is not removed
 
-  Scenario: Adding a contestant selects it immediately
+  Scenario: Adding a contestant adds it to the navigation and selects it
     Given an authenticated voter on a draft War's Edit page
     When they add a new contestant with a name
     Then it appears in the nav and its editor is shown
@@ -56,13 +56,13 @@ Feature: Edit War
     Then a validation error is shown
     And no request is sent
 
-  Scenario: Changing metadata persists it and confirms with a toast
+  Scenario: Saving metadata confirms with a toast that disappears on its own
     Given an authenticated voter viewing a draft War's Metadata form
     When they change the title, visibility, or theme and save
     Then the change is persisted
     And a success toast appears and disappears on its own
 
-  Scenario: A metadata save failure shows a validation error
+  Scenario: A blank title shows a validation error
     Given an authenticated voter clears the title and saves
     Then a validation error is shown
 
@@ -71,13 +71,13 @@ Feature: Edit War
     When they change the title and save
     Then the change is persisted
 
-  Scenario: Changing a contestant's name and bio persists both, confirmed by a toast
+  Scenario: Saving a contestant shows a success toast
     Given an authenticated voter editing a contestant
     When they change its name and bio and save
     Then both changes are persisted
     And a success toast appears
 
-  Scenario: The bio toolbar wraps selected text in markdown syntax
+  Scenario: The bio toolbar wraps selected text in bold markdown syntax
     Given an authenticated voter editing a contestant's bio
     When they select text and choose Bold from the toolbar
     Then the selection is wrapped in bold markdown syntax
@@ -97,7 +97,7 @@ Feature: Edit War
     Given an authenticated voter editing a contestant's bio
     Then a link to the markdown syntax reference is shown
 
-  Scenario: The bio preview renders lists and links with visible styling
+  Scenario: The bio preview renders lists and a visibly distinct, underlined link
     Given an authenticated voter enters bulleted, numbered, and linked text in a bio
     Then the preview renders real list markup and a visibly distinct, underlined link
 
@@ -157,12 +157,12 @@ Feature: Edit War
     Given an authenticated voter viewing a draft War's Edit page
     Then an Export control is shown
 
-  Scenario: Exporting downloads the draft War's definition
+  Scenario: Clicking Export downloads a zip of the draft War definition
     Given an authenticated voter viewing a draft War's Edit page
     When they choose Export
     Then a zip file of the War's definition downloads
 
-  Scenario: Deleting a War asks for confirmation first
+  Scenario: Clicking Delete asks for confirmation before removing the War
     Given an authenticated voter viewing a draft War's Edit page
     When they choose Delete
     Then a confirmation is shown
@@ -185,7 +185,7 @@ Feature: Edit War
     When they delete it and confirm
     Then the War is deleted
 
-  Scenario: Publish requires at least two contestants
+  Scenario: Publish is disabled with fewer than two contestants
     Given a draft War with fewer than two contestants
     Then Publish War is disabled
     And a message states what's missing
@@ -194,7 +194,7 @@ Feature: Edit War
     Given a draft War where a contestant has no image
     Then Publish War is enabled
 
-  Scenario: Publishing asks for confirmation
+  Scenario: Publishing asks for confirmation, naming that the War becomes reachable by anyone
     Given a draft War ready to publish
     When the voter chooses Publish War
     Then a confirmation is shown, naming that it becomes reachable by anyone
@@ -218,19 +218,19 @@ Feature: Edit War
     Then the validation messages are shown
     And they remain on the Edit page
 
-  Scenario: Unpublishing a published War asks for confirmation
+  Scenario: Unpublishing a published War asks for confirmation, naming that it becomes reachable only by them
     Given an authenticated voter viewing a published War's Edit page
     When they choose Unpublish War
     Then a confirmation is shown, naming that it becomes reachable only by them
     And unpublishing does not happen yet
 
-  Scenario: Confirming unpublish returns the War to draft
+  Scenario: Confirming unpublish returns the War to draft and stays on the Edit page
     Given the unpublish confirmation is shown
     When the voter confirms
     Then the War becomes a draft
     And they remain on the Edit page
 
-  Scenario: A closed War offers neither Publish nor Unpublish
+  Scenario: A closed War offers neither Publish nor Unpublish, and explains why
     Given an authenticated voter viewing a closed War's Edit page
     Then no Publish or Unpublish control is shown
     And a note explains the War has closed
@@ -245,7 +245,7 @@ Feature: Edit War
     Then a confirmation is shown naming that every vote and counter resets
     And votes are not cleared yet
 
-  Scenario: Confirming Clear Votes clears every vote
+  Scenario: Confirming Clear Votes clears every vote and shows a success toast
     Given the Clear Votes confirmation is shown
     When the voter confirms
     Then every vote in the War is cleared
@@ -255,3 +255,28 @@ Feature: Edit War
     Given the Clear Votes confirmation is shown
     When the voter cancels
     Then votes are not cleared
+
+  Scenario: Changing the title persists it
+    Given a draft War open on its Edit page
+    When the creator changes the title and saves
+    Then the new title is sent to the API
+
+  Scenario: Changing visibility to invite-only persists
+    Given a draft War open on its Edit page
+    When the creator changes visibility to invite-only and saves
+    Then the new visibility is sent to the API
+
+  Scenario: Changing the theme persists it
+    Given a draft War open on its Edit page
+    When the creator changes the theme and saves
+    Then the new theme is sent to the API
+
+  Scenario: Delete button is shown on the edit page
+    Given a draft War open on its Edit page
+    Then a Delete button is shown
+
+  Scenario: The top action row lays out horizontally, shares consistent button styling, and sets Delete apart
+    Given a draft War open on its Edit page
+    Then the top action buttons sit in one horizontal row
+    And they share consistent button styling
+    And Delete is visually set apart from the others

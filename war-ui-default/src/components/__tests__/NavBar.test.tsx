@@ -10,14 +10,14 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { NavBar } from './NavBar'
-import { AuthProvider } from '../auth/context'
-import { ThemeProvider } from '../theme/ThemeContext'
-import { __resetAuthStateForTests, setToken } from '../api/authState'
-import * as client from '../api/client'
+import { NavBar } from '../NavBar'
+import { AuthProvider } from '../../auth/context'
+import { ThemeProvider } from '../../theme/ThemeContext'
+import { __resetAuthStateForTests, setToken } from '../../api/authState'
+import * as client from '../../api/client'
 
-vi.mock('../api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api/client')>()
+vi.mock('../../api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../api/client')>()
   return { ...actual, getMe: vi.fn() }
 })
 
