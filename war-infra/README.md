@@ -117,6 +117,7 @@ Stored per-repository in GitHub's secret store and injected into CI:
 | `INTERNAL_TASK_TOKEN` | terraform scheduler, API config | Secret token for internal endpoint authorization |
 | `JWT_SECRET` | API config | Session token signing (substitute into platform spec) |
 | `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_SECRET`, `FACEBOOK_CLIENT_SECRET`, `TWITTER_CLIENT_SECRET` | API config | OAuth provider client secrets |
+| `DOCKERHUB_TOKEN` | API and bootstrap pipelines | Docker Hub access token for authenticated image pulls (avoids the anonymous rate limit on shared runners) |
 
 ### Required GitHub Actions variables
 
@@ -127,6 +128,7 @@ Stored per-repository in GitHub's secret store and injected into CI:
 | `GOOGLE_CLIENT_ID`, `MICROSOFT_CLIENT_ID`, `FACEBOOK_CLIENT_ID`, `TWITTER_CLIENT_ID` | API config | OAuth provider client IDs |
 | `PUBLIC_BASE_URL` | API config | The API's public base URL |
 | `DO_APP_ID` | API deploy pipeline | App Platform app ID, set once per GitHub environment (staging, production) from Terraform's `app_id` output |
+| `DOCKERHUB_USERNAME` | API and bootstrap pipelines | Docker Hub account that owns `DOCKERHUB_TOKEN` |
 
 ## Rate limiting configuration
 
