@@ -1,5 +1,5 @@
 /** Escapes `%`, `_`, and `\` so a raw search term is matched literally by `ILIKE`, never as a wildcard. */
-export function escapeLikePattern(raw: string): string {
+function escapeLikePattern(raw: string): string {
   return raw.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 

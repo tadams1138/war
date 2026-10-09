@@ -1,16 +1,11 @@
 import * as client from 'openid-client';
-import { OpenIdBackedProvider, type TokenResponse } from '../openIdBackedProvider.js';
+import { OpenIdBackedProvider, PROFILE_FETCH_TIMEOUT_MS, stringOrNull, type TokenResponse } from '../openIdBackedProvider.js';
 import type { OAuthProfile } from '../oauthProvider.js';
 
 interface FacebookMeResponse {
   id: string;
   name?: string;
   picture?: { data?: { url?: string } };
-}
-
-function facebookAvatarUrl(picture: FacebookMeResponse['picture']): string | null {
-  const url = picture?.data?.url;
-  return typeof url === 'string' ? url : null;
 }
 
 /** Pure mapping from a Graph API `/me` response to an OAuthProfile. */
@@ -20,49 +15,23 @@ export function mapFacebookProfile(me: FacebookMeResponse): OAuthProfile {
   }
   return {
     providerUserId: me.id,
-    displayName: typeof me.name === 'string' ? me.name : null,
-    avatarUrl: facebookAvatarUrl(me.picture),
+    displayName: stringOrNull(me.name),
+    avatarUrl: stringOrNull(me.picture?.data?.url),
   };
 }
 
 export class FacebookProvider extends OpenIdBackedProvider {
   readonly slug = 'facebook';
-  // No openid scope -- identity here comes entirely from the Graph /me call
-  // below, never from claims, so `openid` buys nothing and carries real risk:
-  // the Configuration below is hand-built (no jwks_uri, a hand-written
-  // issuer, an unverified signing algorithm), so an id_token Facebook chose
-  // to return would be validated against metadata never checked against a
-  // real response -- and any mismatch would 502 every Facebook login.
+  // No `openid` scope: identity comes from the Graph /me call, never from claims. The Configuration below is
+  // hand-built (no jwks_uri), so an id_token Facebook chose to return would be validated against metadata never
+  // checked against a real response, and a mismatch would 502 every login.
   protected readonly scope = 'public_profile';
-  // Identity always comes from the Graph /me call below, never from claims
-  // -- see this task's design note on why discovery is used only for
-  // endpoints, not identity.
-  //
-  // Kept explicit (not dropped) even though buildConfiguration() below is a
-  // manually-constructed Configuration, not discovery: verified against
-  // oauth4webapi's shipped source (processAuthorizationCodeResponse /
-  // processAuthorizationCodeOpenIDResponse in
-  // node_modules/oauth4webapi/build/index.js) that idTokenExpected=true
-  // unconditionally asserts an id_token is present in the token response
-  // and throws INVALID_RESPONSE when it is not -- and Facebook's classic
-  // graph.facebook.com token endpoint used below never returns one. Leaving
-  // this at the base class's true default would make every real callback
-  // fail.
+  // The classic Graph token endpoint never returns an id_token, and oauth4webapi throws INVALID_RESPONSE when
+  // `idTokenExpected` (the base default) is true and none arrives.
   protected readonly idTokenExpected = false;
 
-  constructor(
-    private readonly clientId: string,
-    private readonly clientSecret: string,
-  ) {
-    super();
-  }
-
-  // Facebook's OIDC discovery document (verified live at
-  // https://www.facebook.com/.well-known/openid-configuration/) publishes an
-  // issuer and authorization_endpoint but omits token_endpoint entirely, so
-  // client.discovery() can't be used here -- a Configuration built from it
-  // would have no token endpoint to call. Built manually instead from
-  // Facebook's documented, stable Graph API endpoints.
+  // Facebook's OIDC discovery document omits token_endpoint, so client.discovery() would yield a Configuration
+  // with nothing to exchange the code against. Built from the documented Graph API endpoints instead.
   protected buildConfiguration(): Promise<client.Configuration> {
     return Promise.resolve(
       new client.Configuration(
@@ -78,21 +47,12 @@ export class FacebookProvider extends OpenIdBackedProvider {
   }
 
   protected async mapProfile(tokens: TokenResponse): Promise<OAuthProfile> {
-    // The access token travels as a query parameter, which is Facebook's own
-    // documented convention for the classic Graph API `/me` endpoint. This app
-    // runs with `logger: false`, so the URL is never written to a log. Graph
-    // also accepts `Authorization: Bearer`, and moving to it would remove even
-    // the theoretical URL-logging exposure -- but that swap needs verifying
-    // against a live Facebook app before it ships, so it is deliberately not
-    // made here.
-    //
-    // `AbortSignal.timeout` because Node's fetch has no default timeout: a
-    // hung provider would otherwise hold the callback request open
-    // indefinitely. The abort throws, which the callback's existing 502
-    // boundary already covers.
+    // The token travels as a query parameter, Facebook's documented convention for the classic `/me` endpoint,
+    // so the URL must never be logged. Graph also accepts `Authorization: Bearer`; moving to it would remove that
+    // exposure but needs verifying against a live Facebook app first.
     const response = await fetch(
       `https://graph.facebook.com/v21.0/me?fields=id,name,picture&access_token=${encodeURIComponent(tokens.access_token)}`,
-      { signal: AbortSignal.timeout(5000) },
+      { signal: AbortSignal.timeout(PROFILE_FETCH_TIMEOUT_MS) },
     );
     if (!response.ok) {
       throw new Error(`Facebook /me request failed with status ${response.status}`);

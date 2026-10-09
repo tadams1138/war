@@ -4,8 +4,7 @@ import { contestantDetailSchema } from '../contestants/contestantPresenter.js';
 import { warSummarySchema } from '../wars/warPresenter.js';
 
 /**
- * Registers the three `$id`-bearing response body schemas the Core Voting
- * Loop slice shares across routes (spec) so route schemas can
+ * Registers the three `$id`-bearing response body schemas shared across routes so route schemas can
  * `$ref` them by name. Must run before any route registration that
  * references them (mirrors `registerOpenApiPlugin`'s own ordering
  * requirement -- both are called from `src/app.ts` before any route).

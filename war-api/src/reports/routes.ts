@@ -3,12 +3,12 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
-import { requireModeratorOrAdmin } from '../roles/rolesAccess.js';
+import { requireModeratorOrAdmin } from '../auth/guards.js';
 import { reportSchemaViolations, rejectInvalidBody } from '../shared/bodyValidation.js';
 import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
 import {
   fileReport,
-  listReportsForWarOutcome,
+  listReportsForWar,
   presentReport,
   reportViewSchema,
   setAddressed,
@@ -65,10 +65,10 @@ export function registerReportsRoutes(app: FastifyInstance, deps: ReportsRouteDe
           404: errorResponseSchema,
         },
       },
-      [requireModeratorOrAdmin(db)],
+      [requireModeratorOrAdmin],
     ),
     async (request, reply) => {
-      const outcome = await listReportsForWarOutcome(db, request.params.id);
+      const outcome = await listReportsForWar(db, request.params.id);
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -86,7 +86,7 @@ export function registerReportsRoutes(app: FastifyInstance, deps: ReportsRouteDe
           403: errorResponseSchema,
         },
       },
-      [requireModeratorOrAdmin(db)],
+      [requireModeratorOrAdmin],
     ),
     async (_request, reply) => {
       const wars = await unaddressedQueue(db);
@@ -102,7 +102,7 @@ export function registerReportsRoutes(app: FastifyInstance, deps: ReportsRouteDe
         body: { type: 'object', required: ['addressed'], properties: { addressed: { type: 'boolean' } } },
         response: { 200: reportViewSchema, 403: errorResponseSchema, 404: errorResponseSchema },
       },
-      [requireModeratorOrAdmin(db)],
+      [requireModeratorOrAdmin],
     ),
     async (request, reply) => {
       const outcome = await setAddressed(db, request.params.id, request.body.addressed);

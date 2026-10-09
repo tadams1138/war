@@ -60,7 +60,7 @@ const warSummaryRequired = [
   'creator_name',
 ];
 
-/** The response body JSON Schema for {@link WarSummaryView} (spec). Registered under `$id: "WarSummary"`. */
+/** The response body JSON Schema for {@link WarSummaryView}. Registered under `$id: "WarSummary"`. */
 export const warSummarySchema = {
   $id: 'WarSummary',
   type: 'object',
@@ -69,7 +69,7 @@ export const warSummarySchema = {
 };
 
 /**
- * The response body JSON Schema for {@link WarDetailView} (spec):
+ * The response body JSON Schema for {@link WarDetailView}:
  * `warSummaryProperties` plus a required `contestants` array. Not
  * registered under a shared `$id` -- only `GET /wars/:id` uses it.
  */
@@ -122,7 +122,7 @@ export async function presentWarDetail(
     db,
     contestants.map((c) => c.id),
   );
-  const views = contestants.map((c) => presentContestant(c, war, mediaByContestant.get(c.id) ?? [], publicBaseUrl));
+  const views = contestants.map((c) => presentContestant(c, mediaByContestant.get(c.id) ?? [], publicBaseUrl));
   return {
     ...presentWarSummary(war, now, contestants.length, publicBaseUrl, null),
     contestants: views,

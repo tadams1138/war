@@ -42,7 +42,7 @@ function toVoter(row: {
 /**
  * Finds the voter for a (provider, provider_user_id) pair, creating one if
  * this is the first login. Two different provider_user_ids always produce
- * two different voters — there is no cross-account merge (spec).
+ * two different voters — there is no cross-account merge.
  */
 export async function findOrCreateVoter(
   db: Kysely<Database>,
@@ -80,7 +80,7 @@ export async function findVoterById(db: Kysely<Database>, id: string): Promise<V
   return row ? toVoter(row) : undefined;
 }
 
-/** Grants or revokes `role` on `voterId` (spec §6.7) — the only mutator of either role column. Returns `undefined` if no such voter exists, for callers to 404. */
+/** Grants or revokes `role` on `voterId` (§6.7) — the only mutator of either role column. Returns `undefined` if no such voter exists, for callers to 404. */
 export async function setVoterRole(
   db: Kysely<Database>,
   voterId: string,
@@ -92,7 +92,7 @@ export async function setVoterRole(
   return row ? toVoter(row) : undefined;
 }
 
-/** Suspends or unsuspends `voterId` (spec §6.7). Returns `undefined` if no such voter exists, for callers to 404. */
+/** Suspends or unsuspends `voterId` (§6.7). Returns `undefined` if no such voter exists, for callers to 404. */
 export async function setVoterSuspended(db: Kysely<Database>, voterId: string, suspended: boolean): Promise<Voter | undefined> {
   const row = await db
     .updateTable('voters')
@@ -103,7 +103,7 @@ export async function setVoterSuspended(db: Kysely<Database>, voterId: string, s
   return row ? toVoter(row) : undefined;
 }
 
-/** Bans or unbans `voterId` (spec §6.7). Returns `undefined` if no such voter exists, for callers to 404. */
+/** Bans or unbans `voterId` (§6.7). Returns `undefined` if no such voter exists, for callers to 404. */
 export async function setVoterBanned(db: Kysely<Database>, voterId: string, banned: boolean): Promise<Voter | undefined> {
   const row = await db
     .updateTable('voters')
@@ -117,7 +117,7 @@ export async function setVoterBanned(db: Kysely<Database>, voterId: string, bann
 /**
  * Like `findVoterById`, but takes a row lock (`FOR UPDATE`) held to the end of the caller's transaction.
  * For a check-then-write on the Voter that a concurrent write to the same row (a role grant, a ban) must not
- * slip between (spec §6.7 Suspend/Ban target check).
+ * slip between (§6.7 Suspend/Ban target check).
  */
 export async function findVoterByIdForUpdate(db: Kysely<Database>, id: string): Promise<Voter | undefined> {
   const row = await db.selectFrom('voters').selectAll().where('id', '=', id).forUpdate().executeTakeFirst();
@@ -127,7 +127,7 @@ export async function findVoterByIdForUpdate(db: Kysely<Database>, id: string): 
 /**
  * Whether the Voter is banned, taking a shared row lock (`FOR SHARE`) held to the end of the caller's transaction.
  * A ban's own write to the row waits for the holder, and a holder arriving after an uncommitted ban waits for it
- * and then sees `banned_at` set -- so a write made under this lock can never survive the ban's purge (spec §6.7).
+ * and then sees `banned_at` set -- so a write made under this lock can never survive the ban's purge (§6.7).
  * An unknown Voter reads as not banned; the caller's own foreign key rejects the write.
  */
 export async function isVoterBannedLockingShared(db: Kysely<Database>, id: string): Promise<boolean> {

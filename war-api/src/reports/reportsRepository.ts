@@ -28,7 +28,7 @@ export interface CreateReportInput {
   explanation: string;
 }
 
-/** Inserts one report row. Never deduplicates against existing reports on the same War (spec §8.5: "reports are never deduplicated or merged"). */
+/** Inserts one report row. Never deduplicates against existing reports on the same War (§8.5: "reports are never deduplicated or merged"). */
 export async function createReport(db: Kysely<Database>, input: CreateReportInput): Promise<Report> {
   const row = await db
     .insertInto('reports')
@@ -38,7 +38,7 @@ export async function createReport(db: Kysely<Database>, input: CreateReportInpu
   return toReport(row);
 }
 
-/** Every report against `warId`, newest first (spec §8.5). */
+/** Every report against `warId`, newest first (§8.5). */
 export async function listReportsForWar(db: Kysely<Database>, warId: string): Promise<Report[]> {
   const rows = await db
     .selectFrom('reports')
@@ -56,7 +56,7 @@ export interface UnaddressedWarQueueEntry {
   unaddressedCount: number;
 }
 
-/** The moderation queue (spec §8.5): every War carrying ≥1 unaddressed report, with that count, ordered by title. */
+/** The moderation queue (§8.5): every War carrying ≥1 unaddressed report, with that count, ordered by title. */
 export async function listWarsWithUnaddressedReports(db: Kysely<Database>): Promise<UnaddressedWarQueueEntry[]> {
   const rows = await db
     .selectFrom('reports')
@@ -71,7 +71,7 @@ export async function listWarsWithUnaddressedReports(db: Kysely<Database>): Prom
   return rows.map((row) => ({ warId: row.warId, title: row.title, unaddressedCount: Number(row.unaddressedCount) }));
 }
 
-/** Toggles one report's `addressed` flag (spec §8.5: "in either direction"). `undefined` if `reportId` doesn't exist. */
+/** Toggles one report's `addressed` flag (§8.5: "in either direction"). `undefined` if `reportId` doesn't exist. */
 export async function setReportAddressed(db: Kysely<Database>, reportId: string, addressed: boolean): Promise<Report | undefined> {
   const row = await db
     .updateTable('reports')
@@ -82,7 +82,7 @@ export async function setReportAddressed(db: Kysely<Database>, reportId: string,
   return row ? toReport(row) : undefined;
 }
 
-/** Deletes every report against `warId` — used only by War deletion's cascade (Task 8), since `reports.war_id` carries no `ON DELETE` rule. */
+/** Deletes every report against `warId` — used only by War deletion's cascade, since `reports.war_id` carries no `ON DELETE` rule. */
 export async function deleteReportsForWar(db: Kysely<Database>, warId: string): Promise<void> {
   await db.deleteFrom('reports').where('war_id', '=', warId).execute();
 }

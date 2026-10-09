@@ -5,8 +5,8 @@ import { listMediaByContestants } from '../contestants/contestantMediaRepository
 import { presentMedia } from '../contestants/mediaPresenter.js';
 import { contestantViewSchema, type ContestantView } from '../contestants/contestantPresenter.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
-import { isWarVisibleTo } from '../wars/warAccess.js';
-import { findWarById, isMember } from '../wars/warsRepository.js';
+import { findVisibleWar } from '../wars/warAccess.js';
+import { isMember } from '../wars/warsRepository.js';
 import { THEMES } from '../wars/theme.js';
 import { rankContestants } from './scoring.js';
 
@@ -25,13 +25,7 @@ export interface RankingsView {
   rankings: RankingEntry[];
 }
 
-/**
- * The response body JSON Schema for {@link RankingsView}. Kept beside the
- * interface it mirrors -- see `mediaItemSchema`
- * (`../contestants/mediaPresenter.ts`) for why. `rank` is
- * `["integer", "null"]` since an unranked (zero-appearance) contestant is
- * listed with `rank: null` (war-spec.md §7).
- */
+/** The response body JSON Schema for {@link RankingsView}. `rank` is null for an unranked (zero-appearance) contestant (§7). */
 export const rankingsResponseSchema = {
   type: 'object',
   required: ['war_id', 'status', 'theme', 'updated_at', 'rankings'],
@@ -61,7 +55,7 @@ export type RankingsOutcome =
   | { kind: 'notFound' }
   | { kind: 'unauthorized' };
 
-/** Extracted from `rankingsFor` purely to keep that function's own branch count down. */
+/** An invite-only War's rankings are for its creator and members only. */
 async function isUnauthorizedForRankings(
   db: Kysely<Database>,
   war: { id: string; creatorId: string | null; visibility: string },
@@ -72,28 +66,17 @@ async function isUnauthorizedForRankings(
   return war.creatorId !== viewerId && !(await isMember(db, war.id, viewerId));
 }
 
-/**
- * Assembles a War's rankings response (war-spec.md §6.4): the invite-only
- * membership check, scoring, and view assembly all live here rather than in
- * the route handler, matching the routes → service → repository → presenter
- * layering every other domain in this slice follows. `viewerId` is `null`
- * for an anonymous request — JWT extraction stays a route concern.
- */
-export async function rankingsFor(
+/** Assembles a War's rankings response (§6.4). `viewerId` is `null` for an anonymous request. */
+export async function getRankings(
   db: Kysely<Database>,
   warId: string,
   viewerId: string | null,
   now: Date,
   publicBaseUrl: string,
 ): Promise<RankingsOutcome> {
-  const war = await findWarById(db, warId);
+  // A draft is invisible to anyone but its creator (§6.1): reported as not found, like a missing War.
+  const war = await findVisibleWar(db, warId, viewerId);
   if (!war) {
-    return { kind: 'notFound' };
-  }
-  // A War not currently published is invisible to anyone but its creator
-  // (spec §6.1) -- rankings report it as not found, identically to an
-  // actually-missing War.
-  if (!isWarVisibleTo(war, now, viewerId)) {
     return { kind: 'notFound' };
   }
 

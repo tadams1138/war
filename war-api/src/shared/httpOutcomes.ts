@@ -1,16 +1,10 @@
 import type { FastifyReply } from 'fastify';
 import type { Forbidden, NotFound, NotPublished, ValidationError } from './outcomes.js';
 
-/** Every non-'ok' outcome kind a domain service in this codebase returns. */
+/** Every non-'ok' outcome kind a domain service returns. */
 export type HttpFailure = NotFound | Forbidden | NotPublished | ValidationError;
 
-/**
- * The response body JSON Schema for the `{ "error": string }` shape every
- * failure response in the Core Voting Loop slice uses (spec) --
- * including, but not limited to, the ones `replyForOutcome` itself sends.
- * Not `$id`-registered: shared by direct import/`$ref`-by-object rather
- * than by name, since no route needs to reference it before it exists.
- */
+/** The response body JSON Schema for the `{ "error": string }` shape that failure responses use. */
 export const errorResponseSchema = {
   type: 'object',
   required: ['error'],
@@ -18,13 +12,8 @@ export const errorResponseSchema = {
 };
 
 /**
- * The response body JSON Schema for the `{ "error": string, "details":
- * string[] }` shape a `'validationError'` outcome sends (spec) --
- * `error` is always the literal `"validation error"`; `details` carries the
- * actual per-field messages. Shared by every route whose `replyForOutcome`
- * call can reach the `validationError` branch above; not every 422 in this
- * codebase uses it (`POST /wars/:id/contestants/:cId/images`'s 422 is a
- * plain `errorResponseSchema` -- see that route's own comment).
+ * The response body JSON Schema for the `{ "error": "validation error", "details": string[] }` shape a
+ * `validationError` outcome sends, `details` carrying the per-field messages.
  */
 export const validationErrorResponseSchema = {
   type: 'object',
@@ -36,11 +25,8 @@ export const validationErrorResponseSchema = {
 };
 
 /**
- * Status and message per outcome kind, keyed by `HttpFailure['kind']` --
- * `Record` requires every key present, so an outcome kind added to the
- * union without an entry here is a compile error, the same exhaustiveness
- * guarantee a `never`-typed switch default gave, without one `case` per
- * kind driving this function's own branch count up.
+ * Status and message per outcome kind. `Record` requires every key, so a kind added to the union without an
+ * entry here is a compile error.
  */
 const STATUS_BY_KIND: Record<HttpFailure['kind'], number> = {
   notFound: 404,
@@ -57,13 +43,22 @@ const MESSAGE_BY_KIND: Record<HttpFailure['kind'], string> = {
 };
 
 /**
- * Maps a failed `MutationOutcome` (or any of the bespoke unions built from
- * the same failure variants) to its HTTP response. Takes the whole outcome
- * so it reads `errors` itself — callers no longer repeat
- * `'errors' in outcome ? outcome.errors : undefined`.
+ * The status and body a failed outcome maps to. Routes whose responses carry more than this (the vote route's
+ * `reason`, the rankings cache headers) build theirs from this for the failures they share.
  */
-export function replyForOutcome(reply: FastifyReply, outcome: HttpFailure): FastifyReply {
+export function failureResponse(outcome: HttpFailure): { status: number; body: { error: string; details?: string[] } } {
   const body: { error: string; details?: string[] } = { error: MESSAGE_BY_KIND[outcome.kind] };
   if (outcome.kind === 'validationError') body.details = outcome.errors;
-  return reply.code(STATUS_BY_KIND[outcome.kind]).send(body);
+  return { status: STATUS_BY_KIND[outcome.kind], body };
+}
+
+/** Sends a failed `MutationOutcome` (or any union built from the same failure variants) as its HTTP response. */
+export function replyForOutcome(reply: FastifyReply, outcome: HttpFailure): FastifyReply {
+  const { status, body } = failureResponse(outcome);
+  return reply.code(status).send(body);
+}
+
+/** The 404 every route sends for a missing, removed or invisible resource. */
+export function sendNotFound(reply: FastifyReply): FastifyReply {
+  return replyForOutcome(reply, { kind: 'notFound' });
 }

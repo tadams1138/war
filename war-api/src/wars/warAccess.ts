@@ -4,14 +4,8 @@ import { findWarById, type War } from './warsRepository.js';
 
 export type OwnedWarOutcome = { kind: 'ok'; war: War } | { kind: 'notFound' } | { kind: 'forbidden' };
 
-/**
- * Ownership-only, no status requirement (war-spec.md §6.1: "A War is always
- * editable by its creator, in any status"). The common guard for every
- * mutation none of which is status-gated -- Publish/Unpublish, patching
- * metadata, adding/removing contestants, setting the share image, deleting,
- * and clearing votes.
- */
-export async function loadOwnedWar(db: Kysely<Database>, warId: string, voterId: string, _now: Date): Promise<OwnedWarOutcome> {
+/** Ownership-only, no status requirement: a War is always editable by its creator, in any status (§6.1). */
+export async function loadOwnedWar(db: Kysely<Database>, warId: string, voterId: string): Promise<OwnedWarOutcome> {
   const war = await findWarById(db, warId);
   if (!war) return { kind: 'notFound' };
   if (war.creatorId !== voterId) return { kind: 'forbidden' };
@@ -19,23 +13,17 @@ export async function loadOwnedWar(db: Kysely<Database>, warId: string, voterId:
 }
 
 /**
- * Whether `voterId` may see this War at all (spec §6.1: "A War not currently
- * published is invisible to everyone but its creator... its detail,
- * rankings, and vote pages report it as not found"). Shared by every
- * anonymous-or-authenticated read route that must 404 identically for a
- * missing War and a private one, never leaking a distinct "exists but is
- * private" signal.
- *
- * Gated on `draft` specifically, not "not published": spec §6.1's own
- * wording -- "exactly like a War that has never been published" -- and §4's
- * "Closing ends voting for good; rankings remain readable" both make clear
- * this invisibility is what the Publish/Unpublish toggle controls, and a
- * closed War (which *was* published) stays visible to everyone, matching
- * the existing War-expiry acceptance coverage (anonymous `GET /wars/:id` on
- * an expired War still succeeds, reporting `status: "closed"`).
+ * Whether `voterId` may see this War at all (§6.1): a draft is invisible to everyone but its
+ * creator, and routes report it as not found, never as "exists but private". A closed War stays visible.
+ * Judged on the stored status, not the effective one: a draft whose end date passes reads as closed,
+ * but it was never published, so expiry must not make it public.
  */
-export function isWarVisibleTo(war: War, now: Date, voterId: string | undefined | null): boolean {
-  // The stored status, not `effectiveStatus`: a draft whose end date passes reads as closed,
-  // but it was never published, so expiry must not make it public.
+export function isWarVisibleTo(war: War, voterId: string | undefined | null): boolean {
   return war.status !== 'draft' || war.creatorId === voterId;
+}
+
+/** The War, or `undefined` when it does not exist or `voterId` may not see it. */
+export async function findVisibleWar(db: Kysely<Database>, warId: string, voterId: string | undefined | null): Promise<War | undefined> {
+  const war = await findWarById(db, warId);
+  return war && isWarVisibleTo(war, voterId) ? war : undefined;
 }

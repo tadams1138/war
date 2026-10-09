@@ -1,7 +1,7 @@
 import { sql, type Expression, type SqlBool } from 'kysely';
 
 /**
- * SQL counterpart of `effectiveStatus` (spec §4, "Effective status"): a War whose
+ * SQL counterpart of `effectiveStatus` (§4, "Effective status"): a War whose
  * `ends_at` is at or before `now` is closed whatever its stored status says, so
  * list filters agree with what the presenters report. `now` is passed in (the
  * request's own clock reading) rather than using the database's `now()`, so one

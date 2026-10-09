@@ -76,8 +76,8 @@ export async function giveContestantAnImage(
     mimeType: 'image/jpeg',
     originalExt: 'jpg',
   });
-  if (!outcome.ok) {
-    throw new Error(`failed to seed contestant image: ${outcome.reason}`);
+  if (outcome.kind !== 'ok') {
+    throw new Error(`failed to seed contestant image: ${outcome.kind}`);
   }
 }
 

@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 
 /**
  * Publishes the document @fastify/swagger generated from route schemas
- * (spec). Hidden from the document itself -- it is the contract's
+ *. Hidden from the document itself -- it is the contract's
  * delivery mechanism, not a described endpoint.
  */
 export function registerOpenApiRoutes(app: FastifyInstance): void {

@@ -2,7 +2,8 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type { Database } from '../db/types.js';
 import { isUuid } from '../db/uuid.js';
-import { createdAtText, decodeKeysetCursor, isAfterCursor, sliceKeysetPage } from '../shared/keysetCursor.js';
+import { createdAtText, fetchKeysetPage, type InvalidCursor } from '../shared/keysetCursor.js';
+import type { NotFound } from '../shared/outcomes.js';
 
 export interface AdminVote {
   id: string;
@@ -16,10 +17,7 @@ export interface AdminVote {
   castAt: Date;
 }
 
-export type ListAdminVotesOutcome =
-  | { kind: 'ok'; votes: AdminVote[]; nextCursor: string | null }
-  | { kind: 'notFound' }
-  | { kind: 'invalidCursor' };
+export type ListAdminVotesOutcome = { kind: 'ok'; votes: AdminVote[]; nextCursor: string | null } | NotFound | InvalidCursor;
 
 export interface ListAdminVotesOptions {
   limit: number;
@@ -77,7 +75,7 @@ function toAdminVote(row: VoteRow): AdminVote {
 }
 
 /**
- * One page of every vote `voterId` cast, newest first (spec §6.7 "Visibility"): removed Wars and other
+ * One page of every vote `voterId` cast, newest first (§6.7 "Visibility"): removed Wars and other
  * Voters' invite-only or draft Wars included, since the history is the Voter's, not the War's. The loser
  * is the matchup's other contestant; War title and both names arrive in the same query.
  */
@@ -87,14 +85,7 @@ export async function listAdminVotes(
   options: ListAdminVotesOptions,
 ): Promise<ListAdminVotesOutcome> {
   if (!(await voterExists(db, voterId))) return { kind: 'notFound' };
-  let query = voterVotesQuery(db, voterId);
-
-  if (options.cursor !== undefined) {
-    const cursor = decodeKeysetCursor(options.cursor);
-    if (!cursor) return { kind: 'invalidCursor' };
-    query = query.where(isAfterCursor('votes.created_at', 'votes.id', cursor));
-  }
-
-  const { page, nextCursor } = sliceKeysetPage(await query.limit(options.limit + 1).execute(), options.limit);
-  return { kind: 'ok', votes: page.map(toAdminVote), nextCursor };
+  const result = await fetchKeysetPage(voterVotesQuery(db, voterId), { createdAtColumn: 'votes.created_at', idColumn: 'votes.id', ...options });
+  if (result.kind === 'invalidCursor') return result;
+  return { kind: 'ok', votes: result.page.map(toAdminVote), nextCursor: result.nextCursor };
 }

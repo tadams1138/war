@@ -14,7 +14,7 @@ export type CastVoteOutcome =
   | { kind: 'warNotPublished' }
   | { kind: 'notJoined' }
   | { kind: 'notFound' }
-  /** The Voter was banned after their request authenticated (spec §6.7); answered like any banned Voter, 401. */
+  /** The Voter was banned after their request authenticated (§6.7); answered like any banned Voter, 401. */
   | { kind: 'banned' };
 
 export interface CastVoteInput {
@@ -24,7 +24,7 @@ export interface CastVoteInput {
   winnerId: string;
 }
 
-/** A second vote naming the same winner is idempotent (spec: "a vote is final"); a different winner conflicts. */
+/** A second vote naming the same winner is idempotent (a vote is final); a different winner conflicts. */
 function outcomeForVote(recordedWinnerId: string, winnerId: string): CastVoteOutcome {
   return recordedWinnerId === winnerId ? { kind: 'retried' } : { kind: 'conflict' };
 }
@@ -70,7 +70,7 @@ async function insertOrIdempotentOutcome(
   return { kind: 'created', vote: result.vote };
 }
 
-/** Casts a vote, enforcing war-spec.md §6.3's rules: published War, joined voter, valid winner, final vote. */
+/** Casts a vote, enforcing §6.3's rules: published War, joined voter, valid winner, final vote. */
 export async function castVoteForVoter(
   db: Kysely<Database>,
   input: CastVoteInput,
