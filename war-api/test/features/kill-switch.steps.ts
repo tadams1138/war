@@ -2,9 +2,10 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeVoter, makeAdmin, makeModerator } from '../setup/fixtures.js';
+import { makeAdmin, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { getKillSwitch, postWar, putKillSwitch } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/kill-switch.feature', import.meta.url)));
 
@@ -15,25 +16,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     await truncateAll();
     harness = await buildTestHarness();
   });
-
-  async function send(callerId: string, method: 'get' | 'put' | 'post', path: string, body?: Record<string, unknown>): Promise<request.Response> {
-    await harness.app.ready();
-    const jwt = await harness.jwtFor(callerId);
-    const req = request(harness.app.server)[method](path).set('Authorization', `Bearer ${jwt}`);
-    return body ? req.send(body) : req;
-  }
-
-  async function getSwitch(callerId: string): Promise<request.Response> {
-    return send(callerId, 'get', '/api/v1/kill-switch');
-  }
-
-  async function putSwitch(callerId: string, body: Record<string, unknown>): Promise<request.Response> {
-    return send(callerId, 'put', '/api/v1/kill-switch', body);
-  }
-
-  async function postWar(callerId: string): Promise<request.Response> {
-    return send(callerId, 'post', '/api/v1/wars', { title: 'Test War' });
-  }
 
   async function warCount(): Promise<number> {
     return (await harness.db.selectFrom('wars').selectAll().execute()).length;
@@ -54,7 +36,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator GETs the kill switch', async () => {
       // Act
-      response = await getSwitch(moderatorId);
+      response = await getKillSwitch(harness, moderatorId);
     });
 
     Then('the response is 200 and the kill switch is off', () => {
@@ -77,11 +59,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Admin enables the kill switch', async () => {
       // Act
-      await putSwitch(adminId, { enabled: true });
+      await putKillSwitch(harness, adminId, { enabled: true });
     });
 
     And('the plain Voter POSTs a War', async () => {
-      response = await postWar(voterId);
+      // Act
+      response = await postWar(harness, voterId);
     });
 
     Then('the response is 503 war_creation_disabled and no War exists', async () => {
@@ -103,11 +86,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Admin enables the kill switch', async () => {
       // Act
-      await putSwitch(adminId, { enabled: true });
+      await putKillSwitch(harness, adminId, { enabled: true });
     });
 
     And('the Admin POSTs a War', async () => {
-      response = await postWar(adminId);
+      // Act
+      response = await postWar(harness, adminId);
     });
 
     Then('the response is 503 war_creation_disabled and no War exists', async () => {
@@ -131,15 +115,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Admin enables the kill switch', async () => {
       // Act
-      await putSwitch(adminId, { enabled: true });
+      await putKillSwitch(harness, adminId, { enabled: true });
     });
 
     And('the Admin disables the kill switch', async () => {
-      await putSwitch(adminId, { enabled: false });
+      // Act
+      await putKillSwitch(harness, adminId, { enabled: false });
     });
 
     And('the plain Voter POSTs a War', async () => {
-      response = await postWar(voterId);
+      // Act
+      response = await postWar(harness, voterId);
     });
 
     Then('the response is 201 and one War exists', async () => {
@@ -161,11 +147,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator enables the kill switch', async () => {
       // Act
-      putResponse = await putSwitch(moderatorId, { enabled: true });
+      putResponse = await putKillSwitch(harness, moderatorId, { enabled: true });
     });
 
     And('the Moderator GETs the kill switch', async () => {
-      response = await getSwitch(moderatorId);
+      // Act
+      response = await getKillSwitch(harness, moderatorId);
     });
 
     Then('the response is 200 and the kill switch is on', () => {
@@ -191,22 +178,24 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator enables the kill switch', async () => {
       // Act
-      await putSwitch(moderatorId, { enabled: true });
+      await putKillSwitch(harness, moderatorId, { enabled: true });
     });
 
     And('the plain Voter GETs the kill switch', async () => {
-      getResponse = await getSwitch(voterId);
+      // Act
+      getResponse = await getKillSwitch(harness, voterId);
     });
 
     And('the plain Voter disables the kill switch', async () => {
-      putResponse = await putSwitch(voterId, { enabled: false });
+      // Act
+      putResponse = await putKillSwitch(harness, voterId, { enabled: false });
     });
 
     Then("both of the plain Voter's responses are 403 and the kill switch is still on", async () => {
       // Assert
       expect(getResponse.status).toBe(403);
       expect(putResponse.status).toBe(403);
-      expect((await getSwitch(moderatorId)).body).toEqual({ enabled: true });
+      expect((await getKillSwitch(harness, moderatorId)).body).toEqual({ enabled: true });
     });
   });
 
@@ -220,7 +209,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Admin enables the kill switch', async () => {
       // Act
-      await putSwitch(adminId, { enabled: true });
+      await putKillSwitch(harness, adminId, { enabled: true });
     });
 
     Then('a moderation log entry records the Admin enabling the kill switch with no target', async () => {
@@ -244,11 +233,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator enables the kill switch', async () => {
       // Act
-      await putSwitch(moderatorId, { enabled: true });
+      await putKillSwitch(harness, moderatorId, { enabled: true });
     });
 
     And('the Moderator disables the kill switch', async () => {
-      await putSwitch(moderatorId, { enabled: false });
+      // Act
+      await putKillSwitch(harness, moderatorId, { enabled: false });
     });
 
     Then('a moderation log entry records the Moderator disabling the kill switch with no target', async () => {
@@ -272,7 +262,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the plain Voter enables the kill switch', async () => {
       // Act
-      response = await putSwitch(voterId, { enabled: true });
+      response = await putKillSwitch(harness, voterId, { enabled: true });
     });
 
     Then('the response is 403 and no moderation log entry exists', async () => {
@@ -293,7 +283,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator PUTs a kill switch body without enabled', async () => {
       // Act
-      response = await putSwitch(moderatorId, {});
+      response = await putKillSwitch(harness, moderatorId, {});
     });
 
     Then('the response is 400 and no moderation log entry exists', async () => {

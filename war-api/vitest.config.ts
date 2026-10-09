@@ -8,5 +8,7 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 120_000,
     fileParallelism: false,
+    globalSetup: ['test/setup/globalSetup.ts'],
+    setupFiles: ['test/setup/perFile.ts'],
   },
 });

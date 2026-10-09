@@ -186,7 +186,7 @@ describe('Callback exchange failures (war-spec.md §5.1)', () => {
   it('maps an openid-client/oauth4webapi validation error from the exchange to a 502, not a raw 500', async () => {
     // Arrange: a class-typed error carrying the library's own internal
     // error code as its message -- exactly the shape that reached three
-    // separate users' browsers as an opaque 500 (spec).
+    // separate users' browsers as an opaque 500.
     class FakeOperationProcessingError extends Error {
       code = 'OAUTH_INVALID_RESPONSE';
       constructor() {

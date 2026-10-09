@@ -9,6 +9,7 @@ import { beginLogin, loginAndCallback, postRefresh } from '../setup/authFlow.js'
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { extractCookieValue, findSetCookie } from '../setup/httpHelpers.js';
+import { anonymous } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/auth.feature', import.meta.url)));
 
@@ -26,11 +27,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let refreshTokenValue: string | undefined;
 
     Given('a user has never signed in before', async () => {
+      // Arrange
       const row = await harness.db.selectFrom('voters').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
       voterCountBefore = Number(row.count);
     });
 
     When('they authenticate via Google OAuth', async () => {
+      // Act
       const { refreshTokenValue: token } = await loginAndCallback(harness, {
         providerUserId: 'new-voter@example.com',
         displayName: 'New Voter',
@@ -42,11 +45,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('a new Voter record is created', async () => {
+      // Assert
       const row = await harness.db.selectFrom('voters').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
       expect(Number(row.count)).toBe(voterCountBefore + 1);
     });
 
     And('a JWT and refresh token are returned', () => {
+      // Assert
       expect(jwt).toBeTruthy();
       expect(refreshTokenValue).toBeTruthy();
     });
@@ -56,19 +61,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let firstVoterId: string;
 
     Given('a voter has previously signed in with Google', async () => {
+      // Arrange
       const { refreshTokenValue } = await loginAndCallback(harness, {
         providerUserId: 'returning@example.com',
         displayName: 'Returning Voter',
         avatarUrl: null,
       });
       const refreshResponse = await postRefresh(harness, refreshTokenValue);
-      const meResponse = await request(harness.app.server)
-        .get('/api/v1/auth/me')
-        .set('Authorization', `Bearer ${(refreshResponse.body as { token: string }).token}`);
+      const meResponse = await anonymous(harness).get('/api/v1/auth/me', { headers: { Authorization: `Bearer ${(refreshResponse.body as { token: string }).token}` } });
       firstVoterId = (meResponse.body as { voter: { id: string } }).voter.id;
     });
 
     When('they authenticate again via Google OAuth', async () => {
+      // Act
       await loginAndCallback(harness, {
         providerUserId: 'returning@example.com',
         displayName: 'Returning Voter',
@@ -77,11 +82,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('no new Voter record is created', async () => {
+      // Assert
       const row = await harness.db.selectFrom('voters').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
       expect(Number(row.count)).toBe(1);
     });
 
     And('the existing record is returned', async () => {
+      // Assert
       const voter = await findVoterById(harness.db, firstVoterId);
       expect(voter).toBeDefined();
       expect(voter?.providerUserId).toBe('returning@example.com');
@@ -93,66 +100,61 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let voterBId: string;
 
     Given('voter A signed in with Google using "user-a@example.com"', async () => {
+      // Arrange
       const { refreshTokenValue } = await loginAndCallback(harness, {
         providerUserId: 'user-a@example.com',
         displayName: 'User A',
         avatarUrl: null,
       });
       const refreshResponse = await postRefresh(harness, refreshTokenValue);
-      const meResponse = await request(harness.app.server)
-        .get('/api/v1/auth/me')
-        .set('Authorization', `Bearer ${(refreshResponse.body as { token: string }).token}`);
+      const meResponse = await anonymous(harness).get('/api/v1/auth/me', { headers: { Authorization: `Bearer ${(refreshResponse.body as { token: string }).token}` } });
       voterAId = (meResponse.body as { voter: { id: string } }).voter.id;
     });
 
     When('a user signs in with Google using "user-b@example.com"', async () => {
+      // Act
       const { refreshTokenValue } = await loginAndCallback(harness, {
         providerUserId: 'user-b@example.com',
         displayName: 'User B',
         avatarUrl: null,
       });
       const refreshResponse = await postRefresh(harness, refreshTokenValue);
-      const meResponse = await request(harness.app.server)
-        .get('/api/v1/auth/me')
-        .set('Authorization', `Bearer ${(refreshResponse.body as { token: string }).token}`);
+      const meResponse = await anonymous(harness).get('/api/v1/auth/me', { headers: { Authorization: `Bearer ${(refreshResponse.body as { token: string }).token}` } });
       voterBId = (meResponse.body as { voter: { id: string } }).voter.id;
     });
 
     Then('a separate Voter record is created', () => {
+      // Assert
       expect(voterBId).not.toBe(voterAId);
     });
 
     And('the two accounts are not linked', async () => {
+      // Assert
       const row = await harness.db.selectFrom('voters').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
       expect(Number(row.count)).toBe(2);
     });
   });
 
-  Scenario('Unauthenticated request to protected endpoint', ({ Given, When, Then }) => {
+  Scenario('Unauthenticated request to protected endpoint', ({ When, Then }) => {
     let response: request.Response;
 
-    Given('a request with no Authorization header', () => {
-      // No setup needed: the request simply omits the header.
-    });
-
-    When('they call GET /api/v1/auth/me', async () => {
+    When('an unauthenticated caller calls GET /api/v1/auth/me', async () => {
+      // Act
       await harness.app.ready();
-      response = await request(harness.app.server).get('/api/v1/auth/me');
+      response = await anonymous(harness).get('/api/v1/auth/me');
     });
 
     Then('the response status is 401', () => {
+      // Assert
       expect(response.status).toBe(401);
     });
   });
 
-  Scenario('No token is placed in the redirect URL', ({ Given, When, Then, And }) => {
+  Scenario('No token is placed in the redirect URL', ({ When, Then, And }) => {
     let callbackResponse: request.Response;
 
-    Given('a user completing OAuth with Google', () => {
-      // Handled in the When step: the login+callback dance is one continuous action.
-    });
-
-    When('the callback redirects them back to the SPA', async () => {
+    When('a user completing OAuth with Google is redirected back to the SPA by the callback', async () => {
+      // Act
       const result = await loginAndCallback(harness, {
         providerUserId: 'no-token-in-url@example.com',
         displayName: 'No Token',
@@ -162,6 +164,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('the redirect location contains no token in its path, query, or fragment', () => {
+      // Assert
       expect(callbackResponse.status).toBeGreaterThanOrEqual(300);
       expect(callbackResponse.status).toBeLessThan(400);
       const location = callbackResponse.get('Location') ?? '';
@@ -170,6 +173,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the refresh token is set as an HttpOnly cookie', () => {
+      // Assert
       const setCookie = findSetCookie(callbackResponse.get('Set-Cookie'), 'refresh_token');
       expect(setCookie).toBeDefined();
       expect(setCookie?.toLowerCase()).toContain('httponly');
@@ -181,11 +185,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a user who began signing in with Google', async () => {
+      // Arrange
       const begun = await beginLogin(harness);
       stateCookie = begun.stateCookie;
     });
 
     When("Google's callback reports \"access_denied\" instead of an authorization code", async () => {
+      // Act
       response = await request(harness.app.server)
         .get('/api/v1/auth/google/callback')
         .query({ error: 'access_denied' })
@@ -193,10 +199,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
 
     And('the reported reason is "access_denied"', () => {
+      // Assert
       // Pins both halves of the callback failure body:
       // "error" is the fixed contract string, "reason" is the provider's
       // code passed through verbatim.
@@ -205,6 +213,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('no refresh token cookie is set', () => {
+      // Assert
       expect(extractCookieValue(response.get('Set-Cookie'), 'refresh_token')).toBeUndefined();
     });
   });
@@ -214,6 +223,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let refreshResponse: request.Response;
 
     Given('a refresh cookie set by a completed OAuth callback', async () => {
+      // Arrange
       const result = await loginAndCallback(harness, {
         providerUserId: 'spa-exchange@example.com',
         displayName: 'SPA User',
@@ -223,10 +233,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the SPA POSTs to /api/v1/auth/refresh', async () => {
+      // Act
       refreshResponse = await postRefresh(harness, refreshTokenValue);
     });
 
     Then('a JWT is returned in the response body', () => {
+      // Assert
       expect(refreshResponse.status).toBe(200);
       expect((refreshResponse.body as { token?: string }).token).toBeTruthy();
     });
@@ -237,6 +249,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let refreshResponse: request.Response;
 
     Given('a valid refresh token', async () => {
+      // Arrange
       const result = await loginAndCallback(harness, {
         providerUserId: 'rotate@example.com',
         displayName: 'Rotate User',
@@ -246,16 +259,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('it is exchanged at /auth/refresh', async () => {
+      // Act
       refreshResponse = await postRefresh(harness, originalToken);
     });
 
     Then('a new refresh token is issued', () => {
+      // Assert
       const newToken = extractCookieValue(refreshResponse.get('Set-Cookie'), 'refresh_token');
       expect(newToken).toBeTruthy();
       expect(newToken).not.toBe(originalToken);
     });
 
     And('the presented token is marked used', async () => {
+      // Assert
       const stored = await findRefreshTokenByHash(harness.db, hashRefreshToken(originalToken));
       expect(stored?.usedAt).not.toBeNull();
     });
@@ -268,6 +284,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let reuseResponse: request.Response;
 
     Given('a refresh token that has already been exchanged once', async () => {
+      // Arrange
       const result = await loginAndCallback(harness, {
         providerUserId: 'reuse@example.com',
         displayName: 'Reuse User',
@@ -281,20 +298,24 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('it is presented again', async () => {
+      // Act
       reuseResponse = await postRefresh(harness, usedToken);
     });
 
     Then('the response status is 401', () => {
+      // Assert
       expect(reuseResponse.status).toBe(401);
     });
 
     And('every token in its family is revoked', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('refresh_tokens').selectAll().where('family_id', '=', familyId).execute();
       expect(rows.length).toBeGreaterThan(0);
       expect(rows.every((row) => row.revoked_at !== null)).toBe(true);
     });
 
     And('the voter must re-authenticate', async () => {
+      // Assert
       const rotatedRows = await harness.db
         .selectFrom('refresh_tokens')
         .selectAll()
@@ -318,6 +339,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a valid refresh cookie', async () => {
+      // Arrange
       const result = await loginAndCallback(harness, {
         providerUserId: 'cross-origin@example.com',
         displayName: 'Cross Origin',
@@ -327,10 +349,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('/auth/refresh is called with an unregistered Origin header', async () => {
+      // Act
       response = await postRefresh(harness, refreshTokenValue, 'https://evil.test');
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
@@ -341,6 +365,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let familyId: string;
 
     Given('an authenticated voter', async () => {
+      // Arrange
       const result = await loginAndCallback(harness, {
         providerUserId: 'logout@example.com',
         displayName: 'Logout User',
@@ -355,6 +380,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they call DELETE /auth/session', async () => {
+      // Act
       await harness.app.ready();
       await request(harness.app.server)
         .delete('/api/v1/auth/session')
@@ -363,11 +389,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('their refresh token family is revoked', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('refresh_tokens').selectAll().where('family_id', '=', familyId).execute();
       expect(rows.every((row) => row.revoked_at !== null)).toBe(true);
     });
 
     And('a subsequent refresh returns 401', async () => {
+      // Assert
       const response = await postRefresh(harness, refreshTokenValue);
       expect(response.status).toBe(401);
     });

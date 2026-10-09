@@ -25,7 +25,13 @@ describe('mapFacebookProfile', () => {
   });
 
   it('throws when there is no account id to identify the voter by', () => {
-    // Arrange / Act / Assert
-    expect(() => mapFacebookProfile({ id: '' })).toThrow('Facebook did not return an account id');
+    // Arrange
+    const input = { id: '' };
+
+    // Act
+    const act = () => mapFacebookProfile(input);
+
+    // Assert
+    expect(act).toThrow('Facebook did not return an account id');
   });
 });

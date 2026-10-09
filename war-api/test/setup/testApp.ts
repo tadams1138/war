@@ -7,12 +7,13 @@ import type { OAuthProvider } from '../../src/auth/oauthProvider.js';
 import { FakeOAuthProvider } from './fakeOAuthProvider.js';
 import { InMemoryObjectStorage } from './fakeStorage.js';
 import { getTestDb } from './testDb.js';
+import { INTERNAL_TOKEN } from './apiClient.js';
 
 export function testConfig(): AppConfig {
   return loadConfig({
     UI_ORIGINS: 'https://app.test',
     JWT_SECRET: 'test-jwt-secret',
-    INTERNAL_TASK_TOKEN: 'test-internal-token',
+    INTERNAL_TASK_TOKEN: INTERNAL_TOKEN,
     S3_PUBLIC_BASE_URL: 'https://cdn.test',
     PUBLIC_BASE_URL: 'https://api.test',
     // One trusted hop, so tests can stand in for distinct client addresses with X-Forwarded-For.
@@ -58,35 +59,46 @@ export function buildCommonDeps(): CommonAppDeps {
   };
 }
 
+type App = Awaited<ReturnType<typeof buildApp>>;
+
+const openApps = new Set<App>();
+
+/** Registers an app so `closeAllApps` closes it. */
+export function trackApp(app: App): App {
+  openApps.add(app);
+  return app;
+}
+
+export async function closeAllApps(): Promise<void> {
+  const apps = [...openApps];
+  openApps.clear();
+  await Promise.all(apps.map((app) => app.close()));
+}
+
 export interface TestHarness {
-  app: Awaited<ReturnType<typeof buildApp>>;
+  app: App;
   db: Kysely<Database>;
   google: FakeOAuthProvider;
   microsoft: FakeOAuthProvider;
-  facebook: FakeOAuthProvider;
-  twitter: FakeOAuthProvider;
   providers: ReadonlyMap<string, OAuthProvider>;
   storage: InMemoryObjectStorage;
-  config: AppConfig;
   jwtFor: (voterId: string) => Promise<string>;
 }
 
 export async function buildTestHarness(): Promise<TestHarness> {
+  await closeAllApps();
   const db = await getTestDb();
-  const { config, google, microsoft, facebook, twitter, providers, storage } = buildCommonDeps();
+  const { config, google, microsoft, providers, storage } = buildCommonDeps();
 
-  const app = await buildApp({ db, providers, storage, config });
+  const app = trackApp(await buildApp({ db, providers, storage, config }));
 
   return {
     app,
     db,
     google,
     microsoft,
-    facebook,
-    twitter,
     providers,
     storage,
-    config,
     jwtFor: (voterId: string) => signAccessToken(voterId, { secret: config.jwtSecret, issuer: config.jwtIssuer }),
   };
 }

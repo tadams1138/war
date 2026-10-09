@@ -55,7 +55,7 @@ export async function beginLogin(harness: TestHarness, provider = 'google'): Pro
 }
 
 /**
- * Drives the real login → callback flow (spec) against the app, with
+ * Drives the real login → callback flow against the app, with
  * only the provider's network hop stubbed. Registers `profile` against
  * `fake` (the harness's fake for `provider`, defaulting to `harness.google`
  * for the common Google-only case). Returns the refresh-token cookie value

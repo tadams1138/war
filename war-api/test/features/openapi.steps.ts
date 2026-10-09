@@ -5,6 +5,7 @@ import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { Validator } from '@seriousme/openapi-schema-validator';
 import { buildAppWithoutDb, type NoDbHarness } from '../setup/testAppNoDb.js';
 import { listRegisteredRoutes, type RegisteredRoute } from '../setup/routeTree.js';
+import { anonymous } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/openapi.feature', import.meta.url)));
 
@@ -60,7 +61,7 @@ function operationFor(document: OpenApiDocument, path: string, method: string): 
 /**
  * The set of `METHOD path` entries the generated document is expected to
  * publish: every actually-registered route, minus `/internal/*` (excluded
- * per the spec) and the document's own endpoint (not self-described).
+ * from the contract) and the document's own endpoint (not self-described).
  * Built from Fastify's own routing table, not a hand-copied list, so this
  * is a real drift check rather than a restatement of the spec. Compares at
  * method granularity, not path alone, so a route silently losing a verb
@@ -87,7 +88,7 @@ function documentRoutes(document: OpenApiDocument): Set<string> {
 }
 
 async function fetchDocument(harness: NoDbHarness): Promise<{ response: request.Response; document: OpenApiDocument }> {
-  const response = await request(harness.app.server).get('/api/v1/openapi.json');
+  const response = await anonymous(harness).get('/api/v1/openapi.json');
   return { response, document: response.body as OpenApiDocument };
 }
 
@@ -168,30 +169,31 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     registeredRoutes = listRegisteredRoutes(harness.app);
   });
 
-  Scenario('The contract is published without authentication', ({ Given, When, Then, And }) => {
-    Given('the API is running', () => {
-      // The app is already built and ready via BeforeEachScenario.
-    });
-
+  Scenario('The contract is published without authentication', ({ When, Then, And }) => {
     When('an unauthenticated client GETs /api/v1/openapi.json', async () => {
-      response = await request(harness.app.server).get('/api/v1/openapi.json');
+      // Act
+      response = await anonymous(harness).get('/api/v1/openapi.json');
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And('the response Content-Type is application/json', () => {
+      // Assert
       expect(response.headers['content-type']).toContain('application/json');
     });
   });
 
   Scenario('The published document is a valid OpenAPI 3.1 contract', ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('it validates as a well-formed OpenAPI 3.1 document', async () => {
+      // Assert
       const validator = new Validator();
       const result = await validator.validate(document as unknown as Record<string, unknown>);
       expect(result.errors).toBeUndefined();
@@ -200,6 +202,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And("its paths match the API's actual registered routes", () => {
+      // Assert
       const expected = expectedPublishedRoutes(registeredRoutes);
       const actual = documentRoutes(document);
       expect(actual).toEqual(expected);
@@ -208,14 +211,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario('Internal endpoints are excluded from the contract', ({ Given, When, Then }) => {
     Given('the API registers internal routes under /api/v1/internal', () => {
+      // Arrange
       expect(registeredRoutes.some((route) => route.url.startsWith(`${API_PREFIX}/internal`))).toBe(true);
     });
 
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('no /api/v1/internal path appears in it', () => {
+      // Assert
       const documentPaths = Object.keys(document.paths ?? {});
       expect(documentPaths.some((path) => path.startsWith('/internal'))).toBe(false);
     });
@@ -231,17 +237,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       );
 
       // Act
-      const probe = await request(harness.app.server).get('/api/v1/auth/me');
+      const probe = await anonymous(harness).get('/api/v1/auth/me');
 
       // Assert: rejected without a bearer token.
       expect(probe.status).toBe(401);
     });
 
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('that path declares a bearerAuth security requirement', () => {
+      // Assert
       const operation = operationFor(document, '/auth/me', 'get');
       expect(operation.security).toEqual([{ bearerAuth: [] }]);
     });
@@ -255,7 +263,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       );
 
       // Act
-      const probe = await request(harness.app.server).get('/api/v1/wars');
+      const probe = await anonymous(harness).get('/api/v1/wars');
 
       // Assert: under this no-DB harness an unauthenticated GET /wars still
       // reaches the (stubbed) database and fails there, so it does not
@@ -265,10 +273,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('that path declares no security requirement', () => {
+      // Assert
       const operation = operationFor(document, '/wars', 'get');
       expect(operation.security ?? []).toEqual([]);
     });
@@ -276,10 +286,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The refresh endpoint's response schema declares the JWT", ({ When, Then }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the POST /api/v1/auth/refresh 200 response schema requires a "token" string field', () => {
+      // Assert
       const schema = responseSchema(document, '/auth/refresh', 'post', '200');
       const tokenSchema = expectRequiredPath(document, schema, 'token');
       expect(tokenSchema.type).toBe('string');
@@ -288,15 +300,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The voter profile endpoint's response schema declares the voter fields", ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the GET /api/v1/auth/me 200 response schema requires "voter.id"', () => {
+      // Assert
       const schema = responseSchema(document, '/auth/me', 'get', '200');
       expectRequiredPath(document, schema, 'voter.id');
     });
 
     And('it declares "voter.avatar_url" nullable', () => {
+      // Assert
       const schema = responseSchema(document, '/auth/me', 'get', '200');
       const voterSchema = resolveSchema(document, schema.properties?.voter);
       const avatarUrlSchema = voterSchema.properties?.avatar_url;
@@ -306,20 +321,24 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario('The session logout endpoint declares no response body', ({ When, Then }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the DELETE /api/v1/auth/session 204 response declares no body', () => {
+      // Assert
       expectNoBody(document, '/auth/session', 'delete', '204');
     });
   });
 
   Scenario("The callback endpoint's error responses declare a message", ({ When, Then }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the GET /api/v1/auth/{provider}/callback 400 response schema requires "error"', () => {
+      // Assert
       const schema = responseSchema(document, '/auth/{provider}/callback', 'get', '400');
       expectRequiredPath(document, schema, 'error');
     });
@@ -327,16 +346,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario('The wars list response schema is an array under a wars key', ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the GET /api/v1/wars 200 response schema declares "wars" as an array', () => {
+      // Assert
       const schema = responseSchema(document, '/wars', 'get', '200');
       const warsSchema = expectRequiredPath(document, schema, 'wars');
       expect(warsSchema.type).toBe('array');
     });
 
     And('each item requires "id", "title", and "status"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars', 'get', '200');
       const itemSchema = resolveSchema(document, schema.properties?.wars?.items);
       expect(itemSchema.required ?? []).toEqual(expect.arrayContaining(['id', 'title', 'status']));
@@ -345,10 +367,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The wars list endpoint declares its creator-filter auth requirement", ({ When, Then }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the GET /api/v1/wars 401 response schema requires "error"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars', 'get', '401');
       expectRequiredPath(document, schema, 'error');
     });
@@ -356,16 +380,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario('The war detail response schema nests contestants with media', ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the GET /api/v1/wars/{id} 200 response schema requires "contestants" as an array', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}', 'get', '200');
       const contestantsSchema = expectRequiredPath(document, schema, 'contestants');
       expect(contestantsSchema.type).toBe('array');
     });
 
     And('each contestant requires "media" as an array', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}', 'get', '200');
       const contestantSchema = resolveSchema(document, schema.properties?.contestants?.items);
       const mediaSchema = expectRequiredPath(document, contestantSchema, 'media');
@@ -375,14 +402,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The join endpoint declares its success and failure shapes", ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the POST /api/v1/wars/{id}/join 204 response declares no body', () => {
+      // Assert
       expectNoBody(document, '/wars/{id}/join', 'post', '204');
     });
 
     And('its 403 and 404 responses each require "error"', () => {
+      // Assert
       expectRequiredPath(document, responseSchema(document, '/wars/{id}/join', 'post', '403'), 'error');
       expectRequiredPath(document, responseSchema(document, '/wars/{id}/join', 'post', '404'), 'error');
     });
@@ -390,12 +420,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The next-matchup endpoint's response schema declares progress as numbers", ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then(
       'the GET /api/v1/wars/{id}/matchups/next 200 response schema requires "progress.voted" and "progress.total" as numbers',
       () => {
+      // Assert
         const schema = responseSchema(document, '/wars/{id}/matchups/next', 'get', '200');
         const voted = expectRequiredPath(document, schema, 'progress.voted');
         const total = expectRequiredPath(document, schema, 'progress.total');
@@ -405,16 +437,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     );
 
     And('its 204 response declares no body', () => {
+      // Assert
       expectNoBody(document, '/wars/{id}/matchups/next', 'get', '204');
     });
   });
 
   Scenario("The vote endpoint's request body schema requires the winner", ({ When, Then }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the POST /api/v1/wars/{id}/matchups/{mId}/vote request body schema requires "winner_id"', () => {
+      // Assert
       const schema = requestBodySchema(document, '/wars/{id}/matchups/{mId}/vote', 'post');
       expectRequiredPath(document, schema, 'winner_id');
     });
@@ -422,20 +457,24 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The vote endpoint's response schemas cover its status variations", ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('its 201 response schema requires "vote_id"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}/matchups/{mId}/vote', 'post', '201');
       expectRequiredPath(document, schema, 'vote_id');
     });
 
     And('its 409 response schema requires "error"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}/matchups/{mId}/vote', 'post', '409');
       expectRequiredPath(document, schema, 'error');
     });
 
     And('its 422 response schema requires "error"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}/matchups/{mId}/vote', 'post', '422');
       expectRequiredPath(document, schema, 'error');
     });
@@ -443,12 +482,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The rankings endpoint's response schema declares the leaderboard shape", ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then(
       'the GET /api/v1/wars/{id}/rankings 200 response schema requires "war_id", "status", "updated_at", and "rankings"',
       () => {
+      // Assert
         const schema = responseSchema(document, '/wars/{id}/rankings', 'get', '200');
         expect(schema.required ?? []).toEqual(
           expect.arrayContaining(['war_id', 'status', 'updated_at', 'rankings']),
@@ -457,6 +498,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     );
 
     And('each ranking entry requires "rank", "contestant", "wins", and "appearances"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}/rankings', 'get', '200');
       const entrySchema = resolveSchema(document, schema.properties?.rankings?.items);
       expect(entrySchema.required ?? []).toEqual(
@@ -465,6 +507,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('"rank" is declared nullable', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}/rankings', 'get', '200');
       const entrySchema = resolveSchema(document, schema.properties?.rankings?.items);
       const rankSchema = entrySchema.properties?.rank;
@@ -474,15 +517,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The war creation endpoint's response schemas cover its status variations", ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the POST /api/v1/wars 201 response schema requires "id", "title", and "status"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars', 'post', '201');
       expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'title', 'status']));
     });
 
     And('its 422 response schema requires "error" and "details"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars', 'post', '422');
       expect(schema.required ?? []).toEqual(expect.arrayContaining(['error', 'details']));
     });
@@ -490,10 +536,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The add-contestant endpoint's response schema declares the contestant shape", ({ When, Then }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the POST /api/v1/wars/{id}/contestants 201 response schema requires "id", "name", "bio", and "media"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}/contestants', 'post', '201');
       expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'name', 'bio', 'media']));
       expect(schema.required ?? []).not.toContain('attributes');
@@ -503,10 +551,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The image upload endpoint's response schema declares the stored media", ({ When, Then }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the POST /api/v1/wars/{id}/contestants/{cId}/images 201 response schema requires "id" and "display_order"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}/contestants/{cId}/images', 'post', '201');
       expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'display_order']));
     });
@@ -514,15 +564,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario("The publish endpoint's response schemas cover its status variations", ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
+      // Act
       ({ response, document } = await fetchDocument(harness));
     });
 
     Then('the POST /api/v1/wars/{id}/publish 200 response schema requires "id", "title", and "status"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}/publish', 'post', '200');
       expect(schema.required ?? []).toEqual(expect.arrayContaining(['id', 'title', 'status']));
     });
 
     And('its 422 response schema requires "error" and "details"', () => {
+      // Assert
       const schema = responseSchema(document, '/wars/{id}/publish', 'post', '422');
       expect(schema.required ?? []).toEqual(expect.arrayContaining(['error', 'details']));
     });

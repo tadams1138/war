@@ -19,13 +19,11 @@ Feature: Google OAuth Authentication
     And the two accounts are not linked
 
   Scenario: Unauthenticated request to protected endpoint
-    Given a request with no Authorization header
-    When they call GET /api/v1/auth/me
+    When an unauthenticated caller calls GET /api/v1/auth/me
     Then the response status is 401
 
   Scenario: No token is placed in the redirect URL
-    Given a user completing OAuth with Google
-    When the callback redirects them back to the SPA
+    When a user completing OAuth with Google is redirected back to the SPA by the callback
     Then the redirect location contains no token in its path, query, or fragment
     And the refresh token is set as an HttpOnly cookie
 

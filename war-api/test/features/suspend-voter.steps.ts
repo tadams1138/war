@@ -2,9 +2,10 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { joinWarAsVoter, makeAdmin, makeDraftWar, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
+import { UNKNOWN_ID, joinWarAsVoter, makeAdmin, makeDraftWar, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { as, postWar } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/suspend-voter.feature', import.meta.url)));
 
@@ -16,19 +17,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     harness = await buildTestHarness();
   });
 
-  async function send(callerId: string, method: 'get' | 'put' | 'post' | 'patch', path: string, body?: Record<string, unknown>): Promise<request.Response> {
-    await harness.app.ready();
-    const jwt = await harness.jwtFor(callerId);
-    const req = request(harness.app.server)[method](path).set('Authorization', `Bearer ${jwt}`);
-    return body ? req.send(body) : req;
-  }
-
   async function putSuspension(callerId: string, targetId: string, suspended: boolean): Promise<request.Response> {
-    return send(callerId, 'put', `/api/v1/voters/${targetId}/suspension`, { suspended });
-  }
-
-  async function postWar(callerId: string): Promise<request.Response> {
-    return send(callerId, 'post', '/api/v1/wars', { title: 'Test War' });
+    return as(harness, callerId).put(`/api/v1/voters/${targetId}/suspension`, { suspended });
   }
 
   async function warCount(): Promise<number> {
@@ -52,7 +42,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the Voter POSTs a War', async () => {
-      response = await postWar(voterId);
+      // Act
+      response = await postWar(harness, voterId);
     });
 
     Then('the response is 403 suspended and no War exists', async () => {
@@ -135,11 +126,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the Moderator unsuspends the Voter', async () => {
+      // Act
       await putSuspension(moderatorId, voterId, false);
     });
 
     And('the Voter POSTs a War', async () => {
-      response = await postWar(voterId);
+      // Act
+      response = await postWar(harness, voterId);
     });
 
     Then('the response is 201 and one War exists', async () => {
@@ -165,6 +158,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the Moderator unsuspends the Voter', async () => {
+      // Act
       await putSuspension(moderatorId, voterId, false);
     });
 
@@ -215,7 +209,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator suspends an unknown Voter id', async () => {
       // Act
-      response = await putSuspension(moderatorId, '00000000-0000-0000-0000-000000000000', true);
+      response = await putSuspension(moderatorId, UNKNOWN_ID, true);
     });
 
     Then('the response is 404 and nothing is logged', async () => {
@@ -246,11 +240,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the suspended Voter votes and PATCHes their own War', async () => {
       // Act
-      const next = await send(voterId, 'get', `/api/v1/wars/${otherWarId}/matchups/next`);
-      voteResponse = await send(voterId, 'post', `/api/v1/wars/${otherWarId}/matchups/${next.body.matchup.id}/vote`, {
+      const next = await as(harness, voterId).get(`/api/v1/wars/${otherWarId}/matchups/next`);
+      voteResponse = await as(harness, voterId).post(`/api/v1/wars/${otherWarId}/matchups/${next.body.matchup.id}/vote`, {
         winner_id: next.body.matchup.left.id,
       });
-      patchResponse = await send(voterId, 'patch', `/api/v1/wars/${ownWarId}`, { title: 'Renamed' });
+      patchResponse = await as(harness, voterId).patch(`/api/v1/wars/${ownWarId}`, { title: 'Renamed' });
     });
 
     Then('the vote is created and the PATCH succeeds', () => {
@@ -270,12 +264,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
       await putSuspension(moderatorId, voterId, true);
-      await send(moderatorId, 'put', '/api/v1/kill-switch', { enabled: true });
+      await as(harness, moderatorId).put('/api/v1/kill-switch', { enabled: true });
     });
 
     When('the Voter POSTs a War', async () => {
       // Act
-      response = await postWar(voterId);
+      response = await postWar(harness, voterId);
     });
 
     Then('the response is 503 war_creation_disabled', () => {

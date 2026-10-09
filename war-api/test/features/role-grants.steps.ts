@@ -2,9 +2,10 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeVoter, makeAdmin, makeModerator } from '../setup/fixtures.js';
+import { UNKNOWN_ID, makeAdmin, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { putRole } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/role-grants.feature', import.meta.url)));
 
@@ -16,21 +17,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     harness = await buildTestHarness();
   });
 
-  async function putRole(callerId: string, targetId: string, role: string, granted: boolean): Promise<request.Response> {
-    await harness.app.ready();
-    const jwt = await harness.jwtFor(callerId);
-    return request(harness.app.server)
-      .put(`/api/v1/voters/${targetId}/roles/${role}`)
-      .set('Authorization', `Bearer ${jwt}`)
-      .send({ granted });
-  }
-
   Scenario('An Admin grants Moderator to a Voter', ({ Given, When, Then, And }) => {
     let adminId: string;
     let targetId: string;
     let response: request.Response;
 
     Given('an Admin and a plain Voter', async () => {
+      // Arrange
       const admin = await makeAdmin(harness.db, 'admin');
       const target = await makeVoter(harness.db, 'target');
       adminId = admin.id;
@@ -38,14 +31,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the Admin PUTs granted true for the moderator role on that Voter', async () => {
-      response = await putRole(adminId, targetId, 'moderator', true);
+      // Act
+      response = await putRole(harness, adminId, targetId, 'moderator', true);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And('the Voter now has the moderator role', () => {
+      // Assert
       expect(response.body.is_moderator).toBe(true);
     });
   });
@@ -56,6 +52,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('an Admin and a Voter who already has the moderator role', async () => {
+      // Arrange
       const admin = await makeAdmin(harness.db, 'admin');
       const target = await makeModerator(harness.db, 'target');
       adminId = admin.id;
@@ -63,14 +60,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the Admin PUTs granted false for the moderator role on that Voter', async () => {
-      response = await putRole(adminId, targetId, 'moderator', false);
+      // Act
+      response = await putRole(harness, adminId, targetId, 'moderator', false);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And('the Voter no longer has the moderator role', () => {
+      // Assert
       expect(response.body.is_moderator).toBe(false);
     });
   });
@@ -81,6 +81,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a plain Voter and another plain Voter', async () => {
+      // Arrange
       const caller = await makeVoter(harness.db, 'caller');
       const target = await makeVoter(harness.db, 'target');
       callerId = caller.id;
@@ -88,10 +89,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the first Voter PUTs granted true for the moderator role on the second', async () => {
-      response = await putRole(callerId, targetId, 'moderator', true);
+      // Act
+      response = await putRole(harness, callerId, targetId, 'moderator', true);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
@@ -102,6 +105,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a Moderator and a plain Voter', async () => {
+      // Arrange
       const moderator = await makeModerator(harness.db, 'moderator');
       const target = await makeVoter(harness.db, 'target');
       moderatorId = moderator.id;
@@ -109,10 +113,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the Moderator PUTs granted true for the admin role on the plain Voter', async () => {
-      response = await putRole(moderatorId, targetId, 'admin', true);
+      // Act
+      response = await putRole(harness, moderatorId, targetId, 'admin', true);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
@@ -122,15 +128,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('an Admin', async () => {
+      // Arrange
       const admin = await makeAdmin(harness.db, 'admin');
       adminId = admin.id;
     });
 
     When('the Admin PUTs granted true for the moderator role on a nonexistent voter id', async () => {
-      response = await putRole(adminId, '00000000-0000-0000-0000-000000000000', 'moderator', true);
+      // Act
+      response = await putRole(harness, adminId, UNKNOWN_ID, 'moderator', true);
     });
 
     Then('the response status is 404', () => {
+      // Assert
       expect(response.status).toBe(404);
     });
   });
@@ -140,19 +149,23 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('an Admin', async () => {
+      // Arrange
       const admin = await makeAdmin(harness.db, 'admin');
       adminId = admin.id;
     });
 
     When('the Admin PUTs granted false for the admin role on themselves', async () => {
-      response = await putRole(adminId, adminId, 'admin', false);
+      // Act
+      response = await putRole(harness, adminId, adminId, 'admin', false);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
 
     And('the Admin still has the admin role', async () => {
+      // Assert
       const voter = await harness.db.selectFrom('voters').selectAll().where('id', '=', adminId).executeTakeFirstOrThrow();
       expect(voter.is_admin).toBe(true);
     });
@@ -164,6 +177,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('two Admins', async () => {
+      // Arrange
       const first = await makeAdmin(harness.db, 'first-admin');
       const second = await makeAdmin(harness.db, 'second-admin');
       firstAdminId = first.id;
@@ -171,14 +185,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("the first Admin PUTs granted false for the admin role on the second Admin", async () => {
-      response = await putRole(firstAdminId, secondAdminId, 'admin', false);
+      // Act
+      response = await putRole(harness, firstAdminId, secondAdminId, 'admin', false);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And('the second Admin no longer has the admin role', () => {
+      // Assert
       expect(response.body.is_admin).toBe(false);
     });
   });

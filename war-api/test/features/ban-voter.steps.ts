@@ -3,15 +3,16 @@ import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { randomUUID } from 'node:crypto';
-import { beginLogin, loginAndCallback, postRefresh } from '../setup/authFlow.js';
-import { extractCookieValue } from '../setup/httpHelpers.js';
 import { newId } from '../../src/db/uuid.js';
 import { castVoteForVoter, type CastVoteOutcome } from '../../src/votes/votesService.js';
 import { recomputeContestantCounters } from '../../src/contestants/contestantsRepository.js';
 import { markWarRemoved } from '../../src/wars/warsRepository.js';
-import { joinWarAsVoter, makeAdmin, makeDraftWar, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
+import { beginLogin, loginAndCallback, postRefresh } from '../setup/authFlow.js';
+import { extractCookieValue } from '../setup/httpHelpers.js';
+import { UNKNOWN_ID, joinWarAsVoter, makeAdmin, makeDraftWar, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { as } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/ban-voter.feature', import.meta.url)));
 
@@ -24,12 +25,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   async function putBan(callerId: string, targetId: string, banned: boolean): Promise<request.Response> {
-    await harness.app.ready();
-    const jwt = await harness.jwtFor(callerId);
-    return request(harness.app.server)
-      .put(`/api/v1/voters/${targetId}/ban`)
-      .set('Authorization', `Bearer ${jwt}`)
-      .send({ banned });
+    return as(harness, callerId).put(`/api/v1/voters/${targetId}/ban`, { banned });
   }
 
   async function logRows() {
@@ -145,6 +141,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the Voter completes the OAuth callback again', async () => {
+      // Act
       callbackResponse = await callbackFor('returning-voter');
     });
 
@@ -189,14 +186,15 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Arrange
       adminId = (await makeAdmin(harness.db, 'admin')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
-      await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2);
-      const published = await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2);
+      await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2, { withImages: true });
+      const published = await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2, { withImages: true });
       publishedWarId = (await publishWarForTest(harness.db, published.war)).id;
-      const removed = await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2);
+      const removed = await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2, { withImages: true });
       await markWarRemoved(harness.db, removed.war.id);
     });
 
     And("another Voter voted in the Voter's published War", async () => {
+      // Arrange
       const otherId = (await makeVoter(harness.db, 'other')).id;
       await joinWarAsVoter(harness.db, publishedWarId, otherId);
       await castVote(publishedWarId, otherId);
@@ -217,6 +215,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('their stored media objects are gone', () => {
+      // Assert
       expect(storedObjectCount()).toBe(0);
     });
   });
@@ -233,7 +232,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       adminId = (await makeAdmin(harness.db, 'admin')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
       otherVoterId = (await makeVoter(harness.db, 'other')).id;
-      const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, otherVoterId, 2);
+      const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, otherVoterId, 2, { withImages: true });
       warId = (await publishWarForTest(harness.db, war)).id;
       contestantIds = contestants.map((contestant) => contestant.id);
       const matchup = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', warId).executeTakeFirstOrThrow();
@@ -268,6 +267,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And("the other Voter's War, vote and membership remain", async () => {
+      // Assert
       expect(await count('wars')).toBe(1);
       expect(await count('contestants')).toBe(contestantIds.length);
       expect(await count('votes')).toBe(1);
@@ -368,6 +368,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the Voter completes the OAuth callback again', async () => {
+      // Act
       callbackResponse = await callbackFor('banned-voter');
     });
 
@@ -481,7 +482,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Admin bans an unknown Voter id', async () => {
       // Act
-      response = await putBan(adminId, '00000000-0000-0000-0000-000000000000', true);
+      response = await putBan(adminId, UNKNOWN_ID, true);
     });
 
     Then('the response is 404 and nothing is logged', async () => {
@@ -500,7 +501,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Arrange
       adminId = (await makeAdmin(harness.db, 'admin')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
-      await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2);
+      await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2, { withImages: true });
       harness.storage.deletePrefix = async () => {
         throw new Error('object store unavailable');
       };

@@ -37,15 +37,21 @@ describe('jwt', () => {
     const voterId = '11111111-1111-1111-1111-111111111111';
     const token = await signAccessToken(voterId, { secret: 'other-secret', issuer });
 
-    // Act & Assert
-    await expect(verifyAccessToken(token, { secret, issuer })).rejects.toThrow();
+    // Act
+    const verification = verifyAccessToken(token, { secret, issuer });
+
+    // Assert
+    await expect(verification).rejects.toThrow();
   });
 
   it('rejects a malformed token', async () => {
     // Arrange
     const token = 'not-a-jwt';
 
-    // Act & Assert
-    await expect(verifyAccessToken(token, { secret, issuer })).rejects.toThrow();
+    // Act
+    const verification = verifyAccessToken(token, { secret, issuer });
+
+    // Assert
+    await expect(verification).rejects.toThrow();
   });
 });

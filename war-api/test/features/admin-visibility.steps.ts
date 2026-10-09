@@ -9,6 +9,7 @@ import { setVoterBanned, setVoterSuspended } from '../../src/auth/votersReposito
 import { makeAdmin, makeContestant, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { anonymous } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/admin-visibility.feature', import.meta.url)));
 
@@ -91,6 +92,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     );
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -132,6 +134,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     );
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -161,6 +164,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     );
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -190,6 +194,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     );
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -219,6 +224,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -254,6 +260,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     );
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -282,6 +289,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -333,6 +341,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -397,7 +406,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     When('an unauthenticated caller GETs <path>', async () => {
       // Act
       await harness.app.ready();
-      response = await request(harness.app.server).get(`/api/v1${variables.path as string}`);
+      response = await anonymous(harness).get(`/api/v1${variables.path as string}`);
     });
 
     Then('the response is 401', () => {
@@ -433,6 +442,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     );
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -495,6 +505,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -538,6 +549,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -565,6 +577,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -597,6 +610,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator who joined earlier', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       await sql`update voters set created_at = '2025-01-01T00:00:00Z'::timestamptz where id = ${moderatorId}::uuid`.execute(harness.db);
     });
@@ -632,6 +646,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -711,6 +726,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     );
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -762,6 +778,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -852,6 +869,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -878,6 +896,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -899,16 +918,13 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     let moderatorId: string;
     let response: request.Response;
 
-    Given('a Voter who created a published War whose end date passed a minute ago', async () => {
+    Given('a Voter who created a published War whose end date passed a minute ago and has not yet been closed by the close task', async () => {
       // Arrange
       ({ warId } = await seedExpiredUnclosedWar());
     });
 
-    And('the close-expired-wars task has not yet run', () => {
-      // No-op: nothing in this scenario calls the internal endpoint.
-    });
-
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -941,16 +957,13 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     let moderatorId: string;
     let response: request.Response;
 
-    Given('a Voter who created a published War whose end date passed a minute ago', async () => {
+    Given('a Voter who created a published War whose end date passed a minute ago and has not yet been closed by the close task', async () => {
       // Arrange
       ({ warId } = await seedExpiredUnclosedWar());
     });
 
-    And('the close-expired-wars task has not yet run', () => {
-      // No-op: nothing in this scenario calls the internal endpoint.
-    });
-
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -972,16 +985,13 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     let moderatorId: string;
     let response: request.Response;
 
-    Given('a Voter who created a published War whose end date passed a minute ago', async () => {
+    Given('a Voter who created a published War whose end date passed a minute ago and has not yet been closed by the close task', async () => {
       // Arrange
       ({ creatorId, warId } = await seedExpiredUnclosedWar());
     });
 
-    And('the close-expired-wars task has not yet run', () => {
-      // No-op: nothing in this scenario calls the internal endpoint.
-    });
-
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
