@@ -23,6 +23,12 @@ Feature: Edit War
     Then it is deleted and no longer appears in the nav
     And the metadata form is shown
 
+  Scenario: A failed contestant removal shows an error and keeps the contestant
+    Given an authenticated voter viewing the editor of a contestant with no votes
+    When they remove the contestant and the request fails
+    Then an error is shown
+    And the contestant is still in the nav
+
   Scenario: Removing a contestant with votes asks for confirmation, naming what will be lost
     Given an authenticated voter viewing the editor of a contestant with votes
     When they choose to remove the contestant
@@ -119,6 +125,17 @@ Feature: Edit War
     Given an authenticated voter editing a contestant with two images
     When they remove one
     Then only the remaining image is shown
+
+  Scenario: A failed image removal shows an error and keeps the image
+    Given an authenticated voter editing a contestant with two images
+    When they remove one and the request fails
+    Then an error is shown
+    And both images are still shown
+
+  Scenario: A failed image reorder shows an error
+    Given an authenticated voter editing a contestant with two images
+    When they move the second image up and the request fails
+    Then an error is shown
 
   Scenario: Reordering images persists the new order
     Given an authenticated voter editing a contestant with two images

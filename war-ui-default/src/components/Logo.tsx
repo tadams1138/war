@@ -1,10 +1,9 @@
-// The site's brand mark (the spec, "NavBar"): a faceted hexagon badge in
-// the Arcade Showdown palette, with a 13-block mosaic standing in for a "W"
-// -- reused everywhere regardless of a War's own active theme, the same way
-// the footer already sits outside per-War theming. Geometry matches the
-// approved design exactly (hexagon points, mosaic block coordinates); this
-// is the one place that geometry is allowed to live, duplicated only in
+// The site's brand mark: a faceted hexagon badge in the Arcade Showdown
+// palette with a 13-block mosaic standing in for a "W", shown regardless of
+// a War's active theme. The geometry is duplicated only in
 // public/favicon.svg, which can't reference a React component.
+import { useId } from 'react'
+
 const HEX_POINTS = '50,4 96,27 96,73 50,96 4,73 4,27'
 
 const MOSAIC_BLOCKS: Array<{ x: number; y: number }> = [
@@ -32,16 +31,17 @@ interface LogoProps {
 }
 
 export function Logo({ shadow = true }: LogoProps) {
+  const gradientId = useId()
   return (
-    <svg viewBox="0 0 100 100" role="img" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="logo-badge-grad" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#ff3e7f" />
           <stop offset="1" stopColor="#35e8d4" />
         </linearGradient>
       </defs>
       {shadow && <polygon points={HEX_POINTS} fill="#f4e04d" transform="translate(6,6)" />}
-      <polygon points={HEX_POINTS} fill="url(#logo-badge-grad)" />
+      <polygon points={HEX_POINTS} fill={`url(#${gradientId})`} />
       <g fill="#0d0b1a">
         {MOSAIC_BLOCKS.map((block) => (
           <rect key={`${block.x}-${block.y}`} x={block.x} y={block.y} width={MOSAIC_BLOCK_WIDTH} height={MOSAIC_BLOCK_HEIGHT} />

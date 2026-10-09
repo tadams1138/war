@@ -1,4 +1,4 @@
-// War overview and results, image mode only (the spec: "War detail is one
+// War overview and results, image mode only (war-spec.md: "War detail is one
 // page, not two" — 10.1, 10.4). One merged results list, ordered by rank —
 // no separate contestant gallery and no separate "Results" section. No
 // authentication required for a public War; an invite-only War's results
@@ -10,6 +10,7 @@ import { getToken } from '../api/authState'
 import { getMyProgress, getWar, type ContestantDetail, type VoteProgress, type WarDetailResponse } from '../api/client'
 import { DeleteButton } from '../components/DeleteButton'
 import { DeleteWarConfirmDialog } from '../components/DeleteWarConfirmDialog'
+import { AsyncStatus } from '../components/AsyncStatus'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { ExportButton } from '../components/ExportButton'
 import { ResultsTable } from '../components/ResultsTable'
@@ -47,8 +48,7 @@ export function WarDetail() {
   // my-progress about.
   const progress = useVoteProgress(safeId, state.status === 'loaded' ? state.value.status : '')
 
-  if (state.status === 'loading') return <p>Loading…</p>
-  if (state.status === 'error') return <p role="alert">{state.message}</p>
+  if (state.status !== 'loaded') return <AsyncStatus state={state} />
 
   const war = state.value
   return (
@@ -181,7 +181,7 @@ function ResultsActions({ war }: { war: WarDetailResponse }) {
 // poll does not clear already-loaded results" carried down to this
 // section's own scope rather than the whole page).
 function ResultsSection({ state, contestants }: { state: RankingsState; contestants: ContestantDetail[] }) {
-  if (state.status === 'loading') return <p>Loading results…</p>
-  if (state.status === 'error') return <p role="alert">{state.message}</p>
+  if (state.status === 'loading') return <p role="status">Loading results…</p>
+  if (state.status === 'error') return <ErrorMessage message={state.message} />
   return <ResultsTable rankings={state.rankings.rankings} contestants={contestants} />
 }

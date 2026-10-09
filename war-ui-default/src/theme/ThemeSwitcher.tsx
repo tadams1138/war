@@ -1,5 +1,5 @@
 // Lets a voter override the theme they see for one scope — a specific War,
-// or 'home' for every other route (the spec, "Theme switching"). Lives in
+// or 'home' for every other route (war-spec.md, "Theme switching"). Lives in
 // NavBar so it's reachable from anywhere; has no persistence logic of its
 // own — the caller owns the useTheme()/ThemeContext call and passes both
 // props down.

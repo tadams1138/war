@@ -1,7 +1,6 @@
-// Baseline MSW handlers — the "happy path" default for every endpoint this
-// slice calls. Individual acceptance scenarios override just the endpoints
-// they care about via scenarios.ts's data-driven recipes; anything they
-// don't override falls through to these.
+// Baseline MSW handlers: the "happy path" default for every endpoint.
+// Acceptance scenarios override just the endpoints they care about via
+// scenarios.ts recipes; anything else falls through to these.
 import { HttpResponse, http } from 'msw'
 import { buildContestant, buildMatchupResponse, buildRankingsResponse, buildWarDetail, buildWarSummary } from './fixtures'
 
@@ -36,9 +35,8 @@ export const handlers = [
     ),
   ),
 
-  // War detail now renders its results section on the same page (the
-  // spec), so any test that mocks GET /wars/:id also implicitly exercises
-  // this fetch, whether or not that test cares about the leaderboard.
+  // War detail renders its results on the same page, so any test that mocks
+  // GET /wars/:id also exercises this fetch.
   http.get('/api/v1/wars/:id/rankings', () => HttpResponse.json(buildRankingsResponse())),
 
   http.post('/api/v1/wars/:id/join', () => new HttpResponse(null, { status: 204 })),

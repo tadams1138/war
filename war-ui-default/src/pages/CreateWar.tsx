@@ -1,5 +1,5 @@
 // Immediately creates an empty draft War and forwards to its Edit page —
-// there is no creation wizard (the spec, "Create War"): every field a
+// there is no creation wizard (war-spec.md, "Create War"): every field a
 // draft needs, including Publish/Unpublish, lives on the one Edit page.
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -27,7 +27,7 @@ export function CreateWar() {
       })
       .catch((requestError) => {
         if (cancelled) return
-        // Rate limited (the spec, §10.5: "a wait, using the supplied delay
+        // Rate limited (war-spec.md §10.5: "a wait, using the supplied delay
         // — never presented as an error") retries on its own once the
         // delay passes, mirroring useVoteSession's applyRateLimit — no
         // "Try again" click needed for a mere cooldown.

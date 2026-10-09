@@ -1,4 +1,4 @@
-/* Visual treatment per theme (the spec, "Visual Theme" / "Theme
+/* Visual treatment per theme (war-spec.md, "Visual Theme" / "Theme
    switching"): color, type, and a signature shape per theme, selected by
    the [data-theme] attribute each themed page sets on its <main>.
    Arrangement/breakpoints live in layout.css, not here. This is a first

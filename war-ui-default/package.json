@@ -2,14 +2,19 @@
   "name": "war-ui-default",
   "private": true,
   "version": "0.0.0",
+  "description": "The default web UI for the War platform: a React single-page app.",
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "vite --mode mock",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
+    "test": "vitest run",
     "test:acceptance": "playwright test",
     "generate:api": "npm --prefix ../war-api run dump-openapi --silent > openapi.json && openapi-typescript openapi.json -o src/api/generated/schema.d.ts",
     "build:mock": "vite build --mode mock"
@@ -21,10 +26,12 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.6",
+    "@types/node": "^26.6.4",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^9.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^30.0.1",
     "msw": "^2.15.0",
     "openapi-typescript": "^7.13.0",
@@ -44,7 +51,7 @@
   },
   "msw": {
     "workerDirectory": [
-      "public"
+      "mock-sw"
     ]
   }
 }

@@ -1,9 +1,9 @@
-// Role and sanction badges for a Voter (the spec, §6.7).
+// Role and sanction badges for a Voter (war-spec.md §6.7).
 import type { AdminVoterItem } from '../../api/client'
 
 type BadgeFlags = Pick<AdminVoterItem, 'is_moderator' | 'is_admin' | 'suspended' | 'banned'>
 
-export function voterBadgeLabels(voter: BadgeFlags): string[] {
+function voterBadgeLabels(voter: BadgeFlags): string[] {
   const labels: string[] = []
   if (voter.is_moderator) labels.push('Moderator')
   if (voter.is_admin) labels.push('Admin')

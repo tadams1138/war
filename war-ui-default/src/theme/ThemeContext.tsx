@@ -1,9 +1,7 @@
-// Lets a War-scoped page (WarDetail/VoteMode/Rankings) tell NavBar which
-// theme it resolved to, including the War's own creator-chosen default —
-// something NavBar cannot know on its own, since it renders above <Routes>
-// and never fetches War data itself. Pages with no War in scope (Home,
-// MyWars, Login, CreateWar) don't need this: NavBar's own 'home'-keyed
-// useTheme() call already resolves the same way they do.
+// Lets every page tell NavBar and Footer which theme it resolved to,
+// including a War's own creator-chosen default -- something they cannot know
+// on their own, since they render above <Routes> and never fetch War data.
+// Pages with no War in scope publish under the shared 'home' key.
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Theme } from './themeCookie'
 
@@ -18,6 +16,9 @@ interface ThemeContextValue {
   publish: (active: ActiveTheme) => void
   clear: (key: string) => void
 }
+
+// Used before any page has published, and on routes with no theme scope.
+export const FALLBACK_THEME: Theme = 'arcade'
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
@@ -49,8 +50,8 @@ export function useActiveTheme(): { theme: Theme; setTheme: (theme: Theme) => vo
   return active
 }
 
-// A War-scoped page's write side. Call unconditionally (before any early
-// return) alongside the page's own useTheme(key, fallback) call.
+// A page's write side. Call unconditionally (before any early return)
+// alongside the page's own useTheme(key, fallback) call.
 export function usePublishTheme(key: string, theme: Theme, setTheme: (theme: Theme) => void): void {
   const { publish, clear } = useThemeContext()
 

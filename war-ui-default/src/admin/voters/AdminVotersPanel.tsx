@@ -1,9 +1,11 @@
-// The Staff Voters list (the spec, §6.7): every Voter with role and sanction
+// The Staff Voters list (war-spec.md §6.7): every Voter with role and sanction
 // badges and the number of Wars they created.
 import { Link } from 'react-router-dom'
 import type { AdminVoterItem } from '../../api/client'
 import { VoterBadges } from './VoterBadges'
 import { useAdminVoters, type AdminVoterStatusFilter } from './useAdminVoters'
+import { ErrorMessage } from '../../components/ErrorMessage'
+import { LoadingMessage } from '../../components/AsyncStatus'
 
 const STATUS_OPTIONS: { value: AdminVoterStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -44,8 +46,8 @@ export function AdminVotersPanel() {
           />
         </label>
       </div>
-      {list.status === 'loading' && <p>Loading…</p>}
-      {list.error && <p role="alert">{list.error}</p>}
+      {list.status === 'loading' && <LoadingMessage />}
+      <ErrorMessage message={list.error} />
       {list.status === 'loaded' && (
         <>
           <ul className="admin-voters">

@@ -1,19 +1,13 @@
-// OAuth provider selection (war-spec.md §5.1). Apple is left off this list --
-// designed for but not built (PROGRESS.md "To revisit") -- rather than
-// shown as a button that 404s.
+// OAuth provider selection (war-spec.md §5.1). Apple is left off: it is not
+// built, and a button that 404s would be worse than none.
 import { useSearchParams } from 'react-router-dom'
 import { providerLoginUrl } from '../api/client'
 import { storeReturnTo } from '../auth/returnTo'
-import { ProviderLogo, type OAuthProviderSlug } from '../components/ProviderLogo'
+import { PROVIDER_LABELS, ProviderLogo, type OAuthProviderSlug } from '../components/ProviderLogo'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
-const PROVIDERS: { slug: OAuthProviderSlug; label: string }[] = [
-  { slug: 'google', label: 'Google' },
-  { slug: 'facebook', label: 'Facebook' },
-  { slug: 'microsoft', label: 'Microsoft' },
-  { slug: 'twitter', label: 'X' },
-]
+const PROVIDERS = Object.keys(PROVIDER_LABELS) as OAuthProviderSlug[]
 
 export function Login() {
   const [searchParams] = useSearchParams()
@@ -29,15 +23,15 @@ export function Login() {
         {sessionExpired && <p role="alert">Please log in to continue</p>}
         <ul>
           {PROVIDERS.map((provider) => (
-            <li key={provider.slug}>
+            <li key={provider}>
               <a
-                className={`login-provider-button login-provider-button--${provider.slug}`}
-                href={providerLoginUrl(provider.slug)}
-                data-testid={`login-provider-${provider.slug}`}
+                className={`login-provider-button login-provider-button--${provider}`}
+                href={providerLoginUrl(provider)}
+                data-testid={`login-provider-${provider}`}
                 onClick={() => storeReturnTo(returnTo)}
               >
-                <ProviderLogo provider={provider.slug} />
-                Sign in with {provider.label}
+                <ProviderLogo provider={provider} />
+                Sign in with {PROVIDER_LABELS[provider]}
               </a>
             </li>
           ))}

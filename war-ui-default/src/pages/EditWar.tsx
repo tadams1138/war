@@ -1,26 +1,24 @@
-// A War's own editing page (spec §6.1: always editable by its creator, in
-// any status): metadata, each contestant's name/bio/images, Publish/
-// Unpublish, Clear Votes, and Delete. Reachable only from a War's own My
-// Wars card -- see useEditWar for why this page cannot itself distinguish
-// "not the creator" from "not found" on load (GET /wars/:id already 404s
-// either case identically, spec §6.1).
+// A War's own editing page (war-spec.md §6.1: always editable by its
+// creator, in any status): metadata, each contestant's name/bio/images,
+// Publish/Unpublish, Clear Votes, and Delete. GET /wars/:id 404s for "not
+// the creator" and "not found" alike, so this page cannot tell them apart.
 //
-// Two-pane layout: a left nav list (Metadata, each contestant, Add
-// contestant) selects what the right pane shows. Only one section renders
-// at a time -- a long page stacking every contestant's full editor (bio
-// toolbar, live preview, image gallery) top to bottom stopped being
-// navigable once a War had more than one or two contestants.
-import { useRef, useState, type RefObject } from 'react'
+// Two-pane layout: a nav list (Metadata, each contestant, Add contestant)
+// selects the one section the right pane shows -- stacking every
+// contestant's editor was unnavigable past a couple of contestants.
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { ContestantDetail, PatchContestantPayload, WarDetailResponse, WarSummary } from '../api/client'
+import { AsyncStatus } from '../components/AsyncStatus'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DeleteButton } from '../components/DeleteButton'
 import { DeleteWarConfirmDialog } from '../components/DeleteWarConfirmDialog'
+import { ErrorMessage } from '../components/ErrorMessage'
 import { ExportButton } from '../components/ExportButton'
-import { Modal } from '../components/Modal'
 import { Toast } from '../components/Toast'
 import { AddContestantForm } from '../editWar/AddContestantForm'
 import { EditWarContestant } from '../editWar/EditWarContestant'
-import { EditWarMetadataForm, type EditWarMetadataFormHandle } from '../editWar/EditWarMetadataForm'
+import { EditWarMetadataForm } from '../editWar/EditWarMetadataForm'
 import { useEditWar, type EditWarLoadedState, type EditWarState } from '../editWar/useEditWar'
 import { useWarExportDownload, type WarExportDownload } from '../export/useWarExportDownload'
 import { useDeleteWarFlow, type DeleteWarFlow } from '../hooks/useDeleteWarFlow'
@@ -39,10 +37,10 @@ function loadedWarOrNull(state: EditWarState): WarDetailResponse | null {
   return state.status === 'loaded' ? state.war : null
 }
 
-function missingForPublish(contestants: ContestantDetail[]): string[] {
-  const missing: string[] = []
-  if (contestants.length < 2) missing.push('at least 2 contestants')
-  return missing
+const MIN_CONTESTANTS_TO_PUBLISH = 2
+
+function lacksContestantsToPublish(contestants: ContestantDetail[]): boolean {
+  return contestants.length < MIN_CONTESTANTS_TO_PUBLISH
 }
 
 export function EditWar() {
@@ -56,13 +54,11 @@ export function EditWar() {
   const [selected, setSelected] = useState<Selection>('metadata')
   const [theme, setTheme] = useTheme(safeWarId, initialTheme(editWar.state))
   usePublishTheme(safeWarId, theme, setTheme)
-  const metadataFormRef = useRef<EditWarMetadataFormHandle>(null)
   const [showPublishConfirm, setShowPublishConfirm] = useState(false)
   const [showClearVotesConfirm, setShowClearVotesConfirm] = useState(false)
   const [pendingRemoval, setPendingRemoval] = useState<ContestantDetail | null>(null)
 
-  if (editWar.state.status === 'loading') return <p>Loading…</p>
-  if (editWar.state.status === 'error') return <p role="alert">{editWar.state.message}</p>
+  if (editWar.state.status !== 'loaded') return <AsyncStatus state={editWar.state} />
 
   const state = editWar.state
 
@@ -89,8 +85,7 @@ export function EditWar() {
   }
 
   async function handleRemove(contestantId: string): Promise<void> {
-    await editWar.removeContestant(contestantId)
-    setSelected('metadata')
+    if (await editWar.removeContestant(contestantId)) setSelected('metadata')
   }
 
   function confirmRemoveContestant(): void {
@@ -122,7 +117,6 @@ export function EditWar() {
         <EditWarDetailPane
           selected={selected}
           state={state}
-          metadataFormRef={metadataFormRef}
           onSelect={setSelected}
           editWar={editWar}
           onRequestRemove={requestRemoveContestant}
@@ -175,8 +169,8 @@ function TopActions({
           Clear Votes
         </button>
       </div>
-      {exportFlow.error && <p role="alert">{exportFlow.error}</p>}
-      {deleteFlow.error && <p role="alert">{deleteFlow.error}</p>}
+      <ErrorMessage message={exportFlow.error} />
+      <ErrorMessage message={deleteFlow.error} />
       <PublishStatus war={state.war} publishDetails={state.publishDetails} />
       <DeleteWarConfirmDialog show={deleteFlow.showConfirm} onConfirm={deleteFlow.confirm} onCancel={deleteFlow.cancel} testIdPrefix="edit-war" />
       <PublishToggleConfirmDialog
@@ -206,7 +200,7 @@ function PublishToggleButton({
 }) {
   if (war.status === 'closed') return null
   const isDraft = war.status === 'draft'
-  const disabled = publishing || (isDraft && missingForPublish(war.contestants).length > 0)
+  const disabled = publishing || (isDraft && lacksContestantsToPublish(war.contestants))
   return (
     <button type="button" className="button" data-testid="publish-toggle-submit" disabled={disabled} onClick={onClick}>
       {isDraft ? 'Publish War' : 'Unpublish War'}
@@ -215,10 +209,12 @@ function PublishToggleButton({
 }
 
 function PublishStatus({ war, publishDetails }: { war: WarDetailResponse; publishDetails: string[] | null }) {
-  const missing = war.status === 'draft' ? missingForPublish(war.contestants) : []
+  const needsContestants = war.status === 'draft' && lacksContestantsToPublish(war.contestants)
   return (
     <>
-      {missing.length > 0 && <p data-testid="publish-requirements">To publish this War, add {missing.join(' and ')}.</p>}
+      {needsContestants && (
+        <p data-testid="publish-requirements">To publish this War, add at least {MIN_CONTESTANTS_TO_PUBLISH} contestants.</p>
+      )}
       {war.status === 'closed' && <p data-testid="publish-closed-note">This War has closed and can no longer be published or unpublished.</p>}
       {publishDetails && (
         <ul role="alert" data-testid="publish-error">
@@ -244,40 +240,30 @@ function PublishToggleConfirmDialog({
 }) {
   const isDraft = war.status === 'draft'
   return (
-    <Modal show={show} onCancel={onCancel} testId="publish-toggle-confirm">
+    <ConfirmDialog
+      show={show}
+      testId="publish-toggle-confirm"
+      confirmLabel={isDraft ? 'Publish War' : 'Unpublish War'}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    >
       <p>
         {isDraft
           ? 'Publishing makes this War reachable by anyone. You can unpublish it again at any time. Continue?'
           : 'Unpublishing makes this War reachable only by you. You can publish it again at any time. Continue?'}
       </p>
-      <div className="action-bar">
-        <button type="button" className="button" data-testid="publish-toggle-confirm-submit" onClick={onConfirm}>
-          {isDraft ? 'Publish War' : 'Unpublish War'}
-        </button>
-        <button type="button" className="button" data-testid="publish-toggle-confirm-cancel" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </Modal>
+    </ConfirmDialog>
   )
 }
 
 function ClearVotesConfirmDialog({ show, onConfirm, onCancel }: { show: boolean; onConfirm: () => void; onCancel: () => void }) {
   return (
-    <Modal show={show} onCancel={onCancel} testId="clear-votes-confirm">
+    <ConfirmDialog show={show} testId="clear-votes-confirm" confirmLabel="Clear Votes" danger onConfirm={onConfirm} onCancel={onCancel}>
       <p>
         Clear Votes deletes every vote cast in this War and resets every contestant&rsquo;s counters to zero. This
         cannot be undone. Continue?
       </p>
-      <div className="action-bar">
-        <button type="button" className="button button--danger" data-testid="clear-votes-confirm-submit" onClick={onConfirm}>
-          Clear Votes
-        </button>
-        <button type="button" className="button" data-testid="clear-votes-confirm-cancel" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </Modal>
+    </ConfirmDialog>
   )
 }
 
@@ -291,20 +277,19 @@ function RemoveContestantConfirmDialog({
   onCancel: () => void
 }) {
   return (
-    <Modal show={contestant !== null} onCancel={onCancel} testId="edit-war-contestant-remove-confirm">
+    <ConfirmDialog
+      show={contestant !== null}
+      testId="edit-war-contestant-remove-confirm"
+      confirmLabel="Remove contestant"
+      danger
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    >
       <p>
         Removing {contestant?.name} also clears the {contestant?.appearance_count} vote
         {contestant?.appearance_count === 1 ? '' : 's'} cast on their matchups. This cannot be undone. Continue?
       </p>
-      <div className="action-bar">
-        <button type="button" className="button button--danger" data-testid="edit-war-contestant-remove-confirm-submit" onClick={onConfirm}>
-          Remove contestant
-        </button>
-        <button type="button" className="button" data-testid="edit-war-contestant-remove-confirm-cancel" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </Modal>
+    </ConfirmDialog>
   )
 }
 
@@ -353,32 +338,23 @@ function EditWarNav({
   )
 }
 
-function orNull<T>(value: T | null | undefined): T | null {
-  return value ?? null
-}
-
 function EditWarDetailPane({
   selected,
   state,
-  metadataFormRef,
   onSelect,
   editWar,
   onRequestRemove,
 }: {
   selected: Selection
   state: EditWarLoadedState
-  metadataFormRef: RefObject<EditWarMetadataFormHandle | null>
   onSelect: (selection: Selection) => void
   editWar: ReturnType<typeof useEditWar>
   onRequestRemove: (contestant: ContestantDetail) => void
 }) {
-  const selectedContestant = state.war.contestants.find((c) => c.id === selected)
-
   return (
     <div className="edit-war-detail">
       {selected === 'metadata' && (
         <EditWarMetadataForm
-          ref={metadataFormRef}
           war={state.war}
           error={state.metadataError}
           saving={state.savingMetadata}
@@ -393,53 +369,36 @@ function EditWarDetailPane({
           onAdded={(contestant) => onSelect(contestant.id)}
         />
       )}
-      {selectedContestant && (
-        <SelectedContestantEditor
-          contestant={selectedContestant}
-          error={orNull(state.contestantErrors[selectedContestant.id])}
-          imageNotice={orNull(state.imageErrors[selectedContestant.id])}
-          onSave={(payload) => editWar.saveContestant(selectedContestant.id, payload)}
-          onRemove={() => onRequestRemove(selectedContestant)}
-          onAddImages={(files) => void editWar.addImages(selectedContestant.id, files)}
-          onRemoveImage={(mediaId) => void editWar.removeImage(selectedContestant.id, mediaId)}
-          onMoveImageUp={(mediaId) => void editWar.moveImageUp(selectedContestant.id, mediaId)}
-        />
-      )}
+      <SelectedContestantEditor selected={selected} state={state} editWar={editWar} onRequestRemove={onRequestRemove} />
     </div>
   )
 }
 
 function SelectedContestantEditor({
-  contestant,
-  error,
-  imageNotice,
-  onSave,
-  onRemove,
-  onAddImages,
-  onRemoveImage,
-  onMoveImageUp,
+  selected,
+  state,
+  editWar,
+  onRequestRemove,
 }: {
-  contestant: ContestantDetail
-  error: string | null
-  imageNotice: { message: string; kind: 'error' | 'wait' } | null
-  onSave: (payload: PatchContestantPayload) => Promise<void>
-  onRemove: () => void
-  onAddImages: (files: File[]) => void
-  onRemoveImage: (mediaId: string) => void
-  onMoveImageUp: (mediaId: string) => void
+  selected: Selection
+  state: EditWarLoadedState
+  editWar: ReturnType<typeof useEditWar>
+  onRequestRemove: (contestant: ContestantDetail) => void
 }) {
+  const contestant = state.war.contestants.find((c) => c.id === selected)
+  if (!contestant) return null
   return (
     <ul>
       <EditWarContestant
         key={contestant.id}
         contestant={contestant}
-        error={error}
-        imageNotice={imageNotice}
-        onSave={onSave}
-        onRemove={onRemove}
-        onAddImages={onAddImages}
-        onRemoveImage={onRemoveImage}
-        onMoveImageUp={onMoveImageUp}
+        error={state.contestantErrors[contestant.id] ?? null}
+        imageNotice={state.imageErrors[contestant.id] ?? null}
+        onSave={(payload: PatchContestantPayload) => editWar.saveContestant(contestant.id, payload)}
+        onRemove={() => onRequestRemove(contestant)}
+        onAddImages={(files) => void editWar.addImages(contestant.id, files)}
+        onRemoveImage={(mediaId) => void editWar.removeImage(contestant.id, mediaId)}
+        onMoveImageUp={(mediaId) => void editWar.moveImageUp(contestant.id, mediaId)}
       />
     </ul>
   )

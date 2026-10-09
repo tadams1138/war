@@ -289,3 +289,16 @@ test('Next and Prev page through results — Prev re-shows the cached page with 
   const callsAfterPrev = (await getCallLog(page)).filter((entry) => entry.url.includes('/wars')).length
   expect(callsAfterPrev).toBe(callsAfterNext)
 })
+
+test('Home has a page heading above the War cards', async ({ page }) => {
+  // Arrange
+  const wars = [buildWarSummary({ id: 'war-1', title: 'Miss Universe 2026' })]
+  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars, next_cursor: null } }] }])
+
+  // Act
+  await page.goto('/')
+
+  // Assert
+  await expect(page.getByRole('heading', { level: 1, name: 'Head-to-head contests' })).toHaveCount(1)
+  await expect(page.getByRole('heading', { level: 2, name: 'Miss Universe 2026' })).toBeVisible()
+})

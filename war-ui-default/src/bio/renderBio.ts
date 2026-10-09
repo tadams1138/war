@@ -1,6 +1,6 @@
 // Turns a contestant's bio (markdown source, stored verbatim in the plain
 // TEXT `bio` column — no schema change; see BioEditor) into sanitized HTML
-// for display. The allow-list covers exactly the spec's formatting
+// for display. The allow-list covers exactly war-spec.md's formatting
 // features — emphasis, lists, links, headings — plus the paragraph/break
 // tags marked itself wraps output in; nothing else survives, so a bio
 // containing a <script> or an event-handler attribute renders as inert text

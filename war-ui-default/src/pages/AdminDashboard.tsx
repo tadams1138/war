@@ -1,4 +1,4 @@
-// Staff-only Admin Dashboard (the spec, §10.1 routes table; §6.7).
+// Staff-only Admin Dashboard (war-spec.md §10.1 routes table; §6.7).
 import { useState } from 'react'
 import { KillSwitchPanel } from '../admin/KillSwitchPanel'
 import { ModerationLogPanel } from '../admin/ModerationLogPanel'

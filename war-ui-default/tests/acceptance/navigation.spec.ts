@@ -341,3 +341,51 @@ test('A failed server-side logout still logs the voter out locally', async ({ pa
   await expect(identityMenu(page)).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
+
+test('Opening the identity menu moves focus to its first item', async ({ page }) => {
+  // Arrange
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/')
+
+  // Act
+  await openIdentityMenu(page)
+
+  // Assert
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'My Wars' })).toBeFocused()
+})
+
+test('Arrow keys move between identity menu items', async ({ page }) => {
+  // Arrange
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/')
+  await openIdentityMenu(page)
+
+  // Act
+  await page.keyboard.press('ArrowDown')
+
+  // Assert
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'Start a War' })).toBeFocused()
+
+  // Act
+  await page.keyboard.press('ArrowUp')
+
+  // Assert
+  await expect(identityMenu(page).getByRole('menuitem', { name: 'My Wars' })).toBeFocused()
+})
+
+test('Escape closes the identity menu and returns focus to its trigger', async ({ page }) => {
+  // Arrange
+  await page.goto('/')
+  await loginAsTestVoter(page)
+  await navigateAuthenticated(page, '/')
+  await openIdentityMenu(page)
+
+  // Act
+  await page.keyboard.press('Escape')
+
+  // Assert
+  await expect(identityMenu(page)).toHaveCount(0)
+  await expect(identityTrigger(page)).toBeFocused()
+})

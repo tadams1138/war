@@ -1,12 +1,10 @@
-// Official marks for each OAuth provider's sign-in button, built to each
-// provider's own brand guidelines (see the google-oauth/facebook-oauth/
-// microsoft-oauth/twitter-x-oauth skills' "Sign-in button branding"
-// sections for the sourcing and the rules behind each choice below) —
-// not a generic icon set. Each mark is a fixed, unaltered shape; only the
+// Official marks for each OAuth provider's sign-in button, following each
+// provider's published brand guidelines (Google, Facebook, Microsoft and X
+// sign-in branding). Each mark is a fixed, unaltered shape; only the
 // wrapping <svg> is sized by the caller.
 export type OAuthProviderSlug = 'google' | 'facebook' | 'microsoft' | 'twitter'
 
-const PROVIDER_LABELS: Record<OAuthProviderSlug, string> = {
+export const PROVIDER_LABELS: Record<OAuthProviderSlug, string> = {
   google: 'Google',
   facebook: 'Facebook',
   microsoft: 'Microsoft',

@@ -114,3 +114,20 @@ Feature: Navigation
     Then the navigation shows a link to log in
     And it no longer shows their identity or the identity menu
     And no error message is displayed
+
+  Scenario: Opening the identity menu moves focus to its first item
+    Given an authenticated voter
+    When they open the identity menu
+    Then focus is on the first menu item
+
+  Scenario: Arrow keys move between identity menu items
+    Given the identity menu is open
+    When the voter presses the down arrow
+    Then focus moves to the next menu item
+    And pressing the up arrow moves it back
+
+  Scenario: Escape closes the identity menu and returns focus to its trigger
+    Given the identity menu is open
+    When the voter presses Escape
+    Then the menu is closed
+    And focus is on the identity control

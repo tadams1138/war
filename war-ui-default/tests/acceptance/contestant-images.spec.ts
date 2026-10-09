@@ -21,8 +21,8 @@ async function setupMatchup(page: Page, leftMedia: ReturnType<typeof mediaSet>) 
   const matchup = buildMatchupResponse({
     matchup: {
       id: 'matchup-images',
-      left: { id: 'left-contestant', name: 'Left', media: leftMedia },
-      right: { id: 'right-contestant', name: 'Right', media: mediaSet(1, 'right') },
+      left: { id: 'left-contestant', name: 'Left', bio: null, media: leftMedia },
+      right: { id: 'right-contestant', name: 'Right', bio: null, media: mediaSet(1, 'right') },
     },
   })
   await useScenario(page, [

@@ -1,8 +1,10 @@
-// A Voter's vote history as Staff see it (the spec, §6.7): each vote's War,
+// A Voter's vote history as Staff see it (war-spec.md §6.7): each vote's War,
 // winner, loser and cast time, newest first.
 import { Link } from 'react-router-dom'
 import { warTitle } from '../../utils/warTitle'
 import { useVoterVotes } from './useVoterVotes'
+import { ErrorMessage } from '../../components/ErrorMessage'
+import { LoadingMessage } from '../../components/AsyncStatus'
 
 export function VoterVotesSection({ voterId }: { voterId: string }) {
   const history = useVoterVotes(voterId)
@@ -10,8 +12,8 @@ export function VoterVotesSection({ voterId }: { voterId: string }) {
   return (
     <section aria-labelledby="voter-votes-heading">
       <h2 id="voter-votes-heading">Votes</h2>
-      {history.status === 'loading' && <p>Loading…</p>}
-      {history.error && <p role="alert">{history.error}</p>}
+      {history.status === 'loading' && <LoadingMessage />}
+      <ErrorMessage message={history.error} />
       {history.status === 'loaded' && (
         <>
           <ul>

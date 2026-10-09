@@ -520,7 +520,7 @@ test('A contestant with no media shows no image at all', async ({ page }) => {
   // so a bare result row must never invent a placeholder image.
   const detail = buildWarDetail({
     id: 'war-no-media',
-    contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [] })],
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada', bio: null, media: [] })],
   })
   const rankings = buildRankingsResponse({
     war_id: 'war-no-media',
@@ -787,7 +787,7 @@ test("An invite-only War's results require sign-in", async ({ page }) => {
 test("A completed vote flow redirects to the War's results", async ({ page }) => {
   // Arrange
   const lastMatchup = buildMatchupResponse({
-    matchup: { id: 'matchup-last', left: { id: 'a', name: 'A', media: [] }, right: { id: 'b', name: 'B', media: [] } },
+    matchup: { id: 'matchup-last', left: { id: 'a', name: 'A', bio: null, media: [] }, right: { id: 'b', name: 'B', bio: null, media: [] } },
     progress: { voted: 4, total: 5 },
   })
   const rankings = buildRankingsResponse({ war_id: RESULTS_WAR_ID })
@@ -1001,7 +1001,7 @@ test("A creator sees Export on their own War's results page regardless of status
 test('Clicking Export downloads a zip of the War definition', async ({ page }) => {
   // Arrange
   const media = buildMediaItem({ id: 'm-1', variants: [{ width: 400, url: 'https://cdn.example.test/m-1/400.jpg' }] })
-  const contestant = buildContestant({ id: 'c-1', name: 'Ada', media: [media] })
+  const contestant = buildContestant({ id: 'c-1', name: 'Ada', bio: null, media: [media] })
   const detail = buildWarDetail({ id: 'war-export', status: 'draft', is_owner: true, contestants: [contestant] })
   await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-export`, responses: [{ status: 200, body: detail }] }])
   await page.route('https://cdn.example.test/**', (route) =>

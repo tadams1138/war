@@ -1,5 +1,5 @@
-// The Remove War action and its in-page confirmation (the spec, §6.7).
-import { Modal } from '../../components/Modal'
+// The Remove War action and its in-page confirmation (war-spec.md §6.7).
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useRemoveWar } from './useRemoveWar'
 
 export function RemoveWarControl({ warId, onRemoved }: { warId: string; onRemoved: () => void }) {
@@ -17,20 +17,19 @@ export function RemoveWarControl({ warId, onRemoved }: { warId: string; onRemove
           {remove.error}
         </p>
       )}
-      <Modal show={remove.confirming} onCancel={remove.cancel} testId="remove-war-confirm">
+      <ConfirmDialog
+        show={remove.confirming}
+        testId="remove-war-confirm"
+        confirmLabel="Remove War"
+        danger
+        onConfirm={remove.confirm}
+        onCancel={remove.cancel}
+      >
         <p>
           Removing this War hides it from everyone and permanently deletes its media. This cannot be undone. Do you
           want to continue?
         </p>
-        <div className="action-bar">
-          <button type="button" className="button button--danger" data-testid="remove-war-confirm-submit" onClick={remove.confirm}>
-            Remove War
-          </button>
-          <button type="button" className="button" data-testid="remove-war-confirm-cancel" onClick={remove.cancel}>
-            Cancel
-          </button>
-        </div>
-      </Modal>
+      </ConfirmDialog>
     </>
   )
 }

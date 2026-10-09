@@ -1,5 +1,5 @@
-// Textarea + formatting toolbar for a contestant's bio (the spec's
-// constrained markdown subset: bold, italic, lists, links). All actual
+// Textarea + formatting toolbar for a contestant's bio (war-spec.md's
+// constrained markdown subset: bold, italic, headings, lists, links). All actual
 // text-insertion logic lives in bioFormat.ts (unit-tested); this component
 // is wiring only — reading the textarea's current selection, calling
 // applyBioFormat, and restoring the resulting selection after React commits
