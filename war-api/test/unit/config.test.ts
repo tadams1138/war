@@ -30,8 +30,11 @@ describe('assertProductionConfig', () => {
     // Arrange
     const config = loadConfig({} as NodeJS.ProcessEnv);
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow();
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow();
   });
 
   it('throws when JWT_SECRET is left at its published test default', () => {
@@ -39,8 +42,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.jwtSecret = 'test-secret-do-not-use-in-production';
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/jwt/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/jwt/i);
   });
 
   it('throws when INTERNAL_TASK_TOKEN is left at its published test default', () => {
@@ -48,8 +54,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.internalTaskToken = 'test-internal-token';
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/internal/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/internal/i);
   });
 
   it('throws when DATABASE_URL is unset', () => {
@@ -57,8 +66,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.databaseUrl = '';
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow();
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow();
   });
 
   it('throws when Google client credentials are unset', () => {
@@ -66,8 +78,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.oauthProviders.google = { clientId: '', clientSecret: '' };
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow();
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow();
   });
 
   it('throws when Microsoft client credentials are unset', () => {
@@ -75,8 +90,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.oauthProviders.microsoft = { clientId: '', clientSecret: '' };
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/microsoft/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/microsoft/i);
   });
 
   it('throws when Facebook client credentials are unset', () => {
@@ -84,8 +102,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.oauthProviders.facebook = { clientId: '', clientSecret: '' };
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/facebook/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/facebook/i);
   });
 
   it('throws when Twitter/X client credentials are unset', () => {
@@ -93,16 +114,22 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.oauthProviders.twitter = { clientId: '', clientSecret: '' };
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/twitter/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/twitter/i);
   });
 
   it('does not throw for a fully-populated production config', () => {
     // Arrange
     const config = fullyPopulatedConfig();
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).not.toThrow();
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).not.toThrow();
   });
 
   it('throws when apiBaseUrl is left at its localhost default for the configured port', () => {
@@ -110,8 +137,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.apiBaseUrl = defaultPublicBaseUrl(config.port);
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/public.*base.*url/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/public.*base.*url/i);
   });
 
   it('throws when apiBaseUrl is the empty string', () => {
@@ -119,16 +149,22 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.apiBaseUrl = '';
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow();
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow();
   });
 
   it('does not throw when apiBaseUrl is a real, non-default value', () => {
     // Arrange
     const config = fullyPopulatedConfig();
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).not.toThrow();
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).not.toThrow();
     expect(config.apiBaseUrl).toBe('https://staging.war.tmad.dev');
   });
 
@@ -137,8 +173,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.apiBaseUrl = 'https://staging.war.tmad.dev/';
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/trailing slash/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/trailing slash/i);
   });
 
   it('throws when apiBaseUrl does not parse as an absolute http(s) URL', () => {
@@ -146,8 +185,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.apiBaseUrl = 'not-a-url';
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/absolute http/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/absolute http/i);
   });
 
   it('throws when uiOrigins is left at its localhost default', () => {
@@ -155,8 +197,11 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.uiOrigins = [DEFAULT_UI_ORIGIN];
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/ui_origins/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/ui_origins/i);
   });
 
   it('throws when uiOrigins is empty', () => {
@@ -164,16 +209,22 @@ describe('assertProductionConfig', () => {
     const config = fullyPopulatedConfig();
     config.uiOrigins = [];
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).toThrow(/ui_origins/i);
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).toThrow(/ui_origins/i);
   });
 
   it('does not throw when uiOrigins is a real, non-default value', () => {
     // Arrange
     const config = fullyPopulatedConfig();
 
-    // Act & Assert
-    expect(() => assertProductionConfig(config)).not.toThrow();
+    // Act
+    const act = () => assertProductionConfig(config);
+
+    // Assert
+    expect(act).not.toThrow();
     expect(config.uiOrigins).toEqual(['https://staging.war.tmad.dev']);
   });
 });

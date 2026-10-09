@@ -10,7 +10,7 @@ import { oauthDeclinedResponseSchema, type OAuthDeclinedView } from '../../src/a
 import { rankingsResponseSchema, type RankingsView } from '../../src/rankings/rankingsService.js';
 
 /**
- * Pins every response body schema (spec) to full byte-for-byte
+ * Pins every response body schema to full byte-for-byte
  * agreement with the presenter output it describes. `fast-json-stringify`
  * silently drops any property a schema does not list -- an
  * `objectContaining`/subset assertion would not catch that in either
@@ -28,7 +28,7 @@ function buildProbeApp(schema: object, fixture: unknown) {
   return app;
 }
 
-describe('response body schemas serialize every field (spec)', () => {
+describe('response body schemas serialize every field', () => {
   it('MediaItem: every field, non-null aspect_ratio', async () => {
     // Arrange
     const fixture: MediaItemView = {
@@ -71,7 +71,7 @@ describe('response body schemas serialize every field (spec)', () => {
       id: 'a5b1e2c4-2222-4a11-8a11-000000000001',
       title: 'Best Pageant',
       category: 'pageant',
-      status: 'active',
+      status: 'published',
       visibility: 'public',
       media_mode: 'image',
       theme: 'arcade',
@@ -242,7 +242,7 @@ describe('response body schemas serialize every field (spec)', () => {
     // Arrange
     const fixture: RankingsView = {
       war_id: 'a5b1e2c4-6666-4a11-8a11-000000000001',
-      status: 'active',
+      status: 'published',
       theme: 'arcade',
       updated_at: '2026-04-28T12:00:00.000Z',
       rankings: [
@@ -286,7 +286,7 @@ describe('response body schemas serialize every field (spec)', () => {
   });
 });
 
-describe('empty-body statuses stay empty (spec)', () => {
+describe('empty-body statuses stay empty', () => {
   it.each([
     ['DELETE /auth/session', 204],
     ['POST /wars/:id/join', 204],

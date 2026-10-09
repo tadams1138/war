@@ -12,7 +12,7 @@ describe('warsRepository removal (war-spec.md §6.7)', () => {
     harness = await buildTestHarness();
   });
 
-  it('hides a removed War from findWarById but deleteWarRow still hard-deletes it', async () => {
+  it('hides a removed War from findWarById', async () => {
     // Arrange
     const creator = await makeVoter(harness.db, 'creator');
     const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
@@ -20,12 +20,9 @@ describe('warsRepository removal (war-spec.md §6.7)', () => {
 
     // Act
     const found = await findWarById(harness.db, war.id);
-    await deleteWarRow(harness.db, war.id);
 
     // Assert
     expect(found).toBeUndefined();
-    expect(await harness.db.selectFrom('wars').selectAll().execute()).toHaveLength(0);
-    expect(await harness.db.selectFrom('contestants').selectAll().execute()).toHaveLength(0);
   });
 
   it('deleteWarRow standalone deletes the War with its matchups and media rows', async () => {

@@ -24,8 +24,9 @@ Feature: Voting
 
   Scenario: A pairing has no direction
     Given contestants A and B in a published War
-    Then exactly one matchup exists for that pair
-    And attempting to insert the mirrored pairing violates a constraint
+    And exactly one matchup exists for that pair
+    When the mirrored pairing is inserted
+    Then the insert is rejected by a constraint
 
   Scenario: The next-matchup response includes each contestant's bio
     Given a published War with a contestant whose bio is set
@@ -44,17 +45,18 @@ Feature: Voting
 
   Scenario: Pair order is randomised but stable per voter
     Given two voters in the same published War
+    When each voter requests /matchups/next
     Then the order pairs are served in differs between them
     And each voter's own order is identical across repeated requests
 
   Scenario: Pair selection favours the least-shown contestants
-    Given a published War where contestant C has the lowest appearance_count
-    When a voter requests /matchups/next
-    And they have unvoted pairs both containing and not containing C
+    Given a published War where contestant C has the lowest appearance_count and a voter has unvoted pairs both containing and not containing C
+    When the voter requests /matchups/next
     Then the returned pair contains C
 
   Scenario: The displayed side is decided by the API and recorded
-    Given a voter served matchup M
+    Given a joined voter in a published War
+    When the voter requests /matchups/next for matchup M
     Then the response names which contestant is left and which is right
     And the order is identical if the request is repeated
     When they vote
@@ -67,7 +69,6 @@ Feature: Voting
 
   Scenario: Abandoning produces no record
     Given a voter served matchup M who never votes on it
-    When they leave the War
     Then no Vote record exists for matchup M
     And neither contestant's counters changed
 

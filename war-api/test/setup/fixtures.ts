@@ -11,6 +11,9 @@ import { generateMatchupsForNewContestant } from '../../src/matchups/matchupsRep
 import type { ObjectStorage } from '../../src/contestants/storage.js';
 import { createMembership } from '../../src/wars/warsRepository.js';
 
+/** A well-formed id that no seeded row ever has. */
+export const UNKNOWN_ID = '00000000-0000-0000-0000-000000000000';
+
 export async function makeVoter(db: Kysely<Database>, seed: string): Promise<Voter> {
   const { voter } = await findOrCreateVoter(db, 'google', {
     providerUserId: `${seed}-${randomUUID()}`,
@@ -38,6 +41,8 @@ export interface DraftWarOptions {
   visibility?: string;
   theme?: string;
   endsAt?: Date | null;
+  /** Uploads (and processes) one image per contestant. Off by default: it is by far the slowest part of seeding. */
+  withImages?: boolean;
 }
 
 function withDefault<T>(value: T | undefined, fallback: T): T {
@@ -82,9 +87,9 @@ export async function giveContestantAnImage(
 }
 
 /**
- * Builds a War with `count` contestants, each with one image, still in
- * draft. Generates matchups incrementally as each contestant is added,
- * mirroring `addContestant` (spec §4 "Matchup") -- matchups exist as soon as
+ * Builds a War with `count` contestants (each with one image when
+ * `options.withImages` is set), still in draft. Generates matchups incrementally as each contestant is added,
+ * mirroring `addContestant` (war-spec.md §4 "Matchup") -- matchups exist as soon as
  * a War has contestants to pair, independent of publishing.
  */
 export async function makeDraftWarWithContestants(
@@ -104,7 +109,9 @@ export async function makeDraftWarWithContestants(
       contestant.id,
       contestants.map((c) => c.id),
     );
-    await giveContestantAnImage(db, storage, contestant.id);
+    if (options.withImages) {
+      await giveContestantAnImage(db, storage, contestant.id);
+    }
     contestants.push(contestant);
   }
   return { war, contestants };

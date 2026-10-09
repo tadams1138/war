@@ -1,7 +1,6 @@
 Feature: OpenAPI Contract
 
   Scenario: The contract is published without authentication
-    Given the API is running
     When an unauthenticated client GETs /api/v1/openapi.json
     Then the response status is 200
     And the response Content-Type is application/json

@@ -30,10 +30,8 @@ describe('rotateRefreshToken concurrency (war-spec.md §5.2, reuse detection)', 
 
     // Assert: exactly one of the two attempts won the race.
     const outcomes = [first, second];
-    const winners = outcomes.filter((outcome) => outcome.kind === 'rotated');
-    const losers = outcomes.filter((outcome) => outcome.kind === 'lostRace');
-    expect(winners).toHaveLength(1);
-    expect(losers).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome.kind === 'rotated')).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome.kind === 'lostRace')).toHaveLength(1);
 
     // Assert: only one successor token exists in the family beyond the original.
     const successors = await db
@@ -43,22 +41,8 @@ describe('rotateRefreshToken concurrency (war-spec.md §5.2, reuse detection)', 
       .where('id', '!=', stored.id)
       .execute();
     expect(successors).toHaveLength(1);
-  });
 
-  it('marks the original token used exactly once even when raced', async () => {
-    // Arrange
-    const db = await getTestDb();
-    const voter = await makeVoter(db, 'racer-2');
-    const initialValue = generateRefreshTokenValue();
-    const stored = await createRefreshTokenFamily(db, voter.id, hashRefreshToken(initialValue));
-
-    // Act
-    await Promise.all([
-      rotateRefreshToken(db, stored, hashRefreshToken(generateRefreshTokenValue())),
-      rotateRefreshToken(db, stored, hashRefreshToken(generateRefreshTokenValue())),
-    ]);
-
-    // Assert
+    // Assert: the original token is marked used.
     const original = await findRefreshTokenByHash(db, hashRefreshToken(initialValue));
     expect(original?.usedAt).not.toBeNull();
   });

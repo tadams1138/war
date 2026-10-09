@@ -4,18 +4,10 @@ import { expect, vi } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { findWarById } from '../../src/wars/warsRepository.js';
 import { countMatchupsForWar } from '../../src/matchups/matchupsRepository.js';
-import {
-  makeVoter,
-  makeDraftWar,
-  makeContestant,
-  giveContestantAnImage,
-  makeDraftWarWithContestants,
-  publishWarForTest,
-  closeWarForTest,
-  joinWarAsVoter,
-} from '../setup/fixtures.js';
+import { closeWarForTest, giveContestantAnImage, joinWarAsVoter, makeContestant, makeDraftWar, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { anonymous, as } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/war-lifecycle.feature', import.meta.url)));
 
@@ -29,12 +21,7 @@ async function castVoteAsNewVoter(
 ): Promise<void> {
   const voter = await makeVoter(harness.db, seed);
   await joinWarAsVoter(harness.db, warId, voter.id);
-  await harness.app.ready();
-  const jwt = await harness.jwtFor(voter.id);
-  await request(harness.app.server)
-    .post(`/api/v1/wars/${warId}/matchups/${matchupId}/vote`)
-    .set('Authorization', `Bearer ${jwt}`)
-    .send({ winner_id: winnerId });
+  await as(harness, voter.id).post(`/api/v1/wars/${warId}/matchups/${matchupId}/vote`, { winner_id: winnerId });
 }
 
 /** Every matchup row for a War, in no particular order. */
@@ -66,22 +53,20 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War in "draft" status with 3 contestants, each with an image', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
-      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3, { withImages: true });
       warId = war.id;
     });
 
     When('the creator POSTs to /api/v1/wars/:id/publish', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/publish`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      response = await as(harness, creatorId).post(`/api/v1/wars/${warId}/publish`);
     });
 
     Then('the War status becomes "published"', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect((response.body as { status: string }).status).toBe('published');
     });
@@ -92,6 +77,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let creatorId: string;
 
     Given('a War in "draft" status with 3 contestants', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
@@ -99,16 +85,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the War already has exactly 3 matchups', async () => {
+      // Arrange
       expect(await countMatchupsForWar(harness.db, warId)).toBe(3);
     });
 
     When('the creator POSTs to /api/v1/wars/:id/publish', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server).post(`/api/v1/wars/${warId}/publish`).set('Authorization', `Bearer ${jwt}`).send();
+      // Act
+      await as(harness, creatorId).post(`/api/v1/wars/${warId}/publish`);
     });
 
     Then('the War still has exactly 3 matchups', async () => {
+      // Assert
       expect(await countMatchupsForWar(harness.db, warId)).toBe(3);
     });
   });
@@ -119,6 +106,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War in "draft" with 1 contestant', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 1);
@@ -126,19 +114,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator POSTs to publish', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/publish`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      response = await as(harness, creatorId).post(`/api/v1/wars/${warId}/publish`);
     });
 
     Then('the response status is 422', () => {
+      // Assert
       expect(response.status).toBe(422);
     });
 
     And('the War remains "draft"', async () => {
+      // Assert
       const war = await findWarById(harness.db, warId);
       expect(war?.status).toBe('draft');
     });
@@ -150,6 +136,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War in "draft" with 2 contestants, only one of which has an image', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const war = await makeDraftWar(harness.db, creatorId);
@@ -160,15 +147,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator POSTs to publish', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/publish`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      response = await as(harness, creatorId).post(`/api/v1/wars/${warId}/publish`);
     });
 
     Then('the War status becomes "published"', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect((response.body as { status: string }).status).toBe('published');
     });
@@ -180,6 +164,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War created by Voter A', async () => {
+      // Arrange
       const voterA = await makeVoter(harness.db, 'voter-a');
       const voterB = await makeVoter(harness.db, 'voter-b');
       voterBId = voterB.id;
@@ -188,15 +173,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('Voter B POSTs to publish', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(voterBId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/publish`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      response = await as(harness, voterBId).post(`/api/v1/wars/${warId}/publish`);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
@@ -207,6 +189,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a published War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
@@ -215,15 +198,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator POSTs to /api/v1/wars/:id/unpublish', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/unpublish`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      response = await as(harness, creatorId).post(`/api/v1/wars/${warId}/unpublish`);
     });
 
     Then('the War status becomes "draft"', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect((response.body as { status: string }).status).toBe('draft');
     });
@@ -234,6 +214,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let creatorId: string;
 
     Given('a published War with 3 contestants', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
@@ -242,12 +223,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator POSTs to /api/v1/wars/:id/unpublish', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server).post(`/api/v1/wars/${warId}/unpublish`).set('Authorization', `Bearer ${jwt}`).send();
+      // Act
+      await as(harness, creatorId).post(`/api/v1/wars/${warId}/unpublish`);
     });
 
     Then('the War still has exactly 3 matchups', async () => {
+      // Assert
       expect(await countMatchupsForWar(harness.db, warId)).toBe(3);
     });
   });
@@ -258,25 +239,22 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War that was published and then unpublished', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
       await publishWarForTest(harness.db, war);
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server).post(`/api/v1/wars/${war.id}/unpublish`).set('Authorization', `Bearer ${jwt}`).send();
+      await as(harness, creatorId).post(`/api/v1/wars/${war.id}/unpublish`);
       warId = war.id;
     });
 
     When('the creator POSTs to /api/v1/wars/:id/publish', async () => {
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/publish`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      response = await as(harness, creatorId).post(`/api/v1/wars/${warId}/publish`);
     });
 
     Then('the War status becomes "published"', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect((response.body as { status: string }).status).toBe('published');
     });
@@ -288,6 +266,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a closed War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
@@ -297,19 +276,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator POSTs to publish', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/publish`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      response = await as(harness, creatorId).post(`/api/v1/wars/${warId}/publish`);
     });
 
     Then('the response status is 422', () => {
+      // Assert
       expect(response.status).toBe(422);
     });
 
     And('the War remains "closed"', async () => {
+      // Assert
       const war = await findWarById(harness.db, warId);
       expect(war?.status).toBe('closed');
     });
@@ -321,6 +298,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a closed War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
@@ -330,19 +308,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator POSTs to /api/v1/wars/:id/unpublish', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/unpublish`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      response = await as(harness, creatorId).post(`/api/v1/wars/${warId}/unpublish`);
     });
 
     Then('the response status is 422', () => {
+      // Assert
       expect(response.status).toBe(422);
     });
 
     And('the War remains "closed"', async () => {
+      // Assert
       const war = await findWarById(harness.db, warId);
       expect(war?.status).toBe('closed');
     });
@@ -364,12 +340,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the creator POSTs to /api/v1/wars/:id/close', async () => {
       // Act
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/close`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      response = await as(harness, creatorId).post(`/api/v1/wars/${warId}/close`);
     });
 
     Then('the response status is 404', () => {
@@ -390,6 +361,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a published War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
@@ -398,16 +370,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator PATCHes the title', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .patch(`/api/v1/wars/${warId}`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ title: 'New Title' });
+      // Act
+      response = await as(harness, creatorId).patch(`/api/v1/wars/${warId}`, { title: 'New Title' });
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
+      expect(response.body.title).toBe('New Title');
     });
   });
 
@@ -426,12 +396,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the creator PATCHes the category to 65 characters', async () => {
       // Act
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .patch(`/api/v1/wars/${warId}`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ category: 'c'.repeat(65) });
+      response = await as(harness, creatorId).patch(`/api/v1/wars/${warId}`, { category: 'c'.repeat(65) });
     });
 
     Then('the response status is 422', () => {
@@ -446,6 +411,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War in "draft" status', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const war = await makeDraftWar(harness.db, creatorId);
@@ -453,19 +419,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator PATCHes the theme to "fight_card"', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server)
-        .patch(`/api/v1/wars/${warId}`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ theme: 'fight_card' });
+      // Act
+      response = await as(harness, creatorId).patch(`/api/v1/wars/${warId}`, { theme: 'fight_card' });
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And('the War\'s theme is "fight_card"', () => {
+      // Assert
       expect(response.body.theme).toBe('fight_card');
     });
   });
@@ -475,6 +439,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let voterId: string;
 
     Given('a published War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
@@ -482,17 +447,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('an authenticated voter who has not joined', async () => {
+      // Arrange
       const voter = await makeVoter(harness.db, 'joiner');
       voterId = voter.id;
     });
 
     When('they POST to /api/v1/wars/:id/join', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(voterId);
-      await request(harness.app.server).post(`/api/v1/wars/${warId}/join`).set('Authorization', `Bearer ${jwt}`).send();
+      // Act
+      await as(harness, voterId).post(`/api/v1/wars/${warId}/join`);
     });
 
     Then('a war_membership record is created for that voter and War', async () => {
+      // Assert
       const row = await harness.db
         .selectFrom('war_memberships')
         .selectAll()
@@ -508,6 +474,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War with 3 contestants', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       // Published (not left in "draft"): an anonymous, unfiltered GET /wars
       // excludes draft Wars by default (war-spec.md §6.1), and this
@@ -521,11 +488,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('anyone GETs /api/v1/wars', async () => {
+      // Act
       await harness.app.ready();
-      response = await request(harness.app.server).get('/api/v1/wars');
+      response = await anonymous(harness).get('/api/v1/wars');
     });
 
     Then("that War's entry in the list has contestant_count 3", () => {
+      // Assert
       const wars = response.body.wars as { id: string; contestant_count: number }[];
       const entry = wars.find((war) => war.id === warId);
       expect(entry).toBeDefined();
@@ -539,6 +508,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War created by Voter A', async () => {
+      // Arrange
       const voterA = await makeVoter(harness.db, 'voter-a');
       voterAId = voterA.id;
       const war = await makeDraftWar(harness.db, voterAId);
@@ -546,12 +516,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("Voter A GETs the War's detail, authenticated", async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(voterAId);
-      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+      // Act
+      response = await as(harness, voterAId).get(`/api/v1/wars/${warId}`);
     });
 
     Then('is_owner is true', () => {
+      // Assert
       expect(response.body.is_owner).toBe(true);
     });
   });
@@ -562,6 +532,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a published War created by Voter A', async () => {
+      // Arrange
       const voterA = await makeVoter(harness.db, 'voter-a');
       const voterB = await makeVoter(harness.db, 'voter-b');
       voterBId = voterB.id;
@@ -571,12 +542,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("Voter B GETs the War's detail, authenticated", async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(voterBId);
-      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+      // Act
+      response = await as(harness, voterBId).get(`/api/v1/wars/${warId}`);
     });
 
     Then('is_owner is false', () => {
+      // Assert
       expect(response.body.is_owner).toBe(false);
     });
   });
@@ -586,6 +557,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a published War created by Voter A', async () => {
+      // Arrange
       const voterA = await makeVoter(harness.db, 'voter-a');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2);
       await publishWarForTest(harness.db, war);
@@ -593,11 +565,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("anyone GETs the War's detail, unauthenticated", async () => {
+      // Act
       await harness.app.ready();
-      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`);
+      response = await anonymous(harness).get(`/api/v1/wars/${warId}`);
     });
 
     Then('is_owner is false', () => {
+      // Assert
       expect(response.body.is_owner).toBe(false);
     });
   });
@@ -608,6 +582,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War in "draft" status created by Voter A', async () => {
+      // Arrange
       const voterA = await makeVoter(harness.db, 'voter-a');
       const voterB = await makeVoter(harness.db, 'voter-b');
       voterBId = voterB.id;
@@ -616,12 +591,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("Voter B GETs the War's detail, authenticated", async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(voterBId);
-      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+      // Act
+      response = await as(harness, voterBId).get(`/api/v1/wars/${warId}`);
     });
 
     Then('the response status is 404', () => {
+      // Assert
       expect(response.status).toBe(404);
     });
   });
@@ -632,6 +607,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War in "draft" status created by Voter A', async () => {
+      // Arrange
       const voterA = await makeVoter(harness.db, 'voter-a');
       voterAId = voterA.id;
       const war = await makeDraftWar(harness.db, voterAId);
@@ -639,12 +615,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("Voter A GETs the War's detail, authenticated", async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(voterAId);
-      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+      // Act
+      response = await as(harness, voterAId).get(`/api/v1/wars/${warId}`);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
   });
@@ -655,6 +631,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War in "draft" status created by Voter A', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'voter-a');
       creatorId = creator.id;
       const war = await makeDraftWar(harness.db, creatorId);
@@ -662,16 +639,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('Voter A DELETEs the War', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+      // Act
+      response = await as(harness, creatorId).delete(`/api/v1/wars/${warId}`);
     });
 
     Then('the response status is 204', () => {
+      // Assert
       expect(response.status).toBe(204);
     });
 
     And('the War no longer exists', async () => {
+      // Assert
       const war = await findWarById(harness.db, warId);
       expect(war).toBeUndefined();
     });
@@ -683,6 +661,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War created by Voter A', async () => {
+      // Arrange
       const voterA = await makeVoter(harness.db, 'voter-a');
       const voterB = await makeVoter(harness.db, 'voter-b');
       voterBId = voterB.id;
@@ -691,12 +670,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('Voter B DELETEs the War', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(voterBId);
-      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+      // Act
+      response = await as(harness, voterBId).delete(`/api/v1/wars/${warId}`);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
@@ -709,6 +688,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a published War with 2 contestants and a vote cast on their matchup', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
@@ -721,30 +701,34 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator DELETEs the War', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+      // Act
+      response = await as(harness, creatorId).delete(`/api/v1/wars/${warId}`);
     });
 
     Then('the response status is 204', () => {
+      // Assert
       expect(response.status).toBe(204);
     });
 
     And('the War no longer exists', async () => {
+      // Assert
       expect(await findWarById(harness.db, warId)).toBeUndefined();
     });
 
     And('its contestants no longer exist', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('contestants').selectAll().where('id', 'in', contestantIds).execute();
       expect(rows).toHaveLength(0);
     });
 
     And('its matchups no longer exist', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('matchups').selectAll().where('id', 'in', matchupIds).execute();
       expect(rows).toHaveLength(0);
     });
 
     And('its votes no longer exist', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('votes').selectAll().where('matchup_id', 'in', matchupIds).execute();
       expect(rows).toHaveLength(0);
     });
@@ -755,6 +739,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let creatorId: string;
 
     Given('a published War with 2 contestants', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
@@ -763,15 +748,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator adds a third contestant', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/contestants`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ name: 'Contestant 3' });
+      // Act
+      await as(harness, creatorId).post(`/api/v1/wars/${warId}/contestants`, { name: 'Contestant 3' });
     });
 
     Then('the War has exactly 3 matchups', async () => {
+      // Assert
       expect(await countMatchupsForWar(harness.db, warId)).toBe(3);
     });
   });
@@ -787,8 +769,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('a War with contestant images and a share image, and another War with images', async () => {
       // Arrange
       creatorId = (await makeVoter(harness.db, 'creator')).id;
-      const first = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
-      const other = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
+      const first = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, { withImages: true });
+      const other = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, { withImages: true });
       warId = first.war.id;
       await harness.storage.putPublic(`share-images/${warId}.jpg`, Buffer.from('s'));
       await harness.storage.putPrivate(`originals/share-images/${warId}.png`, Buffer.from('o'));
@@ -800,9 +782,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the creator DELETEs the first War', async () => {
       // Act
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+      response = await as(harness, creatorId).delete(`/api/v1/wars/${warId}`);
     });
 
     Then('the response status is 204', () => {
@@ -831,9 +811,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the creator DELETEs the War', async () => {
       // Act
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      response = await request(harness.app.server).delete(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`).send();
+      response = await as(harness, creatorId).delete(`/api/v1/wars/${warId}`);
     });
 
     Then('the response status is 204', () => {
@@ -858,7 +836,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('a War with 3 contestants that each have an image', async () => {
       // Arrange
       creatorId = (await makeVoter(harness.db, 'creator')).id;
-      const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
+      const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3, { withImages: true });
       warId = war.id;
       removedId = contestants[0]!.id;
       otherKeysBefore = allKeys().filter((key) => !key.includes(removedId));
@@ -867,12 +845,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the creator removes one of the contestants', async () => {
       // Act
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server)
-        .delete(`/api/v1/wars/${warId}/contestants/${removedId}`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      await as(harness, creatorId).delete(`/api/v1/wars/${warId}/contestants/${removedId}`);
     });
 
     Then("only the other contestants' stored objects remain", () => {
@@ -887,6 +860,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let removedId: string;
 
     Given('a War with 3 contestants and no votes cast', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
@@ -895,20 +869,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator removes one of the contestants', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server)
-        .delete(`/api/v1/wars/${warId}/contestants/${removedId}`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      await as(harness, creatorId).delete(`/api/v1/wars/${warId}/contestants/${removedId}`);
     });
 
     Then('that contestant no longer exists', async () => {
+      // Assert
       const row = await harness.db.selectFrom('contestants').selectAll().where('id', '=', removedId).executeTakeFirst();
       expect(row).toBeUndefined();
     });
 
     And('the War has exactly 1 matchup', async () => {
+      // Assert
       expect(await countMatchupsForWar(harness.db, warId)).toBe(1);
     });
   });
@@ -922,6 +894,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let survivorMatchupId: string;
 
     Given('a published War with 3 contestants where every matchup has a vote cast', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
@@ -941,15 +914,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator removes one of the contestants', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server)
-        .delete(`/api/v1/wars/${warId}/contestants/${removedId}`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      await as(harness, creatorId).delete(`/api/v1/wars/${warId}/contestants/${removedId}`);
     });
 
     Then("the votes on that contestant's own matchups no longer exist", async () => {
+      // Assert
       const rows = await harness.db
         .selectFrom('votes as v')
         .innerJoin('matchups as m', 'm.id', 'v.matchup_id')
@@ -961,11 +931,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the vote on the remaining matchup still exists', async () => {
+      // Assert
       const row = await harness.db.selectFrom('votes').selectAll().where('matchup_id', '=', survivorMatchupId).executeTakeFirst();
       expect(row).toBeDefined();
     });
 
     And("the surviving contestants' counters reflect only the remaining vote", async () => {
+      // Assert
       const rows = await harness.db
         .selectFrom('contestants')
         .select(['id', 'win_count', 'appearance_count'])
@@ -985,6 +957,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let contestantIds: string[];
 
     Given('a published War with 3 contestants where every matchup has a vote cast', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
@@ -995,12 +968,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator POSTs to /api/v1/wars/:id/clear-votes', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server).post(`/api/v1/wars/${warId}/clear-votes`).set('Authorization', `Bearer ${jwt}`).send();
+      // Act
+      await as(harness, creatorId).post(`/api/v1/wars/${warId}/clear-votes`);
     });
 
     Then('no votes remain in the War', async () => {
+      // Assert
       const rows = await harness.db
         .selectFrom('votes as v')
         .innerJoin('matchups as m', 'm.id', 'v.matchup_id')
@@ -1011,6 +984,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And("every contestant's win and appearance counters are zero", async () => {
+      // Assert
       const rows = await harness.db
         .selectFrom('contestants')
         .select(['win_count', 'appearance_count'])
@@ -1028,11 +1002,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let creatorId: string;
 
     Given('a War in "draft" status with 3 contestants where every matchup has a vote cast', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
       warId = war.id;
-      // Voting normally requires a published War (spec) -- casting votes
+      // Voting normally requires a published War -- casting votes
       // directly against the matchups here (bypassing the vote endpoint's
       // own published-only gate) is purely to exercise Clear Votes against a
       // draft War that happens to carry vote rows, not to assert anything
@@ -1053,12 +1028,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the creator POSTs to /api/v1/wars/:id/clear-votes', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(creatorId);
-      await request(harness.app.server).post(`/api/v1/wars/${warId}/clear-votes`).set('Authorization', `Bearer ${jwt}`).send();
+      // Act
+      await as(harness, creatorId).post(`/api/v1/wars/${warId}/clear-votes`);
     });
 
     Then('no votes remain in the War', async () => {
+      // Assert
       const rows = await harness.db
         .selectFrom('votes as v')
         .innerJoin('matchups as m', 'm.id', 'v.matchup_id')
@@ -1075,6 +1050,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a published War created by Voter A', async () => {
+      // Arrange
       const voterA = await makeVoter(harness.db, 'voter-a');
       const voterB = await makeVoter(harness.db, 'voter-b');
       voterBId = voterB.id;
@@ -1084,15 +1060,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('Voter B POSTs to /api/v1/wars/:id/clear-votes', async () => {
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(voterBId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/clear-votes`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send();
+      // Act
+      response = await as(harness, voterBId).post(`/api/v1/wars/${warId}/clear-votes`);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });

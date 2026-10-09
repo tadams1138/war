@@ -2,15 +2,10 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import {
-  makeVoter,
-  makeDraftWar,
-  makeDraftWarWithContestants,
-  publishWarForTest,
-  closeWarForTest,
-} from '../setup/fixtures.js';
+import { closeWarForTest, makeDraftWar, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { anonymous, getWars } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/my-wars.feature', import.meta.url)));
 
@@ -23,17 +18,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     await harness.app.ready();
   });
 
-  async function getWars(query: string, voterId?: string): Promise<request.Response> {
-    const req = request(harness.app.server).get(`/api/v1/wars${query}`);
-    if (voterId) {
-      const jwt = await harness.jwtFor(voterId);
-      req.set('Authorization', `Bearer ${jwt}`);
-    }
-    return req;
-  }
-
   async function getWarsWithAuthHeader(query: string, authorization: string): Promise<request.Response> {
-    return request(harness.app.server).get(`/api/v1/wars${query}`).set('Authorization', authorization);
+    return anonymous(harness).get(`/api/v1/wars${query}`, { headers: { Authorization: authorization } });
   }
 
   function idsOf(response: request.Response): string[] {
@@ -43,32 +29,34 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   Scenario('A voter lists the Wars they created, across every status', ({ Given, And, When, Then }) => {
     let creatorId: string;
     let draftId: string;
-    let activeId: string;
+    let publishedId: string;
     let closedId: string;
     let response: request.Response;
 
-    Given('a voter has created a draft War, an active War, and a closed War', async () => {
+    Given('a voter has created a draft War, a published War, and a closed War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
 
       const draft = await makeDraftWar(harness.db, creatorId, { title: 'My Draft War' });
       draftId = draft.id;
 
-      const { war: activeWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, {
-        title: 'My Active War',
+      const { war: publishedWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, {
+        title: 'My Published War',
       });
-      const active = await publishWarForTest(harness.db, activeWar);
-      activeId = active.id;
+      const published = await publishWarForTest(harness.db, publishedWar);
+      publishedId = published.id;
 
       const { war: closedWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, {
         title: 'My Closed War',
       });
-      const activatedClosed = await publishWarForTest(harness.db, closedWar);
-      const closed = await closeWarForTest(harness.db, activatedClosed);
+      const publishedClosed = await publishWarForTest(harness.db, closedWar);
+      const closed = await closeWarForTest(harness.db, publishedClosed);
       closedId = closed.id;
     });
 
-    And('another voter has created a public active War', async () => {
+    And('another voter has created a public published War', async () => {
+      // Arrange
       const other = await makeVoter(harness.db, 'other');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, other.id, 2, {
         title: "Someone Else's War",
@@ -77,14 +65,16 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they GET /api/v1/wars?creator=me', async () => {
-      response = await getWars('?creator=me', creatorId);
+      // Act
+      response = await getWars(harness, '?creator=me', creatorId);
     });
 
     Then("only the requester's three Wars are returned", () => {
+      // Assert
       expect(response.status).toBe(200);
       const ids = idsOf(response);
       expect(ids).toHaveLength(3);
-      expect(ids).toEqual(expect.arrayContaining([draftId, activeId, closedId]));
+      expect(ids).toEqual(expect.arrayContaining([draftId, publishedId, closedId]));
     });
   });
 
@@ -93,63 +83,62 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let draftId: string;
     let response: request.Response;
 
-    Given('a voter has created a draft War and an active War', async () => {
+    Given('a voter has created a draft War and a published War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
 
       const draft = await makeDraftWar(harness.db, creatorId, { title: 'My Draft War' });
       draftId = draft.id;
 
-      const { war: activeWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, {
-        title: 'My Active War',
+      const { war: publishedWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, {
+        title: 'My Published War',
       });
-      await publishWarForTest(harness.db, activeWar);
+      await publishWarForTest(harness.db, publishedWar);
     });
 
     And('another voter has created a draft War', async () => {
+      // Arrange
       const other = await makeVoter(harness.db, 'other');
       await makeDraftWar(harness.db, other.id, { title: "Someone Else's Draft War" });
     });
 
     When('they GET /api/v1/wars?creator=me&status=draft', async () => {
-      response = await getWars('?creator=me&status=draft', creatorId);
+      // Act
+      response = await getWars(harness, '?creator=me&status=draft', creatorId);
     });
 
     Then('only their own draft War is returned', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect(idsOf(response)).toEqual([draftId]);
     });
   });
 
-  Scenario('An unauthenticated request for creator=me is rejected', ({ Given, When, Then }) => {
+  Scenario('An unauthenticated request for creator=me is rejected', ({ When, Then }) => {
     let response: request.Response;
 
-    Given('a request with no Authorization header', () => {
-      // Nothing to arrange -- the request below simply omits the header.
-    });
-
-    When('they GET /api/v1/wars?creator=me', async () => {
-      response = await getWars('?creator=me');
+    When('an unauthenticated caller GETs /api/v1/wars?creator=me', async () => {
+      // Act
+      response = await getWars(harness, '?creator=me');
     });
 
     Then('the response status is 401', () => {
+      // Assert
       expect(response.status).toBe(401);
     });
   });
 
-  Scenario('A request for creator=me with an invalid or expired token is rejected', ({ Given, When, Then }) => {
+  Scenario('A request for creator=me with an invalid or expired token is rejected', ({ When, Then }) => {
     let response: request.Response;
 
-    Given('a request bearing an invalid or expired JWT', () => {
-      // Nothing to arrange -- the request below sends a token that cannot
-      // verify: not a JWT this API's secret ever signed.
-    });
-
-    When('they GET /api/v1/wars?creator=me', async () => {
+    When('a caller bearing an invalid or expired JWT GETs /api/v1/wars?creator=me', async () => {
+      // Act
       response = await getWarsWithAuthHeader('?creator=me', 'Bearer not-a-real-jwt');
     });
 
     Then('the response status is 401', () => {
+      // Assert
       expect(response.status).toBe(401);
     });
   });
@@ -161,6 +150,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter has created a draft, invite-only War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const war = await makeDraftWar(harness.db, creatorId, { title: 'Invite Only Draft', visibility: 'invite_only' });
@@ -168,6 +158,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('another voter has created a draft, invite-only War', async () => {
+      // Arrange
       const other = await makeVoter(harness.db, 'other');
       const war = await makeDraftWar(harness.db, other.id, {
         title: "Someone Else's Invite Only Draft",
@@ -177,15 +168,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they GET /api/v1/wars?creator=me', async () => {
-      response = await getWars('?creator=me', creatorId);
+      // Act
+      response = await getWars(harness, '?creator=me', creatorId);
     });
 
     Then('their own invite-only draft War is returned', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect(idsOf(response)).toContain(warId);
     });
 
     And("the other voter's is not", () => {
+      // Assert
       expect(idsOf(response)).not.toContain(otherWarId);
     });
   });
@@ -194,14 +188,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     When('they GET /api/v1/wars?creator=someone-else', async () => {
-      response = await getWars('?creator=someone-else');
+      // Act
+      response = await getWars(harness, '?creator=someone-else');
     });
 
     Then('the response status is 400', () => {
+      // Assert
       expect(response.status).toBe(400);
     });
 
     And("the response is Fastify's own validation-error envelope, not this API's \"error\" shape", () => {
+      // Assert
       expect(response.body).toMatchObject({ statusCode: 400, code: 'FST_ERR_VALIDATION', error: 'Bad Request' });
       expect(response.body.message).toEqual(expect.any(String));
     });
@@ -219,12 +216,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     return (response.body.wars as { id: string; status: string }[]).find((war) => war.id === warId)?.status;
   }
 
-  Scenario('creator=me filters by effective status before the close task runs', ({ Given, And, When, Then }) => {
+  Scenario('creator=me filters by effective status before the close task runs', ({ Given, When, Then }) => {
     let creatorId: string;
     let expiredId: string;
     let response: request.Response;
 
-    Given('a voter has created a published War whose end date passed a minute ago', async () => {
+    Given('a voter has created a published War whose end date passed a minute ago and has not yet been closed by the close task', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, { title: 'Expired Unclosed' });
@@ -233,24 +231,24 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expiredId = war.id;
     });
 
-    And('the close-expired-wars task has not yet run', () => {
-      // No-op: nothing in this scenario calls the internal endpoint.
-    });
-
     When('they GET /api/v1/wars?creator=me&status=closed', async () => {
-      response = await getWars('?creator=me&status=closed', creatorId);
+      // Act
+      response = await getWars(harness, '?creator=me&status=closed', creatorId);
     });
 
     Then('their expired War is returned as "closed"', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect(statusOf(response, expiredId)).toBe('closed');
     });
 
     When('they GET /api/v1/wars?creator=me&status=published', async () => {
-      response = await getWars('?creator=me&status=published', creatorId);
+      // Act
+      response = await getWars(harness, '?creator=me&status=published', creatorId);
     });
 
     Then('their expired War is not returned', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect(idsOf(response)).not.toContain(expiredId);
     });
@@ -262,6 +260,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter has created a draft War whose end date passed a minute ago', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const draft = await makeDraftWar(harness.db, creatorId, { title: 'Expired Draft' });
@@ -270,19 +269,23 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they GET /api/v1/wars?creator=me&status=closed', async () => {
-      response = await getWars('?creator=me&status=closed', creatorId);
+      // Act
+      response = await getWars(harness, '?creator=me&status=closed', creatorId);
     });
 
     Then('their expired draft War is returned as "closed"', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect(statusOf(response, expiredDraftId)).toBe('closed');
     });
 
     When('they GET /api/v1/wars?creator=me&status=draft', async () => {
-      response = await getWars('?creator=me&status=draft', creatorId);
+      // Act
+      response = await getWars(harness, '?creator=me&status=draft', creatorId);
     });
 
     Then('their expired draft War is not returned', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect(idsOf(response)).not.toContain(expiredDraftId);
     });

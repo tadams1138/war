@@ -19,8 +19,7 @@ Feature: War Creation
     And no War is created
 
   Scenario: An unauthenticated request cannot create a War
-    Given a request with no Authorization header
-    When they POST to /api/v1/wars
+    When an unauthenticated caller POSTs to /api/v1/wars
     Then the response status is 401
 
   Scenario: A War's theme defaults to "arcade"

@@ -6,15 +6,10 @@ import type { Contestant } from '../../src/contestants/contestantsRepository.js'
 import { updateContestant } from '../../src/contestants/contestantsRepository.js';
 import { stableHash } from '../../src/matchups/stableHash.js';
 import type { War } from '../../src/wars/warsRepository.js';
-import {
-  closeWarForTest,
-  publishWarForTest,
-  joinWarAsVoter,
-  makeDraftWarWithContestants,
-  makeVoter,
-} from '../setup/fixtures.js';
+import { closeWarForTest, joinWarAsVoter, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { getNextMatchup, postVote } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/voting.feature', import.meta.url)));
 
@@ -24,28 +19,13 @@ interface Setup {
   voterId: string;
 }
 
-async function setupPublishedWarWithJoinedVoter(harness: TestHarness, contestantCount: number): Promise<Setup> {
+async function setupPublishedWarWithJoinedVoter(harness: TestHarness, contestantCount: number, withImages = false): Promise<Setup> {
   const creator = await makeVoter(harness.db, 'creator');
-  const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, contestantCount);
+  const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, contestantCount, { withImages });
   const published = await publishWarForTest(harness.db, war);
   const voter = await makeVoter(harness.db, 'voter');
   await joinWarAsVoter(harness.db, published.id, voter.id);
   return { war: published, contestants, voterId: voter.id };
-}
-
-async function getNextMatchup(harness: TestHarness, warId: string, voterId: string) {
-  await harness.app.ready();
-  const jwt = await harness.jwtFor(voterId);
-  return request(harness.app.server).get(`/api/v1/wars/${warId}/matchups/next`).set('Authorization', `Bearer ${jwt}`);
-}
-
-async function postVote(harness: TestHarness, warId: string, matchupId: string, voterId: string, winnerId: string) {
-  await harness.app.ready();
-  const jwt = await harness.jwtFor(voterId);
-  return request(harness.app.server)
-    .post(`/api/v1/wars/${warId}/matchups/${matchupId}/vote`)
-    .set('Authorization', `Bearer ${jwt}`)
-    .send({ winner_id: winnerId });
 }
 
 describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
@@ -63,29 +43,35 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let voteResponse: request.Response;
 
     Given('a voter who joined a published War', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 2);
     });
 
     And('matchup M has not been voted on by this voter', async () => {
+      // Arrange
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       matchupId = next.body.matchup.id;
       winnerId = next.body.matchup.left.id;
     });
 
     When('they POST /vote with a valid winner_id', async () => {
+      // Act
       voteResponse = await postVote(harness, setup.war.id, matchupId, setup.voterId, winnerId);
     });
 
     Then('a Vote record is created', () => {
+      // Assert
       expect(voteResponse.status).toBe(201);
     });
 
     And("the winner's win_count increases by 1", async () => {
+      // Assert
       const winner = await harness.db.selectFrom('contestants').selectAll().where('id', '=', winnerId).executeTakeFirstOrThrow();
       expect(winner.win_count).toBe(1);
     });
 
     And("both contestants' appearance_count increase by 1", async () => {
+      // Assert
       const rows = await harness.db.selectFrom('contestants').selectAll().where('war_id', '=', setup.war.id).execute();
       for (const row of rows) {
         expect(row.appearance_count).toBe(1);
@@ -101,6 +87,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter who voted Contestant A in matchup M', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       matchupId = next.body.matchup.id;
@@ -110,19 +97,23 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they POST /vote for matchup M with winner_id = Contestant B', async () => {
+      // Act
       response = await postVote(harness, setup.war.id, matchupId, setup.voterId, contestantB);
     });
 
     Then('the response status is 409', () => {
+      // Assert
       expect(response.status).toBe(409);
     });
 
     And('no new Vote record is created', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('votes').selectAll().where('matchup_id', '=', matchupId).execute();
       expect(rows).toHaveLength(1);
     });
 
     And('no counters change', async () => {
+      // Assert
       const a = await harness.db.selectFrom('contestants').selectAll().where('id', '=', contestantA).executeTakeFirstOrThrow();
       expect(a.win_count).toBe(1);
       expect(a.appearance_count).toBe(1);
@@ -136,6 +127,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter who voted Contestant A in matchup M', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       matchupId = next.body.matchup.id;
@@ -144,50 +136,63 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they POST /vote for matchup M with winner_id = Contestant A again', async () => {
+      // Act
       response = await postVote(harness, setup.war.id, matchupId, setup.voterId, contestantA);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And('no new Vote record is created', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('votes').selectAll().where('matchup_id', '=', matchupId).execute();
       expect(rows).toHaveLength(1);
     });
 
     And('no counters change', async () => {
+      // Assert
       const a = await harness.db.selectFrom('contestants').selectAll().where('id', '=', contestantA).executeTakeFirstOrThrow();
       expect(a.win_count).toBe(1);
       expect(a.appearance_count).toBe(1);
     });
   });
 
-  Scenario('A pairing has no direction', ({ Given, Then, And }) => {
+  Scenario('A pairing has no direction', ({ Given, When, Then, And }) => {
     let setup: Setup;
+    let insertion: Promise<unknown>;
 
     Given('contestants A and B in a published War', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 2);
     });
 
-    Then('exactly one matchup exists for that pair', async () => {
+    And('exactly one matchup exists for that pair', async () => {
+      // Arrange
       const rows = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', setup.war.id).execute();
       expect(rows).toHaveLength(1);
     });
 
-    And('attempting to insert the mirrored pairing violates a constraint', async () => {
+    When('the mirrored pairing is inserted', () => {
+      // Act
       const [a, b] = [...setup.contestants].sort((x, y) => (x.id < y.id ? -1 : 1));
-      await expect(
-        harness.db
-          .insertInto('matchups')
-          .values({
-            id: crypto.randomUUID(),
-            war_id: setup.war.id,
-            contestant_a_id: b!.id,
-            contestant_b_id: a!.id,
-          })
-          .execute(),
-      ).rejects.toThrow();
+      insertion = harness.db
+        .insertInto('matchups')
+        .values({
+          id: crypto.randomUUID(),
+          war_id: setup.war.id,
+          contestant_a_id: b!.id,
+          contestant_b_id: a!.id,
+        })
+        .execute();
+      // Observed in Then; swallow here so the rejection is not reported as unhandled first.
+      insertion.catch(() => undefined);
+    });
+
+    Then('the insert is rejected by a constraint', async () => {
+      // Assert
+      await expect(insertion).rejects.toThrow();
     });
   });
 
@@ -197,16 +202,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a published War with a contestant whose bio is set', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       bioContestantId = setup.contestants[0]!.id;
       await updateContestant(harness.db, bioContestantId, { bio: 'A brilliant mathematician.' });
     });
 
     When('a joined voter requests /matchups/next', async () => {
+      // Act
       response = await getNextMatchup(harness, setup.war.id, setup.voterId);
     });
 
     Then("that contestant's bio is present in the response", () => {
+      // Assert
       const side =
         response.body.matchup.left.id === bioContestantId ? response.body.matchup.left : response.body.matchup.right;
       expect(side.bio).toBe('A brilliant mathematician.');
@@ -216,8 +224,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   Scenario('A voter is never served a pair they have voted on', ({ Given, When, Then }) => {
     let setup: Setup;
     let votedMatchupId: string;
+    const seen: string[] = [];
 
     Given('a voter who has voted on matchup M', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 3);
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       votedMatchupId = next.body.matchup.id;
@@ -225,17 +235,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they request /matchups/next repeatedly until 204', async () => {
-      // Drains the remaining matchups below; assertion happens in Then.
-    });
-
-    Then('matchup M is never returned', async () => {
-      const seen: string[] = [];
+      // Act
       for (;;) {
         const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
         if (next.status === 204) break;
         seen.push(next.body.matchup.id);
         await postVote(harness, setup.war.id, next.body.matchup.id, setup.voterId, next.body.matchup.left.id);
       }
+    });
+
+    Then('matchup M is never returned', () => {
+      // Assert
       expect(seen).not.toContain(votedMatchupId);
     });
   });
@@ -245,10 +255,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     const voted = new Set<string>();
 
     Given('a published War with 4 contestants and therefore 6 pairs', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 4);
     });
 
     When('a voter requests and votes until /matchups/next returns 204', async () => {
+      // Act
       for (;;) {
         const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
         if (next.status === 204) break;
@@ -258,27 +270,38 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('they have voted on all 6 pairs exactly once', async () => {
+      // Assert
       expect(voted.size).toBe(6);
       const rows = await harness.db.selectFrom('votes').selectAll().where('voter_id', '=', setup.voterId).execute();
       expect(rows).toHaveLength(6);
     });
   });
 
-  Scenario('Pair order is randomised but stable per voter', ({ Given, Then, And }) => {
+  Scenario('Pair order is randomised but stable per voter', ({ Given, When, Then, And }) => {
     let setup: Setup;
     let voterBId: string;
+    let firstForA: request.Response;
+    let firstForB: request.Response;
 
     Given('two voters in the same published War', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 5);
       const voterB = await makeVoter(harness.db, 'voter-b');
       voterBId = voterB.id;
       await joinWarAsVoter(harness.db, setup.war.id, voterBId);
     });
 
+    When('each voter requests /matchups/next', async () => {
+      // Act
+      firstForA = await getNextMatchup(harness, setup.war.id, setup.voterId);
+      firstForB = await getNextMatchup(harness, setup.war.id, voterBId);
+    });
+
     Then('the order pairs are served in differs between them', async () => {
+      // Assert
       const matchups = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', setup.war.id).execute();
       // All appearance_counts are still zero, so ordering is purely the
-      // stable per-voter hash tie-break (spec) — compute it directly
+      // stable per-voter hash tie-break — compute it directly
       // with the same function production code uses, independently of the
       // HTTP layer, to get a non-flaky comparison of the two voters' orders.
       const orderFor = (voterId: string) =>
@@ -288,7 +311,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const orderForB = orderFor(voterBId);
       expect(orderForA).not.toEqual(orderForB);
 
-      const firstForA = await getNextMatchup(harness, setup.war.id, setup.voterId);
       expect(firstForA.body.matchup.id).toBe(orderForA[0]);
 
       // Drive voter B through the real endpoint too — comparing two locally
@@ -300,11 +322,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // property of the shuffle, not a defect, and asserting it would make
       // this scenario flaky. `orderForA` vs `orderForB` above already proves
       // the full orders differ.)
-      const firstForB = await getNextMatchup(harness, setup.war.id, voterBId);
       expect(firstForB.body.matchup.id).toBe(orderForB[0]);
     });
 
     And("each voter's own order is identical across repeated requests", async () => {
+      // Assert
       const first = await getNextMatchup(harness, setup.war.id, setup.voterId);
       const second = await getNextMatchup(harness, setup.war.id, setup.voterId);
       expect(second.body.matchup.id).toBe(first.body.matchup.id);
@@ -312,11 +334,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Pair selection favours the least-shown contestants', ({ Given, And, When, Then }) => {
+  Scenario('Pair selection favours the least-shown contestants', ({ Given, When, Then }) => {
     let setup: Setup;
     let contestantC: string;
+    let response: request.Response;
 
-    Given('a published War where contestant C has the lowest appearance_count', async () => {
+    // With 4 contestants and no votes yet, unvoted pairs both with and without C exist by construction.
+    Given('a published War where contestant C has the lowest appearance_count and a voter has unvoted pairs both containing and not containing C', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 4);
       const [a, b, c, d] = setup.contestants;
       contestantC = c!.id;
@@ -325,35 +350,39 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       }
     });
 
-    When('a voter requests /matchups/next', () => {
-      // The assertion below performs the request.
+    When('the voter requests /matchups/next', async () => {
+      // Act
+      response = await getNextMatchup(harness, setup.war.id, setup.voterId);
     });
 
-    And('they have unvoted pairs both containing and not containing C', () => {
-      // True by construction: with 4 contestants none have been voted on yet.
-    });
-
-    Then('the returned pair contains C', async () => {
-      const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
-      expect([next.body.matchup.left.id, next.body.matchup.right.id]).toContain(contestantC);
+    Then('the returned pair contains C', () => {
+      // Assert
+      expect([response.body.matchup.left.id, response.body.matchup.right.id]).toContain(contestantC);
     });
   });
 
   Scenario('The displayed side is decided by the API and recorded', ({ Given, Then, When, And }) => {
+    let response: request.Response;
     let setup: Setup;
     let matchupId: string;
     let leftId: string;
     let rightId: string;
 
-    Given('a voter served matchup M', async () => {
+    Given('a joined voter in a published War', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 2);
-      const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
-      matchupId = next.body.matchup.id;
-      leftId = next.body.matchup.left.id;
-      rightId = next.body.matchup.right.id;
+    });
+
+    When('the voter requests /matchups/next for matchup M', async () => {
+      // Act
+      response = await getNextMatchup(harness, setup.war.id, setup.voterId);
+      matchupId = response.body.matchup.id;
+      leftId = response.body.matchup.left.id;
+      rightId = response.body.matchup.right.id;
     });
 
     Then('the response names which contestant is left and which is right', async () => {
+      // Assert
       // A response naming the same contestant on both sides would otherwise
       // pass this step; assert the two sides are distinct and are exactly
       // the matchup's real pair.
@@ -363,15 +392,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the order is identical if the request is repeated', async () => {
+      // Assert
       const again = await getNextMatchup(harness, setup.war.id, setup.voterId);
       expect(again.body.matchup.left.id).toBe(leftId);
     });
 
     When('they vote', async () => {
+      // Act
       await postVote(harness, setup.war.id, matchupId, setup.voterId, leftId);
     });
 
     Then('presented_left_id is stored on the Vote record', async () => {
+      // Assert
       const vote = await harness.db
         .selectFrom('votes')
         .selectAll()
@@ -387,14 +419,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter with at least two pairs remaining', async () => {
-      setup = await setupPublishedWarWithJoinedVoter(harness, 3);
+      // Arrange
+      setup = await setupPublishedWarWithJoinedVoter(harness, 3, true);
     });
 
     When('they request /matchups/next', async () => {
+      // Act
       response = await getNextMatchup(harness, setup.war.id, setup.voterId);
     });
 
     Then("the response includes a prefetch block naming the following matchup's media", () => {
+      // Assert
       expect(response.body.prefetch).toBeDefined();
       expect(response.body.prefetch.matchup_id).not.toBe(response.body.matchup.id);
       expect(Array.isArray(response.body.prefetch.media)).toBe(true);
@@ -402,27 +437,26 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Abandoning produces no record', ({ Given, When, Then, And }) => {
+  // No API models "leaving": abandoning is simply not voting, so this scenario has no When.
+  Scenario('Abandoning produces no record', ({ Given, Then, And }) => {
     let setup: Setup;
     let matchupId: string;
 
     Given('a voter served matchup M who never votes on it', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const next = await getNextMatchup(harness, setup.war.id, setup.voterId);
       matchupId = next.body.matchup.id;
     });
 
-    When('they leave the War', () => {
-      // No API models "leaving" (spec: abandoning is simply not voting
-      // — there is no skip/leave action). Nothing to do here.
-    });
-
     Then('no Vote record exists for matchup M', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('votes').selectAll().where('matchup_id', '=', matchupId).execute();
       expect(rows).toHaveLength(0);
     });
 
     And("neither contestant's counters changed", async () => {
+      // Assert
       const rows = await harness.db.selectFrom('contestants').selectAll().where('war_id', '=', setup.war.id).execute();
       for (const row of rows) {
         expect(row.appearance_count).toBe(0);
@@ -437,6 +471,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War in "closed" status', async () => {
+      // Arrange
       setup = await setupPublishedWarWithJoinedVoter(harness, 2);
       const matchup = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', setup.war.id).executeTakeFirstOrThrow();
       matchupId = matchup.id;
@@ -444,15 +479,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('a voter POSTs a vote', async () => {
+      // Act
       const matchup = await harness.db.selectFrom('matchups').selectAll().where('id', '=', matchupId).executeTakeFirstOrThrow();
       response = await postVote(harness, setup.war.id, matchupId, setup.voterId, matchup.contestant_a_id);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
 
     And('the response reason is "war_not_published"', () => {
+      // Assert
       expect(response.body.reason).toBe('war_not_published');
     });
   });
@@ -464,27 +502,32 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a published War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
-      const built = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
+      const built = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { withImages: true });
       war = await publishWarForTest(harness.db, built.war);
       contestants = built.contestants;
     });
 
     And('an authenticated voter who has not joined', async () => {
+      // Arrange
       const voter = await makeVoter(harness.db, 'non-joiner');
       voterId = voter.id;
     });
 
     When('they POST a vote', async () => {
+      // Act
       const matchup = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', war.id).executeTakeFirstOrThrow();
       response = await postVote(harness, war.id, matchup.id, voterId, contestants[0]!.id);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
 
     And('the response reason is "not_joined"', () => {
+      // Assert
       expect(response.body.reason).toBe('not_joined');
     });
   });

@@ -2,9 +2,10 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeAdmin, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
+import { UNKNOWN_ID, makeAdmin, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { asOrAnonymous } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/abuse-reporting.feature', import.meta.url)));
 
@@ -17,13 +18,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   async function postReport(voterId: string | undefined, warId: string, explanation: string | undefined): Promise<request.Response> {
-    await harness.app.ready();
-    const req = request(harness.app.server).post(`/api/v1/wars/${warId}/reports`);
-    if (voterId) {
-      const jwt = await harness.jwtFor(voterId);
-      req.set('Authorization', `Bearer ${jwt}`);
-    }
-    return req.send(explanation === undefined ? {} : { explanation });
+    return asOrAnonymous(harness, voterId).post(`/api/v1/wars/${warId}/reports`, explanation === undefined ? {} : { explanation });
   }
 
   Scenario('Any authenticated Voter can report a War', ({ Given, When, Then, And }) => {
@@ -32,6 +27,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('an authenticated Voter and a War created by someone else', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const war = await makeDraftWar(harness.db, creator.id);
@@ -40,19 +36,23 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("they POST an explanation to that War's reports", async () => {
+      // Act
       response = await postReport(reporterId, warId, 'votes look spammed');
     });
 
     Then('the response status is 201', () => {
+      // Assert
       expect(response.status).toBe(201);
     });
 
     And("the response carries the explanation and the reporter's id", () => {
+      // Assert
       expect(response.body.explanation).toBe('votes look spammed');
       expect(response.body.reporter_id).toBe(reporterId);
     });
 
     And("the report's addressed state is false", () => {
+      // Assert
       expect(response.body.addressed).toBe(false);
     });
   });
@@ -64,6 +64,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let second: request.Response;
 
     Given('an authenticated Voter and a War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const war = await makeDraftWar(harness.db, creator.id);
@@ -72,16 +73,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they POST two different explanations to that War\'s reports', async () => {
+      // Act
       first = await postReport(reporterId, warId, 'first issue');
       second = await postReport(reporterId, warId, 'second issue');
     });
 
     Then('both requests succeed', () => {
+      // Assert
       expect(first.status).toBe(201);
       expect(second.status).toBe(201);
     });
 
     And('two separate reports exist against that War', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('reports').selectAll().where('war_id', '=', warId).execute();
       expect(rows).toHaveLength(2);
     });
@@ -93,6 +97,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('an authenticated Voter and a War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const war = await makeDraftWar(harness.db, creator.id);
@@ -101,14 +106,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('they POST an empty-string explanation to that War\'s reports', async () => {
+      // Act
       response = await postReport(reporterId, warId, '');
     });
 
     Then('the response status is 422', () => {
+      // Assert
       expect(response.status).toBe(422);
     });
 
     And('no report is created', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('reports').selectAll().where('war_id', '=', warId).execute();
       expect(rows).toHaveLength(0);
     });
@@ -120,6 +128,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('an authenticated Voter and a War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const war = await makeDraftWar(harness.db, creator.id);
@@ -128,14 +137,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("they POST an explanation longer than 1000 characters to that War's reports", async () => {
+      // Act
       response = await postReport(reporterId, warId, 'a'.repeat(1001));
     });
 
     Then('the response status is 422', () => {
+      // Assert
       expect(response.status).toBe(422);
     });
 
     And('no report is created', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('reports').selectAll().where('war_id', '=', warId).execute();
       expect(rows).toHaveLength(0);
     });
@@ -146,15 +158,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('an authenticated Voter', async () => {
+      // Arrange
       const reporter = await makeVoter(harness.db, 'reporter');
       reporterId = reporter.id;
     });
 
     When("they POST an explanation to a nonexistent War's reports", async () => {
-      response = await postReport(reporterId, '00000000-0000-0000-0000-000000000000', 'anything');
+      // Act
+      response = await postReport(reporterId, UNKNOWN_ID, 'anything');
     });
 
     Then('the response status is 404', () => {
+      // Assert
       expect(response.status).toBe(404);
     });
   });
@@ -164,28 +179,25 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a request with no Authorization header', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const war = await makeDraftWar(harness.db, creator.id);
       warId = war.id;
     });
 
     When("they POST an explanation to a War's reports", async () => {
+      // Act
       response = await postReport(undefined, warId, 'anything');
     });
 
     Then('the response status is 401', () => {
+      // Assert
       expect(response.status).toBe(401);
     });
   });
 
   async function getReports(voterId: string | undefined, warId: string): Promise<request.Response> {
-    await harness.app.ready();
-    const req = request(harness.app.server).get(`/api/v1/wars/${warId}/reports`);
-    if (voterId) {
-      const jwt = await harness.jwtFor(voterId);
-      req.set('Authorization', `Bearer ${jwt}`);
-    }
-    return req;
+    return asOrAnonymous(harness, voterId).get(`/api/v1/wars/${warId}/reports`);
   }
 
   Scenario('A Moderator lists every report against a War', ({ Given, When, Then, And }) => {
@@ -194,6 +206,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War with two reports against it and a Moderator', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const moderator = await makeModerator(harness.db, 'moderator');
@@ -205,14 +218,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("the Moderator GETs that War's reports", async () => {
+      // Act
       response = await getReports(moderatorId, warId);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And('both reports are listed, newest first', () => {
+      // Assert
       expect(response.body.reports).toHaveLength(2);
       expect(response.body.reports[0].explanation).toBe('second');
       expect(response.body.reports[1].explanation).toBe('first');
@@ -225,6 +241,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War with a report against it', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const war = await makeDraftWar(harness.db, creator.id);
@@ -234,10 +251,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("its creator GETs that War's reports", async () => {
+      // Act
       response = await getReports(creatorId, warId);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
@@ -248,6 +267,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a War with a report against it and a plain Voter', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const plainVoter = await makeVoter(harness.db, 'plain');
@@ -258,22 +278,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the plain Voter GETs that War\'s reports', async () => {
+      // Act
       response = await getReports(voterId, warId);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
 
   async function getQueue(voterId: string | undefined): Promise<request.Response> {
-    await harness.app.ready();
-    const req = request(harness.app.server).get('/api/v1/reports/unaddressed');
-    if (voterId) {
-      const jwt = await harness.jwtFor(voterId);
-      req.set('Authorization', `Bearer ${jwt}`);
-    }
-    return req;
+    return asOrAnonymous(harness, voterId).get('/api/v1/reports/unaddressed');
   }
 
   Scenario('A Moderator sees only Wars with unaddressed reports', ({ Given, When, Then, And }) => {
@@ -282,6 +298,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('one War with an unaddressed report and another whose only report is addressed', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const moderator = await makeModerator(harness.db, 'moderator');
@@ -295,14 +312,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the Moderator GETs the unaddressed-reports queue', async () => {
+      // Act
       response = await getQueue(moderatorId);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And('only the War with the unaddressed report is listed', () => {
+      // Assert
       expect(response.body.wars).toHaveLength(1);
       expect(response.body.wars[0].war_id).toBe(unaddressedWarId);
       expect(response.body.wars[0].unaddressed_count).toBe(1);
@@ -314,6 +334,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('an Admin and a War with an unaddressed report', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const admin = await makeAdmin(harness.db, 'admin');
@@ -323,10 +344,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the Admin GETs the unaddressed-reports queue', async () => {
+      // Act
       response = await getQueue(adminId);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
   });
@@ -336,27 +359,24 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a plain Voter', async () => {
+      // Arrange
       const voter = await makeVoter(harness.db, 'plain');
       voterId = voter.id;
     });
 
     When('the plain Voter GETs the unaddressed-reports queue', async () => {
+      // Act
       response = await getQueue(voterId);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
 
   async function patchAddressed(voterId: string | undefined, reportId: string, addressed: boolean): Promise<request.Response> {
-    await harness.app.ready();
-    const req = request(harness.app.server).patch(`/api/v1/reports/${reportId}`);
-    if (voterId) {
-      const jwt = await harness.jwtFor(voterId);
-      req.set('Authorization', `Bearer ${jwt}`);
-    }
-    return req.send({ addressed });
+    return asOrAnonymous(harness, voterId).patch(`/api/v1/reports/${reportId}`, { addressed });
   }
 
   Scenario('A Moderator marks a report addressed', ({ Given, When, Then, And }) => {
@@ -365,6 +385,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a Moderator and an unaddressed report', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const moderator = await makeModerator(harness.db, 'moderator');
@@ -375,14 +396,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("the Moderator PATCHes that report's addressed state to true", async () => {
+      // Act
       response = await patchAddressed(moderatorId, reportId, true);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And("the report's addressed state is now true", () => {
+      // Assert
       expect(response.body.addressed).toBe(true);
     });
   });
@@ -393,6 +417,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a Moderator and a report already marked addressed', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const moderator = await makeModerator(harness.db, 'moderator');
@@ -404,14 +429,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("the Moderator PATCHes that report's addressed state to false", async () => {
+      // Act
       response = await patchAddressed(moderatorId, reportId, false);
     });
 
     Then('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
 
     And("the report's addressed state is now false", () => {
+      // Assert
       expect(response.body.addressed).toBe(false);
     });
   });
@@ -422,6 +450,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a plain Voter and an unaddressed report', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const reporter = await makeVoter(harness.db, 'reporter');
       const plainVoter = await makeVoter(harness.db, 'plain');
@@ -432,10 +461,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When("the plain Voter PATCHes that report's addressed state to true", async () => {
+      // Act
       response = await patchAddressed(voterId, reportId, true);
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
@@ -445,15 +476,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a Moderator', async () => {
+      // Arrange
       const moderator = await makeModerator(harness.db, 'moderator');
       moderatorId = moderator.id;
     });
 
     When("the Moderator PATCHes a nonexistent report's addressed state to true", async () => {
-      response = await patchAddressed(moderatorId, '00000000-0000-0000-0000-000000000000', true);
+      // Act
+      response = await patchAddressed(moderatorId, UNKNOWN_ID, true);
     });
 
     Then('the response status is 404', () => {
+      // Assert
       expect(response.status).toBe(404);
     });
   });

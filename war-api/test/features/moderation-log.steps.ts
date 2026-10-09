@@ -6,9 +6,10 @@ import { newId } from '../../src/db/uuid.js';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { logAction } from '../../src/moderation/moderationLogRepository.js';
 import { deleteWarRow, markWarRemoved } from '../../src/wars/warsRepository.js';
-import { makeVoter, makeAdmin, makeModerator, makeDraftWar } from '../setup/fixtures.js';
+import { makeAdmin, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { putRole } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/moderation-log.feature', import.meta.url)));
 
@@ -20,20 +21,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     harness = await buildTestHarness();
   });
 
-  async function putRole(callerId: string, targetId: string, role: string, granted: boolean): Promise<request.Response> {
-    await harness.app.ready();
-    const jwt = await harness.jwtFor(callerId);
-    return request(harness.app.server)
-      .put(`/api/v1/voters/${targetId}/roles/${role}`)
-      .set('Authorization', `Bearer ${jwt}`)
-      .send({ granted });
-  }
-
   Scenario('Granting a role writes a moderation log entry', ({ Given, When, Then }) => {
     let adminId: string;
     let targetId: string;
 
     Given('an Admin and a plain Voter', async () => {
+      // Arrange
       const admin = await makeAdmin(harness.db, 'admin');
       const target = await makeVoter(harness.db, 'target');
       adminId = admin.id;
@@ -41,10 +34,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the Admin PUTs granted true for the moderator role on that Voter', async () => {
-      await putRole(adminId, targetId, 'moderator', true);
+      // Act
+      await putRole(harness, adminId, targetId, 'moderator', true);
     });
 
     Then('a moderation log entry records the Admin granting the moderator role to that Voter', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('moderation_log').selectAll().where('target_voter_id', '=', targetId).execute();
       expect(rows).toHaveLength(1);
       expect(rows[0]?.action).toBe('grant_role_moderator');
@@ -57,6 +52,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let targetId: string;
 
     Given('an Admin and a Voter who already has the moderator role', async () => {
+      // Arrange
       const admin = await makeAdmin(harness.db, 'admin');
       const target = await makeModerator(harness.db, 'target');
       adminId = admin.id;
@@ -64,10 +60,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the Admin PUTs granted false for the moderator role on that Voter', async () => {
-      await putRole(adminId, targetId, 'moderator', false);
+      // Act
+      await putRole(harness, adminId, targetId, 'moderator', false);
     });
 
     Then('a moderation log entry records the Admin revoking the moderator role from that Voter', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('moderation_log').selectAll().where('target_voter_id', '=', targetId).execute();
       expect(rows).toHaveLength(1);
       expect(rows[0]?.action).toBe('revoke_role_moderator');
@@ -86,7 +84,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Admin PUTs granted false for the admin role on themselves', async () => {
       // Act
-      response = await putRole(adminId, adminId, 'admin', false);
+      response = await putRole(harness, adminId, adminId, 'admin', false);
     });
 
     Then('no moderation log entry exists', async () => {
@@ -107,11 +105,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Arrange
       adminId = (await makeAdmin(harness.db, 'admin')).id;
       targetId = (await makeVoter(harness.db, 'target')).id;
-      await putRole(adminId, targetId, 'moderator', true);
-      await putRole(adminId, targetId, 'moderator', false);
+      await putRole(harness, adminId, targetId, 'moderator', true);
+      await putRole(harness, adminId, targetId, 'moderator', false);
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -264,12 +263,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
         const targetId = (await makeVoter(harness.db, 'target')).id;
         const creatorId = (await makeVoter(harness.db, 'creator')).id;
         const war = await makeDraftWar(harness.db, creatorId, { title: 'Doomed War' });
-        await putRole(adminId, targetId, 'moderator', true);
+        await putRole(harness, adminId, targetId, 'moderator', true);
         await logAction(harness.db, { action: 'warn_war', staffVoterId: adminId, targetWarId: war.id });
       },
     );
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -309,6 +309,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -323,7 +324,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A hard-deleted War leaves the entry with a null title', ({ Given, And, When, Then }) => {
+  Scenario('A hard-deleted War leaves a flagged entry with a null title', ({ Given, And, When, Then }) => {
     let moderatorId: string;
     let warId: string;
     let response: request.Response;
@@ -338,6 +339,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -352,31 +354,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(entry.target_war_id).toBe(warId);
       expect(entry.target_war_title).toBeNull();
     });
-  });
 
-  Scenario('A hard-deleted War is flagged as deleted', ({ Given, And, When, Then }) => {
-    let moderatorId: string;
-    let response: request.Response;
-
-    Given('an Admin who logged an action on a War that was later hard-deleted', async () => {
-      // Arrange
-      const adminId = (await makeAdmin(harness.db, 'admin')).id;
-      const creatorId = (await makeVoter(harness.db, 'creator')).id;
-      const warId = (await makeDraftWar(harness.db, creatorId, { title: 'Gone War' })).id;
-      await logAction(harness.db, { action: 'remove_war', staffVoterId: adminId, targetWarId: warId });
-      await deleteWarRow(harness.db, warId);
-    });
-
-    And('a Moderator', async () => {
-      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
-    });
-
-    When('the Moderator GETs the moderation log', async () => {
-      // Act
-      response = await getLog(moderatorId);
-    });
-
-    Then('the entry is flagged as targeting a deleted War', () => {
+    And('the entry is flagged as targeting a deleted War', () => {
       // Assert
       expect(entryWithAction(response, 'remove_war').target_war_deleted).toBe(true);
     });
@@ -395,6 +374,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
@@ -419,10 +399,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Arrange
       const adminId = (await makeAdmin(harness.db, 'admin')).id;
       const targetId = (await makeVoter(harness.db, 'target')).id;
-      await putRole(adminId, targetId, 'moderator', true);
+      await putRole(harness, adminId, targetId, 'moderator', true);
     });
 
     And('a Moderator', async () => {
+      // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 

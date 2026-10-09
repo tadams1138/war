@@ -3,13 +3,12 @@ import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { findWarById } from '../../src/wars/warsRepository.js';
-import { makeVoter, makeDraftWarWithContestants, joinWarAsVoter, publishWarForTest } from '../setup/fixtures.js';
+import { joinWarAsVoter, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { anonymous, as, withInternalToken } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/war-expiry.feature', import.meta.url)));
-
-const INTERNAL_TOKEN = 'test-internal-token';
 
 async function setEndsAt(harness: TestHarness, warId: string, endsAt: Date | null) {
   await harness.db.updateTable('wars').set({ ends_at: endsAt }).where('id', '=', warId).execute();
@@ -23,11 +22,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     harness = await buildTestHarness();
   });
 
-  Scenario('An expired War reports as closed before the close task runs', ({ Given, And, When, Then }) => {
+  Scenario('An expired War reports as closed before the close task runs', ({ Given, When, Then }) => {
     let warId: string;
     let response: request.Response;
 
-    Given('a published War whose ends_at passed one minute ago', async () => {
+    Given('a published War whose ends_at passed one minute ago and has not yet been closed by the close task', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
@@ -35,26 +35,25 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       warId = war.id;
     });
 
-    And('the close-expired-wars task has not yet run', () => {
-      // No-op: this test never calls the internal endpoint.
-    });
-
     When('anyone GETs /api/v1/wars/:id', async () => {
+      // Act
       await harness.app.ready();
-      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`);
+      response = await anonymous(harness).get(`/api/v1/wars/${warId}`);
     });
 
     Then('the response status field is "closed"', () => {
+      // Assert
       expect((response.body as { status: string }).status).toBe('closed');
     });
   });
 
-  Scenario('Voting is rejected the moment a War expires', ({ Given, And, When, Then }) => {
+  Scenario('Voting is rejected the moment a War expires', ({ Given, When, Then }) => {
     let warId: string;
     let matchupId: string;
     let voterId: string;
 
-    Given('a published War whose ends_at passed one second ago', async () => {
+    Given('a published War whose ends_at passed one second ago and has not yet been closed by the close task', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
@@ -67,23 +66,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       warId = war.id;
     });
 
-    And('the close-expired-wars task has not yet run', () => {
-      // No-op.
-    });
-
     let response: request.Response;
 
     When('a joined voter POSTs a vote', async () => {
+      // Act
       await harness.app.ready();
       const matchup = await harness.db.selectFrom('matchups').selectAll().where('id', '=', matchupId).executeTakeFirstOrThrow();
-      const jwt = await harness.jwtFor(voterId);
-      response = await request(harness.app.server)
-        .post(`/api/v1/wars/${warId}/matchups/${matchupId}/vote`)
-        .set('Authorization', `Bearer ${jwt}`)
-        .send({ winner_id: matchup.contestant_a_id });
+      response = await as(harness, voterId).post(`/api/v1/wars/${warId}/matchups/${matchupId}/vote`, { winner_id: matchup.contestant_a_id });
     });
 
     Then('the response status is 403', () => {
+      // Assert
       expect(response.status).toBe(403);
     });
   });
@@ -92,6 +85,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let warId: string;
 
     Given('a published War with ends_at set to NULL', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
@@ -99,11 +93,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the close-expired-wars task runs', async () => {
+      // Act
       await harness.app.ready();
-      await request(harness.app.server).post('/api/v1/internal/close-expired-wars').set('X-Internal-Token', INTERNAL_TOKEN).send();
+      await withInternalToken(harness).post('/api/v1/internal/close-expired-wars');
     });
 
     Then('the War remains "published"', async () => {
+      // Assert
       const war = await findWarById(harness.db, warId);
       expect(war?.status).toBe('published');
     });
@@ -114,6 +110,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a published War whose ends_at passed six hours ago', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
@@ -122,19 +119,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the close-expired-wars task runs', async () => {
-      await harness.app.ready();
-      response = await request(harness.app.server)
-        .post('/api/v1/internal/close-expired-wars')
-        .set('X-Internal-Token', INTERNAL_TOKEN)
-        .send();
+      // Act
+      response = await withInternalToken(harness).post('/api/v1/internal/close-expired-wars');
     });
 
     Then('the stored status column becomes "closed"', async () => {
+      // Assert
       const war = await findWarById(harness.db, warId);
       expect(war?.status).toBe('closed');
     });
 
     And('the response reports 1 War closed', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect((response.body as { closed: number }).closed).toBe(1);
     });
@@ -144,23 +140,27 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('the close-expired-wars task has already closed all expired Wars', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
       await setEndsAt(harness, war.id, new Date(Date.now() - 6 * 60 * 60 * 1000));
       await harness.app.ready();
-      await request(harness.app.server).post('/api/v1/internal/close-expired-wars').set('X-Internal-Token', INTERNAL_TOKEN).send();
+      await withInternalToken(harness).post('/api/v1/internal/close-expired-wars');
     });
 
     When('it runs again', async () => {
-      response = await request(harness.app.server).post('/api/v1/internal/close-expired-wars').set('X-Internal-Token', INTERNAL_TOKEN).send();
+      // Act
+      response = await withInternalToken(harness).post('/api/v1/internal/close-expired-wars');
     });
 
     Then('zero Wars are modified', () => {
+      // Assert
       expect((response.body as { closed: number }).closed).toBe(0);
     });
 
     And('the response status is 200', () => {
+      // Assert
       expect(response.status).toBe(200);
     });
   });
@@ -170,6 +170,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let responses: request.Response[];
 
     Given('a published War whose ends_at passed six hours ago', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
@@ -178,45 +179,70 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('the close-expired-wars task runs twice at the same moment', async () => {
+      // Act
       await harness.app.ready();
       const run = () =>
-        request(harness.app.server).post('/api/v1/internal/close-expired-wars').set('X-Internal-Token', INTERNAL_TOKEN).send();
+        withInternalToken(harness).post('/api/v1/internal/close-expired-wars');
       responses = await Promise.all([run(), run()]);
     });
 
     Then('both responses have status 200', () => {
+      // Assert
       expect(responses.map((response) => response.status)).toEqual([200, 200]);
     });
 
     And('the War\'s stored status is "closed"', async () => {
+      // Assert
       const war = await findWarById(harness.db, warId);
       expect(war?.status).toBe('closed');
     });
 
     And('the two responses together report 1 War closed', () => {
+      // Assert
       const total = responses.reduce((sum, response) => sum + (response.body as { closed: number }).closed, 0);
       expect(total).toBe(1);
     });
   });
 
-  Scenario('Internal endpoints reject a missing or wrong token', ({ When, Then, And }) => {
+  Scenario('Internal endpoints reject a wrong token', ({ When, Then, And }) => {
     let response: request.Response;
     let warsBefore: unknown[];
 
-    When('POST /api/v1/internal/close-expired-wars is called without a valid X-Internal-Token', async () => {
+    When('POST /api/v1/internal/close-expired-wars is called with a wrong X-Internal-Token', async () => {
+      // Act
       warsBefore = await harness.db.selectFrom('wars').selectAll().execute();
-      await harness.app.ready();
-      response = await request(harness.app.server)
-        .post('/api/v1/internal/close-expired-wars')
-        .set('X-Internal-Token', 'wrong-token')
-        .send();
+      response = await withInternalToken(harness, 'wrong-token').post('/api/v1/internal/close-expired-wars');
     });
 
     Then('the response status is 401', () => {
+      // Assert
       expect(response.status).toBe(401);
     });
 
     And('no War records are modified', async () => {
+      // Assert
+      const warsAfter = await harness.db.selectFrom('wars').selectAll().execute();
+      expect(warsAfter).toEqual(warsBefore);
+    });
+  });
+
+  Scenario('Internal endpoints reject a missing token', ({ When, Then, And }) => {
+    let response: request.Response;
+    let warsBefore: unknown[];
+
+    When('POST /api/v1/internal/close-expired-wars is called with no X-Internal-Token', async () => {
+      // Act
+      warsBefore = await harness.db.selectFrom('wars').selectAll().execute();
+      response = await anonymous(harness).post('/api/v1/internal/close-expired-wars');
+    });
+
+    Then('the response status is 401', () => {
+      // Assert
+      expect(response.status).toBe(401);
+    });
+
+    And('no War records are modified', async () => {
+      // Assert
       const warsAfter = await harness.db.selectFrom('wars').selectAll().execute();
       expect(warsAfter).toEqual(warsBefore);
     });
@@ -227,11 +253,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a valid user JWT for any voter', async () => {
+      // Arrange
       const voter = await makeVoter(harness.db, 'someone');
       jwt = await harness.jwtFor(voter.id);
     });
 
     When('POST /api/v1/internal/close-expired-wars is called with that JWT and no internal token', async () => {
+      // Act
       await harness.app.ready();
       response = await request(harness.app.server)
         .post('/api/v1/internal/close-expired-wars')
@@ -240,6 +268,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('the response status is 401', () => {
+      // Assert
       expect(response.status).toBe(401);
     });
   });
@@ -261,9 +290,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     When('another Voter GETs /api/v1/wars/:id', async () => {
       // Act
       const other = await makeVoter(harness.db, 'other');
-      await harness.app.ready();
-      const jwt = await harness.jwtFor(other.id);
-      response = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+      response = await as(harness, other.id).get(`/api/v1/wars/${warId}`);
     });
 
     Then('the response status is 404', () => {
@@ -273,8 +300,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     And('its creator still sees it, reported as closed', async () => {
       // Assert
-      const jwt = await harness.jwtFor(creatorId);
-      const own = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+      const own = await as(harness, creatorId).get(`/api/v1/wars/${warId}`);
       expect(own.status).toBe(200);
       expect(own.body.status).toBe('closed');
     });
