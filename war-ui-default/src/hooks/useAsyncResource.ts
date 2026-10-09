@@ -1,29 +1,32 @@
 // The loading | loaded | error state machine shared by every page that
-// fetches one resource on mount and renders it (Home, MyWars, WarDetail) --
-// the cancelled-flag effect and toUserMessage catch, extracted once those
-// three pages held near-identical copies (SOLID review finding 8).
+// fetches one resource on mount and renders it.
 import { useEffect, useState } from 'react'
 import { toUserMessage } from '../api/errors'
+import { useLatest } from './useLatest'
 
 export type AsyncResourceState<T> =
   | { status: 'loading' }
   | { status: 'loaded'; value: T }
   | { status: 'error'; message: string }
 
+export type ResourceDeps = readonly (string | number | boolean | null | undefined)[]
+
 /**
- * Runs `load` once per change of `deps` (the same dependency array
- * `useEffect` takes) and tracks its outcome. `load` may be `undefined` to
- * skip fetching entirely — WarDetail's `id` route param can be momentarily
- * absent, and the page should simply stay `loading` rather than call the
- * API with it missing.
+ * Runs `load` again whenever `deps` (primitives only) change, and tracks its
+ * outcome. `load` may be `undefined` to skip fetching -- WarDetail's `id`
+ * route param can be momentarily absent, and the page should stay `loading`
+ * rather than call the API without it.
  */
-export function useAsyncResource<T>(load: (() => Promise<T>) | undefined, deps: unknown[]): AsyncResourceState<T> {
+export function useAsyncResource<T>(load: (() => Promise<T>) | undefined, deps: ResourceDeps): AsyncResourceState<T> {
   const [state, setState] = useState<AsyncResourceState<T>>({ status: 'loading' })
+  const latestLoad = useLatest(load)
+  const depsKey = JSON.stringify(deps)
 
   useEffect(() => {
-    if (!load) return
+    const run = latestLoad.current
+    if (!run) return
     let cancelled = false
-    load()
+    run()
       .then((value) => {
         if (!cancelled) setState({ status: 'loaded', value })
       })
@@ -34,7 +37,7 @@ export function useAsyncResource<T>(load: (() => Promise<T>) | undefined, deps: 
     return () => {
       cancelled = true
     }
-  }, deps)
+  }, [depsKey, latestLoad])
 
   return state
 }

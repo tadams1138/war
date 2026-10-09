@@ -2,6 +2,7 @@
 import { expect, test } from '@playwright/test'
 import { buildWarSummary } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, useScenario, waitForCallLog } from './support/mocking'
+import { ok } from './support/recipes'
 
 test('Anonymous user browses public Wars', async ({ page }) => {
   // Arrange — contestant_count 1 on the second War also covers the
@@ -10,7 +11,7 @@ test('Anonymous user browses public Wars', async ({ page }) => {
     buildWarSummary({ id: 'war-1', title: 'Miss Universe 2026', category: 'Pageant', contestant_count: 12 }),
     buildWarSummary({ id: 'war-2', title: '2026 Senate Race', category: 'Politics', contestant_count: 1 }),
   ]
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars, next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars, next_cursor: null })])
 
   // Act
   await page.goto('/')
@@ -34,7 +35,7 @@ test('Authenticated user browses public Wars', async ({ page }) => {
   const wars = [
     buildWarSummary({ id: 'war-1', title: 'Miss Universe 2026', category: 'Pageant', contestant_count: 12 }),
   ]
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars, next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars, next_cursor: null })])
   await page.goto('/')
 
   // Act — Home is already mounted; logging in updates the same page
@@ -54,7 +55,7 @@ test('Authenticated user browses public Wars', async ({ page }) => {
 
 test('No published Wars for an anonymous visitor', async ({ page }) => {
   // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars: [], next_cursor: null })])
 
   // Act
   await page.goto('/')
@@ -66,7 +67,7 @@ test('No published Wars for an anonymous visitor', async ({ page }) => {
 
 test('No published Wars for an authenticated voter', async ({ page }) => {
   // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars: [], next_cursor: null })])
   await page.goto('/')
 
   // Act
@@ -80,7 +81,7 @@ test('No published Wars for an authenticated voter', async ({ page }) => {
 test('A War card offers direct Vote and Results entry points, not a status label', async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', status: 'published' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars: [war], next_cursor: null })])
   await page.goto('/')
 
   // Act
@@ -97,7 +98,7 @@ test('A War card offers direct Vote and Results entry points, not a status label
 test("A War card's Vote and Results actions lay out horizontally with consistent themed button styling", async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', status: 'published' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars: [war], next_cursor: null })])
   await page.goto('/')
 
   // Act
@@ -124,7 +125,7 @@ test("A War card's Results link opens its detail page", async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026', category: 'Pageant' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] },
+    ok('GET', `${API}/wars`, { wars: [war], next_cursor: null }),
     {
       method: 'GET',
       path: `${API}/wars/war-miss-universe`,
@@ -149,7 +150,7 @@ test("A War card's Results link opens its detail page", async ({ page }) => {
 test('An anonymous visitor tapping Vote is redirected to sign in', async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-miss-universe', title: 'Miss Universe 2026' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars: [war], next_cursor: null })])
   await page.goto('/')
 
   // Act
@@ -163,7 +164,7 @@ test("A War card shows its creator's name when known", async ({ page }) => {
   // Arrange
   const war = buildWarSummary({ id: 'war-1', title: 'Miss Universe 2026', creator_name: 'Ada Lovelace' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] },
+    ok('GET', `${API}/wars`, { wars: [war], next_cursor: null }),
   ])
 
   // Act
@@ -177,7 +178,7 @@ test("A War card shows nothing extra when the creator's name is unknown", async 
   // Arrange
   const war = buildWarSummary({ id: 'war-1', title: 'Miss Universe 2026', creator_name: null })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [war], next_cursor: null } }] },
+    ok('GET', `${API}/wars`, { wars: [war], next_cursor: null }),
   ])
 
   // Act
@@ -187,10 +188,10 @@ test("A War card shows nothing extra when the creator's name is unknown", async 
   await expect(page.getByTestId('war-card').getByTestId('war-creator-name')).toHaveCount(0)
 })
 
-test('Home renders a sort menu and a search box', async ({ page }) => {
+test('Home offers sorting and search controls', async ({ page }) => {
   // Arrange
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
+    ok('GET', `${API}/wars`, { wars: [], next_cursor: null }),
   ])
 
   // Act
@@ -204,7 +205,7 @@ test('Home renders a sort menu and a search box', async ({ page }) => {
 test('Requests 10 Wars per page', async ({ page }) => {
   // Arrange
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
+    ok('GET', `${API}/wars`, { wars: [], next_cursor: null }),
   ])
 
   // Act
@@ -216,10 +217,10 @@ test('Requests 10 Wars per page', async ({ page }) => {
   expect(new URL(call!.url).searchParams.get('limit')).toBe('10')
 })
 
-test('Selecting a different sort re-fetches Wars with the new sort param', async ({ page }) => {
+test('Choosing a different sort re-fetches Wars in that order', async ({ page }) => {
   // Arrange
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
+    ok('GET', `${API}/wars`, { wars: [], next_cursor: null }),
   ])
   await page.goto('/')
 
@@ -233,10 +234,10 @@ test('Selecting a different sort re-fetches Wars with the new sort param', async
   expect(calls.some((entry) => new URL(entry.url).searchParams.get('sort') === 'oldest')).toBe(true)
 })
 
-test('Typing in the search box re-fetches Wars with the q param, after a debounce', async ({ page }) => {
+test('Searching narrows the Wars shown, after a short pause', async ({ page }) => {
   // Arrange
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
+    ok('GET', `${API}/wars`, { wars: [], next_cursor: null }),
   ])
   await page.goto('/')
   const initialCalls = await waitForCallLog(page, (log) => log.some((entry) => entry.url.includes('/wars')))
@@ -255,7 +256,7 @@ test('Typing in the search box re-fetches Wars with the q param, after a debounc
   )
 })
 
-test('Next and Prev page through results — Prev re-shows the cached page with no new request', async ({ page }) => {
+test('Paging through Wars with Next and Prev re-shows the cached page without a new request', async ({ page }) => {
   // Arrange
   const pageOne = [buildWarSummary({ id: 'war-page-1', title: 'Page One War' })]
   const pageTwo = [buildWarSummary({ id: 'war-page-2', title: 'Page Two War' })]
@@ -288,4 +289,17 @@ test('Next and Prev page through results — Prev re-shows the cached page with 
   await expect(page.getByTestId('war-card').filter({ hasText: 'Page One War' })).toBeVisible()
   const callsAfterPrev = (await getCallLog(page)).filter((entry) => entry.url.includes('/wars')).length
   expect(callsAfterPrev).toBe(callsAfterNext)
+})
+
+test('Home has a page heading above the War cards', async ({ page }) => {
+  // Arrange
+  const wars = [buildWarSummary({ id: 'war-1', title: 'Miss Universe 2026' })]
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars, next_cursor: null })])
+
+  // Act
+  await page.goto('/')
+
+  // Assert
+  await expect(page.getByRole('heading', { level: 1, name: 'Head-to-head contests' })).toHaveCount(1)
+  await expect(page.getByRole('heading', { level: 2, name: 'Miss Universe 2026' })).toBeVisible()
 })

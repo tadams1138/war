@@ -1,39 +1,14 @@
-// A creator's personal backup of a War's definition (spec §6.1 "Deletion"
-// neighbours this in war-spec.md's "Export" paragraph, §10.4): title,
+// A creator's personal backup of a War's definition (war-spec.md §10.4): title,
 // contestants, and their images, so the War can be recreated later. Carries
 // no votes, rankings, or win/appearance counts -- it exists to rebuild a
 // War, not to report on one. Media ships as files inside the zip, never
 // base64-encoded into the JSON, referenced by their in-zip path.
 import { strToU8, zipSync } from 'fflate'
 import type { ContestantDetail, WarDetailResponse } from '../api/client'
+import { largestVariant } from '../utils/media'
+import type { WarExportContestant, WarExportFile, WarExportMedia } from './warExportFile'
 
 export type FetchBinary = (url: string) => Promise<Uint8Array>
-
-interface ExportedMedia {
-  display_order: number
-  aspect_ratio: number | null
-  path: string
-}
-
-interface ExportedContestant {
-  name: string
-  bio: string | null
-  media: ExportedMedia[]
-}
-
-interface WarExport {
-  title: string | null
-  category: string | null
-  visibility: string
-  theme: string
-  ends_at: string | null
-  share_image: string | null
-  contestants: ExportedContestant[]
-}
-
-function largestVariant(item: ContestantDetail['media'][number]): { width: number; url: string } {
-  return item.variants.reduce((largest, variant) => (variant.width > largest.width ? variant : largest))
-}
 
 function extensionFromUrl(url: string): string {
   const match = /\.([a-zA-Z0-9]+)(?:[?#].*)?$/.exec(url)
@@ -44,8 +19,8 @@ async function exportContestantMedia(
   contestant: ContestantDetail,
   fetchBinary: FetchBinary,
   files: Record<string, Uint8Array>,
-): Promise<ExportedMedia[]> {
-  const media: ExportedMedia[] = []
+): Promise<WarExportMedia[]> {
+  const media: WarExportMedia[] = []
   for (const item of contestant.media) {
     const variant = largestVariant(item)
     const path = `media/${contestant.id}/${item.id}.${extensionFromUrl(variant.url)}`
@@ -68,14 +43,14 @@ async function exportShareImage(
 
 export async function buildWarExportZip(war: WarDetailResponse, fetchBinary: FetchBinary): Promise<Uint8Array> {
   const files: Record<string, Uint8Array> = {}
-  const contestants: ExportedContestant[] = []
+  const contestants: WarExportContestant[] = []
 
   for (const contestant of war.contestants) {
     const media = await exportContestantMedia(contestant, fetchBinary, files)
     contestants.push({ name: contestant.name, bio: contestant.bio, media })
   }
 
-  const warExport: WarExport = {
+  const warExport: WarExportFile = {
     title: war.title,
     category: war.category,
     visibility: war.visibility,

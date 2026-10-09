@@ -4,29 +4,29 @@ import { effectiveStatus } from '../../src/wars/effectiveStatus.js';
 describe('effectiveStatus', () => {
   it('returns the stored status when ends_at is null', () => {
     // Arrange
-    const war = { status: 'active', endsAt: null };
+    const war = { status: 'published', endsAt: null };
 
     // Act
     const status = effectiveStatus(war, new Date('2026-01-01T00:00:00Z'));
 
     // Assert
-    expect(status).toBe('active');
+    expect(status).toBe('published');
   });
 
   it('returns the stored status when ends_at is in the future', () => {
     // Arrange
-    const war = { status: 'active', endsAt: new Date('2026-01-02T00:00:00Z') };
+    const war = { status: 'published', endsAt: new Date('2026-01-02T00:00:00Z') };
 
     // Act
     const status = effectiveStatus(war, new Date('2026-01-01T00:00:00Z'));
 
     // Assert
-    expect(status).toBe('active');
+    expect(status).toBe('published');
   });
 
   it('returns closed when ends_at has passed, regardless of stored status', () => {
     // Arrange
-    const war = { status: 'active', endsAt: new Date('2026-01-01T00:00:00Z') };
+    const war = { status: 'published', endsAt: new Date('2026-01-01T00:00:00Z') };
 
     // Act
     const status = effectiveStatus(war, new Date('2026-01-01T00:00:01Z'));
@@ -38,7 +38,7 @@ describe('effectiveStatus', () => {
   it('returns closed the instant ends_at equals now', () => {
     // Arrange
     const now = new Date('2026-01-01T00:00:00Z');
-    const war = { status: 'active', endsAt: now };
+    const war = { status: 'published', endsAt: now };
 
     // Act
     const status = effectiveStatus(war, now);

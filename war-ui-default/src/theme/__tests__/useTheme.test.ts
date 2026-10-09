@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { useTheme } from './useTheme'
+import { useTheme } from '../useTheme'
 
 function clearStoredPreferences(): void {
   document.cookie = 'war_theme_prefs=; path=/; max-age=0'

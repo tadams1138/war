@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { newId } from '../db/uuid.js';
-import { createdAtText, decodeKeysetCursor, isAfterCursor, sliceKeysetPage } from '../shared/keysetCursor.js';
+import { createdAtText, fetchKeysetPage, type InvalidCursor } from '../shared/keysetCursor.js';
 
 export interface ModerationLogEntry {
   id: string;
@@ -35,12 +35,7 @@ function toEntry(row: ModerationLogRow): ModerationLogEntry {
   };
 }
 
-export const DEFAULT_MODERATION_LOG_LIMIT = 50;
-
-export type ListModerationLogOutcome =
-  | { kind: 'ok'; entries: ModerationLogEntry[]; nextCursor: string | null }
-  | { kind: 'invalidCursor' };
-
+export type ListModerationLogOutcome = { kind: 'ok'; entries: ModerationLogEntry[]; nextCursor: string | null } | InvalidCursor;
 
 /** Names come from LEFT JOINs in the same statement: the log is append-only and its War target has no foreign key, so a deleted War or Voter yields a null name, never a dropped entry. */
 function moderationLogQuery(db: Kysely<Database>) {
@@ -63,21 +58,14 @@ function moderationLogQuery(db: Kysely<Database>) {
 
 type ModerationLogRow = Awaited<ReturnType<ReturnType<typeof moderationLogQuery>['execute']>>[number];
 
-/** One page of logged Staff actions, newest first (spec §6.7); `nextCursor` is set only when a further entry exists. */
+/** One page of logged Staff actions, newest first (§6.7); `nextCursor` is set only when a further entry exists. */
 export async function listModerationLog(
   db: Kysely<Database>,
   options: { limit: number; cursor?: string },
 ): Promise<ListModerationLogOutcome> {
-  let query = moderationLogQuery(db);
-
-  if (options.cursor !== undefined) {
-    const cursor = decodeKeysetCursor(options.cursor);
-    if (!cursor) return { kind: 'invalidCursor' };
-    query = query.where(isAfterCursor('moderation_log.created_at', 'moderation_log.id', cursor));
-  }
-
-  const { page, nextCursor } = sliceKeysetPage(await query.limit(options.limit + 1).execute(), options.limit);
-  return { kind: 'ok', entries: page.map((row) => toEntry(row)), nextCursor };
+  const result = await fetchKeysetPage(moderationLogQuery(db), { createdAtColumn: 'moderation_log.created_at', idColumn: 'moderation_log.id', ...options });
+  if (result.kind === 'invalidCursor') return result;
+  return { kind: 'ok', entries: result.page.map(toEntry), nextCursor: result.nextCursor };
 }
 
 export interface LogActionInput {
@@ -87,7 +75,7 @@ export interface LogActionInput {
   targetVoterId?: string;
 }
 
-/** Records one Staff action (spec §6.7). Insert-only — there is no update or delete, mirroring votes' own immutability (§8.1). */
+/** Records one Staff action (§6.7). Insert-only — there is no update or delete, mirroring votes' own immutability (§8.1). */
 export async function logAction(db: Kysely<Database>, input: LogActionInput): Promise<void> {
   await db
     .insertInto('moderation_log')

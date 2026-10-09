@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely';
 import { buildApp } from '../../src/app.js';
 import type { Database } from '../../src/db/types.js';
-import { buildCommonDeps } from './testApp.js';
+import { buildCommonDeps, closeAllApps, trackApp } from './testApp.js';
 
 export interface NoDbHarness {
   app: Awaited<ReturnType<typeof buildApp>>;
@@ -32,7 +32,8 @@ function unusableDb(): Kysely<Database> {
  * Schemas, never on data, so it needs no Postgres/Testcontainers dependency.
  */
 export async function buildAppWithoutDb(): Promise<NoDbHarness> {
+  await closeAllApps();
   const { config, providers, storage } = buildCommonDeps();
-  const app = await buildApp({ db: unusableDb(), providers, storage, config });
+  const app = trackApp(await buildApp({ db: unusableDb(), providers, storage, config }));
   return { app };
 }

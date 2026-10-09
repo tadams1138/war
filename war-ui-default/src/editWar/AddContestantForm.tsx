@@ -17,7 +17,7 @@ export function AddContestantForm({ error, onAdd, onAdded }: AddContestantFormPr
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    // Checked before any request goes out (the spec, "client-side
+    // Checked before any request goes out (war-spec.md, "client-side
     // validate mandatory fields") -- an empty name is never valid.
     if (name.trim().length === 0) {
       setNameRequiredError('Name is required')

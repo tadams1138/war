@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { newId } from '../db/uuid.js';
 import { processImage, validateImageUpload } from './imageProcessing.js';
+import type { MutationOutcome } from '../shared/outcomes.js';
 import type { ObjectStorage } from './storage.js';
 import {
   countMediaByContestant,
@@ -11,9 +12,13 @@ import {
 
 export const MAX_IMAGES_PER_CONTESTANT = 10;
 
-export type UploadOutcome =
-  | { ok: true; media: ContestantMedia }
-  | { ok: false; reason: 'too-many-images' | 'invalid-upload' };
+interface TooManyImages {
+  kind: 'tooManyImages';
+}
+interface InvalidUpload {
+  kind: 'invalidUpload';
+}
+export type UploadOutcome = MutationOutcome<ContestantMedia, TooManyImages | InvalidUpload>;
 
 export interface UploadImageInput {
   contestantId: string;
@@ -23,10 +28,9 @@ export interface UploadImageInput {
 }
 
 /**
- * Uploads a contestant image: validate → re-encode into WebP variants,
- * stripping EXIF → write variants (public) and original (private) to object
- * storage → persist the media row (spec). Runs synchronously
- * within the request, as specified.
+ * Uploads a contestant image: validate, re-encode into WebP variants (stripping EXIF), write the variants
+ * (public) and the original (private) to object storage, then persist the media row. Runs synchronously
+ * within the request.
  */
 export async function uploadContestantImage(
   db: Kysely<Database>,
@@ -34,13 +38,13 @@ export async function uploadContestantImage(
   input: UploadImageInput,
 ): Promise<UploadOutcome> {
   const validation = validateImageUpload({ mimeType: input.mimeType, sizeBytes: input.buffer.length });
-  if (!validation.ok) {
-    return { ok: false, reason: 'invalid-upload' };
+  if (validation.kind !== 'ok') {
+    return { kind: 'invalidUpload' };
   }
 
   const existingCount = await countMediaByContestant(db, input.contestantId);
   if (existingCount >= MAX_IMAGES_PER_CONTESTANT) {
-    return { ok: false, reason: 'too-many-images' };
+    return { kind: 'tooManyImages' };
   }
 
   const processed = await processImage(input.buffer);
@@ -62,5 +66,5 @@ export async function uploadContestantImage(
     variantWidths: processed.variants.map((variant) => variant.width),
   });
 
-  return { ok: true, media };
+  return { kind: 'ok', value: media };
 }

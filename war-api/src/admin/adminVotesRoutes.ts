@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { bearerAuthRoute } from '../auth/plugin.js';
-import { requireModeratorOrAdmin } from '../roles/rolesAccess.js';
-import { errorResponseSchema } from '../shared/httpOutcomes.js';
-import { pagingProperties, sendInvalidCursor, type AdminRouteDeps } from './adminRouteShared.js';
+import { requireModeratorOrAdmin } from '../auth/guards.js';
+import { errorResponseSchema, sendNotFound } from '../shared/httpOutcomes.js';
+import { pagingProperties, sendInvalidCursor, type PagingQuery } from '../shared/paging.js';
+import type { AdminRouteDeps } from './adminRouteShared.js';
 import { listAdminVotes, type AdminVote } from './adminVotesRepository.js';
 
 const adminVoteProperties = {
@@ -34,13 +35,13 @@ function presentAdminVote(vote: AdminVote) {
 export function registerAdminVotesRoutes(app: FastifyInstance, deps: AdminRouteDeps): void {
   const { db, auth } = deps;
 
-  app.get<{ Params: { id: string } }>(
+  app.get<{ Params: { id: string }; Querystring: PagingQuery }>(
     '/admin/voters/:id/votes',
     bearerAuthRoute(
       auth,
       {
         params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
-        querystring: { type: 'object', properties: pagingProperties },
+        querystring: { type: 'object', properties: pagingProperties() },
         response: {
           200: {
             type: 'object',
@@ -54,14 +55,13 @@ export function registerAdminVotesRoutes(app: FastifyInstance, deps: AdminRouteD
           404: errorResponseSchema,
         },
       },
-      [requireModeratorOrAdmin(db)],
+      [requireModeratorOrAdmin],
     ),
     async (request, reply) => {
-      // ajv has already applied the default and bounds, so `limit` is always a valid integer here.
-      const { limit, cursor } = request.query as { limit: number; cursor?: string };
+      const { limit, cursor } = request.query;
       const outcome = await listAdminVotes(db, request.params.id, { limit, cursor });
       if (outcome.kind === 'notFound') {
-        return reply.code(404).send({ error: 'not found' });
+        return sendNotFound(reply);
       }
       if (outcome.kind === 'invalidCursor') {
         return sendInvalidCursor(reply);

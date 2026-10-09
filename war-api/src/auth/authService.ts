@@ -9,7 +9,7 @@ import {
   rotateRefreshToken,
 } from './refreshTokensRepository.js';
 import { findOrCreateVoter, findVoterById, type Voter } from './votersRepository.js';
-import type { OAuthProfile, OAuthProvider } from './oauthProvider.js';
+import type { CallbackParams, OAuthProfile, OAuthProvider } from './oauthProvider.js';
 
 export interface AuthDependencies {
   db: Kysely<Database>;
@@ -24,11 +24,10 @@ export interface SignedIn {
   refreshTokenValue: string;
 }
 
-/** A banned Voter cannot sign in at all (spec §6.7): no refresh token is issued. */
+/** A banned Voter cannot sign in at all (§6.7): no refresh token is issued. */
 export type CallbackResult = SignedIn | { kind: 'banned' };
 
 export async function beginLogin(
-  deps: AuthDependencies,
   provider: OAuthProvider,
   redirectUri: string,
 ): Promise<{ state: string; codeVerifier: string; authorizationUrl: string }> {
@@ -41,19 +40,14 @@ export async function beginLogin(
 export type ExchangeResult = { kind: 'exchanged'; profile: OAuthProfile } | { kind: 'exchangeFailed'; cause: unknown };
 
 /**
- * The one call in the callback flow that is a genuine external dependency
- * (a network round-trip to the provider). Split out from
- * {@link completeCallback} so the route can act on *only* this call's
- * failures as the `502` boundary -- a failure here (network failure, an
- * invalid/missing `iss`, a missing subject claim, any
- * `openid-client`/`oauth4webapi` validation error) maps to `502`, while a
- * failure in what comes after (voter upsert, refresh-token issuance) is
- * this API's own fault and must keep surfacing as an unmapped `500`.
+ * The one call in the callback flow that reaches the provider over the network. Kept apart from
+ * {@link completeCallback} so the route can treat only its failures (network errors, an invalid `iss`, a missing
+ * subject claim, any `openid-client` validation error) as the `502` boundary; a failure afterwards (voter upsert,
+ * refresh-token issuance) is this API's own fault and stays a `500`.
  */
 export async function exchangeAuthorizationCode(
-  deps: AuthDependencies,
   provider: OAuthProvider,
-  params: { callbackUrl: URL; codeVerifier: string; redirectUri: string },
+  params: CallbackParams,
 ): Promise<ExchangeResult> {
   try {
     const profile = await provider.exchangeCode(params);
@@ -82,7 +76,7 @@ export type RefreshResult =
   | { kind: 'reused' }
   | { kind: 'invalid' };
 
-/** Exchanges a presented refresh token for a new JWT, rotating it (spec). */
+/** Exchanges a presented refresh token for a new JWT, rotating it. */
 export async function refresh(deps: AuthDependencies, presentedTokenValue: string): Promise<RefreshResult> {
   const stored = await findRefreshTokenByHash(deps.db, hashRefreshToken(presentedTokenValue));
   const decision = decideRefresh(stored, new Date());
@@ -98,7 +92,7 @@ export async function refresh(deps: AuthDependencies, presentedTokenValue: strin
   return rotateForVoter(deps, decision.token);
 }
 
-/** Rotates a valid refresh token into a new JWT -- unless its Voter is banned (spec §6.7: no sign-in at all; their tokens are also revoked at ban time), which counts as invalid. */
+/** Rotates a valid refresh token into a new JWT -- unless its Voter is banned (§6.7: no sign-in at all; their tokens are also revoked at ban time), which counts as invalid. */
 async function rotateForVoter(deps: AuthDependencies, token: StoredRefreshToken): Promise<RefreshResult> {
   if ((await findVoterById(deps.db, token.voterId))?.banned) {
     return { kind: 'invalid' };
@@ -106,9 +100,8 @@ async function rotateForVoter(deps: AuthDependencies, token: StoredRefreshToken)
 
   const newTokenValue = generateRefreshTokenValue();
   const rotated = await rotateRefreshToken(deps.db, token, hashRefreshToken(newTokenValue));
-  if (rotated.kind === 'lost-race') {
-    // Another request already rotated this exact token concurrently — the
-    // same signal as presenting an already-used token (spec §5.2).
+  if (rotated.kind === 'lostRace') {
+    // A concurrent request already rotated this exact token: the same signal as presenting a used one (§5.2).
     await revokeFamily(deps.db, token.familyId);
     return { kind: 'reused' };
   }
@@ -117,12 +110,7 @@ async function rotateForVoter(deps: AuthDependencies, token: StoredRefreshToken)
   return { kind: 'refreshed', jwt, refreshTokenValue: newTokenValue };
 }
 
-/**
- * Logs out by revoking the whole refresh-token family (spec) — but only
- * when the presented refresh-token cookie actually belongs to the
- * authenticated voter making the request. A cookie naming a different
- * voter's family is silently ignored rather than acted on.
- */
+/** Logs out by revoking the whole refresh-token family, but only when the presented cookie belongs to the authenticated voter; another voter's cookie is silently ignored. */
 export async function logout(deps: AuthDependencies, voterId: string, presentedTokenValue: string | undefined): Promise<void> {
   if (!presentedTokenValue) {
     return;
@@ -133,20 +121,14 @@ export async function logout(deps: AuthDependencies, voterId: string, presentedT
   }
 }
 
-export async function currentVoter(deps: AuthDependencies, authorizationHeader: string | undefined): Promise<Voter> {
-  const voterId = await authenticatedVoterId(deps, authorizationHeader);
-  const voter = await findVoterById(deps.db, voterId);
-  if (!voter) {
-    throw new Error('authenticated voter no longer exists');
-  }
-  return voter;
+/** The caller a Bearer JWT names. `voter` is `undefined` only if the token outlived its Voter row. */
+export interface AuthenticatedCaller {
+  voterId: string;
+  voter: Voter | undefined;
 }
 
-/** Verifies the Bearer JWT and returns the voter id it carries, or throws -- including for a banned Voter, whose tokens stop working at once (spec §6.7). One primary-key lookup per call. */
-export async function authenticatedVoterId(
-  deps: AuthDependencies,
-  authorizationHeader: string | undefined,
-): Promise<string> {
+/** Verifies the Bearer JWT and returns the caller it names, or throws -- including for a banned Voter, whose tokens stop working at once (§6.7). One primary-key lookup per call. */
+export async function authenticate(deps: AuthDependencies, authorizationHeader: string | undefined): Promise<AuthenticatedCaller> {
   if (!authorizationHeader?.startsWith('Bearer ')) {
     throw new Error('missing bearer token');
   }
@@ -156,5 +138,5 @@ export async function authenticatedVoterId(
   if (voter?.banned) {
     throw new Error('voter is banned');
   }
-  return payload.voterId;
+  return { voterId: payload.voterId, voter };
 }

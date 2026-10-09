@@ -1,4 +1,4 @@
-// State machine behind the kill switch panel (the spec, §6.7): the current
+// State machine behind the kill switch panel (war-spec.md §6.7): the current
 // switch state, an in-page confirmation step before ENABLING it (it stops all
 // War creation), and an error that leaves the shown state unchanged.
 import { useState } from 'react'

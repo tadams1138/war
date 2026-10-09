@@ -19,8 +19,7 @@ Feature: War Creation
     And no War is created
 
   Scenario: An unauthenticated request cannot create a War
-    Given a request with no Authorization header
-    When they POST to /api/v1/wars
+    When an unauthenticated caller POSTs to /api/v1/wars
     Then the response status is 401
 
   Scenario: A War's theme defaults to "arcade"
@@ -38,6 +37,18 @@ Feature: War Creation
   Scenario: An invalid theme is rejected
     Given an authenticated voter
     When they POST a title and theme "neon" to /api/v1/wars
+    Then the response status is 422
+    And no War is created
+
+  Scenario: A creator makes a War unlisted at creation
+    Given an authenticated voter
+    When they POST a title and visibility "unlisted" to /api/v1/wars
+    Then a new War is created in "draft" status
+    And its visibility is "unlisted"
+
+  Scenario: The retired visibility "invite_only" is rejected
+    Given an authenticated voter
+    When they POST a title and visibility "invite_only" to /api/v1/wars
     Then the response status is 422
     And no War is created
 
@@ -68,3 +79,9 @@ Feature: War Creation
     When they create a War with a contestant_schema and add a contestant with attributes
     Then the created War has no contestant_schema field
     And the created contestant has no attributes field
+
+  Scenario: A category longer than 64 characters is rejected at creation
+    Given an authenticated voter
+    When they POST a title and a 65-character category to /api/v1/wars
+    Then the response status is 422
+    And no War is created

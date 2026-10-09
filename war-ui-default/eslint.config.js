@@ -1,19 +1,25 @@
 import js from '@eslint/js'
+import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['dist/**', 'playwright-report/**', 'test-results/**'],
+    ignores: ['dist/**', 'mock-sw/**', 'playwright-report/**', 'test-results/**'],
   },
   {
-    // Root CLAUDE.md: flag any function's cyclomatic complexity above 5.
-    // 'warn' -- not 'error' -- since the repo already has 13 functions over
-    // that ceiling; failing the build on them now would block unrelated
-    // work. Revisit per function as each is next touched.
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
     rules: {
-      complexity: ['warn', 5],
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
+    },
+  },
+  {
+    // Root CLAUDE.md: no function above cyclomatic complexity 5.
+    rules: {
+      complexity: ['error', 5],
     },
   },
 )

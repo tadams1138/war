@@ -14,14 +14,9 @@ export type RateLimitAttempt = { allowed: true } | { allowed: false; retryAfterS
 
 /**
  * In-process, fixed-window limiter keyed by an arbitrary string (a voter
- * id, here) -- per-process state, not shared across instances (spec
- * §8.4 accepts this explicitly for a fixed instance count: "effective
- * limits scale with instance count -- acceptable while instance counts
- * are fixed... A shared counter store becomes necessary before
- * autoscaling"). Entries are never pruned: each distinct key holds a
- * small, fixed amount of state for the process's lifetime. Acceptable
- * at this scale for the same reason the in-process design itself is;
- * revisit alongside moving to a shared store.
+ * id, here). State is per process, not shared across instances (§8.4 accepts this for a fixed instance
+ * count; autoscaling needs a shared store). Entries are never pruned: each distinct key holds a small, fixed
+ * amount of state for the process's lifetime, acceptable at this scale.
  *
  * Every attempt increments every configured window's counter, even one
  * a different window has already blocked -- a script retrying after
@@ -54,7 +49,7 @@ export class RateLimiter {
 
 /**
  * The response body JSON Schema every rate-limited route's `429` uses
- * (spec §8.4) -- `retry_after_seconds` mirrors the `Retry-After` header
+ * (§8.4) -- `retry_after_seconds` mirrors the `Retry-After` header
  * in the body too, so a client need not parse headers to get it.
  */
 export const rateLimitedResponseSchema = {
@@ -67,16 +62,30 @@ export const rateLimitedResponseSchema = {
 };
 
 /**
+ * A Fastify preHandler enforcing `limiter` keyed by the client address
+ * (`request.ip`, which honours `trustProxyHops` -- see `config.ts`) for the
+ * limits that apply before any identity exists: sign-in start and token
+ * refresh (§8.4). Replies exactly as {@link rateLimitByVoter} does.
+ */
+export function rateLimitByAddress(limiter: RateLimiter) {
+  return enforce(limiter, (request) => request.ip);
+}
+
+/**
  * A Fastify preHandler enforcing `limiter` keyed by `request.voterId`
- * (spec §8.4's per-identity limits) -- must run after the preHandler
+ * (§8.4's per-identity limits) -- must run after the preHandler
  * that populates it (`requireAuth`). Replies 429 with a `Retry-After`
  * header (seconds) instead of calling the route handler when exceeded
- * (spec §8.4/§10.3: "never presented as an error" is the client's job
+ * (§8.4/§10.3: "never presented as an error" is the client's job
  * to honour, not built here).
  */
 export function rateLimitByVoter(limiter: RateLimiter) {
+  return enforce(limiter, (request) => request.voterId!);
+}
+
+function enforce(limiter: RateLimiter, keyOf: (request: FastifyRequest) => string) {
   return async function preHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    const result = limiter.attempt(request.voterId!, new Date());
+    const result = limiter.attempt(keyOf(request), new Date());
     if (!result.allowed) {
       await reply
         .code(429)

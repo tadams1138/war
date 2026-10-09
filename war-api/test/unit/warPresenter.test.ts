@@ -27,15 +27,15 @@ describe('presentWarSummary', () => {
   // (src/contestants/contestantsRepository.ts) having no status predicate,
   // and is exercised end-to-end by the DB-gated "The browse list reports
   // each War's contestant count" acceptance scenario, which deliberately
-  // uses a never-activated draft War.
+  // uses a never-published draft War.
   it('places the given contestant count on the view as contestant_count, alongside every other mapped field', () => {
     // Arrange
     const war = makeWar({
       id: 'a5b1e2c4-9999-4a11-8a11-000000000002',
       title: 'Best Pageant',
       category: 'pageant',
-      status: 'active',
-      visibility: 'invite_only',
+      status: 'published',
+      visibility: 'unlisted',
       endsAt: new Date('2026-02-01T00:00:00Z'),
     });
 
@@ -47,8 +47,8 @@ describe('presentWarSummary', () => {
       id: 'a5b1e2c4-9999-4a11-8a11-000000000002',
       title: 'Best Pageant',
       category: 'pageant',
-      status: 'active',
-      visibility: 'invite_only',
+      status: 'published',
+      visibility: 'unlisted',
       media_mode: 'image',
       theme: 'arcade',
       ends_at: '2026-02-01T00:00:00.000Z',

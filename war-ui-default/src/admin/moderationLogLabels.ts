@@ -1,4 +1,4 @@
-// Human-readable labels for the moderation log's known actions (the spec,
+// Human-readable labels for the moderation log's known actions (war-spec.md,
 // §6.7). An action this UI doesn't know yet (the API may add one) is shown as
 // its raw string rather than hidden or mislabelled.
 const ACTION_LABELS: Record<string, string> = {

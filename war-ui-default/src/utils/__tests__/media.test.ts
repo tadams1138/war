@@ -45,8 +45,11 @@ describe('primaryMedia', () => {
   })
 
   it('returns undefined for an empty media array', () => {
-    // Arrange / Act
-    const primary = primaryMedia([])
+    // Arrange
+    const input: Parameters<typeof primaryMedia>[0] = []
+
+    // Act
+    const primary = primaryMedia(input)
 
     // Assert
     expect(primary).toBeUndefined()

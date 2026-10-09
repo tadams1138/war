@@ -5,17 +5,14 @@ import { MicrosoftProvider } from './providers/microsoft.js';
 import { FacebookProvider } from './providers/facebook.js';
 import { TwitterProvider } from './providers/twitter.js';
 
-/**
- * Keyed by `AppConfig['oauthProviders']` rather than plain `string`, so a
- * missing or stray key is a compile error here instead of a silent `undefined`
- * at runtime -- which is also what makes the lookup in `buildProviderRegistry`
- * below provably safe rather than merely currently-true.
- */
-const FACTORIES: Record<keyof AppConfig['oauthProviders'], (config: OAuthClientConfig) => OAuthProvider> = {
-  google: (config) => new GoogleProvider(config.clientId, config.clientSecret),
-  microsoft: (config) => new MicrosoftProvider(config.clientId, config.clientSecret),
-  facebook: (config) => new FacebookProvider(config.clientId, config.clientSecret),
-  twitter: (config) => new TwitterProvider(config.clientId, config.clientSecret),
+type ProviderSlug = keyof AppConfig['oauthProviders'];
+
+/** Keyed by `AppConfig['oauthProviders']`, so a missing or stray provider is a compile error rather than a runtime `undefined`. */
+const PROVIDERS: Record<ProviderSlug, new (clientId: string, clientSecret: string) => OAuthProvider> = {
+  google: GoogleProvider,
+  microsoft: MicrosoftProvider,
+  facebook: FacebookProvider,
+  twitter: TwitterProvider,
 };
 
 function isConfigured(config: OAuthClientConfig): boolean {
@@ -23,20 +20,15 @@ function isConfigured(config: OAuthClientConfig): boolean {
 }
 
 /**
- * Builds the set of providers actually usable in this process. A provider
- * appears only when every one of its required config fields is set, so the
- * registry itself tolerates partial configuration -- which is what lets tests
- * construct a config carrying only a subset of providers. No real process
- * boot relies on that tolerance: `server.ts` calls `assertProductionConfig`
- * unconditionally, so every actual boot requires all four providers'
- * credentials (config.ts's PRODUCTION_RULES).
+ * The providers usable in this process: those with both client id and secret set. Tests rely on the registry
+ * tolerating a partial config; a real boot never does, since `assertProductionConfig` requires all four (config.ts).
  */
 export function buildProviderRegistry(config: AppConfig): ReadonlyMap<string, OAuthProvider> {
   const providers = new Map<string, OAuthProvider>();
-  for (const [slug, factory] of Object.entries(FACTORIES)) {
-    const clientConfig = config.oauthProviders[slug as keyof AppConfig['oauthProviders']];
+  for (const [slug, Provider] of Object.entries(PROVIDERS)) {
+    const clientConfig = config.oauthProviders[slug as ProviderSlug];
     if (isConfigured(clientConfig)) {
-      providers.set(slug, factory(clientConfig));
+      providers.set(slug, new Provider(clientConfig.clientId, clientConfig.clientSecret));
     }
   }
   return providers;

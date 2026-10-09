@@ -20,7 +20,7 @@ Get this from the user, or reasonably infer it from what they've already told yo
 
 - **Title** (can be left blank, but ask)
 - **Category** — free text, optional (e.g. "Pageant", "Primary Election")
-- **Visibility** — `public` or `invite_only`
+- **Visibility** — `public` or `unlisted`
 - **Theme** — `arcade`, `fight_card`, or `scrapbook` (default to `arcade` if the user has no
   preference)
 - **End date** — optional; omit if the War shouldn't close on its own
@@ -93,7 +93,7 @@ building the zip.
 Field notes:
 
 - `title`, `category`, `ends_at` may be `null`.
-- `visibility` must be exactly `"public"` or `"invite_only"`. `theme` must be exactly
+- `visibility` must be exactly `"public"` or `"unlisted"`. `theme` must be exactly
   `"arcade"`, `"fight_card"`, or `"scrapbook"`. Don't invent other values.
 - `share_image` is the path to the share image inside the zip, or `null`/omitted if there
   isn't one.

@@ -1,9 +1,9 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { castVote, findVote } from '../../src/votes/votesRepository.js';
-import { publishWarForTest, joinWarAsVoter, makeDraftWarWithContestants, makeVoter } from '../setup/fixtures.js';
+import type { Matchup } from '../../src/matchups/matchupsRepository.js';
+import { joinWarAsVoter, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
-import type { Matchup } from '../../src/matchups/matchupsRepository.js';
 
 /**
  * Regression test: two concurrent inserts for the same (matchup_id,
@@ -22,10 +22,10 @@ describe('castVote concurrency (war-spec.md §6.3, idempotent retry)', () => {
   async function setup(): Promise<{ matchup: Matchup; voterId: string }> {
     const creator = await makeVoter(harness.db, 'creator');
     const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-    const activated = await publishWarForTest(harness.db, war);
+    const published = await publishWarForTest(harness.db, war);
     const voter = await makeVoter(harness.db, 'voter');
-    await joinWarAsVoter(harness.db, activated.id, voter.id);
-    const row = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', activated.id).executeTakeFirstOrThrow();
+    await joinWarAsVoter(harness.db, published.id, voter.id);
+    const row = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', published.id).executeTakeFirstOrThrow();
     const matchup: Matchup = {
       id: row.id,
       warId: row.war_id,
@@ -35,7 +35,7 @@ describe('castVote concurrency (war-spec.md §6.3, idempotent retry)', () => {
     return { matchup, voterId: voter.id };
   }
 
-  it('lets only one of two concurrent same-winner inserts actually insert', async () => {
+  it('lets only one of two concurrent same-winner inserts insert, without double-counting', async () => {
     // Arrange
     const { matchup, voterId } = await setup();
     const winnerId = matchup.contestantAId;
@@ -54,48 +54,21 @@ describe('castVote concurrency (war-spec.md §6.3, idempotent retry)', () => {
     expect(results.filter((r) => r.inserted)).toHaveLength(1);
     expect(results.filter((r) => !r.inserted)).toHaveLength(1);
 
-    // Assert: exactly one Vote row exists, and the loser's returned vote is that row.
+    // Assert: exactly one Vote row exists, the loser's returned vote is that row, and findVote finds it.
     const rows = await harness.db.selectFrom('votes').selectAll().where('matchup_id', '=', matchup.id).execute();
     expect(rows).toHaveLength(1);
     for (const result of results) {
       expect(result.vote.id).toBe(rows[0]!.id);
     }
-  });
+    const found = await findVote(harness.db, matchup.id, voterId);
+    expect(found?.winnerId).toBe(winnerId);
 
-  it('does not double-increment counters when raced', async () => {
-    // Arrange
-    const { matchup, voterId } = await setup();
-    const winnerId = matchup.contestantAId;
-
-    // Act
-    await Promise.all([
-      castVote(harness.db, matchup, voterId, winnerId, matchup.contestantAId),
-      castVote(harness.db, matchup, voterId, winnerId, matchup.contestantAId),
-    ]);
-
-    // Assert
+    // Assert: the counters moved once, not twice.
     const winner = await harness.db.selectFrom('contestants').selectAll().where('id', '=', winnerId).executeTakeFirstOrThrow();
     expect(winner.win_count).toBe(1);
     const both = await harness.db.selectFrom('contestants').selectAll().where('war_id', '=', matchup.warId).execute();
     for (const row of both) {
       expect(row.appearance_count).toBe(1);
     }
-  });
-
-  it('findVote still finds the single inserted row after a race', async () => {
-    // Arrange
-    const { matchup, voterId } = await setup();
-    const winnerId = matchup.contestantAId;
-
-    // Act
-    await Promise.all([
-      castVote(harness.db, matchup, voterId, winnerId, matchup.contestantAId),
-      castVote(harness.db, matchup, voterId, winnerId, matchup.contestantAId),
-    ]);
-
-    // Assert
-    const found = await findVote(harness.db, matchup.id, voterId);
-    expect(found).toBeDefined();
-    expect(found?.winnerId).toBe(winnerId);
   });
 });

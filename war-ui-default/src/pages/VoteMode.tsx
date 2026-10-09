@@ -5,6 +5,8 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getWar, type WarDetailResponse } from '../api/client'
+import { LoadingMessage } from '../components/AsyncStatus'
+import { ErrorMessage } from '../components/ErrorMessage'
 import { MatchupView } from '../components/MatchupView'
 import { ProgressBar } from '../components/ProgressBar'
 import { useAsyncResource, type AsyncResourceState } from '../hooks/useAsyncResource'
@@ -66,8 +68,8 @@ export function VoteMode() {
   useScrollToVoteViewportOnce(state.phase === 'active')
   useRedirectWhenCompleted(warId, state.phase === 'completed')
 
-  if (state.phase === 'loading') return <p>Loading…</p>
-  if (state.phase === 'error') return <p role="alert">{state.message}</p>
+  if (state.phase === 'loading') return <LoadingMessage />
+  if (state.phase === 'error') return <ErrorMessage message={state.message} />
   if (state.phase === 'completed') return null
 
   return (

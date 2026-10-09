@@ -1,4 +1,4 @@
-// State machine behind the Remove War action (the spec, §6.7): an in-page
+// State machine behind the Remove War action (war-spec.md §6.7): an in-page
 // confirmation first (removal hides the War and permanently deletes its
 // media), then the request; a failure leaves the War as it was and shows why.
 import { useState } from 'react'

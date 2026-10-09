@@ -7,7 +7,7 @@ import { deleteVotesByVoter } from '../votes/votesRepository.js';
 import { mediaPrefixes } from '../wars/warMediaStorage.js';
 
 /**
- * Ends a banned Voter's sessions and hard-deletes what they created or cast (spec §6.7), on the ban's own
+ * Ends a banned Voter's sessions and hard-deletes what they created or cast (§6.7), on the ban's own
  * transaction. Returns the storage prefixes of the deleted Wars' media, for
  * the caller to delete from the object store once the transaction commits.
  */

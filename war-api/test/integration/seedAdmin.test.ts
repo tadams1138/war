@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { seedAdmin } from '../../scripts/seedAdmin.js';
-import { makeVoter } from '../setup/fixtures.js';
+import { UNKNOWN_ID, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -24,8 +24,11 @@ describe('seedAdmin (war-spec.md §6.7, first-Admin bootstrap)', () => {
   });
 
   it('returns undefined for a voter id that does not exist', async () => {
+    // Arrange
+    const voterId = UNKNOWN_ID;
+
     // Act
-    const result = await seedAdmin(harness.db, '00000000-0000-0000-0000-000000000000');
+    const result = await seedAdmin(harness.db, voterId);
 
     // Assert
     expect(result).toBeUndefined();

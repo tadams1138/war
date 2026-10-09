@@ -3,27 +3,41 @@ import { ApiError, messageForReason, toUserMessage } from '../errors'
 
 describe('messageForReason', () => {
   it('maps each reason to the exact copy in the spec\'s table', () => {
-    // Arrange / Act / Assert
-    expect(messageForReason('unauthorized')).toBe('Please log in to continue')
-    expect(messageForReason('war-closed')).toBe('This War is locked — voting is closed')
-    expect(messageForReason('not-joined')).toBe('Join this War to vote')
-    expect(messageForReason('not-found')).toBe("This War doesn't exist or has been removed")
-    expect(messageForReason('validation')).toBe('Something went wrong — please try again')
-    expect(messageForReason('server-error')).toBe('Server error — please try again shortly')
-    expect(messageForReason('network')).toBe('Unable to reach the server — check your connection')
+    // Arrange
+    const reasons = ['unauthorized', 'war-closed', 'not-joined', 'not-found', 'validation', 'server-error', 'network'] as const
+
+    // Act
+    const messages = reasons.map((reason) => messageForReason(reason))
+
+    // Assert
+    expect(messages).toEqual([
+      'Please log in to continue',
+      'This War is locked — voting is closed',
+      'Join this War to vote',
+      "This War doesn't exist or has been removed",
+      'Something went wrong — please try again',
+      'Server error — please try again shortly',
+      'Unable to reach the server — check your connection',
+    ])
   })
 
   it('returns no message for a conflict — the caller advances silently instead', () => {
-    // Arrange / Act
-    const message = messageForReason('conflict')
+    // Arrange
+    const input = 'conflict'
+
+    // Act
+    const message = messageForReason(input)
 
     // Assert
     expect(message).toBe('')
   })
 
   it('includes the retry-after delay in the rate-limited message', () => {
-    // Arrange / Act
-    const message = messageForReason('rate-limited', 5)
+    // Arrange
+    const retryAfterSeconds = 5
+
+    // Act
+    const message = messageForReason('rate-limited', retryAfterSeconds)
 
     // Assert
     expect(message).toContain('try again')
@@ -36,21 +50,35 @@ describe('toUserMessage', () => {
     // Arrange
     const error = new ApiError('not-found', 404, "This War doesn't exist or has been removed")
 
-    // Act / Assert
-    expect(toUserMessage(error)).toBe("This War doesn't exist or has been removed")
+    // Act
+    const message = toUserMessage(error)
+
+    // Assert
+    expect(message).toBe("This War doesn't exist or has been removed")
   })
 
   it('falls back to the network message for anything else', () => {
-    // Arrange / Act / Assert
-    expect(toUserMessage(new TypeError('boom'))).toBe('Unable to reach the server — check your connection')
-    expect(toUserMessage('not even an error')).toBe('Unable to reach the server — check your connection')
+    // Arrange
+    const errors = [new TypeError('boom'), 'not even an error']
+
+    // Act
+    const messages = errors.map(toUserMessage)
+
+    // Assert
+    expect(messages).toEqual([
+      'Unable to reach the server — check your connection',
+      'Unable to reach the server — check your connection',
+    ])
   })
 })
 
 describe('ApiError', () => {
   it('carries its reason, status, and an optional retry-after delay', () => {
-    // Arrange / Act
-    const error = new ApiError('rate-limited', 429, 'Slow down a moment — try again in 5s', 5)
+    // Arrange
+    const message = 'Slow down a moment — try again in 5s'
+
+    // Act
+    const error = new ApiError('rate-limited', 429, message, 5)
 
     // Assert
     expect(error).toBeInstanceOf(Error)
@@ -61,18 +89,22 @@ describe('ApiError', () => {
   })
 
   it('carries an optional details array for a validation failure', () => {
-    // Arrange / Act
-    const error = new ApiError('validation', 422, 'Something went wrong — please try again', undefined, [
-      'title must be a non-empty string of at most 256 characters',
-    ])
+    // Arrange
+    const details = ['title must be a non-empty string of at most 256 characters']
+
+    // Act
+    const error = new ApiError('validation', 422, 'Something went wrong — please try again', undefined, details)
 
     // Assert
     expect(error.details).toEqual(['title must be a non-empty string of at most 256 characters'])
   })
 
   it('leaves details undefined when none were given', () => {
-    // Arrange / Act
-    const error = new ApiError('validation', 422, 'Something went wrong — please try again')
+    // Arrange
+    const message = 'Something went wrong — please try again'
+
+    // Act
+    const error = new ApiError('validation', 422, message)
 
     // Assert
     expect(error.details).toBeUndefined()

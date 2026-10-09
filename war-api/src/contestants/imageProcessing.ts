@@ -2,7 +2,7 @@ import sharp from 'sharp';
 
 export const VARIANT_WIDTHS = [400, 800, 1600] as const;
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-export const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export interface ImageVariant {
   width: number;
@@ -19,12 +19,9 @@ export interface UploadValidationInput {
   sizeBytes: number;
 }
 
-export type UploadValidationResult = { ok: true } | { ok: false; reason: string };
+export type UploadValidationResult = { kind: 'ok' } | { kind: 'invalid'; reason: string };
 
-/**
- * Maps an upload's MIME type to the file extension its original is stored
- * under. Used by the multipart upload route (`contestants/routes.ts`).
- */
+/** Maps an upload's MIME type to the file extension its original is stored under. */
 export function extensionFor(mimeType: string): string {
   switch (mimeType) {
     case 'image/png':
@@ -36,22 +33,21 @@ export function extensionFor(mimeType: string): string {
   }
 }
 
-/** Validates upload type and size before any processing (spec). */
+/** Validates upload type and size before any processing. */
 export function validateImageUpload(input: UploadValidationInput): UploadValidationResult {
   if (input.sizeBytes > MAX_UPLOAD_BYTES) {
-    return { ok: false, reason: 'file exceeds the 10MB limit' };
+    return { kind: 'invalid', reason: 'file exceeds the 10MB limit' };
   }
   if (!ALLOWED_MIME_TYPES.has(input.mimeType)) {
-    return { ok: false, reason: `unsupported file type: ${input.mimeType}` };
+    return { kind: 'invalid', reason: `unsupported file type: ${input.mimeType}` };
   }
-  return { ok: true };
+  return { kind: 'ok' };
 }
 
 /**
  * Re-encodes an uploaded image into WebP variants at 400/800/1600px wide,
- * never upscaling, and never carrying source EXIF metadata forward — sharp
- * omits metadata from its output unless `.withMetadata()` is called, which it
- * never is here (spec).
+ * never upscaling, and never carrying source EXIF metadata forward: sharp
+ * omits metadata from its output unless `.withMetadata()` is called.
  */
 export async function processImage(input: Buffer): Promise<ProcessedImage> {
   const metadata = await sharp(input).metadata();

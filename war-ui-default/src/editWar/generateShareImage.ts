@@ -1,5 +1,5 @@
 // Generates a War's share image client-side from two of its own contestants
-// (the spec, "The share image is set one of two ways"): a 1200x630 canvas,
+// (war-spec.md, "The share image is set one of two ways"): a 1200x630 canvas,
 // each contestant's own primary image (utils/media.ts's primaryMedia --
 // display_order 0, never just the media array's first entry, which the API
 // happens to return pre-sorted today but this codebase's own convention
@@ -12,22 +12,14 @@
 // drifts and needs updating by hand -- there's no shared source between
 // CSS and Canvas 2D.
 import type { ContestantDetail, WarDetailResponse } from '../api/client'
-import { primaryMedia } from '../utils/media'
+import { largestVariant, primaryMedia } from '../utils/media'
+import { pickTwoRandom } from '../utils/pickTwoRandom'
 
 const WIDTH = 1200
 const HEIGHT = 630
 
-function largestVariant(item: ContestantDetail['media'][number]): { width: number; url: string } {
-  return item.variants.reduce((largest, variant) => (variant.width > largest.width ? variant : largest))
-}
-
 function qualifies(contestant: ContestantDetail): boolean {
   return contestant.media.length > 0
-}
-
-function pickTwoRandom<T>(items: T[]): [T, T] {
-  const shuffled = [...items].sort(() => Math.random() - 0.5)
-  return [shuffled[0]!, shuffled[1]!]
 }
 
 async function loadImage(url: string): Promise<HTMLImageElement> {

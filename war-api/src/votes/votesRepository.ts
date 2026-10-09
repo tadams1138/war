@@ -28,13 +28,13 @@ function toVote(row: {
   };
 }
 
-/** Deletes every vote cast on any of the given matchups (contestant removal, spec §6.1: "clears those votes... scoped to that contestant's own matchups only"). */
+/** Deletes every vote cast on any of the given matchups (contestant removal, §6.1: "clears those votes... scoped to that contestant's own matchups only"). */
 export async function deleteVotesForMatchups(db: Kysely<Database>, matchupIds: string[]): Promise<void> {
   if (matchupIds.length === 0) return;
   await db.deleteFrom('votes').where('matchup_id', 'in', matchupIds).execute();
 }
 
-/** Deletes every vote cast anywhere in a War (Clear Votes, spec §6.1: "deletes every vote cast in the War"). */
+/** Deletes every vote cast anywhere in a War (Clear Votes, §6.1: "deletes every vote cast in the War"). */
 export async function deleteVotesForWar(db: Kysely<Database>, warId: string): Promise<void> {
   await db
     .deleteFrom('votes')
@@ -58,14 +58,14 @@ export interface CastVoteResult {
   vote: Vote;
 }
 
-/** The Voter was banned before this vote could be recorded (spec §6.7); nothing was written. */
+/** The Voter was banned before this vote could be recorded (§6.7); nothing was written. */
 export interface BannedVoter {
   banned: true;
 }
 
 /**
  * Casts a vote and increments both denormalised counters in one transaction
- * (war-spec.md §6.3). The transaction first takes a shared lock on the
+ * (§6.3). The transaction first takes a shared lock on the
  * Voter's row and refuses a banned Voter: a ban's write to that row waits for
  * this transaction (so the ban's purge then deletes the vote), and a vote
  * arriving after an uncommitted ban waits for it and then sees the ban. The insert is `ON CONFLICT DO NOTHING` against the
@@ -125,7 +125,7 @@ export async function castVote(
   });
 }
 
-/** Deletes every vote `voterId` cast (spec §6.7: a ban removes them) and returns the ids of the Wars they were cast in, whose counters need recomputing. */
+/** Deletes every vote `voterId` cast (§6.7: a ban removes them) and returns the ids of the Wars they were cast in, whose counters need recomputing. */
 export async function deleteVotesByVoter(db: Kysely<Database>, voterId: string): Promise<string[]> {
   const deleted = await db.deleteFrom('votes').where('voter_id', '=', voterId).returning('matchup_id').execute();
   if (deleted.length === 0) return [];

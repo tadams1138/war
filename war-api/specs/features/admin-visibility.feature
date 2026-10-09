@@ -1,25 +1,25 @@
 Feature: Admin visibility
 
   Scenario: A Moderator lists every War whatever its status
-    Given a Voter who created a draft, an invite-only, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
+    Given a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
     And a Moderator
     When the Moderator GETs the admin Wars
     Then the response lists all 4 Wars newest first with their status, visibility, creator, removed_at and unaddressed report count
 
   Scenario: Filtering the admin Wars by status removed lists only removed Wars
-    Given a Voter who created a draft, an invite-only, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
+    Given a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
     And a Moderator
     When the Moderator GETs the admin Wars with status removed
     Then the response lists only the removed War
 
   Scenario: Filtering the admin Wars by another status excludes removed Wars
-    Given a Voter who created a draft, an invite-only, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
+    Given a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
     And a Moderator
     When the Moderator GETs the admin Wars with status published
     Then the response lists only the published War that was not removed
 
   Scenario: Searching the admin Wars matches a title case-insensitively
-    Given a Voter who created a draft, an invite-only, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
+    Given a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
     And a Moderator
     When the Moderator GETs the admin Wars with q "cLOSED"
     Then the response lists only the War titled "Closed War"
@@ -140,7 +140,7 @@ Feature: Admin visibility
     Then the response shows alice with a War count of 2 and both Wars newest first, the removed one with its removal time
 
   Scenario: A Moderator reads a Voter's complete vote history
-    Given a Voter who voted in a published War, then in another Voter's invite-only War, then in a War that was later removed
+    Given a Voter who voted in a published War, then in another Voter's unlisted War, then in a War that was later removed
     And a Moderator
     When the Moderator GETs that Voter's admin vote history
     Then the response lists all 3 votes newest first, each with the War, winner and loser names and when it was cast
@@ -184,8 +184,7 @@ Feature: Admin visibility
     Then the moderation log is empty
 
   Scenario: The admin Wars report and filter by effective status before the close task runs
-    Given a Voter who created a published War whose end date passed a minute ago
-    And the close-expired-wars task has not yet run
+    Given a Voter who created a published War whose end date passed a minute ago and has not yet been closed by the close task
     And a Moderator
     When the Moderator GETs the admin Wars with status closed
     Then the response lists that War with status "closed"
@@ -193,15 +192,13 @@ Feature: Admin visibility
     Then the response does not list that War
 
   Scenario: The admin War detail reports effective status before the close task runs
-    Given a Voter who created a published War whose end date passed a minute ago
-    And the close-expired-wars task has not yet run
+    Given a Voter who created a published War whose end date passed a minute ago and has not yet been closed by the close task
     And a Moderator
     When the Moderator GETs that War from the admin endpoint
     Then the response shows that War with status "closed"
 
   Scenario: The admin Voter detail reports each War's effective status before the close task runs
-    Given a Voter who created a published War whose end date passed a minute ago
-    And the close-expired-wars task has not yet run
+    Given a Voter who created a published War whose end date passed a minute ago and has not yet been closed by the close task
     And a Moderator
     When the Moderator GETs that Voter from the admin endpoint
     Then the response lists that War with status "closed"

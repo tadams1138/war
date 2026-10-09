@@ -1,5 +1,5 @@
 // Resolves NavBar's identity slot from a getMe() AsyncResourceState
-// (the spec, "NavBar" — Identity). Kept as a pure
+// (war-spec.md, "NavBar" — Identity). Kept as a pure
 // function, separate from NavBar's own rendering, so the fallback rules —
 // including the GET /auth/me failure case the Gherkin has no scenario for —
 // are unit-testable without mounting a component.

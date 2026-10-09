@@ -1,5 +1,5 @@
 // Every War the authenticated voter created, across every status
-// (the spec "MyWars Page"). This is what closes the gap the spec names: a
+// (war-spec.md "MyWars Page"). This is what closes the gap war-spec.md names: a
 // creator who leaves a draft before it's published has, until this page
 // exists, no way to find that draft War again.
 import { Link } from 'react-router-dom'
@@ -9,6 +9,7 @@ import { WarListControls, WarListPagination } from '../components/WarListControl
 import { useWarListPage, type UseWarListPageResult } from '../hooks/useWarListPage'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
+import { AsyncStatus } from '../components/AsyncStatus'
 
 export function MyWars() {
   const listPage = useWarListPage({ creatorMe: true })
@@ -19,8 +20,7 @@ export function MyWars() {
     <main data-theme={theme}>
       <h1>My Wars</h1>
       <WarListControls listPage={listPage} />
-      {listPage.state.status === 'loading' && <p>Loading…</p>}
-      {listPage.state.status === 'error' && <p role="alert">{listPage.state.message}</p>}
+      <AsyncStatus state={listPage.state} />
       {listPage.state.status === 'loaded' && <MyWarsList wars={listPage.state.wars} listPage={listPage} />}
     </main>
   )

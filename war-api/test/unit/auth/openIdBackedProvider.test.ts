@@ -15,7 +15,7 @@ class StubProvider extends OpenIdBackedProvider {
   protected readonly scope = 'openid profile';
 
   constructor(private readonly buildFailures: Error[] = []) {
-    super();
+    super('stub-client-id', 'stub-client-secret');
   }
 
   /** How many times `buildConfiguration` has actually been called. */

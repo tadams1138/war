@@ -5,26 +5,26 @@ import type { AuthorizationRequest, CallbackParams, OAuthProfile, OAuthProvider 
 export type TokenResponse = Awaited<ReturnType<typeof client.authorizationCodeGrant>>;
 
 /**
- * Every HTTP request a Configuration makes is bounded to this many seconds.
- * openid-client's own documented "30 second default" only applies to a few
- * standalone calls like discovery() -- a Configuration itself starts with
- * `.timeout` unset, and its internal `signal()` helper turns an unset
- * timeout into *no* AbortSignal at all, not a 30-second one. Left unset,
- * the token-exchange request every provider eventually makes can hang
- * forever if that provider is slow or unreachable, surfacing as a raw
- * platform gateway timeout instead of this app's own clean 502 -- exactly
- * what happened when Twitter/X's token endpoint stopped responding.
+ * Every HTTP request a Configuration makes is bounded to this many seconds. openid-client's 30-second default
+ * covers only standalone calls like discovery(); a Configuration starts with `.timeout` unset, which its
+ * `signal()` helper turns into no AbortSignal at all. Left unset, a slow token endpoint (Twitter/X's once stopped
+ * responding) hangs the request until the platform's gateway times out, instead of this app's clean 502.
  */
 const REQUEST_TIMEOUT_SECONDS = 10;
 
+/** Bound on the profile fetch each provider makes after the token exchange; Node's fetch has no default timeout. */
+export const PROFILE_FETCH_TIMEOUT_MS = 5000;
+
+/** A claim or profile field as a string, or null when absent or of another type. */
+export function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
 /**
- * Shared openid-client plumbing for every provider backed by an OAuth
- * 2.0/OIDC authorization server: builds a PKCE-protected authorization URL,
- * runs the authorization_code grant, and hands the resulting tokens to the
- * subclass to turn into an OAuthProfile. Does only the happy path -- the
- * try/catch that turns a failure here into the callback's 502 boundary
- * lives in authService.exchangeAuthorizationCode, not here, so every
- * provider gets that boundary for free without repeating it.
+ * Shared openid-client plumbing for providers backed by an OAuth 2.0/OIDC authorization server: builds a
+ * PKCE-protected authorization URL, runs the authorization_code grant, and hands the tokens to the subclass
+ * to turn into an OAuthProfile. Failure handling (the callback's 502 boundary) lives in
+ * `authService.exchangeAuthorizationCode`, so no provider repeats it.
  */
 export abstract class OpenIdBackedProvider implements OAuthProvider {
   abstract readonly slug: string;
@@ -35,6 +35,11 @@ export abstract class OpenIdBackedProvider implements OAuthProvider {
 
   private configuration: Promise<client.Configuration> | undefined;
 
+  constructor(
+    protected readonly clientId: string,
+    protected readonly clientSecret: string,
+  ) {}
+
   /** Builds (or discovers) this provider's openid-client Configuration. Called once, lazily. */
   protected abstract buildConfiguration(): Promise<client.Configuration>;
 
@@ -43,10 +48,8 @@ export abstract class OpenIdBackedProvider implements OAuthProvider {
 
   private async config(): Promise<client.Configuration> {
     if (!this.configuration) {
-      // A *rejected* promise must not be cached: discovery is a network call,
-      // so a transient blip would otherwise be replayed to every subsequent
-      // login for this provider until the process restarted. Clearing the
-      // field inside the catch lets the next call retry the build.
+      // A rejected build is not cached: discovery is a network call, and a transient failure would otherwise
+      // be replayed to every login until the process restarts.
       this.configuration = this.buildConfiguration()
         .then((configuration) => {
           configuration.timeout = REQUEST_TIMEOUT_SECONDS;

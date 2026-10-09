@@ -16,7 +16,7 @@ Feature: Share Image
     When they click Save
     Then the share image is uploaded
 
-  Scenario: Generating is unavailable with fewer than two qualifying contestants
+  Scenario: Generate is disabled with an explanation when fewer than two contestants have an image
     Given an authenticated voter editing a draft War with only one contestant who has an image
     Then the generate control is disabled
     And an explanation is shown

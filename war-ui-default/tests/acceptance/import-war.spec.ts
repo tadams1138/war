@@ -5,6 +5,7 @@ import { strToU8, zipSync } from 'fflate'
 import { expect, test } from '@playwright/test'
 import { buildContestant, buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
+import { ok, reply } from './support/recipes'
 
 function validWarJson(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -32,21 +33,21 @@ function zipBuffer(files: Record<string, Uint8Array | string>): Buffer {
   return Buffer.from(zipSync(encoded))
 }
 
-test('Selecting a valid export file imports it and navigates to the new draft’s Edit page', async ({ page }) => {
+test('Selecting a valid export file creates a new draft and opens its Edit page', async ({ page }) => {
   // Arrange
   const zip = zipBuffer({ 'war.json': validWarJson(), 'media/c-1/m-1.jpg': new Uint8Array([1, 2, 3]) })
   const createdWar = buildWarSummary({ id: 'war-imported', status: 'draft', title: 'Miss Universe 2026' })
   const createdContestant = buildContestant({ id: 'c-imported', name: 'Ada' })
   const importedDetail = buildWarDetail({ id: 'war-imported', status: 'draft', contestants: [createdContestant] })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars`, responses: [{ status: 201, body: createdWar }] },
-    { method: 'POST', path: `${API}/wars/war-imported/contestants`, responses: [{ status: 201, body: createdContestant }] },
+    reply('POST', `${API}/wars`, 201, createdWar),
+    reply('POST', `${API}/wars/war-imported/contestants`, 201, createdContestant),
     {
       method: 'POST',
       path: `${API}/wars/war-imported/contestants/c-imported/images`,
       responses: [{ status: 201, body: { id: 'image-1', display_order: 0 } }],
     },
-    { method: 'GET', path: `${API}/wars/war-imported`, responses: [{ status: 200, body: importedDetail }] },
+    ok('GET', `${API}/wars/war-imported`, importedDetail),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -70,15 +71,15 @@ test('Selecting a valid export file with a share image uploads it to the new dra
   const createdContestant = buildContestant({ id: 'c-imported', name: 'Ada' })
   const importedDetail = buildWarDetail({ id: 'war-imported', status: 'draft', contestants: [createdContestant] })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars`, responses: [{ status: 201, body: createdWar }] },
-    { method: 'POST', path: `${API}/wars/war-imported/share-image`, responses: [{ status: 200, body: createdWar }] },
-    { method: 'POST', path: `${API}/wars/war-imported/contestants`, responses: [{ status: 201, body: createdContestant }] },
+    reply('POST', `${API}/wars`, 201, createdWar),
+    ok('POST', `${API}/wars/war-imported/share-image`, createdWar),
+    reply('POST', `${API}/wars/war-imported/contestants`, 201, createdContestant),
     {
       method: 'POST',
       path: `${API}/wars/war-imported/contestants/c-imported/images`,
       responses: [{ status: 201, body: { id: 'image-1', display_order: 0 } }],
     },
-    { method: 'GET', path: `${API}/wars/war-imported`, responses: [{ status: 200, body: importedDetail }] },
+    ok('GET', `${API}/wars/war-imported`, importedDetail),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)

@@ -35,11 +35,11 @@ Feature: Error Handling
     Then the message "Something went wrong — please try again" is shown
 
   Scenario: A server error shows a generic retry message
-    Given any request in this slice that the API answers with a 5xx status
+    Given any request in the API that the API answers with a 5xx status
     When the response is received
     Then the message "Server error — please try again shortly" is shown
 
   Scenario: A network failure shows a connectivity message
-    Given any request in this slice that fails to reach the API at all
+    Given any request in the API that fails to reach the API at all
     When the failure occurs
     Then the message "Unable to reach the server — check your connection" is shown

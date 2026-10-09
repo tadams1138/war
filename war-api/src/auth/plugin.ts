@@ -1,21 +1,26 @@
 import type { FastifyReply, FastifyRequest, FastifySchema } from 'fastify';
-import { authenticatedVoterId, type AuthDependencies } from './authService.js';
+import { authenticate, type AuthDependencies } from './authService.js';
+import type { Voter } from './votersRepository.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
     voterId?: string;
+    /** The authenticated Voter's row, loaded once during authentication so role and state guards need no lookup of their own. */
+    voter?: Voter;
   }
 }
 
-/**
- * A Fastify preHandler that requires a valid Bearer JWT (spec: "All
- * protected endpoints require Authorization: Bearer <jwt>"). Populates
- * `request.voterId` on success, or replies 401 without calling the handler.
- */
+async function authenticateRequest(deps: AuthDependencies, request: FastifyRequest): Promise<void> {
+  const caller = await authenticate(deps, request.headers.authorization);
+  request.voterId = caller.voterId;
+  request.voter = caller.voter;
+}
+
+/** Requires a valid Bearer JWT (§5). Populates `request.voterId` and `request.voter`, or replies 401 without calling the handler. */
 export function requireAuth(deps: AuthDependencies) {
   return async function preHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     try {
-      request.voterId = await authenticatedVoterId(deps, request.headers.authorization);
+      await authenticateRequest(deps, request);
     } catch {
       await reply.code(401).send({ error: 'unauthorized' });
     }
@@ -23,16 +28,9 @@ export function requireAuth(deps: AuthDependencies) {
 }
 
 /**
- * A conditional variant of {@link requireAuth}: enforces the bearer
- * requirement only when `shouldRequireAuth` returns true for the request,
- * and otherwise lets the request through unauthenticated (`request.voterId`
- * stays `undefined`). For an endpoint that is public in general but
- * requires identity for one particular query combination -- `GET
- * /wars?creator=me` (war-spec.md §6.1) is the one
- * caller today -- rather than gating the whole route behind
- * {@link bearerAuthRoute}, which would also mark it `security:
- * [{bearerAuth: []}]` in the OpenAPI document and misdescribe every other
- * query combination on the same route as requiring auth too.
+ * {@link requireAuth} only when `shouldRequireAuth` says so, for a route that is public in general but needs
+ * identity for one query combination (`GET /wars?creator=me`, §6.1). Unlike {@link bearerAuthRoute}, it does
+ * not mark the whole route as requiring auth in the OpenAPI document.
  */
 export function requireAuthIf(deps: AuthDependencies, shouldRequireAuth: (request: FastifyRequest) => boolean) {
   const guarded = requireAuth(deps);
@@ -44,17 +42,14 @@ export function requireAuthIf(deps: AuthDependencies, shouldRequireAuth: (reques
 }
 
 /**
- * Populates `request.voterId` from a Bearer JWT when one is present and
- * valid, but never rejects the request -- an absent, malformed, or expired
- * token just leaves `voterId` `undefined`. For a route that is public in
- * general but whose response shape depends on caller identity when known
- * (`GET /wars/:id`'s `is_owner`, spec §6.1's "Deletion" reads alongside),
- * rather than gating the whole route behind {@link requireAuth}.
+ * Populates `request.voterId` when a valid Bearer JWT is present but never rejects: an absent, malformed or
+ * expired token leaves the caller anonymous. For a route that is public but whose response depends on who is
+ * asking (`GET /wars/:id`'s `is_owner`).
  */
 export function optionalAuth(deps: AuthDependencies) {
   return async function preHandler(request: FastifyRequest): Promise<void> {
     try {
-      request.voterId = await authenticatedVoterId(deps, request.headers.authorization);
+      await authenticateRequest(deps, request);
     } catch {
       // No identity available; the route proceeds as an anonymous caller.
     }
@@ -62,18 +57,9 @@ export function optionalAuth(deps: AuthDependencies) {
 }
 
 /**
- * Route options for an endpoint gated by the bearer JWT: the preHandler that
- * enforces it and the OpenAPI marker that documents it, produced together so
- * neither can be added without the other (spec). Accepts the
- * route's own schema (if any) so adding request/response validation later
- * can never overwrite the security marker.
- *
- * `extraPreHandlers` run after `requireAuth`, in order -- for a route also
- * gated by a per-voter rate limit (`shared/rateLimit.ts`'s
- * `rateLimitByVoter`, spec §8.4), which needs `request.voterId` already
- * populated. Fastify accepts a single preHandler function or an array
- * interchangeably, so every existing caller (no third argument) is
- * unaffected by `preHandler` becoming an array here.
+ * Route options for an endpoint gated by the bearer JWT: the preHandler that enforces it and the OpenAPI marker
+ * that documents it, produced together so neither can be added without the other. `extraPreHandlers` run after
+ * authentication, in order, so they can rely on `request.voterId` and `request.voter` (role guards, per-voter rate limits).
  */
 export function bearerAuthRoute(
   deps: AuthDependencies,

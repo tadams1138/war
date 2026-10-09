@@ -1,7 +1,7 @@
 // Pure text-insertion logic behind BioEditor's toolbar: given the
 // textarea's current value and selection, returns the new value and the
 // selection to apply afterward. Kept free of any DOM/React dependency so
-// it's unit-testable on its own (the spec's constrained bio
+// it's unit-testable on its own (war-spec.md's constrained bio
 // markdown subset — bold, italic, lists, links, headings — not full
 // markdown).
 

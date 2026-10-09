@@ -1,14 +1,12 @@
 Feature: War Expiry
 
   Scenario: An expired War reports as closed before the close task runs
-    Given a published War whose ends_at passed one minute ago
-    And the close-expired-wars task has not yet run
+    Given a published War whose ends_at passed one minute ago and has not yet been closed by the close task
     When anyone GETs /api/v1/wars/:id
     Then the response status field is "closed"
 
   Scenario: Voting is rejected the moment a War expires
-    Given a published War whose ends_at passed one second ago
-    And the close-expired-wars task has not yet run
+    Given a published War whose ends_at passed one second ago and has not yet been closed by the close task
     When a joined voter POSTs a vote
     Then the response status is 403
 
@@ -36,8 +34,13 @@ Feature: War Expiry
     And the War's stored status is "closed"
     And the two responses together report 1 War closed
 
-  Scenario: Internal endpoints reject a missing or wrong token
-    When POST /api/v1/internal/close-expired-wars is called without a valid X-Internal-Token
+  Scenario: Internal endpoints reject a wrong token
+    When POST /api/v1/internal/close-expired-wars is called with a wrong X-Internal-Token
+    Then the response status is 401
+    And no War records are modified
+
+  Scenario: Internal endpoints reject a missing token
+    When POST /api/v1/internal/close-expired-wars is called with no X-Internal-Token
     Then the response status is 401
     And no War records are modified
 

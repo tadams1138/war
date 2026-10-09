@@ -1,9 +1,9 @@
-// Cursor-paged Staff Voter list (the spec, §6.7): the first page loads on
-// mount and again whenever the status filter or (debounced) search text
-// changes; `loadMore` appends the page after `nextCursor`.
-import { useEffect, useState } from 'react'
+// Cursor-paged Staff Voter list (war-spec.md §6.7), refetched from the first
+// page whenever the status filter or (debounced) search text changes.
+import { useState } from 'react'
 import { getAdminVoters, type AdminVoterItem, type GetAdminVotersParams } from '../../api/client'
-import { toUserMessage } from '../../api/errors'
+import { useCursorPage } from '../../hooks/useCursorPage'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 
 export type AdminVoterStatusFilter = NonNullable<GetAdminVotersParams['status']> | 'all'
 
@@ -31,62 +31,13 @@ function buildParams(statusFilter: AdminVoterStatusFilter, q: string, cursor?: s
 }
 
 export function useAdminVoters(): UseAdminVotersResult {
-  const [status, setStatus] = useState<UseAdminVotersResult['status']>('loading')
-  const [voters, setVoters] = useState<AdminVoterItem[]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<AdminVoterStatusFilter>('all')
   const [searchText, setSearchText] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_MS)
-    return () => clearTimeout(timer)
-  }, [searchText])
-
-  useEffect(() => {
-    let cancelled = false
-    getAdminVoters(buildParams(statusFilter, debouncedSearch))
-      .then((page) => {
-        if (cancelled) return
-        setVoters(page.voters)
-        setNextCursor(page.next_cursor)
-        setError(null)
-        setStatus('loaded')
-      })
-      .catch((failure: unknown) => {
-        if (cancelled) return
-        setError(toUserMessage(failure))
-        setStatus('error')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [statusFilter, debouncedSearch])
-
-  function loadMore() {
-    if (nextCursor === null) return
-    setLoadingMore(true)
-    getAdminVoters(buildParams(statusFilter, debouncedSearch, nextCursor))
-      .then((page) => {
-        setVoters((current) => [...current, ...page.voters])
-        setNextCursor(page.next_cursor)
-      })
-      .catch((failure: unknown) => setError(toUserMessage(failure)))
-      .finally(() => setLoadingMore(false))
-  }
-
-  return {
-    status,
-    voters,
-    error,
-    statusFilter,
-    setStatusFilter,
-    searchText,
-    setSearchText,
-    hasMore: nextCursor !== null,
-    loadingMore,
-    loadMore,
-  }
+  const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_MS)
+  const { items, ...rest } = useCursorPage(
+    (cursor) =>
+      getAdminVoters(buildParams(statusFilter, debouncedSearch, cursor)).then((page) => ({ items: page.voters, nextCursor: page.next_cursor })),
+    [statusFilter, debouncedSearch],
+  )
+  return { ...rest, voters: items, statusFilter, setStatusFilter, searchText, setSearchText }
 }

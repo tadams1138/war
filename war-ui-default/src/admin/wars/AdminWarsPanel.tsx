@@ -1,9 +1,11 @@
-// The Staff Wars list (the spec, §6.7): every War of every status, including
+// The Staff Wars list (war-spec.md §6.7): every War of every status, including
 // removed ones, with a marker for each and a count of unaddressed reports.
 import { Link } from 'react-router-dom'
 import type { AdminWarItem } from '../../api/client'
 import { warTitle } from '../../utils/warTitle'
 import { useAdminWars, type AdminWarStatusFilter } from './useAdminWars'
+import { ErrorMessage } from '../../components/ErrorMessage'
+import { LoadingMessage } from '../../components/AsyncStatus'
 
 const STATUS_OPTIONS: { value: AdminWarStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -45,8 +47,8 @@ export function AdminWarsPanel() {
           />
         </label>
       </div>
-      {list.status === 'loading' && <p>Loading…</p>}
-      {list.error && <p role="alert">{list.error}</p>}
+      {list.status === 'loading' && <LoadingMessage />}
+      <ErrorMessage message={list.error} />
       {list.status === 'loaded' && (
         <>
           <ul className="admin-wars">

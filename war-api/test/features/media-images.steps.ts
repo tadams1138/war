@@ -4,9 +4,10 @@ import sharp from 'sharp';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeVoter, makeDraftWar, makeContestant, giveContestantAnImage } from '../setup/fixtures.js';
+import { giveContestantAnImage, makeContestant, makeDraftWar, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { as, uploadImage } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/media-images.feature', import.meta.url)));
 
@@ -41,27 +42,26 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     await harness.app.ready();
   });
 
-  async function uploadImage(buffer: Buffer, filename = 'photo.jpg', contentType = 'image/jpeg') {
-    const jwt = await harness.jwtFor(creatorId);
-    return request(harness.app.server)
-      .post(`/api/v1/wars/${warId}/contestants/${contestantId}/images`)
-      .set('Authorization', `Bearer ${jwt}`)
-      .attach('file', buffer, { filename, contentType });
+  function upload(buffer: Buffer, filename = 'photo.jpg', contentType = 'image/jpeg') {
+    return uploadImage(harness, warId, contestantId, creatorId, buffer, { filename, contentType });
   }
 
   Scenario('Uploaded images are re-encoded into variants', ({ Given, When, Then, And }) => {
     let uploadResponse: request.Response;
 
     Given('a 10MB JPEG uploaded for a contestant', async () => {
+      // Arrange
       const buffer = await largeNoiseJpeg();
-      uploadResponse = await uploadImage(buffer);
+      uploadResponse = await upload(buffer);
     });
 
     When('the upload completes', () => {
+      // Act
       expect(uploadResponse.status).toBe(201);
     });
 
     Then('WebP variants are stored at 400, 800, and 1600 pixels wide', () => {
+      // Assert
       const publicKeys = [...harness.storage.publicObjects.keys()];
       expect(publicKeys.some((key) => key.endsWith('-400.webp'))).toBe(true);
       expect(publicKeys.some((key) => key.endsWith('-800.webp'))).toBe(true);
@@ -69,23 +69,28 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('the original is retained in a private prefix', () => {
+      // Assert
       const privateKeys = [...harness.storage.privateObjects.keys()];
       expect(privateKeys.some((key) => key.startsWith(`originals/${contestantId}/`))).toBe(true);
     });
   });
 
   Scenario('EXIF metadata is stripped', ({ Given, When, Then }) => {
-    Given('an uploaded photo containing GPS coordinates in its EXIF data', async () => {
+    let photo: Buffer;
+
+    Given('a photo containing GPS coordinates in its EXIF data', async () => {
+      // Arrange
       const plain = await smallJpeg(1200, 900);
-      const withExif = await sharp(plain).withMetadata({ exif: { IFD0: { GPSLatitude: '40/1' } } }).toBuffer();
-      await uploadImage(withExif);
+      photo = await sharp(plain).withMetadata({ exif: { IFD0: { GPSLatitude: '40/1' } } }).toBuffer();
     });
 
-    When('the variants are generated', () => {
-      // Handled by the upload itself (spec: processing is synchronous).
+    When('the photo is uploaded', async () => {
+      // Act
+      await upload(photo);
     });
 
     Then('no EXIF metadata is present in any variant', async () => {
+      // Assert
       for (const buffer of harness.storage.publicObjects.values()) {
         const meta = await sharp(buffer).metadata();
         expect(meta.exif).toBeUndefined();
@@ -94,21 +99,26 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('Images are never upscaled', ({ Given, When, Then, And }) => {
-    Given('an uploaded image 600 pixels wide', async () => {
-      const buffer = await smallJpeg(600, 450);
-      await uploadImage(buffer);
+    let image: Buffer;
+
+    Given('an image 600 pixels wide', async () => {
+      // Arrange
+      image = await smallJpeg(600, 450);
     });
 
-    When('the variants are generated', () => {
-      // Handled by the upload itself.
+    When('the image is uploaded', async () => {
+      // Act
+      await upload(image);
     });
 
     Then('a 400px variant exists', () => {
+      // Assert
       const publicKeys = [...harness.storage.publicObjects.keys()];
       expect(publicKeys.some((key) => key.endsWith('-400.webp'))).toBe(true);
     });
 
     And('no 800px or 1600px variant is produced', () => {
+      // Assert
       const publicKeys = [...harness.storage.publicObjects.keys()];
       expect(publicKeys.some((key) => key.endsWith('-800.webp'))).toBe(false);
       expect(publicKeys.some((key) => key.endsWith('-1600.webp'))).toBe(false);
@@ -120,8 +130,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let warResponse: request.Response;
 
     Given('a stored original image', async () => {
+      // Arrange
       const buffer = await smallJpeg(1000, 800);
-      await uploadImage(buffer);
+      await upload(buffer);
       originalKey = [...harness.storage.privateObjects.keys()][0]!;
       expect(harness.storage.publicObjects.has(originalKey)).toBe(false);
     });
@@ -132,11 +143,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     // appears in the public object store, and that no endpoint's response
     // ever advertises such a URL.
     When('it is requested through the public media path', async () => {
-      const jwt = await harness.jwtFor(creatorId);
-      warResponse = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+      // Act
+      warResponse = await as(harness, creatorId).get(`/api/v1/wars/${warId}`);
     });
 
     Then('it is not served', () => {
+      // Assert
       const publicKeys = [...harness.storage.publicObjects.keys()];
       expect(publicKeys.some((key) => key.startsWith('originals/'))).toBe(false);
       expect(harness.storage.publicObjects.has(originalKey)).toBe(false);
@@ -154,15 +166,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let warResponse: request.Response;
 
     Given('a contestant with images', async () => {
+      // Arrange
       await giveContestantAnImage(harness.db, harness.storage, contestantId);
     });
 
     When('any endpoint returns that contestant', async () => {
-      const jwt = await harness.jwtFor(creatorId);
-      warResponse = await request(harness.app.server).get(`/api/v1/wars/${warId}`).set('Authorization', `Bearer ${jwt}`);
+      // Act
+      warResponse = await as(harness, creatorId).get(`/api/v1/wars/${warId}`);
     });
 
     Then('each image includes a variants array with width and url', () => {
+      // Assert
       const [contestant] = warResponse.body.contestants;
       expect(contestant.media.length).toBeGreaterThan(0);
       for (const media of contestant.media) {
@@ -184,8 +198,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Given('a contestant with two uploaded images', async () => {
       // Arrange
-      const first = await uploadImage(await smallJpeg(500, 400));
-      const second = await uploadImage(await smallJpeg(500, 400));
+      const first = await upload(await smallJpeg(500, 400));
+      const second = await upload(await smallJpeg(500, 400));
       expect(first.status).toBe(201);
       expect(second.status).toBe(201);
       const rows = await harness.db.selectFrom('contestant_media').selectAll().orderBy('display_order').execute();
@@ -195,10 +209,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the creator deletes the first image', async () => {
       // Act
-      const jwt = await harness.jwtFor(creatorId);
-      const response = await request(harness.app.server)
-        .delete(`/api/v1/wars/${warId}/contestants/${contestantId}/media/${firstMediaId}`)
-        .set('Authorization', `Bearer ${jwt}`);
+      const response = await as(harness, creatorId).delete(`/api/v1/wars/${warId}/contestants/${contestantId}/media/${firstMediaId}`);
       expect(response.status).toBe(204);
     });
 
@@ -215,24 +226,59 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let eleventhResponse: request.Response;
 
     Given('a contestant with ten images in a draft War', async () => {
+      // Arrange
       for (let i = 0; i < 10; i += 1) {
         const buffer = await smallJpeg(500, 400);
-        const response = await uploadImage(buffer);
+        const response = await upload(buffer);
         expect(response.status).toBe(201);
       }
     });
 
     When('an eleventh image is uploaded', async () => {
+      // Act
       const buffer = await smallJpeg(500, 400);
-      eleventhResponse = await uploadImage(buffer);
+      eleventhResponse = await upload(buffer);
     });
 
     Then('the response status is 422', () => {
+      // Assert
       expect(eleventhResponse.status).toBe(422);
     });
 
     And('the response explains that a contestant may hold at most 10 images', () => {
+      // Assert
       expect(eleventhResponse.body.details).toContain('a contestant may hold at most 10 images');
+    });
+  });
+
+  Scenario('Reordering an image requires a display order', ({ Given, When, Then, And }) => {
+    let mediaId: string;
+    let orderBefore: number;
+    let response: request.Response;
+
+    Given('a contestant with two uploaded images', async () => {
+      // Arrange
+      expect((await upload(await smallJpeg(500, 400))).status).toBe(201);
+      const second = await upload(await smallJpeg(500, 400));
+      expect(second.status).toBe(201);
+      mediaId = second.body.id;
+      orderBefore = second.body.display_order;
+    });
+
+    When('the creator PATCHes the second image with no display_order', async () => {
+      // Act
+      response = await as(harness, creatorId).patch(`/api/v1/wars/${warId}/contestants/${contestantId}/media/${mediaId}`, {});
+    });
+
+    Then('the response status is 422', () => {
+      // Assert
+      expect(response.status).toBe(422);
+    });
+
+    And('the second image keeps its display order', async () => {
+      // Assert
+      const row = await harness.db.selectFrom('contestant_media').select('display_order').where('id', '=', mediaId).executeTakeFirstOrThrow();
+      expect(row.display_order).toBe(orderBefore);
     });
   });
 });

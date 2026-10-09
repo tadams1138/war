@@ -1,19 +1,15 @@
-// Persistent footer (the spec, §10.1: rendered once by the shell alongside
-// NavBar, not added page by page). Tracks the active theme the same way
-// NavBar does -- its background/text color come from the [data-theme]
-// custom properties in themes.css, so an unthemed footer would render
-// wrong (or invisible) against a dark theme's page background.
+// Persistent footer (war-spec.md §10.1), rendered once by the shell alongside
+// NavBar. Tracks the active theme like NavBar: its colors come from the
+// [data-theme] custom properties in themes.css.
 import { Link } from 'react-router-dom'
-import { useActiveTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, useActiveTheme } from '../theme/ThemeContext'
 
 const REPO_URL = 'https://github.com/tadams1138/war'
 const IMPORT_GUIDE_URL = 'https://github.com/tadams1138/war/blob/master/docs/building-a-war-import.md'
 
-const NO_ACTIVE_THEME_FALLBACK = 'arcade' as const
-
 export function Footer() {
   const active = useActiveTheme()
-  const theme = active?.theme ?? NO_ACTIVE_THEME_FALLBACK
+  const theme = active?.theme ?? FALLBACK_THEME
 
   return (
     <footer className="app-footer" data-theme={theme}>

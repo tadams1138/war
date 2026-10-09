@@ -6,12 +6,12 @@
 // suite instead (browse-wars.spec.ts, my-wars.spec.ts).
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import * as client from '../api/client'
-import { buildWarSummary } from '../mocks/fixtures'
-import { useWarListPage } from './useWarListPage'
+import * as client from '../../api/client'
+import { buildWarSummary } from '../../mocks/fixtures'
+import { useWarListPage } from '../useWarListPage'
 
-vi.mock('../api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api/client')>()
+vi.mock('../../api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../api/client')>()
   return { ...actual, getWars: vi.fn() }
 })
 
@@ -33,7 +33,7 @@ describe('useWarListPage', () => {
     await waitFor(() => expect(result.current.state.status).toBe('loaded'))
 
     // Assert
-    expect(client.getWars).toHaveBeenCalledWith({ sort: 'newest', limit: '10' })
+    expect(client.getWars).toHaveBeenCalledWith({ sort: 'newest', limit: 10 })
   })
 
   it('includes creator=me when creatorMe is requested (MyWars)', async () => {
@@ -45,7 +45,7 @@ describe('useWarListPage', () => {
     await waitFor(() => expect(client.getWars).toHaveBeenCalled())
 
     // Assert
-    expect(client.getWars).toHaveBeenCalledWith({ sort: 'newest', limit: '10', creator: 'me' })
+    expect(client.getWars).toHaveBeenCalledWith({ sort: 'newest', limit: 10, creator: 'me' })
   })
 
   it('changing sort resets to page 1 and fetches with the new sort and no cursor', async () => {
@@ -60,7 +60,7 @@ describe('useWarListPage', () => {
     await waitFor(() => expect(result.current.state).toMatchObject({ status: 'loaded' }))
 
     // Assert
-    expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'oldest', limit: '10' })
+    expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'oldest', limit: 10 })
     expect(result.current.hasPrev).toBe(false)
   })
 
@@ -78,7 +78,7 @@ describe('useWarListPage', () => {
     expect(vi.mocked(client.getWars).mock.calls.length).toBe(callsBeforeTyping)
 
     // Assert — fetched with q once the debounce elapses
-    await waitFor(() => expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'newest', limit: '10', q: 'pastry' }), {
+    await waitFor(() => expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'newest', limit: 10, q: 'pastry' }), {
       timeout: 2000,
     })
   })
@@ -98,7 +98,7 @@ describe('useWarListPage', () => {
     await waitFor(() => expect(result.current.state).toMatchObject({ status: 'loaded', wars: secondPage.wars }))
 
     // Assert
-    expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'newest', limit: '10', cursor: 'cursor-abc' })
+    expect(client.getWars).toHaveBeenLastCalledWith({ sort: 'newest', limit: 10, cursor: 'cursor-abc' })
     expect(result.current.hasNext).toBe(false)
     expect(result.current.hasPrev).toBe(true)
   })

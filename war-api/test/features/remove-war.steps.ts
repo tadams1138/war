@@ -3,10 +3,11 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect, vi } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeVoter, makeModerator, makeDraftWarWithContestants, publishWarForTest } from '../setup/fixtures.js';
 import { setWarShareImageKey } from '../../src/wars/warsRepository.js';
+import { makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { as } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/remove-war.feature', import.meta.url)));
 
@@ -17,13 +18,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     await truncateAll();
     harness = await buildTestHarness();
   });
-
-  async function send(callerId: string, method: 'get' | 'post' | 'patch' | 'delete', path: string, body?: Record<string, unknown>): Promise<request.Response> {
-    await harness.app.ready();
-    const jwt = await harness.jwtFor(callerId);
-    const req = request(harness.app.server)[method](path).set('Authorization', `Bearer ${jwt}`);
-    return body ? req.send(body) : req;
-  }
 
   Scenario('A Moderator removes a published War and it becomes not found for everyone', ({ Given, When, Then }) => {
     let creatorId: string;
@@ -43,14 +37,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator removes the War', async () => {
       // Act
-      response = await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`);
+      response = await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
     });
 
     Then('the response is 204 and the War is 404 for its creator, the plain Voter and the Moderator', async () => {
       // Assert
       expect(response.status).toBe(204);
       for (const viewer of [creatorId, voterId, moderatorId]) {
-        expect((await send(viewer, 'get', `/api/v1/wars/${warId}`)).status).toBe(404);
+        expect((await as(harness, viewer).get(`/api/v1/wars/${warId}`)).status).toBe(404);
       }
     });
   });
@@ -77,15 +71,15 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
           presented_left_id: contestants[0]!.id,
         })
         .execute();
-      await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`);
+      await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
     });
 
     When('the creator DELETEs, PATCHes and publishes the War', async () => {
       // Act
       responses = [
-        await send(creatorId, 'delete', `/api/v1/wars/${warId}`),
-        await send(creatorId, 'patch', `/api/v1/wars/${warId}`, { title: 'Edited' }),
-        await send(creatorId, 'post', `/api/v1/wars/${warId}/publish`),
+        await as(harness, creatorId).delete(`/api/v1/wars/${warId}`),
+        await as(harness, creatorId).patch(`/api/v1/wars/${warId}`, { title: 'Edited' }),
+        await as(harness, creatorId).post(`/api/v1/wars/${warId}/publish`),
       ];
     });
 
@@ -118,15 +112,15 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     When('the creator and the plain Voter each try to remove the War', async () => {
       // Act
       responses = [
-        await send(creatorId, 'post', `/api/v1/wars/${warId}/remove`),
-        await send(voterId, 'post', `/api/v1/wars/${warId}/remove`),
+        await as(harness, creatorId).post(`/api/v1/wars/${warId}/remove`),
+        await as(harness, voterId).post(`/api/v1/wars/${warId}/remove`),
       ];
     });
 
     Then('both responses are 403, the War is still visible and no moderation log entry exists', async () => {
       // Assert
       expect(responses.map((r) => r.status)).toEqual([403, 403]);
-      expect((await send(voterId, 'get', `/api/v1/wars/${warId}`)).status).toBe(200);
+      expect((await as(harness, voterId).get(`/api/v1/wars/${warId}`)).status).toBe(200);
       expect(await harness.db.selectFrom('moderation_log').selectAll().execute()).toHaveLength(0);
     });
   });
@@ -145,7 +139,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator removes the War', async () => {
       // Act
-      await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`);
+      await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
     });
 
     Then('a moderation log entry records the Moderator removing the War', async () => {
@@ -175,9 +169,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     When('the Moderator removes the War twice and removes a War that never existed', async () => {
       // Act
       responses = [
-        await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`),
-        await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`),
-        await send(moderatorId, 'post', `/api/v1/wars/${randomUUID()}/remove`),
+        await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`),
+        await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`),
+        await as(harness, moderatorId).post(`/api/v1/wars/${randomUUID()}/remove`),
       ];
     });
 
@@ -199,19 +193,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
       warId = (await publishWarForTest(harness.db, war)).id;
-      const report = await send(reporterId, 'post', `/api/v1/wars/${warId}/reports`, { explanation: 'abusive' });
+      const report = await as(harness, reporterId).post(`/api/v1/wars/${warId}/reports`, { explanation: 'abusive' });
       expect(report.status).toBe(201);
-      expect((await send(moderatorId, 'get', '/api/v1/reports/unaddressed')).body.wars).toHaveLength(1);
+      expect((await as(harness, moderatorId).get('/api/v1/reports/unaddressed')).body.wars).toHaveLength(1);
     });
 
     When('the Moderator removes the War', async () => {
       // Act
-      await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`);
+      await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
     });
 
     Then('the unaddressed reports queue is empty', async () => {
       // Assert
-      const queue = await send(moderatorId, 'get', '/api/v1/reports/unaddressed');
+      const queue = await as(harness, moderatorId).get('/api/v1/reports/unaddressed');
       expect(queue.body.wars).toEqual([]);
     });
   });
@@ -237,8 +231,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator removes the War and a Voter votes on its matchup', async () => {
       // Act
-      await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`);
-      response = await send(voterId, 'post', `/api/v1/wars/${warId}/matchups/${matchupId}/vote`, { winner_id: winnerId });
+      await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
+      response = await as(harness, voterId).post(`/api/v1/wars/${warId}/matchups/${matchupId}/vote`, { winner_id: winnerId });
     });
 
     Then('the vote response is 404 and no vote exists', async () => {
@@ -260,8 +254,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Arrange
       const creatorId = (await makeVoter(harness.db, 'creator')).id;
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
-      const first = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
-      const other = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
+      const first = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, { withImages: true });
+      const other = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, { withImages: true });
       warId = first.war.id;
       otherContestantIds = other.contestants.map((c) => c.id);
       await harness.storage.putPublic(`share-images/${warId}.jpg`, Buffer.from('s'));
@@ -274,7 +268,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator removes the first War', async () => {
       // Act
-      await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`);
+      await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
     });
 
     Then("its stored objects and contestant_media rows are gone, its share image key is cleared, and the other War's media remains", async () => {
@@ -303,7 +297,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator removes the War', async () => {
       // Act
-      response = await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`);
+      response = await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
     });
 
     Then('the response is 204 and the War stays removed', async () => {
@@ -311,7 +305,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(response.status).toBe(204);
       const row = await harness.db.selectFrom('wars').select('removed_at').where('id', '=', warId).executeTakeFirstOrThrow();
       expect(row.removed_at).not.toBeNull();
-      expect((await send(moderatorId, 'get', `/api/v1/wars/${warId}`)).status).toBe(404);
+      expect((await as(harness, moderatorId).get(`/api/v1/wars/${warId}`)).status).toBe(404);
     });
   });
 
@@ -330,13 +324,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the Moderator removes the War', async () => {
       // Act
-      await send(moderatorId, 'post', `/api/v1/wars/${warId}/remove`);
+      await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
     });
 
     Then("the War is absent from GET /wars and from its creator's own list", async () => {
       // Assert
-      const publicList = await send(moderatorId, 'get', '/api/v1/wars');
-      const ownList = await send(creatorId, 'get', '/api/v1/wars?creator=me');
+      const publicList = await as(harness, moderatorId).get('/api/v1/wars');
+      const ownList = await as(harness, creatorId).get('/api/v1/wars?creator=me');
       expect(publicList.body.wars).toEqual([]);
       expect(ownList.body.wars).toEqual([]);
     });

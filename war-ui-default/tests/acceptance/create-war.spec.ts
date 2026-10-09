@@ -2,6 +2,7 @@
 import { expect, test } from '@playwright/test'
 import { buildWarDetail, buildWarSummary } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { ok, reply } from './support/recipes'
 
 const WAR_ID = 'war-create-1'
 
@@ -10,8 +11,8 @@ test('Creating a War immediately creates an empty draft and forwards to its Edit
   const createdWar = buildWarSummary({ id: WAR_ID, title: null, status: 'draft' })
   const detail = buildWarDetail({ id: WAR_ID, title: null, status: 'draft', contestants: [] })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars`, responses: [{ status: 201, body: createdWar }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    reply('POST', `${API}/wars`, 201, createdWar),
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -38,7 +39,7 @@ test('A failed creation shows an error with a retry control', async ({ page }) =
       path: `${API}/wars`,
       responses: [{ status: 500, body: { error: 'server error' } }, { status: 201, body: createdWar }],
     },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -65,7 +66,7 @@ test('Rate-limited creation is shown as a wait, not an error, and retries automa
         { status: 201, body: createdWar },
       ],
     },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    ok('GET', `${API}/wars/${WAR_ID}`, detail),
   ])
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -84,8 +85,11 @@ test('Rate-limited creation is shown as a wait, not an error, and retries automa
 })
 
 test('Creating a War requires authentication', async ({ page }) => {
+  // Arrange
+  const path = '/wars/new'
+
   // Act
-  await page.goto('/wars/new')
+  await page.goto(path)
 
   // Assert
   await expect(page).toHaveURL(/\/login\?returnTo=%2Fwars%2Fnew$/)

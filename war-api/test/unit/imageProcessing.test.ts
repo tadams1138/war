@@ -84,7 +84,7 @@ describe('validateImageUpload', () => {
     const result = validateImageUpload({ mimeType, sizeBytes });
 
     // Assert
-    expect(result.ok).toBe(true);
+    expect(result.kind).toBe('ok');
   });
 
   it('rejects a file over 10MB', () => {
@@ -96,7 +96,7 @@ describe('validateImageUpload', () => {
     const result = validateImageUpload({ mimeType, sizeBytes });
 
     // Assert
-    expect(result.ok).toBe(false);
+    expect(result.kind).toBe('invalid');
   });
 
   it('rejects an unsupported mime type', () => {
@@ -108,6 +108,6 @@ describe('validateImageUpload', () => {
     const result = validateImageUpload({ mimeType, sizeBytes });
 
     // Assert
-    expect(result.ok).toBe(false);
+    expect(result.kind).toBe('invalid');
   });
 });

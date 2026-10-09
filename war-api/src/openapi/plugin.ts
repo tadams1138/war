@@ -8,13 +8,11 @@ export interface OpenApiInfo {
 
 /**
  * Registers @fastify/swagger so the OpenAPI document is generated from the
- * routes' own JSON Schemas rather than hand-maintained (spec). Must
+ * routes' own JSON Schemas rather than hand-maintained. Must
  * be registered before any routes so its `onRoute` hook observes every one
  * of them, including those added inside nested, prefixed plugins.
  *
- * Takes `info` from its caller rather than sourcing it itself, so this
- * module holds no configuration of its own (spec: info.title and
- * info.version are present, but where they come from is `app.ts`'s call).
+ * Takes `info` from its caller, so this module holds no configuration of its own.
  */
 export async function registerOpenApiPlugin(app: FastifyInstance, apiPrefix: string, info: OpenApiInfo): Promise<void> {
   await app.register(swagger, {

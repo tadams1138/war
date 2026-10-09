@@ -1,7 +1,7 @@
-// Where a voter's own theme override lives (the spec, "Theme switching"):
+// Where a voter's own theme override lives (war-spec.md, "Theme switching"):
 // one small JSON map in a plain (non-HttpOnly) cookie, keyed by War id plus
 // a reserved 'home' key for Home/My Wars. Deliberately client-side only —
-// the spec requires the override to never sync across devices and never
+// war-spec.md requires the override to never sync across devices and never
 // change what any other voter sees, so nothing here ever reaches the API.
 export const THEMES = ['arcade', 'fight_card', 'scrapbook'] as const
 export type Theme = (typeof THEMES)[number]
