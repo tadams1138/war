@@ -31,7 +31,7 @@ describe('rotateRefreshToken concurrency (war-spec.md §5.2, reuse detection)', 
     // Assert: exactly one of the two attempts won the race.
     const outcomes = [first, second];
     const winners = outcomes.filter((outcome) => outcome.kind === 'rotated');
-    const losers = outcomes.filter((outcome) => outcome.kind === 'lost-race');
+    const losers = outcomes.filter((outcome) => outcome.kind === 'lostRace');
     expect(winners).toHaveLength(1);
     expect(losers).toHaveLength(1);
 

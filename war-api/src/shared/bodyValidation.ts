@@ -34,3 +34,18 @@ export async function rejectInvalidBody(request: FastifyRequest, reply: FastifyR
   const details = issues.map(describeIssue);
   await reply.code(422).send({ error: 'validation error', details });
 }
+
+/** `null` when `value` is a string of 1 to `max` characters; otherwise the validation message naming `field`. */
+export function nonEmptyStringError(field: string, value: unknown, max: number): string | null {
+  if (typeof value !== 'string' || value.length === 0 || value.length > max) {
+    return `${field} must be a non-empty string of at most ${max} characters`;
+  }
+  return null;
+}
+
+/** An absent value (a patch leaving the field alone) passes through; a present one is kept only if `validate` accepts it. */
+export function validateIfPresent<T>(value: T | undefined, validate: (value: T) => string | null): { value?: T; error: string | null } {
+  if (value === undefined) return { error: null };
+  const error = validate(value);
+  return error ? { error } : { value, error: null };
+}

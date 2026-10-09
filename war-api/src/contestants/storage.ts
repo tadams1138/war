@@ -1,11 +1,8 @@
 import { DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 /**
- * The object-store boundary. In this slice, only image variants and
- * originals cross it (spec). A test double stands in for tests — a
- * real upload requires a real S3-compatible endpoint, which is exactly the
- * kind of external dependency this codebase's own logic (resizing, EXIF
- * stripping, key layout) should be tested independently of.
+ * The object-store boundary: image variants and originals cross it. Tests use a double, so the resizing,
+ * EXIF stripping and key layout are tested without a real S3-compatible endpoint.
  */
 export interface ObjectStorage {
   putPublic(key: string, body: Buffer, contentType: string): Promise<string>;

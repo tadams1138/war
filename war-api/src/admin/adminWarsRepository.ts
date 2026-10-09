@@ -3,7 +3,7 @@ import { sql } from 'kysely';
 import type { Database } from '../db/types.js';
 import { isUuid } from '../db/uuid.js';
 import { listContestantsByWar } from '../contestants/contestantsRepository.js';
-import { createdAtText, decodeKeysetCursor, isAfterCursor, sliceKeysetPage } from '../shared/keysetCursor.js';
+import { createdAtText, fetchKeysetPage, type InvalidCursor } from '../shared/keysetCursor.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
 import { hasEffectiveStatus } from '../wars/effectiveStatusSql.js';
 import { containsPattern } from '../shared/likePattern.js';
@@ -20,14 +20,12 @@ export interface AdminWar {
   unaddressedReportCount: number;
 }
 
-export type ListAdminWarsOutcome =
-  | { kind: 'ok'; wars: AdminWar[]; nextCursor: string | null }
-  | { kind: 'invalidCursor' };
+export type ListAdminWarsOutcome = { kind: 'ok'; wars: AdminWar[]; nextCursor: string | null } | InvalidCursor;
 
 export interface ListAdminWarsOptions {
   limit: number;
   cursor?: string;
-  /** The instant status is evaluated at: a War ending at or before it reports and filters as closed (spec §4, "Effective status"). */
+  /** The instant status is evaluated at: a War ending at or before it reports and filters as closed (§4 "Effective status"). */
   now: Date;
   /** A War status, or `removed` (removed_at set); any other status means "not removed, with that status". */
   status?: string;
@@ -94,18 +92,12 @@ function toAdminWar(row: AdminWarRow, now: Date): AdminWar {
   };
 }
 
-/** One page of every War, whatever its status, visibility or removal (spec §6.7 "Visibility"), newest first. Creator name and report count come from the same query, never one lookup per row. */
+/** One page of every War, whatever its status, visibility or removal (§6.7 "Visibility"), newest first. Creator name and report count come from the same query, never one lookup per row. */
 export async function listAdminWars(db: Kysely<Database>, options: ListAdminWarsOptions): Promise<ListAdminWarsOutcome> {
-  let query = applySearch(applyStatus(baseAdminWarsQuery(db), options.status, options.now), options.q);
-
-  if (options.cursor !== undefined) {
-    const cursor = decodeKeysetCursor(options.cursor);
-    if (!cursor) return { kind: 'invalidCursor' };
-    query = query.where(isAfterCursor('wars.created_at', 'wars.id', cursor));
-  }
-
-  const { page, nextCursor } = sliceKeysetPage(await query.limit(options.limit + 1).execute(), options.limit);
-  return { kind: 'ok', wars: page.map((row) => toAdminWar(row, options.now)), nextCursor };
+  const query = applySearch(applyStatus(baseAdminWarsQuery(db), options.status, options.now), options.q);
+  const result = await fetchKeysetPage(query, { createdAtColumn: 'wars.created_at', idColumn: 'wars.id', ...options });
+  if (result.kind === 'invalidCursor') return result;
+  return { kind: 'ok', wars: result.page.map((row) => toAdminWar(row, options.now)), nextCursor: result.nextCursor };
 }
 
 export interface AdminWarContestant {

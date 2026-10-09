@@ -71,7 +71,7 @@ export async function findWarById(db: Kysely<Database>, id: string): Promise<War
   return row ? toWar(row) : undefined;
 }
 
-/** Marks a not-yet-removed War removed (spec §6.7). `false` if it doesn't exist or was already removed. */
+/** Marks a not-yet-removed War removed (§6.7). `false` if it doesn't exist or was already removed. */
 export async function markWarRemoved(db: Kysely<Database>, id: string): Promise<boolean> {
   const row = await db
     .updateTable('wars')
@@ -90,20 +90,20 @@ export interface ListWarsFilter {
   category?: string;
   cursor?: string;
   limit: number;
-  /** The instant status filters are evaluated at -- a War ending at or before it is closed (spec §4, "Effective status"). */
+  /** The instant status filters are evaluated at -- a War ending at or before it is closed (§4, "Effective status"). */
   now: Date;
   /**
    * Scopes the list to Wars created by this voter, across every status --
-   * including their own drafts and invite-only Wars (war-spec.md §6.1).
+   * including their own drafts and invite-only Wars (§6.1).
    * Composes with `status`/`category` exactly as
    * those two already compose with each other. Only ever set from the
    * authenticated requester's own id -- never from a client-supplied one --
    * so this is the one filter here that can surface a voter's private Wars.
    */
   creatorId?: string;
-  /** Defaults to `'newest'` (spec). */
+  /** Defaults to `'newest'`. */
   sort?: WarsSort;
-  /** Case-insensitive substring match against `title` or the creator's `display_name` (spec). */
+  /** Case-insensitive substring match against `title` or the creator's `display_name`. */
   q?: string;
 }
 
@@ -124,15 +124,9 @@ function toWarWithCreatorName(row: WarRowWithCreatorName): WarWithCreatorName {
 }
 
 /**
- * The ownership-scoping decision (own Wars, every status, vs. the default
- * public/published scoping), extracted purely to keep `listWars`'s own branch
- * count down -- it's one cohesive rule, not several independent filters,
- * and reads better as its own named step. Builds the base query itself so
- * its return type is inferred from actual `.where()` usage rather than
- * needing to be spelled out generically. Joins `voters` (LEFT, since
- * `creator_id` can be null and, even when set, a search match must still
- * work) so `q` can match on the creator's display name in the same query,
- * and so the listing can report `creator_name` without a second round trip.
+ * The base `listWars` query with the ownership scope applied (own Wars in every status, or the default public
+ * scoping). LEFT-joins `voters` (`creator_id` can be null) so `q` can match the creator's display name and the
+ * listing can report `creator_name` in the same query.
  */
 function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
   const query = db
@@ -148,15 +142,9 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
     const ownScoped = query.where('wars.creator_id', '=', filter.creatorId);
     return filter.status ? ownScoped.where(hasEffectiveStatus(filter.status, filter.now)) : ownScoped;
   }
-  // Default visibility/status scoping, applied whenever `creatorId` is
-  // absent (spec, "Default scoping (no `creator=me`)"): never a
-  // `draft` War, never an `invite_only` one, regardless of any `status`
-  // filter supplied -- `status=draft` returns empty rather than another
-  // voter's drafts, since `status != 'draft'` and `status = 'draft'` can
-  // never both hold. Omitting `status` entirely defaults to `published`.
-  // This is the one place that rule is enforced; every caller of
-  // `listWars` inherits it, so a future caller cannot bypass it by
-  // forgetting to ask.
+  // Default scoping when `creatorId` is absent (§6.1): never a draft, never an invite-only War, whatever
+  // `status` asks for (`status=draft` returns empty, not another voter's drafts). No `status` means `published`.
+  // Enforced here so every caller of `listWars` inherits it.
   return query
     .where(hasEffectiveStatus(filter.status ?? 'published', filter.now))
     .where('wars.status', '!=', 'draft')
@@ -167,7 +155,7 @@ type WarsQuery = ReturnType<typeof baseWarsQuery>;
 
 /**
  * Case-insensitive substring match against `wars.title` OR the creator's
- * `voters.display_name` (spec). A null or whitespace-only title never
+ * `voters.display_name`. A null or whitespace-only title never
  * matches on the title side (an empty-looking title has nothing meaningful
  * to search), but creator-name matching is unaffected either way.
  */
@@ -283,7 +271,7 @@ function hasValidCursorFields(value: Record<string, unknown>, sort: WarsSort): b
 type DecodedCursor = { kind: 'ok'; cursor: Cursor } | { kind: 'invalid' };
 
 /**
- * Decodes an opaque, base64-encoded JSON cursor (spec). Rejects anything
+ * Decodes an opaque, base64-encoded JSON cursor. Rejects anything
  * malformed, or produced under a different `sort` than the one it is now
  * being replayed against -- the keyset predicate for one sort mode is
  * meaningless (and, for a mismatched nullable column, unsafe) against
@@ -352,35 +340,23 @@ export interface WarPatch {
   title?: string;
   category?: string | null;
   visibility?: string;
-  mediaMode?: string;
   theme?: string;
   endsAt?: Date | null;
 }
 
-/**
- * One `[patch key, column, transform]` entry per updatable column, applied
- * uniformly in a loop -- keeps `updateWar` itself at zero branches instead
- * of one `if` per field, and adding a column is a new row here rather than
- * another `if`.
- */
-const WAR_PATCH_COLUMNS: {
-  [K in keyof WarPatch]-?: { column: string; transform: (value: NonNullable<WarPatch[K]>) => unknown };
-} = {
-  title: { column: 'title', transform: (value) => value },
-  category: { column: 'category', transform: (value) => value },
-  visibility: { column: 'visibility', transform: (value) => value },
-  mediaMode: { column: 'media_mode', transform: (value) => value },
-  theme: { column: 'theme', transform: (value) => value },
-  endsAt: { column: 'ends_at', transform: (value) => value },
+/** The column each patchable field writes; adding a field is a new row here, not another branch in `updateWar`. */
+const WAR_PATCH_COLUMNS: Record<keyof WarPatch, string> = {
+  title: 'title',
+  category: 'category',
+  visibility: 'visibility',
+  theme: 'theme',
+  endsAt: 'ends_at',
 };
 
 function warPatchValues(patch: WarPatch): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const key of Object.keys(WAR_PATCH_COLUMNS) as (keyof WarPatch)[]) {
-    const value = patch[key];
-    if (value === undefined) continue;
-    const { column, transform } = WAR_PATCH_COLUMNS[key];
-    values[column] = (transform as (value: unknown) => unknown)(value);
+    if (patch[key] !== undefined) values[WAR_PATCH_COLUMNS[key]] = patch[key];
   }
   return values;
 }
@@ -417,7 +393,7 @@ export async function setWarShareImageKey(db: Kysely<Database>, id: string, shar
   return toWar(row);
 }
 
-/** Materialises stored status for expired Wars (spec). Idempotent. */
+/** Materialises stored status for expired Wars. Idempotent. */
 export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise<number> {
   const rows = await db
     .updateTable('wars')
@@ -431,13 +407,9 @@ export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise
 }
 
 /**
- * Removes a War and everything it owns, in any status (spec §6.1
- * "Deletion") -- votes and matchups now exist well before publishing
- * (matchups generate incrementally as contestants are added, §4), so unlike
- * the old draft-only version this must clean up every dependent table, in
- * FK dependency order, in one transaction: none of `20260101000000_init.sql`'s
- * foreign keys cascade. Contestant media rows go first. The storage objects
- * are the caller's job, after commit (`deleteWar`, `warMediaStorage.ts`).
+ * Removes a War and everything it owns, in any status (§6.1 "Deletion"), in one transaction and FK dependency order:
+ * none of the foreign keys in `20260101000000_init.sql` cascade. Storage objects are the caller's job, after commit
+ * (`deleteWar`, `warMediaStorage.ts`).
  */
 export async function deleteWarRow(db: Kysely<Database>, warId: string): Promise<void> {
   await db.transaction().execute((trx) => deleteWarRowIn(trx, warId));
@@ -464,7 +436,7 @@ export async function deleteWarRowIn(trx: Kysely<Database>, warId: string): Prom
   await trx.deleteFrom('wars').where('id', '=', warId).execute();
 }
 
-/** Ids of every War `creatorId` created, removed ones included (spec §6.7: a ban hard-deletes them all). */
+/** Ids of every War `creatorId` created, removed ones included (§6.7: a ban hard-deletes them all). */
 export async function listWarIdsByCreator(db: Kysely<Database>, creatorId: string): Promise<string[]> {
   const rows = await db.selectFrom('wars').select('id').where('creator_id', '=', creatorId).execute();
   return rows.map((row) => row.id);

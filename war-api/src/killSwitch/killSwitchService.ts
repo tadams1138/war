@@ -4,7 +4,7 @@ import { logAction } from '../moderation/moderationLogRepository.js';
 import { setKillSwitch } from './killSwitchRepository.js';
 
 /**
- * Turns the War-creation kill switch on or off (spec §6.7). Caller permission
+ * Turns the War-creation kill switch on or off (§6.7). Caller permission
  * (Moderator or Admin) is enforced by `requireModeratorOrAdmin`, not here. The
  * state change and its moderation log entry commit together or not at all.
  */

@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { bearerAuthRoute } from '../auth/plugin.js';
-import { requireModeratorOrAdmin } from '../roles/rolesAccess.js';
-import { errorResponseSchema } from '../shared/httpOutcomes.js';
+import { requireModeratorOrAdmin } from '../auth/guards.js';
+import { errorResponseSchema, sendNotFound } from '../shared/httpOutcomes.js';
+import { pagingProperties, sendInvalidCursor, type PagingQuery } from '../shared/paging.js';
 import { findAdminVoter, listAdminVoters, type AdminVoter, type AdminVoterDetail } from './adminVotersRepository.js';
-import { pagingProperties, sendInvalidCursor, type AdminRouteDeps } from './adminRouteShared.js';
+import type { AdminRouteDeps } from './adminRouteShared.js';
 
 const adminVoterProperties = {
   id: { type: 'string', format: 'uuid' },
@@ -69,7 +70,7 @@ function presentAdminVoterDetail(voter: AdminVoterDetail) {
 export function registerAdminVotersRoutes(app: FastifyInstance, deps: AdminRouteDeps): void {
   const { db, auth } = deps;
 
-  app.get(
+  app.get<{ Querystring: PagingQuery & { status?: string; q?: string } }>(
     '/admin/voters',
     bearerAuthRoute(
       auth,
@@ -79,7 +80,7 @@ export function registerAdminVotersRoutes(app: FastifyInstance, deps: AdminRoute
           properties: {
             status: { type: 'string', enum: ['suspended', 'banned', 'staff'] },
             q: { type: 'string' },
-            ...pagingProperties,
+            ...pagingProperties(),
           },
         },
         response: {
@@ -94,11 +95,10 @@ export function registerAdminVotersRoutes(app: FastifyInstance, deps: AdminRoute
           403: errorResponseSchema,
         },
       },
-      [requireModeratorOrAdmin(db)],
+      [requireModeratorOrAdmin],
     ),
     async (request, reply) => {
-      // ajv has already applied the default and bounds, so `limit` is always a valid integer here.
-      const { status, q, limit, cursor } = request.query as { status?: string; q?: string; limit: number; cursor?: string };
+      const { status, q, limit, cursor } = request.query;
       const outcome = await listAdminVoters(db, { status, q, limit, cursor });
       if (outcome.kind === 'invalidCursor') {
         return sendInvalidCursor(reply);
@@ -115,12 +115,12 @@ export function registerAdminVotersRoutes(app: FastifyInstance, deps: AdminRoute
         params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
         response: { 200: adminVoterDetailSchema, 403: errorResponseSchema, 404: errorResponseSchema },
       },
-      [requireModeratorOrAdmin(db)],
+      [requireModeratorOrAdmin],
     ),
     async (request, reply) => {
       const voter = await findAdminVoter(db, request.params.id, new Date());
       if (!voter) {
-        return reply.code(404).send({ error: 'not found' });
+        return sendNotFound(reply);
       }
       return reply.send(presentAdminVoterDetail(voter));
     },

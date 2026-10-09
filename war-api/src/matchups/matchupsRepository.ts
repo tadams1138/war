@@ -21,7 +21,7 @@ function toMatchup(row: MatchupColumns): Matchup {
 
 /**
  * Generates matchups for one newly-added contestant against every
- * contestant already on the roster (spec §4 "Matchup": "generated the
+ * contestant already on the roster (§4 "Matchup": "generated the
  * moment it's added, against every other contestant present at that time").
  * Not a re-run of a bulk pairwise generator over the whole roster -- that
  * would try to recreate every existing pair too and collide with the
@@ -32,9 +32,9 @@ export async function generateMatchupsForNewContestant(
   warId: string,
   newContestantId: string,
   existingContestantIds: string[],
-): Promise<number> {
+): Promise<void> {
   if (existingContestantIds.length === 0) {
-    return 0;
+    return;
   }
 
   const rows = existingContestantIds.map((otherId) => {
@@ -43,10 +43,9 @@ export async function generateMatchupsForNewContestant(
   });
 
   await db.insertInto('matchups').values(rows).execute();
-  return rows.length;
 }
 
-/** Every matchup id involving `contestantId`, needed to clean up its votes and matchups before it's removed (spec §6.1). */
+/** Every matchup id involving `contestantId`, needed to clean up its votes and matchups before it's removed (§6.1). */
 export async function findMatchupIdsForContestant(db: Kysely<Database>, warId: string, contestantId: string): Promise<string[]> {
   const rows = await db
     .selectFrom('matchups')
@@ -78,7 +77,7 @@ export async function findMatchupById(db: Kysely<Database>, id: string): Promise
 
 /**
  * Every pair the voter has not yet voted on, ordered by lowest combined
- * appearance_count with ties broken by a stable per-voter shuffle (spec)
+ * appearance_count with ties broken by a stable per-voter shuffle
  * — the first row is the voter's next matchup; further rows compute
  * the prefetch block. The `md5(...)` tie-break here is the SQL twin of
  * `stableHash` in `src/matchups/stableHash.ts`, which mirrors this exact

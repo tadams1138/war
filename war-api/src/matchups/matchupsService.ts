@@ -16,7 +16,7 @@ export interface NextMatchupView {
 }
 
 /**
- * The response body JSON Schema for {@link NextMatchupView} (spec).
+ * The response body JSON Schema for {@link NextMatchupView}.
  * `prefetch` is deliberately absent from `required` -- it is present only
  * when a following unvoted pair exists.
  */
@@ -29,9 +29,6 @@ export const nextMatchupResponseSchema = {
       required: ['id', 'left', 'right'],
       properties: {
         id: { type: 'string', format: 'uuid' },
-        // Written as its own copy of `left`'s schema rather than an
-        // internal `$ref`, per the spec -- the two simply describe the
-        // same shape.
         left: matchupContestantViewSchema,
         right: matchupContestantViewSchema,
       },
@@ -75,7 +72,7 @@ function contestantView(
 
 type MatchupCandidate = { id: string; contestantAId: string; contestantBId: string };
 
-/** Which contestant renders on which side -- decided by the API, per the spec. */
+/** Which contestant renders on which side -- decided by the API, not the client. */
 function matchupSides(matchup: MatchupCandidate, voterId: string): { left: string; right: string } {
   const left = isLeftSide(matchup.id, voterId) ? matchup.contestantAId : matchup.contestantBId;
   const right = left === matchup.contestantAId ? matchup.contestantBId : matchup.contestantAId;
@@ -85,8 +82,8 @@ function matchupSides(matchup: MatchupCandidate, voterId: string): { left: strin
 /**
  * The advisory prefetch block naming the following matchup's media, or
  * `undefined` when there is no following unvoted pair -- an `undefined`
- * `prefetch` serializes identically to an omitted one (spec: "deliberately
- * absent from `required`"), so the caller can assign this unconditionally.
+ * `prefetch` serializes identically to an omitted one (it is not in the
+ * schema's `required`), so the caller can assign this unconditionally.
  */
 function buildPrefetch(
   upcoming: MatchupCandidate | undefined,
@@ -104,13 +101,9 @@ function buildPrefetch(
 }
 
 /**
- * Builds the `/matchups/next` response (war-spec.md §6.3): the voter's next
- * matchup (side decided by the API), progress, and an advisory prefetch
- * block naming the following matchup's media. Fetches both contestants and
- * all four media sets (current pair plus prefetch pair) with two batched
- * queries rather than one per contestant — this is the most
- * latency-sensitive endpoint in the slice, since a slow response stalls the
- * prefetch that is supposed to be warming the *next* matchup's media.
+ * Builds the `/matchups/next` response (§6.3): the voter's next matchup, progress, and an advisory prefetch
+ * block naming the following matchup's media. Two batched queries cover both contestants and all four media sets;
+ * this is the most latency-sensitive endpoint, since a slow response stalls the prefetch meant to warm the next one.
  */
 export async function nextMatchupForVoter(
   db: Kysely<Database>,

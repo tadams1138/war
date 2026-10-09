@@ -3,28 +3,26 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { loadOwnedWar } from '../wars/warAccess.js';
 import { deleteMediaObjects, imageMediaPrefixes } from '../wars/warMediaStorage.js';
-import type { War } from '../wars/warsRepository.js';
-import type { MutationOutcome } from '../shared/outcomes.js';
-import { findContestantById, type Contestant } from './contestantsRepository.js';
+import type { Forbidden, MutationOutcome, NotFound } from '../shared/outcomes.js';
+import { findContestantById } from './contestantsRepository.js';
 import { deleteMedia, findMediaById, setDisplayOrder, type ContestantMedia } from './contestantMediaRepository.js';
-import { uploadContestantImage, type UploadOutcome } from './imageUploadService.js';
+import { MAX_IMAGES_PER_CONTESTANT, uploadContestantImage } from './imageUploadService.js';
 import type { ObjectStorage } from './storage.js';
 
-/** A contestant's own media is always editable by the War's creator, in any status (spec §6.1, §6.2). */
+/** A contestant's own media is always editable by the War's creator, in any status (§6.1, §6.2). */
 async function guardOwnedContestant(
   db: Kysely<Database>,
   warId: string,
   contestantId: string,
   voterId: string,
-  now: Date,
-): Promise<{ kind: 'ok'; war: War; contestant: Contestant } | { kind: 'notFound' } | { kind: 'forbidden' }> {
-  const warGuard = await loadOwnedWar(db, warId, voterId, now);
+): Promise<{ kind: 'ok' } | NotFound | Forbidden> {
+  const warGuard = await loadOwnedWar(db, warId, voterId);
   if (warGuard.kind !== 'ok') return warGuard;
 
   const contestant = await findContestantById(db, contestantId);
   if (!contestant || contestant.warId !== warId) return { kind: 'notFound' };
 
-  return { kind: 'ok', war: warGuard.war, contestant };
+  return { kind: 'ok' };
 }
 
 export interface AddImageInput {
@@ -38,27 +36,24 @@ export interface AddImageInput {
 
 export type AddImageOutcome = MutationOutcome<ContestantMedia>;
 
-export async function addContestantImage(
-  db: Kysely<Database>,
-  storage: ObjectStorage,
-  input: AddImageInput,
-  now: Date,
-): Promise<AddImageOutcome> {
-  const guard = await guardOwnedContestant(db, input.warId, input.contestantId, input.voterId, now);
+export async function addContestantImage(db: Kysely<Database>, storage: ObjectStorage, input: AddImageInput): Promise<AddImageOutcome> {
+  const guard = await guardOwnedContestant(db, input.warId, input.contestantId, input.voterId);
   if (guard.kind !== 'ok') return guard;
 
-  const outcome: UploadOutcome = await uploadContestantImage(db, storage, {
+  const outcome = await uploadContestantImage(db, storage, {
     contestantId: input.contestantId,
     buffer: input.buffer,
     mimeType: input.mimeType,
     originalExt: input.originalExt,
   });
 
-  if (!outcome.ok) {
-    const message = outcome.reason === 'too-many-images' ? 'a contestant may hold at most 10 images' : 'invalid image upload';
-    return { kind: 'validationError', errors: [message] };
+  if (outcome.kind === 'tooManyImages') {
+    return { kind: 'validationError', errors: [`a contestant may hold at most ${MAX_IMAGES_PER_CONTESTANT} images`] };
   }
-  return { kind: 'ok', value: outcome.media };
+  if (outcome.kind === 'invalidUpload') {
+    return { kind: 'validationError', errors: ['invalid image upload'] };
+  }
+  return outcome;
 }
 
 export async function reorderContestantMedia(
@@ -68,9 +63,8 @@ export async function reorderContestantMedia(
   mediaId: string,
   voterId: string,
   displayOrder: number,
-  now: Date,
 ): Promise<MutationOutcome<void>> {
-  const guard = await guardOwnedContestant(db, warId, contestantId, voterId, now);
+  const guard = await guardOwnedContestant(db, warId, contestantId, voterId);
   if (guard.kind !== 'ok') return guard;
 
   const media = await findMediaById(db, mediaId);
@@ -89,9 +83,8 @@ export async function removeContestantMedia(
   contestantId: string,
   mediaId: string,
   voterId: string,
-  now: Date,
 ): Promise<MutationOutcome<void>> {
-  const guard = await guardOwnedContestant(db, warId, contestantId, voterId, now);
+  const guard = await guardOwnedContestant(db, warId, contestantId, voterId);
   if (guard.kind !== 'ok') return guard;
 
   const media = await findMediaById(db, mediaId);

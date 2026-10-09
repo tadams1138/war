@@ -23,6 +23,7 @@ import { registerRolesRoutes } from './roles/routes.js';
 import { registerVoterModerationRoutes } from './voterModeration/routes.js';
 import { registerWarsRoutes } from './wars/routes.js';
 import type { AppConfig } from './config.js';
+import { MAX_UPLOAD_BYTES } from './contestants/imageProcessing.js';
 import { redactedRequestSerializer } from './logging.js';
 import { RateLimiter } from './shared/rateLimit.js';
 
@@ -37,13 +38,8 @@ const API_PREFIX = '/api/v1';
 const API_TITLE = 'War API';
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
-  // Request/response logging (method, redacted url, status, timing) to
-  // stdout, which App Platform's Runtime Logs capture automatically. Was
-  // `logger: false` until a Twitter/X sign-in failure on staging turned
-  // out to be undiagnosable with it off -- there was no way to tell
-  // whether a request had even reached this process. `req`'s url is
-  // redacted because the auth callback route's query string carries a
-  // provider's one-time OAuth code/state.
+  // Request/response logging to stdout, which App Platform's Runtime Logs capture. `req`'s url is redacted
+  // because the auth callback's query string carries a provider's one-time OAuth code/state.
   // `trustProxy` is the reverse-proxy hop count (config.trustProxyHops): it decides which
   // `X-Forwarded-For` entry `request.ip` reports, which the address-keyed rate limits rely on.
   const app = Fastify({
@@ -53,7 +49,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   await app.register(cookie);
   await app.register(cors, { origin: deps.config.uiOrigins, credentials: true });
-  await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+  await app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES } });
   // Registered before any route so its onRoute hook observes every one of
   // them, including those added inside nested, prefixed plugins below.
   await registerOpenApiPlugin(app, API_PREFIX, { title: API_TITLE, version: packageJson.version });
@@ -70,7 +66,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     jwt: { secret: deps.config.jwtSecret, issuer: deps.config.jwtIssuer },
   };
 
-  // Per-voter rate limits (spec §8.4) -- one limiter instance per scope, per
+  // Per-voter rate limits (§8.4) -- one limiter instance per scope, per
   // app instance, so each `buildApp()` call (a fresh process in production,
   // a fresh test harness in `buildTestHarness`) starts with clean state.
   const voteRateLimiter = new RateLimiter([
@@ -79,7 +75,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   ]);
   const warCreationRateLimiter = new RateLimiter([{ windowMs: 3_600_000, max: 10 }]);
   const imageUploadRateLimiter = new RateLimiter([{ windowMs: 3_600_000, max: 100 }]);
-  // Per-client-address limits for the endpoints that run before a voter is identified (spec §8.4).
+  // Per-client-address limits for the endpoints that run before a voter is identified (§8.4).
   // Off until the proxy hop count is configured: without it every client shares one address.
   const addressLimited = deps.config.trustProxyHops !== undefined;
   const signInRateLimiter = addressLimited ? new RateLimiter([{ windowMs: 60_000, max: 10 }]) : undefined;

@@ -1,14 +1,13 @@
-import type { RawBuilder } from 'kysely';
+import type { RawBuilder, SelectQueryBuilder } from 'kysely';
 import { sql } from 'kysely';
 import { isUuid } from '../db/uuid.js';
 
 /**
- * Keyset paging over `(created_at, id)`, newest first, shared by every list
- * endpoint that pages that way (the moderation log, the admin read endpoints).
+ * Keyset paging over `(created_at, id)`, newest first, shared by every list endpoint that pages that way
+ * (the moderation log and the admin read endpoints).
  *
- * The cursor holds the last row's `created_at` as the database's own
- * microsecond-precision UTC text (a JS Date would truncate to milliseconds and
- * skip or repeat rows created within the same millisecond) and its id.
+ * The cursor holds the last row's `created_at` as the database's own microsecond-precision UTC text (a JS
+ * Date would truncate to milliseconds and skip or repeat rows created within the same millisecond) and its id.
  */
 export interface KeysetCursor {
   v: string;
@@ -20,6 +19,12 @@ export interface KeysetRow {
   id: string;
   created_at_text: string;
 }
+
+export interface InvalidCursor {
+  kind: 'invalidCursor';
+}
+
+export type KeysetPage<R> = { kind: 'ok'; page: R[]; nextCursor: string | null } | InvalidCursor;
 
 const CURSOR_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 
@@ -39,7 +44,7 @@ function isCursor(value: unknown): value is KeysetCursor {
 }
 
 /** Decodes an opaque base64 JSON cursor; `undefined` when malformed. Every field is validated here so nothing unvalidated reaches the database. */
-export function decodeKeysetCursor(raw: string): KeysetCursor | undefined {
+function decodeKeysetCursor(raw: string): KeysetCursor | undefined {
   try {
     const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
     return isCursor(parsed) ? parsed : undefined;
@@ -53,14 +58,29 @@ function encodeKeysetCursor(cursor: KeysetCursor): string {
 }
 
 /** The "strictly after this cursor in newest-first order" predicate over the given (possibly table-qualified) columns. */
-export function isAfterCursor(createdAtColumn: string, idColumn: string, cursor: KeysetCursor): RawBuilder<boolean> {
+function isAfterCursor(createdAtColumn: string, idColumn: string, cursor: KeysetCursor): RawBuilder<boolean> {
   return sql<boolean>`(${sql.ref(createdAtColumn)}, ${sql.ref(idColumn)}) < (${cursor.v}::timestamptz, ${cursor.id}::uuid)`;
 }
 
-/** Fetching `limit + 1` rows is how "more exist" is known; the extra row is dropped and only its existence is reported. */
-export function sliceKeysetPage<R extends KeysetRow>(rows: R[], limit: number): { page: R[]; nextCursor: string | null } {
-  const page = rows.slice(0, limit);
+/**
+ * Runs `query` (already ordered newest first by the given columns) from `options.cursor`, if any. It fetches
+ * `limit + 1` rows: the extra row only proves another page exists, so it is dropped and `nextCursor` is set
+ * from the last row kept.
+ */
+export async function fetchKeysetPage<DB, TB extends keyof DB, R extends KeysetRow>(
+  query: SelectQueryBuilder<DB, TB, R>,
+  options: { createdAtColumn: string; idColumn: string; cursor?: string; limit: number },
+): Promise<KeysetPage<R>> {
+  let paged = query;
+  if (options.cursor !== undefined) {
+    const cursor = decodeKeysetCursor(options.cursor);
+    if (!cursor) return { kind: 'invalidCursor' };
+    paged = paged.where(isAfterCursor(options.createdAtColumn, options.idColumn, cursor));
+  }
+
+  const rows = await paged.limit(options.limit + 1).execute();
+  const page = rows.slice(0, options.limit);
   const last = page[page.length - 1];
-  const nextCursor = rows.length > limit && last ? encodeKeysetCursor({ v: last.created_at_text, id: last.id }) : null;
-  return { page, nextCursor };
+  const nextCursor = rows.length > options.limit && last ? encodeKeysetCursor({ v: last.created_at_text, id: last.id }) : null;
+  return { kind: 'ok', page, nextCursor };
 }

@@ -1,8 +1,6 @@
 /**
- * The convenience defaults `loadConfig` supplies so tests never have to set
- * every secret explicitly. Named here so `assertProductionConfig` can refuse
- * to boot a real deployment left on any of them (spec: auth must not
- * be silently disabled).
+ * The convenience defaults `loadConfig` supplies so tests never have to set every secret. Named here so
+ * `assertProductionConfig` can refuse to boot a real deployment left on any of them.
  */
 export const DEFAULT_JWT_SECRET = 'test-secret-do-not-use-in-production';
 export const DEFAULT_INTERNAL_TASK_TOKEN = 'test-internal-token';
@@ -43,7 +41,7 @@ export interface AppConfig {
   internalTaskToken: string;
   /**
    * How many reverse-proxy hops sit between the internet and this process
-   * (env `TRUST_PROXY_HOPS`). Address-keyed rate limits (war-spec.md §8.4) read
+   * (env `TRUST_PROXY_HOPS`). Address-keyed rate limits (§8.4) read
    * the client address from `X-Forwarded-For` only across this many hops. Unset
    * means the hop count isn't known yet, so those limits stay off rather than
    * throttle every client as one address.
@@ -179,11 +177,9 @@ const PRODUCTION_RULES: ReadonlyArray<{ failsWhen: (config: AppConfig) => boolea
 ];
 
 /**
- * Refuses to let a real deployment boot with a secret left at its test
- * default, or with a required credential unset entirely (spec: a
- * misconfigured deployment must fail loudly, not serve traffic with auth
- * effectively disabled). `loadConfig` itself stays permissive so it remains
- * convenient for tests; only the real process entry point calls this.
+ * Refuses to let a real deployment boot with a secret left at its test default, or a required credential unset,
+ * so a misconfigured deployment fails loudly instead of serving traffic with auth effectively disabled.
+ * `loadConfig` stays permissive for tests; only the real process entry point calls this.
  */
 export function assertProductionConfig(config: AppConfig): void {
   const problems = PRODUCTION_RULES.filter((rule) => rule.failsWhen(config)).map((rule) => rule.problem);

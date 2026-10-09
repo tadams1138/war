@@ -11,50 +11,24 @@ import { addContestant, patchContestant, removeContestant } from './contestantsS
 import { addContestantImage, reorderContestantMedia, removeContestantMedia } from './mediaService.js';
 import { listMediaByContestant } from './contestantMediaRepository.js';
 import { presentContestant } from './contestantPresenter.js';
-import { extensionFor } from './imageProcessing.js';
+import { readUploadedFile, sendNoFileUploaded, uploadErrorResponseSchema } from './uploadRequest.js';
 
 export interface ContestantsRouteDeps {
   db: Kysely<Database>;
   auth: AuthDependencies;
   storage: ObjectStorage;
   publicBaseUrl: string;
-  /** Per-voter image-upload limit (spec §8.4: 100/hour). */
+  /** Per-voter image-upload limit (§8.4: 100/hour). */
   rateLimiter: RateLimiter;
 }
 
-/**
- * The response body JSON Schema for `POST /wars/:id/contestants/:cId/images`'s
- * `201` (spec) — the route's own literal `{ id, display_order }`
- * object, narrower than the full `MediaItem` shape: the caller already has
- * the file it just uploaded and needs only the assigned id and order back.
- */
+/** The `201` body of an image upload: only the assigned id and order, since the caller already holds the file. */
 const imageUploadResponseSchema = {
   type: 'object',
   required: ['id', 'display_order'],
   properties: {
     id: { type: 'string', format: 'uuid' },
     display_order: { type: 'integer' },
-  },
-};
-
-/**
- * The response body JSON Schema for `POST /wars/:id/contestants/:cId/images`'s
- * `422` (spec) -- this route's own three validation failures produce
- * two distinct shapes sharing this one status: the no-file case sends a
- * plain `{ error }`, while the too-many-images and unreadable-upload cases
- * go through `replyForOutcome`'s validationError branch and send
- * `{ error, details }`. Neither `errorResponseSchema` (no `details`
- * property, so it silently drops the second shape's only actionable text)
- * nor `validationErrorResponseSchema` (`details` required, so it rejects the
- * first shape) fits both -- this schema requires only `error` and leaves
- * `details` optional, scoped to this one route's 422 rather than shared.
- */
-const imageUploadErrorResponseSchema = {
-  type: 'object',
-  required: ['error'],
-  properties: {
-    error: { type: 'string' },
-    details: { type: 'array', items: { type: 'string' } },
   },
 };
 
@@ -88,26 +62,16 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     },
     async (request, reply) => {
       const { name, bio } = request.body;
-      const outcome = await addContestant(
-        db,
-        {
-          warId: request.params.id,
-          voterId: request.voterId!,
-          name,
-          bio,
-        },
-        new Date(),
-      );
+      const outcome = await addContestant(db, { warId: request.params.id, voterId: request.voterId!, name, bio });
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
-      const media = await listMediaByContestant(db, outcome.value.contestant.id);
-      const view = presentContestant(outcome.value.contestant, outcome.value.war, media, deps.publicBaseUrl);
-      return reply.code(201).send(view);
+      const media = await listMediaByContestant(db, outcome.value.id);
+      return reply.code(201).send(presentContestant(outcome.value, media, deps.publicBaseUrl));
     },
   );
 
-  app.patch<{ Params: { id: string; cId: string } }>(
+  app.patch<{ Params: { id: string; cId: string }; Body: { name?: string; bio?: string | null } }>(
     '/wars/:id/contestants/:cId',
     bearerAuthRoute(auth, {
       body: {
@@ -125,24 +89,13 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
       },
     }),
     async (request, reply) => {
-      const body = request.body as Record<string, unknown>;
-      const outcome = await patchContestant(
-        db,
-        request.params.id,
-        request.params.cId,
-        request.voterId!,
-        {
-          name: body.name as string | undefined,
-          bio: body.bio as string | null | undefined,
-        },
-        new Date(),
-      );
+      const { name, bio } = request.body;
+      const outcome = await patchContestant(db, request.params.id, request.params.cId, request.voterId!, { name, bio });
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
-      const media = await listMediaByContestant(db, outcome.value.contestant.id);
-      const view = presentContestant(outcome.value.contestant, outcome.value.war, media, deps.publicBaseUrl);
-      return reply.send(view);
+      const media = await listMediaByContestant(db, outcome.value.id);
+      return reply.send(presentContestant(outcome.value, media, deps.publicBaseUrl));
     },
   );
 
@@ -150,7 +103,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     '/wars/:id/contestants/:cId',
     bearerAuthRoute(auth),
     async (request, reply) => {
-      const outcome = await removeContestant(db, deps.storage, request.log, request.params.id, request.params.cId, request.voterId!, new Date());
+      const outcome = await removeContestant(db, deps.storage, request.log, request.params.id, request.params.cId, request.voterId!);
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -167,37 +120,23 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
           201: imageUploadResponseSchema,
           403: errorResponseSchema,
           404: errorResponseSchema,
-          // Not errorResponseSchema (no `details` property -- strips the
-          // validation-error shape's only actionable text) and not
-          // validationErrorResponseSchema (`details` required -- rejects the
-          // no-file shape, which has none). This route's three 422s produce
-          // two distinct bodies sharing the one status (spec); see
-          // imageUploadErrorResponseSchema above.
-          422: imageUploadErrorResponseSchema,
+          422: uploadErrorResponseSchema,
           429: rateLimitedResponseSchema,
         },
       },
       [rateLimitByVoter(deps.rateLimiter)],
     ),
     async (request, reply) => {
-      const file = await request.file();
-      if (!file) {
-        return reply.code(422).send({ error: 'no file uploaded' });
+      const upload = await readUploadedFile(request);
+      if (!upload) {
+        return sendNoFileUploaded(reply);
       }
-      const buffer = await file.toBuffer();
-      const outcome = await addContestantImage(
-        db,
-        deps.storage,
-        {
-          warId: request.params.id,
-          contestantId: request.params.cId,
-          voterId: request.voterId!,
-          buffer,
-          mimeType: file.mimetype,
-          originalExt: extensionFor(file.mimetype),
-        },
-        new Date(),
-      );
+      const outcome = await addContestantImage(db, deps.storage, {
+        warId: request.params.id,
+        contestantId: request.params.cId,
+        voterId: request.voterId!,
+        ...upload,
+      });
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -231,15 +170,13 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
       ),
     },
     async (request, reply) => {
-      const body = request.body;
       const outcome = await reorderContestantMedia(
         db,
         request.params.id,
         request.params.cId,
         request.params.mId,
         request.voterId!,
-        body.display_order,
-        new Date(),
+        request.body.display_order,
       );
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
@@ -266,7 +203,6 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
         request.params.cId,
         request.params.mId,
         request.voterId!,
-        new Date(),
       );
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);

@@ -5,7 +5,8 @@ import { listContestantsByWar, recomputeContestantCounters } from '../contestant
 import { validateImageUpload } from '../contestants/imageProcessing.js';
 import type { ObjectStorage } from '../contestants/storage.js';
 import { deleteVotesForWar } from '../votes/votesRepository.js';
-import type { MutationOutcome, NotFound, NotPublished } from '../shared/outcomes.js';
+import { nonEmptyStringError, validateIfPresent } from '../shared/bodyValidation.js';
+import type { MutationOutcome, NotFound, NotPublished, ValidationError } from '../shared/outcomes.js';
 import { effectiveStatus } from './effectiveStatus.js';
 import { processShareImage } from './shareImageProcessing.js';
 import { loadOwnedWar } from './warAccess.js';
@@ -16,13 +17,15 @@ import {
   createWar,
   deleteWarRowIn,
   findWarById,
-  isMember,
   setWarShareImageKey,
   setWarStatus,
   updateWar,
   type War,
   type WarPatch,
 } from './warsRepository.js';
+
+const MAX_TITLE_LENGTH = 256;
+const INVALID_END_DATE = 'ends_at must be a valid date-time';
 
 export interface CreateWarInput {
   creatorId: string;
@@ -34,7 +37,7 @@ export interface CreateWarInput {
   endsAt?: string | null;
 }
 
-export type CreateWarOutcome = { kind: 'created'; war: War } | { kind: 'validationError'; errors: string[] };
+export type CreateWarOutcome = MutationOutcome<War, ValidationError>;
 
 /** Flattens a mix of single errors and error-arrays (a group's own validator may report more than one) into one list, dropping absent ones. */
 function collectErrors(...groups: (string | null | string[])[]): string[] {
@@ -48,10 +51,7 @@ function collectErrors(...groups: (string | null | string[])[]): string[] {
 }
 
 function titleError(title: unknown): string | null {
-  if (typeof title !== 'string' || title.length === 0 || title.length > 256) {
-    return 'title must be a non-empty string of at most 256 characters';
-  }
-  return null;
+  return nonEmptyStringError('title', title, MAX_TITLE_LENGTH);
 }
 
 function visibilityError(visibility: unknown): string | null {
@@ -67,12 +67,17 @@ function themeError(theme: unknown): string | null {
 }
 
 function mediaModeError(mediaMode: string): string | null {
-  return mediaMode === 'image' ? null : 'media_mode must be "image" in this slice';
+  return mediaMode === 'image' ? null : 'media_mode must be "image"';
 }
 
 function optionalTitleError(title: string | null | undefined): string | null {
   if (title === undefined || title === null) return null;
   return titleError(title);
+}
+
+function parseEndsAt(raw: string): { value?: Date; error: string | null } {
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? { error: INVALID_END_DATE } : { value: parsed, error: null };
 }
 
 function resolveCreateDefaults(input: CreateWarInput): { mediaMode: string; visibility: string; theme: string } {
@@ -83,18 +88,12 @@ function resolveCreateDefaults(input: CreateWarInput): { mediaMode: string; visi
   };
 }
 
-function resolveEndsAt(raw: string | null | undefined): { value: Date | null; error: string | null } {
-  if (!raw) return { value: null, error: null };
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) return { value: null, error: 'ends_at must be a valid date-time' };
-  return { value: parsed, error: null };
+/** A blank `ends_at` means "no end date"; only a non-blank one is parsed. */
+function resolveCreateEndsAt(raw: string | null | undefined): { value?: Date; error: string | null } {
+  return raw ? parseEndsAt(raw) : { error: null };
 }
 
-function buildCreateWarRecord(
-  input: CreateWarInput,
-  defaults: { mediaMode: string; visibility: string; theme: string },
-  endsAt: Date | null,
-) {
+function buildCreateWarRecord(input: CreateWarInput, defaults: { mediaMode: string; visibility: string; theme: string }, endsAt: Date | undefined) {
   return {
     creatorId: input.creatorId,
     title: input.title ?? null,
@@ -102,13 +101,13 @@ function buildCreateWarRecord(
     visibility: defaults.visibility,
     mediaMode: defaults.mediaMode,
     theme: defaults.theme,
-    endsAt,
+    endsAt: endsAt ?? null,
   };
 }
 
 export async function createWarForVoter(db: Kysely<Database>, input: CreateWarInput): Promise<CreateWarOutcome> {
   const defaults = resolveCreateDefaults(input);
-  const endsAt = resolveEndsAt(input.endsAt);
+  const endsAt = resolveCreateEndsAt(input.endsAt);
 
   const errors = collectErrors(
     optionalTitleError(input.title),
@@ -122,14 +121,7 @@ export async function createWarForVoter(db: Kysely<Database>, input: CreateWarIn
   }
 
   const war = await createWar(db, buildCreateWarRecord(input, defaults, endsAt.value));
-  return { kind: 'created', war };
-}
-
-export type WarLookupOutcome = { kind: 'found'; war: War } | { kind: 'notFound' };
-
-export async function getWar(db: Kysely<Database>, id: string): Promise<WarLookupOutcome> {
-  const war = await findWarById(db, id);
-  return war ? { kind: 'found', war } : { kind: 'notFound' };
+  return { kind: 'ok', value: war };
 }
 
 export interface PatchWarInput {
@@ -140,46 +132,20 @@ export interface PatchWarInput {
   endsAt?: string | null;
 }
 
-function resolvePatchTitle(title: string | undefined): { value?: string; error: string | null } {
-  if (title === undefined) return { error: null };
-  const error = titleError(title);
-  return error ? { error } : { value: title, error: null };
-}
-
-function resolvePatchVisibility(visibility: string | undefined): { value?: string; error: string | null } {
-  if (visibility === undefined) return { error: null };
-  const error = visibilityError(visibility);
-  return error ? { error } : { value: visibility, error: null };
-}
-
-function resolvePatchTheme(theme: string | undefined): { value?: string; error: string | null } {
-  if (theme === undefined) return { error: null };
-  const error = themeError(theme);
-  return error ? { error } : { value: theme, error: null };
-}
-
+/** `ends_at` is the one patchable field that may be cleared: `null` removes the end date, `undefined` leaves it alone. */
 function resolvePatchEndsAt(raw: string | null | undefined): { value?: Date | null; error: string | null } {
   if (raw === undefined) return { error: null };
   if (raw === null) return { value: null, error: null };
-  const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime())
-    ? { error: 'ends_at must be a valid date-time' }
-    : { value: parsed, error: null };
+  return parseEndsAt(raw);
 }
 
-export async function patchWar(
-  db: Kysely<Database>,
-  warId: string,
-  voterId: string,
-  input: PatchWarInput,
-  now: Date,
-): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId, now);
+export async function patchWar(db: Kysely<Database>, warId: string, voterId: string, input: PatchWarInput): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, warId, voterId);
   if (guard.kind !== 'ok') return guard;
 
-  const title = resolvePatchTitle(input.title);
-  const visibility = resolvePatchVisibility(input.visibility);
-  const theme = resolvePatchTheme(input.theme);
+  const title = validateIfPresent(input.title, titleError);
+  const visibility = validateIfPresent(input.visibility, visibilityError);
+  const theme = validateIfPresent(input.theme, themeError);
   const endsAt = resolvePatchEndsAt(input.endsAt);
 
   const errors = collectErrors(title.error, visibility.error, theme.error, endsAt.error);
@@ -199,12 +165,10 @@ export async function patchWar(
   return { kind: 'ok', value: updated };
 }
 
-export type DeleteWarOutcome = MutationOutcome<void>;
-
 /**
- * Any status, creator-only (spec §6.1 "Deletion") -- `loadOwnedWar` enforces ownership and existence;
- * `deleteWarRowIn` cascades everything the War owns in one transaction. The War's media objects are deleted best
- * effort only after that commit (a storage failure is logged and the delete still succeeds), like Remove a War and Ban.
+ * Any status, creator-only (§6.1 "Deletion"). `deleteWarRowIn` cascades everything the War owns in one
+ * transaction; its media objects are deleted best effort after that commit (a storage failure is logged and the
+ * delete still succeeds), like Remove a War and Ban.
  */
 export async function deleteWar(
   db: Kysely<Database>,
@@ -212,9 +176,8 @@ export async function deleteWar(
   log: FastifyBaseLogger,
   warId: string,
   voterId: string,
-  now: Date,
-): Promise<DeleteWarOutcome> {
-  const guard = await loadOwnedWar(db, warId, voterId, now);
+): Promise<MutationOutcome<void>> {
+  const guard = await loadOwnedWar(db, warId, voterId);
   if (guard.kind !== 'ok') return guard;
 
   const prefixes = await db.transaction().execute(async (trx) => {
@@ -226,21 +189,15 @@ export async function deleteWar(
   return { kind: 'ok', value: undefined };
 }
 
-export type PublishOutcome = MutationOutcome<War>;
-
 /**
- * Publish/Unpublish are the two directions of one reversible toggle (spec
- * §6.1) -- not the one-way "activate" this replaces. `closed` is the one
- * true terminal state and rejects both directions; every other transition
- * is either the real state change or an idempotent no-op.
+ * Publish and Unpublish are the two directions of one reversible toggle (§6.1). `closed` is the one
+ * terminal state and rejects both; every other transition is either the real change or an idempotent no-op.
+ *
+ * draft → published requires at least 2 contestants. Republishing never re-checks the count, since nothing
+ * revokes visibility retroactively once a published War drops below 2 contestants.
  */
-
-/** draft → published: requires ≥2 contestants (spec). A contestant need not have media.
- *  published → published is idempotent: republishing never re-checks the
- *  contestant count, since nothing in spec revokes visibility retroactively
- *  once a War has dropped below 2 contestants through removal. */
-export async function publishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<PublishOutcome> {
-  const guard = await loadOwnedWar(db, warId, voterId, now);
+export async function publishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, warId, voterId);
   if (guard.kind !== 'ok') return guard;
   const { war } = guard;
 
@@ -261,9 +218,9 @@ export async function publishWar(db: Kysely<Database>, warId: string, voterId: s
   return { kind: 'ok', value: published };
 }
 
-/** published → draft: requires nothing (spec) -- touches no matchup, vote, or contestant. draft → draft is idempotent. */
-export async function unpublishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<PublishOutcome> {
-  const guard = await loadOwnedWar(db, warId, voterId, now);
+/** published → draft requires nothing and touches no matchup, vote or contestant; draft → draft is idempotent. */
+export async function unpublishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, warId, voterId);
   if (guard.kind !== 'ok') return guard;
   const { war } = guard;
 
@@ -288,23 +245,15 @@ export interface SetShareImageInput {
 }
 
 /**
- * Creator-only, always editable in any status (spec §6.1, §9.1, §10.4) --
- * a War's metadata is never status-gated. Always replaces: one deterministic
- * key per War, so a second upload overwrites the object in place rather
- * than accumulating, and the War's own row is the only place "has one" is
- * tracked.
+ * Creator-only, any status (§6.1, §9.1, §10.4). Always replaces: one deterministic key per War, so a
+ * second upload overwrites the object in place and the War's own row is the only record of "has one".
  */
-export async function setShareImage(
-  db: Kysely<Database>,
-  storage: ObjectStorage,
-  input: SetShareImageInput,
-  now: Date,
-): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, input.warId, input.voterId, now);
+export async function setShareImage(db: Kysely<Database>, storage: ObjectStorage, input: SetShareImageInput): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, input.warId, input.voterId);
   if (guard.kind !== 'ok') return guard;
 
   const validation = validateImageUpload({ mimeType: input.mimeType, sizeBytes: input.buffer.length });
-  if (!validation.ok) {
+  if (validation.kind !== 'ok') {
     return { kind: 'validationError', errors: [validation.reason] };
   }
 
@@ -317,29 +266,22 @@ export async function setShareImage(
   return { kind: 'ok', value: updated };
 }
 
-export type JoinOutcome = MutationOutcome<void, NotFound | NotPublished>;
-
-export async function joinWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<JoinOutcome> {
+export async function joinWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<void, NotFound | NotPublished>> {
   const war = await findWarById(db, warId);
   if (!war) return { kind: 'notFound' };
   if (effectiveStatus(war, now) !== 'published') return { kind: 'notPublished' };
 
-  if (!(await isMember(db, warId, voterId))) {
-    await createMembership(db, warId, voterId);
-  }
+  await createMembership(db, warId, voterId);
   return { kind: 'ok', value: undefined };
 }
 
 /**
- * Deletes every vote cast in the War and resets every contestant's counters
- * to zero (spec §6.1 "Clear Votes") -- any status, creator-only, no other
- * precondition. A hard delete: this is a deliberate, user-confirmed reset,
- * not a bug. Membership rows are untouched. Runs in one transaction so a
- * failure between the delete and the recompute never leaves counters
- * inconsistent with an emptied `votes` table.
+ * Deletes every vote cast in the War and resets every contestant's counters to zero (§6.1 "Clear Votes"):
+ * any status, creator-only, a deliberate hard delete. Membership rows are untouched. One transaction, so a failure
+ * between the delete and the recompute never leaves counters inconsistent with an emptied `votes` table.
  */
-export async function clearVotes(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId, now);
+export async function clearVotes(db: Kysely<Database>, warId: string, voterId: string): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, warId, voterId);
   if (guard.kind !== 'ok') return guard;
 
   await db.transaction().execute(async (trx) => {

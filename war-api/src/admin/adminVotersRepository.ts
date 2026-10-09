@@ -2,7 +2,7 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type { Database } from '../db/types.js';
 import { isUuid } from '../db/uuid.js';
-import { createdAtText, decodeKeysetCursor, isAfterCursor, sliceKeysetPage } from '../shared/keysetCursor.js';
+import { createdAtText, fetchKeysetPage, type InvalidCursor } from '../shared/keysetCursor.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
 import { containsPattern } from '../shared/likePattern.js';
 
@@ -18,9 +18,7 @@ export interface AdminVoter {
   warCount: number;
 }
 
-export type ListAdminVotersOutcome =
-  | { kind: 'ok'; voters: AdminVoter[]; nextCursor: string | null }
-  | { kind: 'invalidCursor' };
+export type ListAdminVotersOutcome = { kind: 'ok'; voters: AdminVoter[]; nextCursor: string | null } | InvalidCursor;
 
 export interface ListAdminVotersOptions {
   limit: number;
@@ -82,18 +80,12 @@ function applySearch(query: AdminVotersQuery, q: string | undefined): AdminVoter
   return q ? query.where('voters.display_name', 'ilike', containsPattern(q)) : query;
 }
 
-/** Every Voter (spec §6.7 "Visibility"), newest first. The War count (removed Wars included) comes from the same query, never one lookup per row. */
+/** Every Voter (§6.7 "Visibility"), newest first. The War count (removed Wars included) comes from the same query, never one lookup per row. */
 export async function listAdminVoters(db: Kysely<Database>, options: ListAdminVotersOptions): Promise<ListAdminVotersOutcome> {
-  let query = applySearch(applyStatus(baseAdminVotersQuery(db), options.status), options.q);
-
-  if (options.cursor !== undefined) {
-    const cursor = decodeKeysetCursor(options.cursor);
-    if (!cursor) return { kind: 'invalidCursor' };
-    query = query.where(isAfterCursor('voters.created_at', 'voters.id', cursor));
-  }
-
-  const { page, nextCursor } = sliceKeysetPage(await query.limit(options.limit + 1).execute(), options.limit);
-  return { kind: 'ok', voters: page.map(toAdminVoter), nextCursor };
+  const query = applySearch(applyStatus(baseAdminVotersQuery(db), options.status), options.q);
+  const result = await fetchKeysetPage(query, { createdAtColumn: 'voters.created_at', idColumn: 'voters.id', ...options });
+  if (result.kind === 'invalidCursor') return result;
+  return { kind: 'ok', voters: result.page.map(toAdminVoter), nextCursor: result.nextCursor };
 }
 
 export interface AdminVoterWar {

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 /**
- * The stable, per-voter shuffle key named in the spec's pair-selection
+ * The stable, per-voter shuffle key of the pair-selection
  * query: `md5(matchup_id || voter_id)`. Deterministic for a given
  * (matchup, voter) pair; never uses `random()`.
  *
