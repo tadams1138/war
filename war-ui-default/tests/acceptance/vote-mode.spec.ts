@@ -1,26 +1,22 @@
 // Binds features/vote-mode.feature.
 import { expect, test } from '@playwright/test'
 import { buildMatchupResponse, buildMediaItem } from '../../src/mocks/fixtures'
-import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from './support/mocking'
+import { API, getCallLog, useScenario, waitForCallLog } from './support/mocking'
+import { ok, reply } from './support/recipes'
+import { gotoVotePage } from './support/pages'
 
 const WAR_ID = 'war-vote-1'
-
-async function gotoVotePage(page: import('@playwright/test').Page) {
-  await page.goto('/')
-  await loginAsTestVoter(page)
-  await navigateAuthenticated(page, `/wars/${WAR_ID}/vote`)
-}
 
 test('A voter is served a matchup', async ({ page }) => {
   // Arrange
   const matchup = buildMatchupResponse({ progress: { voted: 0, total: 5 } })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchup }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
+    ok('GET', `${API}/wars/${WAR_ID}/matchups/next`, matchup),
   ])
 
   // Act
-  await gotoVotePage(page);
+  await gotoVotePage(page, WAR_ID);
 
   // Assert
   await expect(page.getByTestId('matchup-view')).toBeVisible()
@@ -32,12 +28,12 @@ test('Navigating to vote silently joins the War', async ({ page }) => {
   // Arrange
   const matchup = buildMatchupResponse()
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchup }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
+    ok('GET', `${API}/wars/${WAR_ID}/matchups/next`, matchup),
   ])
 
   // Act
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
   await expect(page.getByTestId('matchup-view')).toBeVisible()
 
   // Assert
@@ -59,12 +55,12 @@ test('Cards are rendered in the order the API returns', async ({ page }) => {
     },
   })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchup }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
+    ok('GET', `${API}/wars/${WAR_ID}/matchups/next`, matchup),
   ])
 
   // Act
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Assert
   const cards = page.getByTestId('contestant-card')
@@ -76,15 +72,15 @@ test('Both cards are disabled while a vote is in flight', async ({ page }) => {
   // Arrange
   const matchup = buildMatchupResponse({ matchup: { id: 'matchup-flight', left: { id: 'a', name: 'A', bio: null, media: [] }, right: { id: 'b', name: 'B', bio: null, media: [] } } })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchup }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
+    ok('GET', `${API}/wars/${WAR_ID}/matchups/next`, matchup),
     {
       method: 'POST',
       path: `${API}/wars/${WAR_ID}/matchups/matchup-flight/vote`,
       responses: [{ status: 201, body: { vote_id: 'v1' }, delayMs: 400 }],
     },
   ])
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Act
   await page.getByTestId('contestant-card').nth(0).click()
@@ -112,11 +108,11 @@ test('Voter casts a vote and the next matchup loads automatically', async ({ pag
     progress: { voted: 1, total: 2 },
   })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchupOne }, { status: 200, body: matchupTwo }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/matchups/matchup-1/vote`, responses: [{ status: 201, body: { vote_id: 'v1' } }] },
+    reply('POST', `${API}/wars/${WAR_ID}/matchups/matchup-1/vote`, 201, { vote_id: 'v1' }),
   ])
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Act
   await page.getByTestId('contestant-card').filter({ hasText: 'A' }).click()
@@ -127,7 +123,7 @@ test('Voter casts a vote and the next matchup loads automatically', async ({ pag
   await expect(page.getByTestId('contestant-card').nth(0)).toHaveAttribute('aria-busy', 'false')
 })
 
-test("Paging a card's images does not carry into the next matchup's card at the same position", async ({ page }) => {
+test("A card's image paging does not carry over to the next matchup", async ({ page }) => {
   // Arrange — left card in matchup one has 2 images (pageable to index 1);
   // left card in matchup two has exactly 1, so a leaked index-1 points past
   // the end of its media array.
@@ -148,11 +144,11 @@ test("Paging a card's images does not carry into the next matchup's card at the 
     progress: { voted: 1, total: 2 },
   })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchupOne }, { status: 200, body: matchupTwo }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/matchups/matchup-1/vote`, responses: [{ status: 201, body: { vote_id: 'v1' } }] },
+    reply('POST', `${API}/wars/${WAR_ID}/matchups/matchup-1/vote`, 201, { vote_id: 'v1' }),
   ])
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Act — page A's carousel to its second image, then vote for B.
   await page.getByTestId('contestant-card').filter({ hasText: 'A' }).getByTestId('carousel-arrow-next').click()
@@ -175,11 +171,11 @@ test('A decided pair is never shown again', async ({ page }) => {
     progress: { voted: 1, total: 2 },
   })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchupOne }, { status: 200, body: matchupTwo }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/matchups/matchup-1/vote`, responses: [{ status: 201, body: { vote_id: 'v1' } }] },
+    reply('POST', `${API}/wars/${WAR_ID}/matchups/matchup-1/vote`, 201, { vote_id: 'v1' }),
   ])
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Act
   await page.getByTestId('contestant-card').filter({ hasText: 'Once' }).click()
@@ -205,11 +201,11 @@ test('A conflicting vote advances silently', async ({ page }) => {
     progress: { voted: 4, total: 5 },
   })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: staleMatchup }, { status: 200, body: freshMatchup }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/matchups/matchup-stale/vote`, responses: [{ status: 409, body: { error: 'conflict' } }] },
+    reply('POST', `${API}/wars/${WAR_ID}/matchups/matchup-stale/vote`, 409, { error: 'conflict' }),
   ])
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Act
   await page.getByTestId('contestant-card').filter({ hasText: 'Stale A' }).click()
@@ -223,12 +219,12 @@ test('There is no skip control', async ({ page }) => {
   // Arrange
   const matchup = buildMatchupResponse()
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchup }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
+    ok('GET', `${API}/wars/${WAR_ID}/matchups/next`, matchup),
   ])
 
   // Act
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Assert
   await expect(page.getByText(/skip|abstain|pass\b/i)).toHaveCount(0)
@@ -241,12 +237,12 @@ test('Voter completes every matchup', async ({ page }) => {
     progress: { voted: 4, total: 5 },
   })
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: lastMatchup }, { status: 204 }] },
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/matchups/matchup-last/vote`, responses: [{ status: 201, body: { vote_id: 'v1' } }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/my-progress`, responses: [{ status: 200, body: { voted: 5, total: 5 } }] },
+    reply('POST', `${API}/wars/${WAR_ID}/matchups/matchup-last/vote`, 201, { vote_id: 'v1' }),
+    ok('GET', `${API}/wars/${WAR_ID}/my-progress`, { voted: 5, total: 5 }),
   ])
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Act
   await page.getByTestId('contestant-card').filter({ hasText: 'A' }).click()
@@ -258,13 +254,13 @@ test('Voter completes every matchup', async ({ page }) => {
 test('Visiting the vote page after already voting on everything redirects to results', async ({ page }) => {
   // Arrange
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/${WAR_ID}/my-progress`, responses: [{ status: 200, body: { voted: 5, total: 5 } }] },
+    reply('POST', `${API}/wars/${WAR_ID}/join`, 204),
+    reply('GET', `${API}/wars/${WAR_ID}/matchups/next`, 204),
+    ok('GET', `${API}/wars/${WAR_ID}/my-progress`, { voted: 5, total: 5 }),
   ])
 
   // Act
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Assert
   await expect(page).toHaveURL(`/wars/${WAR_ID}`)

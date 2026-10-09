@@ -3,16 +3,22 @@ import { consumeReturnTo, loginUrlFor, storeReturnTo } from '../returnTo'
 
 describe('loginUrlFor', () => {
   it('builds a /login URL with only returnTo when no reason is given', () => {
-    // Arrange / Act
-    const url = loginUrlFor('/wars/abc-123/vote')
+    // Arrange
+    const input = '/wars/abc-123/vote'
+
+    // Act
+    const url = loginUrlFor(input)
 
     // Assert
     expect(url).toBe('/login?returnTo=%2Fwars%2Fabc-123%2Fvote')
   })
 
   it('puts returnTo before reason when a reason is given', () => {
-    // Arrange / Act
-    const url = loginUrlFor('/wars/neutral-page', 'session-expired')
+    // Arrange
+    const path = '/wars/neutral-page'
+
+    // Act
+    const url = loginUrlFor(path, 'session-expired')
 
     // Assert
     expect(url).toBe('/login?returnTo=%2Fwars%2Fneutral-page&reason=session-expired')
@@ -38,7 +44,10 @@ describe('storeReturnTo / consumeReturnTo', () => {
   })
 
   it('defaults to "/" when nothing was stored', () => {
-    // Arrange / Act
+    // Arrange
+    sessionStorage.clear()
+
+    // Act
     const returnTo = consumeReturnTo()
 
     // Assert

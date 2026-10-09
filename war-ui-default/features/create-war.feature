@@ -17,3 +17,10 @@ Feature: Create War
     When they navigate directly to "/wars/new"
     Then they are redirected to "/login"
     And the returnTo query param is "/wars/new"
+
+  Scenario: A failed creation shows an error with a retry control
+    Given an authenticated voter on the Start a War page
+    And the API rejects the creation request
+    When they submit a valid title
+    Then an error message is shown
+    And a retry control is offered

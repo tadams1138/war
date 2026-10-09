@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FALLBACK_DISPLAY_NAME, resolveVoterIdentity } from './voterIdentity'
+import { FALLBACK_DISPLAY_NAME, resolveVoterIdentity } from '../voterIdentity'
 
 describe('resolveVoterIdentity', () => {
   it('renders the voter\'s display_name and avatar_url when loaded', () => {

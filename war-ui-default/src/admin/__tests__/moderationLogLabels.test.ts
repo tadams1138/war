@@ -15,16 +15,22 @@ describe('actionLabel', () => {
     ['ban_voter', 'Banned a Voter'],
     ['unban_voter', 'Unbanned a Voter'],
   ])('labels %s as %s', (action, expected) => {
-    // Arrange / Act
-    const label = actionLabel(action)
+    // Arrange
+    const input = action
+
+    // Act
+    const label = actionLabel(input)
 
     // Assert
     expect(label).toBe(expected)
   })
 
   it('falls back to the raw action string for an unknown action', () => {
-    // Arrange / Act
-    const label = actionLabel('some_future_action')
+    // Arrange
+    const input = 'some_future_action'
+
+    // Act
+    const label = actionLabel(input)
 
     // Assert
     expect(label).toBe('some_future_action')

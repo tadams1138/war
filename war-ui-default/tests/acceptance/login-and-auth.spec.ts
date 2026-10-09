@@ -1,6 +1,7 @@
 // Binds features/login-and-auth.feature.
 import { expect, test } from '@playwright/test'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { ok, reply } from './support/recipes'
 
 const PROVIDERS = ['google', 'facebook', 'microsoft', 'twitter']
 
@@ -77,8 +78,11 @@ test('No token ever appears in a URL', async ({ page }) => {
 })
 
 test('Unauthenticated visit to a protected route redirects to login', async ({ page }) => {
+  // Arrange
+  const path = '/wars/abc-123/vote'
+
   // Act
-  await page.goto('/wars/abc-123/vote')
+  await page.goto(path)
 
   // Assert
   await expect(page).toHaveURL(/\/login\?returnTo=%2Fwars%2Fabc-123%2Fvote$/)
@@ -100,7 +104,7 @@ test('Concurrent 401s trigger exactly one refresh', async ({ page }) => {
         { status: 200, body: { id: 'war-1', title: 'W', category: null, status: 'published', visibility: 'public', media_mode: 'image', ends_at: null, contestants: [] } },
       ],
     },
-    { method: 'POST', path: `${API}/auth/refresh`, responses: [{ status: 200, body: { token: 'refreshed' } }] },
+    ok('POST', `${API}/auth/refresh`, { token: 'refreshed' }),
   ])
   // /login has no data fetch of its own on mount, unlike Home — booting
   // there keeps the sequenced /wars responses above untouched until this
@@ -124,8 +128,8 @@ test('Concurrent 401s trigger exactly one refresh', async ({ page }) => {
 test('A failed refresh is terminal', async ({ page }) => {
   // Arrange
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 401, body: { error: 'expired' } }] },
-    { method: 'POST', path: `${API}/auth/refresh`, responses: [{ status: 401, body: { error: 'invalid refresh token' } }] },
+    reply('GET', `${API}/wars`, 401, { error: 'expired' }),
+    reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid refresh token' }),
   ])
   await page.goto('/login')
   await loginAsTestVoter(page)
@@ -148,8 +152,11 @@ test('A failed refresh is terminal', async ({ page }) => {
 })
 
 test('The login page is themed and its content is centered', async ({ page }) => {
-  // Arrange / Act
-  await page.goto('/login')
+  // Arrange
+  const path = '/login'
+
+  // Act
+  await page.goto(path)
 
   // Assert — a theme scope, same attribute-based mechanism every other page
   // uses (features/theme-switching.feature), not a one-off for this page.
@@ -163,8 +170,11 @@ test('The login page is themed and its content is centered', async ({ page }) =>
 })
 
 test("Each provider button shows that provider's logo", async ({ page }) => {
-  // Arrange / Act
-  await page.goto('/login')
+  // Arrange
+  const path = '/login'
+
+  // Act
+  await page.goto(path)
 
   // Assert — an accessible graphic, not text-only, beside each label.
   const providerNames: Record<(typeof PROVIDERS)[number], string> = {

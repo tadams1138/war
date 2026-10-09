@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { getThemePreference, setThemePreference } from './themeCookie'
+import { getThemePreference, setThemePreference } from '../themeCookie'
 
 function clearStoredPreferences(): void {
   document.cookie = 'war_theme_prefs=; path=/; max-age=0'

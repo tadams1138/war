@@ -38,3 +38,18 @@ Feature: My Wars
     Given an authenticated voter who created several Wars
     When they select "Oldest" from the sort menu
     Then their own Wars are requested sorted "oldest" first, still scoped to creator=me
+
+  Scenario: A draft War card shows an Edit link
+    Given an authenticated voter who has created a draft War
+    When they open My Wars
+    Then the draft War's card shows an Edit link
+
+  Scenario: A draft War card's Edit link is styled as a themed button, not plain text
+    Given an authenticated voter who has created a draft War
+    When they open My Wars
+    Then the Edit link is styled as a themed button
+
+  Scenario: A published War card also shows an Edit link — editing is never status-gated
+    Given an authenticated voter who has created a published War
+    When they open My Wars
+    Then the published War's card shows an Edit link

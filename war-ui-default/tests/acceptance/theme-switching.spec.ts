@@ -1,20 +1,18 @@
 // Binds features/theme-switching.feature.
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { buildMatchupResponse, buildWarDetail } from '../../src/mocks/fixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { ok, reply } from './support/recipes'
+import { nav } from './support/pages'
 
-function nav(page: import('@playwright/test').Page) {
-  return page.getByRole('navigation', { name: 'Primary' })
-}
-
-function themeSelect(page: import('@playwright/test').Page) {
+function themeSelect(page: Page) {
   return nav(page).getByTestId('nav-theme-select')
 }
 
 test("A War's detail page renders in its creator-chosen theme by default", async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-1`, detail)])
 
   // Act
   await page.goto('/wars/war-1')
@@ -27,7 +25,7 @@ test("A War's detail page renders in its creator-chosen theme by default", async
 test("A voter's own theme choice overrides the War's default, only for that War", async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] }])
+  await useScenario(page, [ok('GET', `${API}/wars/war-1`, detail)])
 
   // Act
   await page.goto('/wars/war-1')
@@ -44,8 +42,8 @@ test("A voter's theme choice for one War does not affect a different War", async
   const warOne = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
   const warTwo = buildWarDetail({ id: 'war-2', theme: 'arcade' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: warOne }] },
-    { method: 'GET', path: `${API}/wars/war-2`, responses: [{ status: 200, body: warTwo }] },
+    ok('GET', `${API}/wars/war-1`, warOne),
+    ok('GET', `${API}/wars/war-2`, warTwo),
   ])
 
   // Act
@@ -62,9 +60,9 @@ test("A War's vote page renders in its creator-chosen theme", async ({ page }) =
   const detail = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
   const matchup = buildMatchupResponse()
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: detail }] },
-    { method: 'POST', path: `${API}/wars/war-1/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/war-1/matchups/next`, responses: [{ status: 200, body: matchup }] },
+    ok('GET', `${API}/wars/war-1`, detail),
+    reply('POST', `${API}/wars/war-1/join`, 204),
+    ok('GET', `${API}/wars/war-1/matchups/next`, matchup),
   ])
 
   // Act
@@ -79,7 +77,7 @@ test("A War's vote page renders in its creator-chosen theme", async ({ page }) =
 
 test('Home renders in "arcade" until the voter chooses otherwise', async ({ page }) => {
   // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars: [], next_cursor: null })])
 
   // Act
   await page.goto('/')
@@ -92,8 +90,8 @@ test('Choosing a theme on Home does not change what a War\'s own page shows', as
   // Arrange
   const warDetail = buildWarDetail({ id: 'war-1', theme: 'fight_card' })
   await useScenario(page, [
-    { method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] },
-    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: warDetail }] },
+    ok('GET', `${API}/wars`, { wars: [], next_cursor: null }),
+    ok('GET', `${API}/wars/war-1`, warDetail),
   ])
 
   // Act
@@ -107,10 +105,12 @@ test('Choosing a theme on Home does not change what a War\'s own page shows', as
 
 test('The nav theme menu is present and usable on pages with no War in scope', async ({ page }) => {
   // Arrange
-  await useScenario(page, [{ method: 'GET', path: `${API}/wars`, responses: [{ status: 200, body: { wars: [], next_cursor: null } }] }])
+  await useScenario(page, [ok('GET', `${API}/wars`, { wars: [], next_cursor: null })])
 
-  // Act / Assert
+  // Act
   await page.goto('/login')
+
+  // Assert
   await expect(themeSelect(page)).toBeVisible()
 
   // Act
