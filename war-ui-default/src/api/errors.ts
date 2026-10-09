@@ -1,6 +1,4 @@
-// Typed errors thrown by api/client.ts and the user-facing copy they map to,
-// filtered to the endpoints this slice calls (wars list, war detail,
-// next-matchup, cast-vote, join, auth).
+// Typed errors thrown by api/client.ts and the user-facing copy they map to.
 
 export type ApiErrorReason =
   | 'unauthorized' // 401
@@ -37,7 +35,7 @@ export class ApiError extends Error {
   }
 }
 
-// Pure mapping from a typed reason to the exact user-facing copy in the spec's
+// Pure mapping from a typed reason to the exact user-facing copy in war-spec.md's
 // table. `conflict` has no message — MatchupView advances silently instead.
 // A lookup table, not a switch: every branch here is a fixed string, so a
 // `Record` keeps this at zero cyclomatic complexity instead of one branch per
@@ -61,10 +59,12 @@ export function messageForReason(reason: ApiErrorReason, retryAfterSeconds?: num
   return REASON_MESSAGES[reason](retryAfterSeconds)
 }
 
-// Pages call this instead of repeating `error instanceof ApiError ?
-// error.message : messageForReason('network')` themselves — pure
-// deduplication, no behavior change (Home.tsx, WarDetail.tsx,
-// VoteMode.tsx all had the identical expression).
+// The user-facing message for anything a request can throw; a non-ApiError
+// is treated as a network failure.
 export function toUserMessage(error: unknown): string {
   return error instanceof ApiError ? error.message : messageForReason('network')
+}
+
+export function isRateLimited(error: unknown): error is ApiError & { reason: 'rate-limited' } {
+  return error instanceof ApiError && error.reason === 'rate-limited'
 }

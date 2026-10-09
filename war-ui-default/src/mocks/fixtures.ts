@@ -4,24 +4,20 @@
 // (src/api/generated/schema.d.ts) — the compiler rejects a fixture
 // that drifts from what war-api actually declares it returns.
 
-import type { components, paths } from '../api/generated/schema'
+import type {
+  ContestantDetail,
+  MediaItem,
+  NextMatchupResponse,
+  RankingsResponse,
+  WarDetailResponse,
+  WarSummary,
+} from '../api/client'
 
-export type WarSummary = components['schemas']['WarSummary']
-export type ContestantDetail = components['schemas']['ContestantDetail']
-export type MediaItem = components['schemas']['MediaItem']
-export type NextMatchupResponse =
-  paths['/wars/{id}/matchups/next']['get']['responses'][200]['content']['application/json']
-export type WarDetailResponse = paths['/wars/{id}']['get']['responses'][200]['content']['application/json']
-export type RankingsResponse = paths['/wars/{id}/rankings']['get']['responses'][200]['content']['application/json']
 type RankingEntry = RankingsResponse['rankings'][number]
 
-// `id` is required, not defaulted from a shared counter — a fixture's
-// identity used to depend on how many fixtures had been built before it
-// (test file order, --repeat-each, worker sharding, whether the mock
-// build's baseline handlers ran first), since this module is shared by
-// both the Vitest suite and the browser mock bundle. Every call site
-// already names its media explicitly; the compiler catches any that
-// don't.
+// `id` is required rather than defaulted from a shared counter, so a
+// fixture's identity never depends on build order (this module is shared by
+// the Vitest suite and the browser mock bundle).
 export function buildMediaItem(overrides: Partial<MediaItem> & { id: string }): MediaItem {
   const { id } = overrides
   return {

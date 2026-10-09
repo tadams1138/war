@@ -1,7 +1,7 @@
 // One Staff action button on a Voter, with its in-page confirmation (when it
 // has one) and its failure message.
 import type { ReactNode } from 'react'
-import { Modal } from '../../components/Modal'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useVoterAction } from './useVoterAction'
 
 interface VoterActionControlProps {
@@ -29,17 +29,16 @@ export function VoterActionControl({ testId, label, perform, onDone, confirmatio
           {action.error}
         </p>
       )}
-      <Modal show={action.confirming} onCancel={action.cancel} testId={`${testId}-confirm`}>
+      <ConfirmDialog
+        show={action.confirming}
+        testId={`${testId}-confirm`}
+        confirmLabel={label}
+        danger={danger}
+        onConfirm={action.confirm}
+        onCancel={action.cancel}
+      >
         {confirmation}
-        <div className="action-bar">
-          <button type="button" className={buttonClass} data-testid={`${testId}-confirm-submit`} onClick={action.confirm}>
-            {label}
-          </button>
-          <button type="button" className="button" data-testid={`${testId}-confirm-cancel`} onClick={action.cancel}>
-            Cancel
-          </button>
-        </div>
-      </Modal>
+      </ConfirmDialog>
     </>
   )
 }

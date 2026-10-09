@@ -1,4 +1,4 @@
-// The append-only moderation log (the spec, §6.7), newest first. Entries carry
+// The append-only moderation log (war-spec.md §6.7), newest first. Entries carry
 // the names of the acting Staff member, the target Voter and the target War's
 // title alongside the ids, so the panel shows names without a lookup per id.
 // A name links to that Voter's / War's Staff detail. A Voter with no name falls
@@ -10,6 +10,8 @@ import type { ModerationLogEntry } from '../api/client'
 import { warTitle } from '../utils/warTitle'
 import { actionLabel } from './moderationLogLabels'
 import { useModerationLog } from './useModerationLog'
+import { ErrorMessage } from '../components/ErrorMessage'
+import { LoadingMessage } from '../components/AsyncStatus'
 
 function voterLink(id: string, name: string | null): ReactNode {
   return <Link to={`/admin/voters/${id}`}>{name ?? id}</Link>
@@ -32,8 +34,8 @@ export function ModerationLogPanel({ refreshToken }: { refreshToken: number }) {
   return (
     <section aria-labelledby="moderation-log-heading">
       <h2 id="moderation-log-heading">Moderation log</h2>
-      {log.status === 'loading' && <p>Loading…</p>}
-      {log.error && <p role="alert">{log.error}</p>}
+      {log.status === 'loading' && <LoadingMessage />}
+      <ErrorMessage message={log.error} />
       {log.status === 'loaded' && (
         <>
           <ul className="moderation-log">

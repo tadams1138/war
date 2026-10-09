@@ -1,9 +1,9 @@
-// Cursor-paged Staff War list (the spec, §6.7): the first page loads on mount
-// and again whenever the status filter or (debounced) search text changes;
-// `loadMore` appends the page after `nextCursor`.
-import { useEffect, useState } from 'react'
+// Cursor-paged Staff War list (war-spec.md §6.7), refetched from the first
+// page whenever the status filter or (debounced) search text changes.
+import { useState } from 'react'
 import { getAdminWars, type AdminWarItem, type GetAdminWarsParams } from '../../api/client'
-import { toUserMessage } from '../../api/errors'
+import { useCursorPage } from '../../hooks/useCursorPage'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 
 export type AdminWarStatusFilter = NonNullable<GetAdminWarsParams['status']> | 'all'
 
@@ -31,64 +31,13 @@ function buildParams(statusFilter: AdminWarStatusFilter, q: string, cursor?: str
 }
 
 export function useAdminWars(): UseAdminWarsResult {
-  const [status, setStatus] = useState<UseAdminWarsResult['status']>('loading')
-  const [wars, setWars] = useState<AdminWarItem[]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<AdminWarStatusFilter>('all')
   const [searchText, setSearchText] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-
-  // Only the settled value ever triggers a fetch -- typing shouldn't fire a
-  // request per keystroke.
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_MS)
-    return () => clearTimeout(timer)
-  }, [searchText])
-
-  useEffect(() => {
-    let cancelled = false
-    getAdminWars(buildParams(statusFilter, debouncedSearch))
-      .then((page) => {
-        if (cancelled) return
-        setWars(page.wars)
-        setNextCursor(page.next_cursor)
-        setError(null)
-        setStatus('loaded')
-      })
-      .catch((failure: unknown) => {
-        if (cancelled) return
-        setError(toUserMessage(failure))
-        setStatus('error')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [statusFilter, debouncedSearch])
-
-  function loadMore() {
-    if (nextCursor === null) return
-    setLoadingMore(true)
-    getAdminWars(buildParams(statusFilter, debouncedSearch, nextCursor))
-      .then((page) => {
-        setWars((current) => [...current, ...page.wars])
-        setNextCursor(page.next_cursor)
-      })
-      .catch((failure: unknown) => setError(toUserMessage(failure)))
-      .finally(() => setLoadingMore(false))
-  }
-
-  return {
-    status,
-    wars,
-    error,
-    statusFilter,
-    setStatusFilter,
-    searchText,
-    setSearchText,
-    hasMore: nextCursor !== null,
-    loadingMore,
-    loadMore,
-  }
+  const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_MS)
+  const { items, ...rest } = useCursorPage(
+    (cursor) =>
+      getAdminWars(buildParams(statusFilter, debouncedSearch, cursor)).then((page) => ({ items: page.wars, nextCursor: page.next_cursor })),
+    [statusFilter, debouncedSearch],
+  )
+  return { ...rest, wars: items, statusFilter, setStatusFilter, searchText, setSearchText }
 }

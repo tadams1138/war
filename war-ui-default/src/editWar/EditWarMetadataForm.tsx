@@ -1,13 +1,6 @@
-// EditWar's War-metadata form. Rendering only -- state and the PATCH call
-// live in useEditWar. Theme now lives here too (moved off the deleted
-// creation wizard, the spec's "Create War"/"Editing a draft") — a draft's
-// theme is editable the same way every other field here is, since there is
-// no longer a one-time wizard step to set it at creation instead.
-//
-// Exposes an imperative `submit()` via ref, so EditWar's Publish/Unpublish
-// button -- a sibling, not a parent of this form's fields -- can trigger a
-// save without this component giving up ownership of its own field state.
-import { forwardRef, useEffect, useImperativeHandle, useState, type FormEvent } from 'react'
+// EditWar's War-metadata form (title, category, visibility, theme, end date,
+// share image). Rendering only -- state and the PATCH call live in useEditWar.
+import { useEffect, useState, type FormEvent } from 'react'
 import type { PatchWarPayload, WarDetailResponse } from '../api/client'
 import { THEME_LABELS, THEMES, type Theme } from '../theme/themeCookie'
 import { generateShareImage } from './generateShareImage'
@@ -21,10 +14,6 @@ interface EditWarMetadataFormProps {
   // nor a generated preview takes effect until Save is pressed") -- called
   // from submit(), before onSave, only when a pending image exists.
   onUploadShareImage: (blob: Blob) => Promise<void>
-}
-
-export interface EditWarMetadataFormHandle {
-  submit: () => void
 }
 
 // The `<input type="date">` value shape (YYYY-MM-DD) an ISO timestamp
@@ -42,11 +31,9 @@ function MetadataSaveError({ titleRequiredError, error }: { titleRequiredError: 
   )
 }
 
-// Extracted purely to keep EditWarMetadataForm's own cyclomatic complexity
-// down (CLAUDE.md's <=5 rule) -- the preview/upload/generate trio has
-// several independent branches (a pending preview vs. the saved image vs.
-// neither, the generate control's disabled/explanatory state) that read
-// better isolated than folded into the parent's own render.
+// The preview/upload/generate controls, split out of the form because their
+// branches (pending preview, saved image, neither; generate enabled or
+// explained) are independent of the form's own fields.
 function ShareImageField({
   previewUrl,
   canGenerate,
@@ -87,8 +74,7 @@ function ShareImageField({
   )
 }
 
-export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWarMetadataFormProps>(
-  function EditWarMetadataForm({ war, error, saving, onSave, onUploadShareImage }, ref) {
+export function EditWarMetadataForm({ war, error, saving, onSave, onUploadShareImage }: EditWarMetadataFormProps) {
   const [title, setTitle] = useState(war.title ?? '')
   const [category, setCategory] = useState(war.category ?? '')
   const [visibility, setVisibility] = useState<'public' | 'invite_only'>(war.visibility)
@@ -109,8 +95,7 @@ export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWar
   }, [pendingShareImage])
 
   async function submit() {
-    // Checked before any request goes out (the spec, "client-side
-    // validate mandatory fields") -- an empty title is never valid.
+    // Checked before any request goes out -- an empty title is never valid.
     if (title.trim().length === 0) {
       setTitleRequiredError('Title is required')
       return
@@ -128,8 +113,6 @@ export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWar
     })
   }
 
-  useImperativeHandle(ref, () => ({ submit: () => void submit() }))
-
   const qualifyingContestants = war.contestants.filter((c) => c.media.length > 0).length
   const canGenerate = qualifyingContestants >= 2
 
@@ -140,7 +123,7 @@ export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWar
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    submit()
+    void submit()
   }
 
   return (
@@ -183,7 +166,7 @@ export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWar
         </select>
       </label>
       <label>
-        End date
+        End date (00:00 UTC)
         <input
           type="date"
           data-testid="edit-war-ends-at-input"
@@ -203,5 +186,4 @@ export const EditWarMetadataForm = forwardRef<EditWarMetadataFormHandle, EditWar
       </button>
     </form>
   )
-  },
-)
+}

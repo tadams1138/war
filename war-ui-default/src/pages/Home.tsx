@@ -7,6 +7,7 @@ import { WarListControls, WarListPagination } from '../components/WarListControl
 import { useWarListPage, type UseWarListPageResult } from '../hooks/useWarListPage'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
+import { AsyncStatus } from '../components/AsyncStatus'
 
 export function Home() {
   const { isAuthenticated } = useAuth()
@@ -16,9 +17,9 @@ export function Home() {
 
   return (
     <main data-theme={theme}>
+      <h1 className="visually-hidden">Head-to-head contests</h1>
       <WarListControls listPage={listPage} />
-      {listPage.state.status === 'loading' && <p>Loading…</p>}
-      {listPage.state.status === 'error' && <p role="alert">{listPage.state.message}</p>}
+      <AsyncStatus state={listPage.state} />
       {listPage.state.status === 'loaded' && (
         <HomeWarList wars={listPage.state.wars} isAuthenticated={isAuthenticated} listPage={listPage} />
       )}

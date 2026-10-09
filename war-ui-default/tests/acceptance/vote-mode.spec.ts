@@ -54,8 +54,8 @@ test('Cards are rendered in the order the API returns', async ({ page }) => {
   const matchup = buildMatchupResponse({
     matchup: {
       id: 'matchup-order',
-      left: { id: 'contestant-b', name: 'Contestant B', media: [] },
-      right: { id: 'contestant-a', name: 'Contestant A', media: [] },
+      left: { id: 'contestant-b', name: 'Contestant B', bio: null, media: [] },
+      right: { id: 'contestant-a', name: 'Contestant A', bio: null, media: [] },
     },
   })
   await useScenario(page, [
@@ -74,7 +74,7 @@ test('Cards are rendered in the order the API returns', async ({ page }) => {
 
 test('Both cards are disabled while a vote is in flight', async ({ page }) => {
   // Arrange
-  const matchup = buildMatchupResponse({ matchup: { id: 'matchup-flight', left: { id: 'a', name: 'A', media: [] }, right: { id: 'b', name: 'B', media: [] } } })
+  const matchup = buildMatchupResponse({ matchup: { id: 'matchup-flight', left: { id: 'a', name: 'A', bio: null, media: [] }, right: { id: 'b', name: 'B', bio: null, media: [] } } })
   await useScenario(page, [
     { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },
     { method: 'GET', path: `${API}/wars/${WAR_ID}/matchups/next`, responses: [{ status: 200, body: matchup }] },
@@ -104,11 +104,11 @@ test('Both cards are disabled while a vote is in flight', async ({ page }) => {
 test('Voter casts a vote and the next matchup loads automatically', async ({ page }) => {
   // Arrange
   const matchupOne = buildMatchupResponse({
-    matchup: { id: 'matchup-1', left: { id: 'a', name: 'A', media: [] }, right: { id: 'b', name: 'B', media: [] } },
+    matchup: { id: 'matchup-1', left: { id: 'a', name: 'A', bio: null, media: [] }, right: { id: 'b', name: 'B', bio: null, media: [] } },
     progress: { voted: 0, total: 2 },
   })
   const matchupTwo = buildMatchupResponse({
-    matchup: { id: 'matchup-2', left: { id: 'c', name: 'C', media: [] }, right: { id: 'd', name: 'D', media: [] } },
+    matchup: { id: 'matchup-2', left: { id: 'c', name: 'C', bio: null, media: [] }, right: { id: 'd', name: 'D', bio: null, media: [] } },
     progress: { voted: 1, total: 2 },
   })
   await useScenario(page, [
@@ -134,16 +134,16 @@ test("Paging a card's images does not carry into the next matchup's card at the 
   const matchupOne = buildMatchupResponse({
     matchup: {
       id: 'matchup-1',
-      left: { id: 'a', name: 'A', media: [buildMediaItem({ id: 'a-0', display_order: 0 }), buildMediaItem({ id: 'a-1', display_order: 1 })] },
-      right: { id: 'b', name: 'B', media: [buildMediaItem({ id: 'b-0' })] },
+      left: { id: 'a', name: 'A', bio: null, media: [buildMediaItem({ id: 'a-0', display_order: 0 }), buildMediaItem({ id: 'a-1', display_order: 1 })] },
+      right: { id: 'b', name: 'B', bio: null, media: [buildMediaItem({ id: 'b-0' })] },
     },
     progress: { voted: 0, total: 2 },
   })
   const matchupTwo = buildMatchupResponse({
     matchup: {
       id: 'matchup-2',
-      left: { id: 'c', name: 'C', media: [buildMediaItem({ id: 'c-0' })] },
-      right: { id: 'd', name: 'D', media: [buildMediaItem({ id: 'd-0' })] },
+      left: { id: 'c', name: 'C', bio: null, media: [buildMediaItem({ id: 'c-0' })] },
+      right: { id: 'd', name: 'D', bio: null, media: [buildMediaItem({ id: 'd-0' })] },
     },
     progress: { voted: 1, total: 2 },
   })
@@ -167,11 +167,11 @@ test("Paging a card's images does not carry into the next matchup's card at the 
 test('A decided pair is never shown again', async ({ page }) => {
   // Arrange
   const matchupOne = buildMatchupResponse({
-    matchup: { id: 'matchup-1', left: { id: 'a', name: 'Once', media: [] }, right: { id: 'b', name: 'B', media: [] } },
+    matchup: { id: 'matchup-1', left: { id: 'a', name: 'Once', bio: null, media: [] }, right: { id: 'b', name: 'B', bio: null, media: [] } },
     progress: { voted: 0, total: 2 },
   })
   const matchupTwo = buildMatchupResponse({
-    matchup: { id: 'matchup-2', left: { id: 'c', name: 'C', media: [] }, right: { id: 'd', name: 'D', media: [] } },
+    matchup: { id: 'matchup-2', left: { id: 'c', name: 'C', bio: null, media: [] }, right: { id: 'd', name: 'D', bio: null, media: [] } },
     progress: { voted: 1, total: 2 },
   })
   await useScenario(page, [
@@ -197,11 +197,11 @@ test('A decided pair is never shown again', async ({ page }) => {
 test('A conflicting vote advances silently', async ({ page }) => {
   // Arrange
   const staleMatchup = buildMatchupResponse({
-    matchup: { id: 'matchup-stale', left: { id: 'a', name: 'Stale A', media: [] }, right: { id: 'b', name: 'Stale B', media: [] } },
+    matchup: { id: 'matchup-stale', left: { id: 'a', name: 'Stale A', bio: null, media: [] }, right: { id: 'b', name: 'Stale B', bio: null, media: [] } },
     progress: { voted: 3, total: 5 },
   })
   const freshMatchup = buildMatchupResponse({
-    matchup: { id: 'matchup-fresh', left: { id: 'c', name: 'Fresh C', media: [] }, right: { id: 'd', name: 'Fresh D', media: [] } },
+    matchup: { id: 'matchup-fresh', left: { id: 'c', name: 'Fresh C', bio: null, media: [] }, right: { id: 'd', name: 'Fresh D', bio: null, media: [] } },
     progress: { voted: 4, total: 5 },
   })
   await useScenario(page, [
@@ -237,7 +237,7 @@ test('There is no skip control', async ({ page }) => {
 test('Voter completes every matchup', async ({ page }) => {
   // Arrange
   const lastMatchup = buildMatchupResponse({
-    matchup: { id: 'matchup-last', left: { id: 'a', name: 'A', media: [] }, right: { id: 'b', name: 'B', media: [] } },
+    matchup: { id: 'matchup-last', left: { id: 'a', name: 'A', bio: null, media: [] }, right: { id: 'b', name: 'B', bio: null, media: [] } },
     progress: { voted: 4, total: 5 },
   })
   await useScenario(page, [

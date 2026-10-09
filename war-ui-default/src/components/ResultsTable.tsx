@@ -1,9 +1,8 @@
 // The merged War detail results list (war-spec.md §10.1, §10.4): one entry
 // per contestant, ordered exactly as the rankings API returns it (never
 // re-sorted), each carrying that contestant's browsable media, name, and
-// bio alongside its rank/wins/appearances. One list merging a contestant
-// gallery (GET /wars/:id) and a leaderboard (GET /wars/:id/rankings),
-// rather than two separate sections.
+// bio alongside its rank/wins/appearances (GET /wars/:id merged with
+// GET /wars/:id/rankings).
 //
 // An <ol>, not a <table>: rank is an ordering, not a column value, so a
 // list gives every entry "item N of M" semantics for free, which neither a
@@ -70,7 +69,6 @@ function ResultCard({
         <div className="results-media">
           <ImageCarousel
             media={entry.contestant.media}
-            onTap={() => {}}
             ariaLabel={`${entry.contestant.name}'s photos — swipe or use the arrows to browse`}
           />
         </div>

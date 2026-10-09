@@ -139,7 +139,7 @@ describe('getWars', () => {
     )
 
     // Act
-    await getWars({ status: 'published', category: 'sports', cursor: 'war-99', limit: '10' })
+    await getWars({ status: 'published', category: 'sports', cursor: 'war-99', limit: 10 })
 
     // Assert
     const params = new URL(receivedUrl).searchParams

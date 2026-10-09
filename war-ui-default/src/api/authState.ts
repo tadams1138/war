@@ -26,7 +26,7 @@ export function isRefreshDisabled(): boolean {
   return refreshDisabled
 }
 
-export function disableRefresh(): void {
+function disableRefresh(): void {
   refreshDisabled = true
 }
 

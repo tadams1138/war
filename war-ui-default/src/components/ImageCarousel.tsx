@@ -1,280 +1,194 @@
-// Shown within a ContestantCard when a contestant has more than one image
-// (war-spec.md §10.3). Horizontal swipe browses images; tap votes.
-// These must never be confused — ambiguity always resolves toward "swipe",
-// since a mis-fired vote is unrecoverable (votes are final).
+// A contestant's images, paged by swipe, arrow keys or arrow buttons
+// (war-spec.md §10.3, §10.4). When `onTap` is given (the vote page), a tap
+// or Enter/Space activates it. Swipe and tap must never be confused:
+// ambiguity always resolves toward "swipe", since a mis-fired vote is
+// unrecoverable (votes are final). Styling lives in layout.css (.carousel-*).
 import { useRef, useState } from 'react'
-import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { MediaItem } from '../api/client'
 import { byDisplayOrder, srcSetFor } from '../utils/media'
 import { exceedsSwipeThreshold, swipeDirection } from '../utils/swipe'
 
-// `fillHeight` (the vote page's own cards, war-spec.md §10.3: media fills
-// whatever vertical space the layout gives it) sizes each frame to its
-// parent's full height instead of the image's own aspect ratio; see
-// CarouselFrameImage below for how the `<img>` itself then fits that box
-// without cropping. Every other caller (the results-page gallery) keeps
-// the aspect-ratio-reserved sizing, which is what stops that list from
-// reflowing as images load. Split into one function per mode (rather than
-// branching inline) to keep each at a low complexity -- CLAUDE.md's <=5 rule.
-function fillHeightFrameStyle(index: number, currentIndex: number): CSSProperties {
-  return { width: '100%', height: '100%', display: index === currentIndex ? 'block' : 'none' }
-}
-
-function aspectRatioFrameStyle(item: MediaItem, index: number, currentIndex: number): CSSProperties {
-  return {
-    aspectRatio: item.aspect_ratio ?? undefined,
-    width: '100%',
-    minHeight: item.aspect_ratio ? undefined : '12rem',
-    display: index === currentIndex ? 'block' : 'none',
-  }
-}
-
-function frameStyle(item: MediaItem, index: number, currentIndex: number, fillHeight: boolean): CSSProperties {
-  return fillHeight ? fillHeightFrameStyle(index, currentIndex) : aspectRatioFrameStyle(item, index, currentIndex)
-}
-
-// Overlaid on the image itself, not stacked below it -- every image in the
-// carousel occupies the same box regardless of whether paging controls are
-// present, instead of the controls claiming their own row underneath.
-function arrowStyle(side: 'left' | 'right', disabled: boolean): CSSProperties {
-  return {
-    position: 'absolute',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    left: side === 'left' ? '0.35rem' : undefined,
-    right: side === 'right' ? '0.35rem' : undefined,
-    zIndex: 1,
-    width: '1.75rem',
-    height: '1.75rem',
-    borderRadius: '50%',
-    border: 'none',
-    background: 'rgba(0, 0, 0, 0.45)',
-    color: '#fff',
-    fontSize: '1rem',
-    lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
-    cursor: disabled ? 'default' : 'pointer',
-    opacity: disabled ? 0.35 : 1,
-  }
-}
-
-const dotsContainerStyle: CSSProperties = {
-  position: 'absolute',
-  bottom: '0.4rem',
-  left: 0,
-  right: 0,
-  zIndex: 1,
-  display: 'flex',
-  justifyContent: 'center',
-  gap: '0.3rem',
-}
-
-function dotStyle(active: boolean): CSSProperties {
-  return {
-    width: '0.35rem',
-    height: '0.35rem',
-    borderRadius: '50%',
-    background: active ? '#fff' : 'rgba(255, 255, 255, 0.5)',
-    boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.35)',
-  }
-}
-
-// `fillHeight`'s box is sized by the viewport, not by this image's own
-// aspect ratio (frameStyle above), so the two rarely match -- `cover` would
-// crop whichever dimension overflows, most often the top and bottom of a
-// tall poster. `contain` shows the whole image with letterboxing instead,
-// which is the point of this mode: never crop a contestant's media. Every
-// other caller reserves a box that already matches the image's own aspect
-// ratio (aspectRatioFrameStyle), where `cover` vs `contain` makes no visible
-// difference, so this only needs to branch for fillHeight.
-function CarouselFrameImage({ item, fillHeight }: { item: MediaItem; fillHeight: boolean }) {
-  return (
-    <img
-      data-testid="carousel-image"
-      alt=""
-      src={item.variants[0]?.url}
-      srcSet={srcSetFor(item)}
-      sizes="50vw"
-      style={{ width: '100%', height: '100%', objectFit: fillHeight ? 'contain' : 'cover', display: 'block' }}
-    />
-  )
-}
-
 interface ImageCarouselProps {
   media: MediaItem[]
   disabled?: boolean
-  onTap: () => void
+  // Omitted for browse-only carousels (the results list).
+  onTap?: () => void
   // Extra content (the contestant's name) rendered inside the same
-  // gesture-handling element — the whole card is one tap/swipe target and
-  // a single tab stop (war-spec.md §10.3), not just the image.
+  // gesture-handling element: the whole card is one tap/swipe target and a
+  // single tab stop (war-spec.md §10.3), not just the image.
   children?: ReactNode
-  // War detail's gallery reuses this carousel purely for browsing (no vote
-  // to describe) — war-spec.md §10.4's "same page-through affordance the
-  // vote card's own multi-image browsing already uses".
   ariaLabel?: string
-  // The vote page's own cards (war-spec.md §10.3): media fills whatever
-  // vertical space the layout gives it rather than sizing from the image's
-  // own aspect ratio. Off by default so every other caller is unaffected.
+  // The vote page's cards: media fills the vertical space the layout gives
+  // it rather than sizing from the image's own aspect ratio.
   fillHeight?: boolean
+}
+
+const VOTE_LABEL = 'Contestant photo — swipe to browse, tap to vote'
+const BROWSE_LABEL = 'Contestant photo — swipe to browse'
+
+// Reserves the image's own aspect ratio so a list doesn't reflow as images
+// load; unused with `fillHeight`, where the layout sizes the frame.
+function frameStyle(item: MediaItem, fillHeight: boolean | undefined): CSSProperties | undefined {
+  if (fillHeight) return undefined
+  return { aspectRatio: item.aspect_ratio ?? undefined, minHeight: item.aspect_ratio ? undefined : '12rem' }
 }
 
 function isActivationKey(key: string): boolean {
   return key === 'Enter' || key === ' '
 }
 
-// Extracted purely to keep ImageCarousel's own complexity down -- the
-// fillHeight branching pushed it over CLAUDE.md's <=5 rule.
-function carouselRootStyle(disabled: boolean, fillHeight: boolean): CSSProperties {
-  return {
-    touchAction: 'pan-y',
-    width: '100%',
-    cursor: disabled ? 'default' : 'pointer',
-    ...(fillHeight && { height: '100%', display: 'flex', flexDirection: 'column' }),
-  }
+function ArrowButton({
+  direction,
+  disabled,
+  onClick,
+}: {
+  direction: 'previous' | 'next'
+  disabled: boolean
+  onClick: () => void
+}) {
+  // Pointer events are stopped too, not just click: they bubble to the
+  // carousel's tap gesture handlers before click fires, so stopping click
+  // alone let a mouse click here cast a vote underneath the navigation.
+  return (
+    <button
+      type="button"
+      className={`carousel-arrow carousel-arrow--${direction}`}
+      data-testid={`carousel-arrow-${direction}`}
+      aria-label={direction === 'previous' ? 'Previous image' : 'Next image'}
+      tabIndex={-1}
+      disabled={disabled}
+      onPointerDown={(event) => event.stopPropagation()}
+      onPointerUp={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation()
+        onClick()
+      }}
+    >
+      {direction === 'previous' ? '‹' : '›'}
+    </button>
+  )
 }
 
-function carouselFramesWrapperStyle(fillHeight: boolean): CSSProperties {
-  return { position: 'relative', ...(fillHeight && { flex: '1 1 0%', minHeight: 0 }) }
+type KeyAction = 'previous' | 'next' | 'activate'
+
+function keyAction(key: string): KeyAction | null {
+  if (key === 'ArrowLeft') return 'previous'
+  if (key === 'ArrowRight') return 'next'
+  return isActivationKey(key) ? 'activate' : null
 }
 
-export function ImageCarousel({
-  media,
-  disabled = false,
-  onTap,
-  children,
-  ariaLabel = 'Contestant photo — swipe to browse, tap to vote',
-  fillHeight = false,
-}: ImageCarouselProps) {
-  const sorted = byDisplayOrder(media)
+function useCarouselPaging(count: number) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [visited, setVisited] = useState<Set<number>>(() => new Set([0]))
-  const gesture = useRef<{ startX: number; isSwiping: boolean } | null>(null)
-
-  const showAffordance = sorted.length > 1
 
   function navigate(direction: 'next' | 'previous') {
     const nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1
-    const clamped = Math.max(0, Math.min(sorted.length - 1, nextIndex))
+    const clamped = Math.max(0, Math.min(count - 1, nextIndex))
     setCurrentIndex(clamped)
     setVisited((prev) => new Set(prev).add(clamped))
   }
 
-  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    gesture.current = { startX: event.clientX, isSwiping: false }
-  }
+  return { currentIndex, visited, navigate }
+}
 
-  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!gesture.current) return
-    const deltaX = event.clientX - gesture.current.startX
-    if (exceedsSwipeThreshold(deltaX)) {
-      gesture.current.isSwiping = true
-    }
-  }
+// Pointer handlers that tell a swipe (page) from a tap (activate).
+function useSwipeOrTap(onSwipe: (direction: 'next' | 'previous') => void, onTap: (() => void) | undefined) {
+  const gesture = useRef<{ startX: number; isSwiping: boolean } | null>(null)
 
-  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    const current = gesture.current
-    gesture.current = null
-    if (!current) return
-
-    if (current.isSwiping) {
+  return {
+    onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+      gesture.current = { startX: event.clientX, isSwiping: false }
+    },
+    onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+      if (gesture.current && exceedsSwipeThreshold(event.clientX - gesture.current.startX)) {
+        gesture.current.isSwiping = true
+      }
+    },
+    onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+      const current = gesture.current
+      gesture.current = null
+      if (!current) return
+      if (!current.isSwiping) return onTap?.()
       const direction = swipeDirection(event.clientX - current.startX)
-      if (direction) navigate(direction)
-      return
-    }
-
-    if (!disabled) onTap()
+      if (direction) onSwipe(direction)
+    },
   }
+}
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'ArrowLeft') {
+function carouselClassName(fillHeight: boolean | undefined, tappable: boolean): string {
+  return ['carousel', fillHeight && 'carousel--fill', tappable && 'carousel--tappable'].filter(Boolean).join(' ')
+}
+
+function carouselLabel(ariaLabel: string | undefined, hasTapAction: boolean): string {
+  return ariaLabel ?? (hasTapAction ? VOTE_LABEL : BROWSE_LABEL)
+}
+
+function carouselKeyHandler(navigate: (direction: 'next' | 'previous') => void, tap: (() => void) | undefined) {
+  return (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const action = keyAction(event.key)
+    if (!action) return
+    if (action === 'activate') {
+      if (!tap) return
       event.preventDefault()
-      navigate('previous')
+      tap()
       return
     }
-    if (event.key === 'ArrowRight') {
-      event.preventDefault()
-      navigate('next')
-      return
-    }
-    if (isActivationKey(event.key) && !disabled) {
-      event.preventDefault()
-      onTap()
-    }
+    event.preventDefault()
+    navigate(action)
   }
+}
+
+function CarouselPagingControls({
+  count,
+  currentIndex,
+  onNavigate,
+}: {
+  count: number
+  currentIndex: number
+  onNavigate: (direction: 'next' | 'previous') => void
+}) {
+  if (count < 2) return null
+  return (
+    <>
+      <ArrowButton direction="previous" disabled={currentIndex === 0} onClick={() => onNavigate('previous')} />
+      <ArrowButton direction="next" disabled={currentIndex === count - 1} onClick={() => onNavigate('next')} />
+      <div className="carousel-dots" data-testid="carousel-dots">
+        {Array.from({ length: count }, (_, index) => (
+          <span key={index} className="carousel-dot" data-testid="carousel-dot" aria-hidden="true" data-active={index === currentIndex} />
+        ))}
+      </div>
+    </>
+  )
+}
+
+export function ImageCarousel({ media, disabled, onTap, children, ariaLabel, fillHeight }: ImageCarouselProps) {
+  const sorted = byDisplayOrder(media)
+  const { currentIndex, visited, navigate } = useCarouselPaging(sorted.length)
+  const tap = disabled ? undefined : onTap
+  const pointerHandlers = useSwipeOrTap(navigate, tap)
+
+  const handleKeyDown = carouselKeyHandler(navigate, tap)
 
   return (
     <div
       data-testid="carousel-root"
+      className={carouselClassName(fillHeight, tap !== undefined)}
       role="group"
-      aria-label={ariaLabel}
+      aria-label={carouselLabel(ariaLabel, onTap !== undefined)}
       tabIndex={0}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
+      {...pointerHandlers}
       onKeyDown={handleKeyDown}
-      style={carouselRootStyle(disabled, fillHeight)}
     >
-      <div style={carouselFramesWrapperStyle(fillHeight)}>
+      <div className="carousel-frames">
         {sorted.map((item, index) => (
-          <div key={item.id} style={frameStyle(item, index, currentIndex, fillHeight)}>
-            {visited.has(index) && <CarouselFrameImage item={item} fillHeight={fillHeight} />}
+          <div key={item.id} className="carousel-frame" data-active={index === currentIndex} style={frameStyle(item, fillHeight)}>
+            {visited.has(index) && (
+              <img data-testid="carousel-image" alt="" src={item.variants[0]?.url} srcSet={srcSetFor(item)} sizes="50vw" />
+            )}
           </div>
         ))}
-
-        {showAffordance && (
-          <>
-            <button
-              type="button"
-              data-testid="carousel-arrow-previous"
-              aria-label="Previous image"
-              tabIndex={-1}
-              disabled={currentIndex === 0}
-              style={arrowStyle('left', currentIndex === 0)}
-              // Stopped on pointerdown/pointerup too, not just click: those
-              // bubble to the carousel's own tap-to-vote gesture handlers
-              // *before* click ever fires, so stopping click alone still let
-              // a mouse click here cast a vote underneath the navigation.
-              onPointerDown={(event) => event.stopPropagation()}
-              onPointerUp={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation()
-                navigate('previous')
-              }}
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              data-testid="carousel-arrow-next"
-              aria-label="Next image"
-              tabIndex={-1}
-              disabled={currentIndex === sorted.length - 1}
-              style={arrowStyle('right', currentIndex === sorted.length - 1)}
-              onPointerDown={(event) => event.stopPropagation()}
-              onPointerUp={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation()
-                navigate('next')
-              }}
-            >
-              ›
-            </button>
-            <div data-testid="carousel-dots" style={dotsContainerStyle}>
-              {sorted.map((item, index) => (
-                <span
-                  key={item.id}
-                  data-testid="carousel-dot"
-                  aria-hidden="true"
-                  data-active={index === currentIndex}
-                  style={dotStyle(index === currentIndex)}
-                />
-              ))}
-            </div>
-          </>
-        )}
+        <CarouselPagingControls count={sorted.length} currentIndex={currentIndex} onNavigate={navigate} />
       </div>
       {children}
     </div>

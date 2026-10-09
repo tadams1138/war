@@ -68,3 +68,9 @@ Feature: Browse Wars
     Given more published public Wars exist than fit on one page
     When a visitor selects Next then Prev
     Then the first page's Wars are shown again without a new request
+
+  Scenario: Home has a page heading above the War cards
+    Given published public Wars
+    When a visitor opens Home
+    Then the page has a level-one heading
+    And each War card title is a level-two heading

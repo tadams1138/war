@@ -110,6 +110,29 @@ test('Removing a contestant with no votes deletes it immediately and returns to 
   expect(calls.some((c) => c.method === 'DELETE' && c.url.endsWith('/contestants/c-1'))).toBe(true)
 })
 
+test('A failed contestant removal shows an error and keeps the contestant', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' }), buildContestant({ id: 'c-2', name: 'Grace' })],
+  })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1`, responses: [{ status: 500, body: { error: 'boom' } }] },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-contestant-remove').click()
+
+  // Assert
+  await expect(item.getByTestId('edit-war-contestant-error')).toBeVisible()
+  await expect(page.getByTestId('edit-war-nav-contestant').filter({ hasText: 'Ada' })).toHaveCount(1)
+})
+
 test('Removing a contestant with votes asks for confirmation, naming how many votes will be lost', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
@@ -564,6 +587,48 @@ test('Removing an image drops it from the gallery', async ({ page }) => {
 
   // Assert
   await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(1)
+})
+
+test('A failed image removal shows an error and keeps the image', async ({ page }) => {
+  // Arrange
+  const media1 = buildMediaItem({ id: 'm-1', display_order: 0 })
+  const media2 = buildMediaItem({ id: 'm-2', display_order: 1 })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media1, media2] })] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'DELETE', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, responses: [{ status: 500, body: { error: 'boom' } }] },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-image-remove').first().click()
+
+  // Assert
+  await expect(item.getByTestId('edit-war-image-error')).toBeVisible()
+  await expect(item.getByTestId('edit-war-contestant-image')).toHaveCount(2)
+})
+
+test('A failed image reorder shows an error', async ({ page }) => {
+  // Arrange
+  const media1 = buildMediaItem({ id: 'm-1', display_order: 0 })
+  const media2 = buildMediaItem({ id: 'm-2', display_order: 1 })
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', contestants: [buildContestant({ id: 'c-1', name: 'Ada', media: [media1, media2] })] })
+  await useScenario(page, [
+    { method: 'GET', path: `${API}/wars/${WAR_ID}`, responses: [{ status: 200, body: detail }] },
+    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-1`, responses: [{ status: 500, body: { error: 'boom' } }] },
+    { method: 'PATCH', path: `${API}/wars/${WAR_ID}/contestants/c-1/media/m-2`, responses: [{ status: 500, body: { error: 'boom' } }] },
+  ])
+  await gotoEditPage(page)
+  await selectContestant(page, 'Ada')
+  const item = page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })
+
+  // Act
+  await item.getByTestId('edit-war-image-move-up').click()
+
+  // Assert
+  await expect(item.getByTestId('edit-war-image-error')).toBeVisible()
 })
 
 test('Reordering images persists the new order', async ({ page }) => {

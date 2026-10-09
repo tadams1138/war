@@ -1,9 +1,11 @@
-// A War's abuse reports (the spec, §8.5), shown to Staff on the War's detail,
+// A War's abuse reports (war-spec.md §8.5), shown to Staff on the War's detail,
 // each with a control to mark it addressed or unaddressed.
 import { useState } from 'react'
 import { getWarReports, setReportAddressed, type WarReport } from '../../api/client'
 import { toUserMessage } from '../../api/errors'
 import { useAsyncResource } from '../../hooks/useAsyncResource'
+import { AsyncStatus } from '../../components/AsyncStatus'
+import { ErrorMessage } from '../../components/ErrorMessage'
 
 export function WarReportsSection({ warId }: { warId: string }) {
   const reports = useAsyncResource(() => getWarReports(warId), [warId])
@@ -11,8 +13,7 @@ export function WarReportsSection({ warId }: { warId: string }) {
   return (
     <section aria-labelledby="war-reports-heading">
       <h2 id="war-reports-heading">Reports</h2>
-      {reports.status === 'loading' && <p>Loading…</p>}
-      {reports.status === 'error' && <p role="alert">{reports.message}</p>}
+      <AsyncStatus state={reports} />
       {reports.status === 'loaded' && (
         <ul className="war-reports">
           {reports.value.map((report) => (
@@ -52,7 +53,7 @@ function ReportRow({ report }: { report: WarReport }) {
           {addressed ? 'Mark unaddressed' : 'Mark addressed'}
         </button>
       </div>
-      {error && <p role="alert">{error}</p>}
+      <ErrorMessage message={error} />
     </li>
   )
 }

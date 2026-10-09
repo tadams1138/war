@@ -1,7 +1,7 @@
 // State machine behind EditWar (spec §6.1: a War is always editable by its
 // creator, in any status) — extracted out of the page component, mirroring
 // useVoteSession's split for the same reason.
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   addContestant as addContestantApi,
   clearVotes as clearVotesApi,
@@ -16,12 +16,19 @@ import {
   uploadContestantImages,
   uploadShareImage as uploadShareImageApi,
   type ContestantDetail,
+  type MediaItem,
   type PatchContestantPayload,
   type PatchWarPayload,
   type WarDetailResponse,
   type WarSummary,
 } from '../api/client'
-import { ApiError, toUserMessage } from '../api/errors'
+import { ApiError, isRateLimited, toUserMessage } from '../api/errors'
+import { byDisplayOrder } from '../utils/media'
+
+export interface ImageNotice {
+  message: string
+  kind: 'error' | 'wait'
+}
 
 export interface EditWarLoadedState {
   status: 'loaded'
@@ -32,18 +39,15 @@ export interface EditWarLoadedState {
   // Keyed by contestant id -- each contestant's own save can fail
   // independently of every other's, and of the metadata form's.
   contestantErrors: Record<string, string | null>
-  // Keyed by contestant id, like contestantErrors -- a separate field
-  // rather than reusing it because a rate-limited upload (the spec §10.5:
-  // "a wait, using the supplied delay -- never presented as an error")
-  // needs different presentation than an ordinary upload failure, and the
-  // two must never clobber each other if a save error and an image error
-  // are both live for the same contestant.
-  imageErrors: Record<string, { message: string; kind: 'error' | 'wait' } | null>
+  // Keyed by contestant id. Separate from contestantErrors because a
+  // rate-limited upload is a wait, not an error, and the two must never
+  // clobber each other.
+  imageErrors: Record<string, ImageNotice | null>
   // Set on a successful metadata or contestant save; Toast owns clearing
   // its own visibility, so this never needs to be reset back to null.
   toast: string | null
   // Set while a Publish/Unpublish request is in flight, and to the API's
-  // own validation messages when one fails -- the spec's one deliberate
+  // own validation messages when one fails -- war-spec.md's one deliberate
   // exception to generic 422 copy.
   publishing: boolean
   publishDetails: string[] | null
@@ -57,7 +61,7 @@ export interface EditWarActions {
   uploadShareImage: (blob: Blob) => Promise<void>
   saveContestant: (contestantId: string, payload: PatchContestantPayload) => Promise<void>
   addContestant: (name: string, bio: string | null) => Promise<ContestantDetail | null>
-  removeContestant: (contestantId: string) => Promise<void>
+  removeContestant: (contestantId: string) => Promise<boolean>
   addImages: (contestantId: string, files: File[]) => Promise<void>
   removeImage: (contestantId: string, mediaId: string) => Promise<void>
   moveImageUp: (contestantId: string, mediaId: string) => Promise<void>
@@ -67,7 +71,7 @@ export interface EditWarActions {
 }
 
 /**
- * The Publish/Unpublish action's own error copy (the spec's deliberate
+ * The Publish/Unpublish action's own error copy (war-spec.md's deliberate
  * exception to its generic 422 copy): the API's `details` array verbatim
  * when the failure actually carries one, falling back to the generic
  * message otherwise.
@@ -79,8 +83,11 @@ function detailsFromPublishError(error: unknown): string[] {
   return [toUserMessage(error)]
 }
 
-function isRateLimited(error: unknown): error is ApiError & { reason: 'rate-limited' } {
-  return error instanceof ApiError && error.reason === 'rate-limited'
+function swapPartner(war: WarDetailResponse, contestantId: string, mediaId: string): { current: MediaItem; previous: MediaItem } | null {
+  const contestant = war.contestants.find((c) => c.id === contestantId)
+  const sorted = byDisplayOrder(contestant?.media ?? [])
+  const index = sorted.findIndex((m) => m.id === mediaId)
+  return index > 0 ? { current: sorted[index], previous: sorted[index - 1] } : null
 }
 
 function withContestant(
@@ -100,7 +107,7 @@ export function useEditWar(
   // wait clears itself independently on its own timer.
   const imageWaitTimersRef = useRef<Record<string, number>>({})
 
-  async function load(): Promise<void> {
+  const load = useCallback(async (): Promise<void> => {
     if (!warId) return
     setState({ status: 'loading' })
     try {
@@ -121,14 +128,16 @@ export function useEditWar(
     } catch (error) {
       setState({ status: 'error', message: toUserMessage(error) })
     }
-  }
+  }, [warId])
 
   useEffect(() => {
     void load()
-    return () => {
-      Object.values(imageWaitTimersRef.current).forEach((timer) => window.clearTimeout(timer))
-    }
-  }, [warId])
+  }, [load])
+
+  useEffect(() => {
+    const timers = imageWaitTimersRef.current
+    return () => Object.values(timers).forEach((timer) => window.clearTimeout(timer))
+  }, [])
 
   function setLoaded(update: (prev: EditWarLoadedState) => EditWarLoadedState): void {
     setState((prev) => (prev.status !== 'loaded' ? prev : update(prev)))
@@ -186,15 +195,20 @@ export function useEditWar(
     }
   }
 
-  // Removing a contestant that carries votes clears them as part of the
-  // removal (spec §6.1) -- the API does this unconditionally, so there is
-  // nothing more for the client to do here than reload once it's done; the
-  // "ask first, naming what will be lost" confirmation for that case lives
-  // in EditWar.tsx, the one place that already knows a contestant's
-  // appearance_count.
-  async function removeContestant(contestantId: string): Promise<void> {
-    if (!warId || state.status !== 'loaded') return
-    await deleteContestantApi(warId, contestantId)
+  // The API clears a removed contestant's votes itself (spec §6.1); the
+  // "ask first" confirmation lives in EditWar.tsx. Resolves to whether the
+  // contestant was removed; a failure is shown on that contestant's editor.
+  async function removeContestant(contestantId: string): Promise<boolean> {
+    if (!warId || state.status !== 'loaded') return false
+    try {
+      await deleteContestantApi(warId, contestantId)
+    } catch (error) {
+      setLoaded((prev) => ({
+        ...prev,
+        contestantErrors: { ...prev.contestantErrors, [contestantId]: toUserMessage(error) },
+      }))
+      return false
+    }
     setLoaded((prev) => {
       const contestantErrors = { ...prev.contestantErrors }
       delete contestantErrors[contestantId]
@@ -204,6 +218,7 @@ export function useEditWar(
         contestantErrors,
       }
     })
+    return true
   }
 
   // Image mutations all reload the whole War afterward rather than
@@ -222,14 +237,18 @@ export function useEditWar(
         applyImageRateLimit(contestantId, error)
         return
       }
-      setLoaded((prev) => ({
-        ...prev,
-        imageErrors: { ...prev.imageErrors, [contestantId]: { message: toUserMessage(error), kind: 'error' } },
-      }))
+      showImageError(contestantId, error)
     }
   }
 
-  // Mirrors useVoteSession's applyRateLimit: shows the wait (the spec
+  function showImageError(contestantId: string, error: unknown): void {
+    setLoaded((prev) => ({
+      ...prev,
+      imageErrors: { ...prev.imageErrors, [contestantId]: { message: toUserMessage(error), kind: 'error' } },
+    }))
+  }
+
+  // Mirrors useVoteSession's applyRateLimit: shows the wait (war-spec.md
   // §10.5, never an error) and clears itself once the delay passes, no
   // action required from the creator.
   function applyImageRateLimit(contestantId: string, error: ApiError): void {
@@ -245,8 +264,12 @@ export function useEditWar(
 
   async function removeImage(contestantId: string, mediaId: string): Promise<void> {
     if (!warId) return
-    await deleteContestantMedia(warId, contestantId, mediaId)
-    await load()
+    try {
+      await deleteContestantMedia(warId, contestantId, mediaId)
+      await load()
+    } catch (error) {
+      showImageError(contestantId, error)
+    }
   }
 
   // A swap, not a relocation -- moving an image up trades its
@@ -255,18 +278,18 @@ export function useEditWar(
   // image.
   async function moveImageUp(contestantId: string, mediaId: string): Promise<void> {
     if (!warId || state.status !== 'loaded') return
-    const contestant = state.war.contestants.find((c) => c.id === contestantId)
-    if (!contestant) return
-    const sorted = [...contestant.media].sort((a, b) => a.display_order - b.display_order)
-    const index = sorted.findIndex((m) => m.id === mediaId)
-    if (index <= 0) return
-    const current = sorted[index]
-    const previous = sorted[index - 1]
-    await Promise.all([
-      reorderContestantMedia(warId, contestantId, current.id, previous.display_order),
-      reorderContestantMedia(warId, contestantId, previous.id, current.display_order),
-    ])
-    await load()
+    const pair = swapPartner(state.war, contestantId, mediaId)
+    if (!pair) return
+    const { current, previous } = pair
+    try {
+      await Promise.all([
+        reorderContestantMedia(warId, contestantId, current.id, previous.display_order),
+        reorderContestantMedia(warId, contestantId, previous.id, current.display_order),
+      ])
+      await load()
+    } catch (error) {
+      showImageError(contestantId, error)
+    }
   }
 
   async function publish(): Promise<void> {

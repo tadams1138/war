@@ -1,4 +1,4 @@
-// Summary tile used on the Home and MyWars pages (the spec, "WarCard"):
+// Summary tile used on the Home and MyWars pages (war-spec.md, "WarCard"):
 // title, category badge, contestant count, and time remaining (when
 // ends_at is set). MyWars ("MyWars Page") additionally needs a status badge
 // and a single link to the War's detail page, since it lists every status a
@@ -31,7 +31,7 @@ function WarCardDetails({ war }: { war: WarSummary }) {
   return (
     <>
       {war.share_image_url && <img className="war-card-image" src={war.share_image_url} alt="" />}
-      <h3>{warTitle(war.title)}</h3>
+      <h2>{warTitle(war.title)}</h2>
       {war.category && <p>{war.category}</p>}
       <p>{contestantCountLabel(war.contestant_count)}</p>
       {war.creator_name && <p data-testid="war-creator-name">{war.creator_name}</p>}

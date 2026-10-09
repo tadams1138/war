@@ -1,4 +1,4 @@
-// The Staff actions available on a Voter's detail (the spec, §6.7).
+// The Staff actions available on a Voter's detail (war-spec.md §6.7).
 import { setVoterBan, setVoterRole, setVoterSuspension, type AdminVoterDetail, type VoterMe, type VoterRole } from '../../api/client'
 import { VoterActionControl } from './VoterActionControl'
 
@@ -40,7 +40,7 @@ export function VoterActions({ voter, viewer, onChanged }: ViewerProps) {
   )
 }
 
-// Admin-only. An Admin never sees Revoke Admin on their own detail (the spec's
+// Admin-only. An Admin never sees Revoke Admin on their own detail (war-spec.md's
 // self-removal guard); the API would refuse it.
 function RoleControls({ voter, isSelf, onChanged }: VoterActionsProps & { isSelf: boolean }) {
   return (

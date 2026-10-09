@@ -9,7 +9,7 @@ const MATCHUP_ID = 'matchup-errors'
 
 async function gotoVotePageWithMatchup(page: Page, voteResponse: RecipeResponse) {
   const matchup = buildMatchupResponse({
-    matchup: { id: MATCHUP_ID, left: { id: 'a', name: 'A', media: [] }, right: { id: 'b', name: 'B', media: [] } },
+    matchup: { id: MATCHUP_ID, left: { id: 'a', name: 'A', bio: null, media: [] }, right: { id: 'b', name: 'B', bio: null, media: [] } },
   })
   await useScenario(page, [
     { method: 'POST', path: `${API}/wars/${WAR_ID}/join`, responses: [{ status: 204 }] },

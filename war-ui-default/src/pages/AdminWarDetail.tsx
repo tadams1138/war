@@ -1,4 +1,4 @@
-// A single War as Staff see it (the spec, §6.7, §8.5): standings, reports and
+// A single War as Staff see it (war-spec.md §6.7, §8.5): standings, reports and
 // the Remove action. Reached from the Admin Dashboard's lists.
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -9,6 +9,7 @@ import { useAsyncResource } from '../hooks/useAsyncResource'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { warTitle } from '../utils/warTitle'
+import { AsyncStatus } from '../components/AsyncStatus'
 
 export function AdminWarDetail() {
   const { id } = useParams<{ id: string }>()
@@ -23,8 +24,7 @@ export function AdminWarDetail() {
       <p>
         <Link to="/admin">Back to Admin Dashboard</Link>
       </p>
-      {war.status === 'loading' && <p>Loading…</p>}
-      {war.status === 'error' && <p role="alert">{war.message}</p>}
+      <AsyncStatus state={war} />
       {war.status === 'loaded' && <WarBody war={war.value} onChanged={() => setRefreshToken((token) => token + 1)} />}
     </main>
   )

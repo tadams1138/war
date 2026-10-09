@@ -1,4 +1,4 @@
-// A single Voter as Staff see it (the spec, §6.7): their roles and sanctions,
+// A single Voter as Staff see it (war-spec.md §6.7): their roles and sanctions,
 // the Wars they created, and (below) their vote history. Reached from the
 // Admin Dashboard's Voters list and the moderation log.
 import { useState } from 'react'
@@ -12,6 +12,7 @@ import { useAsyncResource } from '../hooks/useAsyncResource'
 import { usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { warTitle } from '../utils/warTitle'
+import { AsyncStatus } from '../components/AsyncStatus'
 
 export function AdminVoterDetail() {
   const { id } = useParams<{ id: string }>()
@@ -28,8 +29,7 @@ export function AdminVoterDetail() {
       <p>
         <Link to="/admin">Back to Admin Dashboard</Link>
       </p>
-      {voter.status === 'loading' && <p>Loading…</p>}
-      {voter.status === 'error' && <p role="alert">{voter.message}</p>}
+      <AsyncStatus state={voter} />
       {voter.status === 'loaded' && (
         <VoterBody
           voter={voter.value}
