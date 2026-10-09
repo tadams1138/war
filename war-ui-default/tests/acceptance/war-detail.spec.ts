@@ -200,8 +200,10 @@ test('Paragraphs in a bio separated by a blank line render with visible vertical
   const bio = page.getByTestId('contestant-bio')
   const paragraphs = bio.locator('p')
   await expect(paragraphs).toHaveCount(2)
-  const marginBottom = await paragraphs.first().evaluate((el) => parseFloat(getComputedStyle(el).marginBottom))
-  expect(marginBottom).toBeGreaterThan(0)
+  // Polled: a re-render can swap the bio's nodes mid-read, and a detached node has no computed style (NaN).
+  await expect
+    .poll(() => paragraphs.first().evaluate((el) => parseFloat(getComputedStyle(el).marginBottom)))
+    .toBeGreaterThan(0)
 })
 
 test('An adversarial bio never executes and never renders as raw HTML', async ({ page }) => {
