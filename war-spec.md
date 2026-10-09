@@ -1,11 +1,14 @@
 # War — Platform Specification
 
-**Status:** Draft
+**Status:** Living specification. `PROGRESS.md` records what is built.
+
+Sections marked **Planned — not yet built** (§6.5, §9.2, §11, §12.7) describe designed
+behaviour with no implementation yet; everything else is built.
 
 This is the complete functional specification for the War platform. It describes *what the
 system does*, not how any particular implementation achieves it. Concrete technology
-choices, project layout, and build commands live in `CLAUDE.md`; what has actually been
-built lives in `PROGRESS.md`.
+choices live in the code and the README's Stack section, project layout and build commands
+in `CLAUDE.md`, and what has actually been built in `PROGRESS.md`.
 
 Request and response payload shapes are deliberately absent. They are settled during the
 TDD/BDD cycle against the rules stated here.
@@ -35,7 +38,7 @@ to it.
 - One API layer serving web and future mobile clients identically
 - Multiple OAuth providers, each producing a unique, non-mergeable voter identity
 - Campaigns configurable with image-rich or short-video contestants
-- Per-campaign contestant fields, so a pageant and a primary are served by the same code
+- Free-form per-contestant bios, so a pageant and a primary are served by the same code
 - Binary matchups served one at a time, with choices persisted in full
 - A win-count leaderboard readable by anonymous and authenticated users alike
 - A tamper-evident vote audit trail
@@ -82,7 +85,7 @@ identity may do.
 
 ## 4. Domain Model
 
-### War
+### 4.1 War
 
 A named voting campaign, owned by its creator.
 
@@ -91,7 +94,7 @@ A named voting campaign, owned by its creator.
 | Title | Optional at the API level — a War is identified by its id, not its title, and creation and publishing both work without one. The default UI enforces a non-empty title as a soft requirement whenever it saves War metadata, but never blocks publishing on it. |
 | Category | Optional; used for filtering |
 | Status | `draft` → `published` → `closed` |
-| Visibility | `public` or `invite_only` |
+| Visibility | `public` or `unlisted`. Unlisted Wars appear in no public list but are otherwise used exactly like public ones (§6.1). |
 | Media mode | `image` or `video`; fixed for the War's lifetime |
 | End date | Optional; closes the War when reached |
 | Custom UI slug | Optional; selects a registered custom UI |
@@ -115,7 +118,7 @@ and concurrently. Each expired War is closed exactly once.
 Expiry never publishes anything. A draft whose end date passes reads as closed to its creator
 and to Staff. It stays invisible to everyone else, and it never appears in any public list.
 
-### Contestant
+### 4.2 Contestant
 
 A participant in a War: a name, an optional bio, and media appropriate to the War's media
 mode.
@@ -123,12 +126,12 @@ mode.
 A bio supports a constrained set of formatting — emphasis, lists, links, and headings —
 entered as plain text and rendered accordingly wherever a bio is shown; nothing else survives
 rendering, so no other markup a bio contains can affect the page around it. It renders on the
-vote page (10.3) as well as the War's detail page, but never inside the tap-to-vote media
+vote page (§10.3) as well as the War's detail page, but never inside the tap-to-vote media
 itself — reading it is never one gesture away from accidentally casting a vote. It is the
 only per-contestant free text the platform carries — different campaigns describe contestants
-in whatever prose fits, rather than filling in per-campaign structured fields.
+in whatever prose fits.
 
-### Media Mode
+### 4.3 Media Mode
 
 A War declares at creation whether contestants are presented as **images** or as **embedded
 video**. The mode is fixed and applies to every contestant.
@@ -145,7 +148,7 @@ match the War's mode.
 Mode affects presentation only. Matchup generation, pair selection, side randomisation, vote
 recording and ranking are identical in both modes.
 
-### Visual Theme
+### 4.4 Visual Theme
 
 A War declares, at creation, which of the default UI's visual treatments its own pages —
 detail, vote, and rankings — render in. Purely presentational: it changes none of voting,
@@ -160,7 +163,7 @@ ranking, scoring, or what data a contestant or matchup carries.
 A voter may override a War's theme for themselves without changing what its creator chose or
 what any other voter sees — see §10.4.
 
-### Matchup
+### 4.5 Matchup
 
 An **unordered** head-to-head pairing of two contestants. A War with `n` contestants has
 `n(n−1)/2` matchups. A contestant's matchups are generated the moment it's added, against every
@@ -169,13 +172,13 @@ is always exactly what the current roster implies, not a one-time snapshot froze
 publication.
 
 A pairing has no direction: **A vs B and B vs A are the same matchup.** This is enforced
-structurally by storing the two contestants in a canonical order, so a mirrored duplicate
+structurally by giving the two contestants a canonical order, so a mirrored duplicate
 cannot exist and a voter cannot accumulate one vote for each side of the same pair.
 
 Which contestant is *displayed* on which side is a separate, per-voter presentation concern
 and carries no meaning.
 
-### Vote
+### 4.6 Vote
 
 A voter's pick in a matchup — **immutable and final**. One vote per voter per matchup,
 structurally enforced. There is no supersede mechanism and no way to change a decided vote.
@@ -190,13 +193,13 @@ Each contestant carries two counters, maintained in the same transaction as the 
 Because votes are immutable, both counters increase monotonically and never need
 recomputation. They drive both pair selection and rankings.
 
-### Other entities
+### 4.7 Other entities
 
 - **Voter** — an identity, unique per (provider, provider account id), carrying a display
   name and avatar where the provider supplies them.
 - **War membership** — records that a voter has joined a War.
 - **Refresh token** — a session credential, grouped into families (below).
-- **Custom UI registration** — maps a slug to the location of its bundle.
+- **Custom UI registration** — maps a slug to the location of its bundle (planned, §6.5).
 
 ---
 
@@ -281,27 +284,31 @@ signal that anything is wrong. That is what makes rotation worth its complexity.
 ## 6. Platform Capabilities
 
 The API is versioned, returns JSON only, renders no HTML, and holds no server-side session
-state. It accepts requests from registered UI origins. List endpoints are cursor-paginated.
+state. It accepts requests from registered UI origins. List endpoints are cursor-paginated
+with a bounded page size (1 to 100 entries); an out-of-range size or a malformed continuation
+token is rejected as a bad request, never silently clamped. Create and edit requests with
+malformed bodies — a wrong type, a missing required field, an over-long category — are
+rejected with validation details naming each offending field.
 The API publishes its own machine-readable contract, generated from its route definitions
 rather than hand-maintained, so it cannot drift from the implementation; clients generate
 their types from it.
 
 ### 6.1 Wars
 
-Browse, create, read, update, publish, unpublish, close, and join.
+Browse, create, read, update, publish, unpublish, and join. A War is never closed by request, only by its end date (§4.1).
 
 **Browsing** is filterable by status and category. Absent an explicit request for the
-caller's own Wars, the list **never** includes a draft War or an invite-only one, regardless
+caller's own Wars, the list **never** includes a draft War or an unlisted one, regardless
 of any status filter supplied — asking for drafts returns an empty list rather than someone
 else's. Being authenticated grants no extra visibility on its own. With no status filter at
 all the default is published Wars only. Every caller inherits this scoping; no future entry
 point can bypass it by forgetting to apply it.
 
-**A voter may list their own Wars** across every status, drafts and invite-only included.
+**A voter may list their own Wars** across every status, drafts and unlisted included.
 This requires authentication and is the only thing that widens visibility.
 
 **Creation** requires nothing but an authenticated voter — title, category, visibility, media
-mode, theme, and end date are all optional, with documented defaults. The
+mode, theme, and end date are all optional, with defaults (public, image mode, `arcade`). The
 War is created as a draft owned by the authenticated voter and can be filled in afterward.
 
 **Publishing is visibility, not a one-time step.** Only the creator may toggle it — **Publish**
@@ -310,7 +317,7 @@ and **Unpublish** are the two directions of one reversible switch, at any time �
 contestants; unpublishing requires nothing and does not touch any matchup, vote, or contestant.
 A contestant may be published with no media at all — voting and rankings render whatever media
 (if any) a contestant has, same as every other optional field. `closed` remains the one true
-terminal state, reached only by its end date passing (§4, "Effective status") — nothing in this
+terminal state, reached only by its end date passing (§4.1, "Effective status") — nothing in this
 reversible toggle affects it, and nothing reverses it: a closed War can be neither published nor
 unpublished.
 
@@ -319,6 +326,11 @@ that has never been published: its detail, rankings, and vote pages report it as
 (§10.5) to anyone else, the same response an actually-missing War produces, never a distinct
 "this exists but is private" signal that would confirm its existence to someone it isn't meant
 for. The creator can always reach it, in any state.
+
+**Unlisted Wars are reached by link, not by browsing.** Once published, anyone may view one
+and read its rankings, signed in or not; any signed-in voter may join and vote, exactly as in
+a public War. Unlisted limits discovery only, not access, and there is no invitation
+mechanism.
 
 **Joining** records the voter's membership. Voting requires it.
 
@@ -406,8 +418,8 @@ the full pair count, not a per-voter sample.
 
 ### 6.4 Rankings
 
-A public leaderboard per War, readable without authentication for public Wars and restricted
-to members for invite-only ones.
+A public leaderboard per War, readable without authentication for any published War, public
+or unlisted.
 
 Each row carries the contestant, its rank, its win count and its appearance count.
 Appearances are shown for transparency: they let a viewer confirm contestants have been shown
@@ -415,9 +427,10 @@ comparably often, which is the assumption the ranking rests on.
 
 Responses are cacheable for about thirty seconds, matching the UI's poll interval, so many
 concurrent viewers collapse to roughly one origin query per interval per edge location.
-Invite-only rankings are marked private so they are never held in a shared cache.
 
 ### 6.5 Custom UI registry
+
+**Planned — not yet built.**
 
 A read-only registry mapping a slug to the location of its bundle. Registration is an
 administrative operation: a registry record plus a file upload. It provisions nothing — no
@@ -431,17 +444,17 @@ excluded from the published contract.
 
 The only such task closes Wars whose end date has passed. It is idempotent — safe to run
 repeatedly, concurrently, and after arbitrary delay — and changes no observable behaviour,
-because effective status (§4) already treats those Wars as closed.
+because effective status (§4.1) already treats those Wars as closed.
 
 ### 6.7 Administration
 
 **Moderator** and **Admin** (together, **Staff** below) are account-level roles (§3).
 Granting or revoking either on a Voter is an Admin-only operation; every other caller,
-Moderator included, gets a 403. There is no self-service path to either role.
+Moderator included, is refused as forbidden. There is no self-service path to either role.
 
 **The first Admin on a fresh deployment is created by a seed script**, run once at deploy
 time against a designated Voter id — not through any API endpoint, since no Admin yet
-exists to call one. Every Admin after that is granted through this endpoint by an existing
+exists to call one. Every Admin after that is granted by an existing
 Admin; a first Moderator needs no bootstrap at all, since any Admin can grant that role the
 moment one exists.
 
@@ -452,7 +465,7 @@ bootstrap step above — a failure mode worth making structurally impossible rat
 merely discouraged, the same reasoning §8.1 gives for why a mirrored matchup pairing cannot
 exist at all.
 
-**Visibility.** Staff may view every War regardless of status — draft, invite-only, or
+**Visibility.** Staff may view every War regardless of status — draft, unlisted, or
 closed — and every Voter, including a Voter's own complete vote history (§8.3's audit
 trail, otherwise kept for future tooling, surfaced here to a human instead). This is the
 only way visibility scoping (§6.1's default scoping, and "a War not currently published is
@@ -471,7 +484,7 @@ removed Wars, which no ordinary route ever shows. These views cover:
 - one Voter's complete vote history, newest first: every matchup they decided, in whatever
   War, removed ones included
 
-Every list is paged like the moderation log. Reading never changes anything and writes
+Every list is paged (§6). Reading never changes anything and writes
 nothing to the moderation log. No view exposes how a Voter signs in.
 
 **Remove a War** takes down a War Staff have moderated for cause. It is deliberately not
@@ -485,9 +498,8 @@ the reason for the removal, is actually reclaimed.
 
 A removed War behaves as if it doesn't exist, everywhere. It can't be viewed, listed,
 voted on, edited, published, reported, or deleted, not even by its own creator. A creator's
-Delete can't erase what the moderation preserved. Removing is Staff only, and everyone else
-gets a 403. Removing a War that doesn't exist or is already removed gets a not-found
-response. The removal and its moderation log entry happen together. Media is reclaimed only
+Delete can't erase what the moderation preserved. Removing is Staff only; everyone else
+is refused as forbidden. Removing a War that doesn't exist or is already removed reports not found. The removal and its moderation log entry happen together. Media is reclaimed only
 after the removal commits. If reclaiming fails, the War stays removed: an orphaned file costs
 storage, not correctness.
 
@@ -503,25 +515,24 @@ intentional exception to §8.1's immutability, scoped to exactly this one modera
 because the alternative (an abusive Voter's votes standing forever) is worse than the
 exception.
 
-Suspend and Ban are open to any Staff member. Everyone else gets a 403. Neither can target
+Suspend and Ban are open to any Staff member. Everyone else is refused as forbidden. Neither can target
 the caller or any Staff member: a Moderator or Admin must first have their role revoked by an
-Admin. A Suspended Voter's creation attempt gets a "forbidden" response naming the
+Admin. A Suspended Voter's creation attempt is refused as forbidden, naming the
 suspension. While the kill switch is on, its response wins instead. A Ban takes effect at
 once: any session the Voter already holds stops working on their very next request, not when
-it would have expired. No vote the Voter is casting at that moment survives the Ban: one
-already underway is erased by the Ban, and one arriving during it is refused. A role granted
-concurrently is never missed either. If the target became Staff first, the action is refused
-as for any Staff target. A Ban's data deletion and its moderation log entry happen together.
+it would have expired. No vote the Voter is casting at that moment survives the Ban, and a
+role granted concurrently is never missed: if the target became Staff first, the action is
+refused as for any Staff target. A Ban's data deletion and its moderation log entry happen together.
 Reclaiming the deleted Wars' media follows afterwards, best effort, as with Remove a War.
 Reports the banned Voter filed survive. Unban restores sign-in only.
 
-**A global War-creation kill switch** rejects every `POST /wars` request, from every Voter
+**A global War-creation kill switch** rejects every War-creation request, from every Voter
 including Staff, while enabled. No exceptions and no special-casing — an emergency stop is
 only trustworthy if it actually stops everything. Nothing else is affected: existing Wars
 keep running, voting continues, and disabling the switch requires the same Staff capability
 as enabling it. Any Staff member, Moderator or Admin, may read or set the switch. Everyone else
-gets a 403. A refused creation attempt gets a "service unavailable" response that names War
-creation as disabled, and it counts against no rate limit. The switch is off until first set.
+is refused as forbidden. A refused creation attempt is reported as service unavailable, names War
+creation as disabled, and counts against no rate limit. The switch is off until first set.
 Its state is shared by every running API instance and survives restarts.
 
 **An append-only moderation log** records every Staff action — Remove a War,
@@ -531,9 +542,8 @@ votes' own immutability (§8.1), and for the same reason: several Staff may exis
 must be individually accountable for what they did. An action and its log entry stand or
 fall together. If the entry can't be recorded, the action doesn't happen, and a refused
 action records nothing. Any Staff member can read the whole log, newest first. Everyone else
-gets a 403. The log is read a page at a time (at most 100 entries per page, 50 by default)
-by following an opaque continuation token. Paging never skips or repeats an entry, even when
-several entries share a timestamp. A malformed token or an out-of-range page size gets a 400.
+is refused as forbidden. The log is read a page at a time (§6); paging never skips or repeats an
+entry, even when several entries share a timestamp.
 Entries outlive their targets: deleting a War never removes or blocks on its log entries.
 Each entry, as read, names the acting Staff member and the target by their current display
 name or title. A removed War still shows its title. A War since deleted outright shows no
@@ -650,10 +660,12 @@ failure. Where limit counters are held in process, effective limits scale with i
 — acceptable while instance counts are fixed, and the reason the ceilings are conservative. A
 shared counter store becomes necessary before autoscaling.
 
-**Address-keyed limits require correct client-address resolution.** Behind a reverse proxy
-the address the application sees is the proxy's unless the proxy hop count is configured. If
-it is not, every client behind the same hop shares one bucket — better than no limit, but not
-per-client accuracy. See §12.2.
+**Address-keyed limits apply only once the deployment's reverse-proxy hop count is
+configured.** Behind a proxy the address the application sees is the proxy's, so until the
+count is known the address limits are off rather than throttling every client as one
+address. The count is a per-deployment setting that must be verified against the real
+proxy chain before it is set (§12.2). Independently, the edge rate-limits all authentication
+paths (§12.7).
 
 ### 8.5 Abuse reporting
 
@@ -672,7 +684,7 @@ War; reports are never deduplicated or merged.
 | Reporter | The Voter who filed it |
 | Explanation | Required short text |
 | Filed at | Timestamp |
-| Addressed | Boolean, defaults `false` |
+| Addressed | Whether a Moderator has dealt with it; initially not |
 
 **Reports accumulate; none is ever deleted individually** — a report is removed only as a
 side effect of its War being deleted (§6.1). Short of that, each is independent —
@@ -683,15 +695,15 @@ reported, by whom, or why — reports are invisible to everyone except Moderator
 with no exception for the War's own creator. No notification is sent to anyone when a
 report is filed, consistent with the platform carrying no push notifications (§2).
 
-**Moderator/Admin capabilities**, all 403 for anyone else:
+**Moderator/Admin capabilities**, refused as forbidden for anyone else:
 
 - **List reports for a War** — every report against a given War id, newest first, each
   with its reporter, explanation, filed-at time, and addressed state.
-- **List Wars with unaddressed reports** — every War carrying at least one report where
-  `addressed` is `false`, each with its unaddressed-report count. This is the moderation
+- **List Wars with unaddressed reports** — every War carrying at least one report not yet
+  addressed, each with its unaddressed-report count. This is the moderation
   queue: it is how a Moderator or Admin finds what still needs attention without checking
   every War.
-- **Set a report's addressed state** — toggles one report's `addressed` flag in either
+- **Set a report's addressed state** — toggles one report's addressed state in either
   direction, so a Moderator or Admin can reopen a report addressed in error.
 
 ---
@@ -728,6 +740,9 @@ delivery is the dominant traffic driver for the whole platform. A small variant 
 two orders of magnitude smaller than an unprocessed upload.
 
 ### 9.2 Embedded video
+
+**Planned — not yet built.** Image mode is the only media mode implemented; the rules below
+(and video presentation in §10.3) are the target design.
 
 In video mode a contestant is one short video hosted **elsewhere**. The platform stores a
 reference and never stores, transcodes, or serves video bytes.
@@ -792,9 +807,9 @@ against, so those tests exercise real shapes rather than believed ones.
 | Route | Purpose | Authenticated |
 |---|---|---|
 | Home | Browse published public Wars | No |
-| War detail | Overview and results — one merged, rank-ordered list, not a gallery plus a separate leaderboard | No |
+| War detail | Overview and results — one merged, rank-ordered list, not a gallery plus a separate leaderboard; any published War, listed or unlisted | No |
 | Vote | Binary matchup voting | Yes |
-| Create War | Creates an empty draft War and forwards to its Edit page | Yes |
+| Start a War | Creates an empty draft War and forwards to its Edit page | Yes |
 | Edit War | Metadata, contestants and media, Publish/Unpublish, Clear Votes, and Delete, for any War the voter created, any status | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
 | Admin Dashboard | Every War and Voter, moderation actions, the moderation log (§6.7); Staff only | Yes |
@@ -827,12 +842,12 @@ has a stable address, so lists, the reports queue, and the moderation log can li
 wrapping the whole route tree rather than added page by page — a page that forgets it is then
 not a possible failure mode. Every route likewise renders above a persistent footer carrying
 attribution, a link to the project's source repository, and a link to its guide for building
-an Import feature (§10.4) for a new client.
+a War import file (§10.4).
 
 ### 10.2 Navigation
 
 **A brand mark sits at the header's leading edge, before everything else, every
-visitor's own fixed identity for the platform — not a War's** (§4's Theme is per-War;
+visitor's own fixed identity for the platform — not a War's** (§4.4's Theme is per-War;
 this is deliberately not). It is a link to Home and needs no authentication to use — Home
 itself needs none (§10.1) — so it renders identically whether or not the visitor is signed in.
 
@@ -842,8 +857,8 @@ partial or transitional state.
 - **Anonymous:** the brand mark, plus sign-in only. No links to authenticated destinations —
   offering an action that only ends in a redirect is friction the header exists to remove.
 - **Authenticated:** the brand mark, plus a single identity control (the voter's avatar and
-  name) that opens a menu holding My Wars, Start a War, and a sign-out control, always
-  together — Home is not repeated in this menu, since the brand mark already covers it for
+  name) that opens a menu holding My Wars, Start a War, Import a War, the Admin Dashboard
+  (Staff only), and a sign-out control, always together — Home is not repeated in this menu, since the brand mark already covers it for
   every visitor. The control is closed by default, so the persistent header stays small
   regardless of how many destinations it holds. The open menu renders on an opaque or
   sufficiently translucent surface of its own, never the bare page behind it — a themed page
@@ -862,18 +877,18 @@ fetch never blocks navigation.
 
 The current route is marked as such within the open menu; on a route the menu has no item
 for, none is marked. The header is a labelled landmark so assistive technology can jump to
-it, every menu item is keyboard reachable, the menu closes on selecting an item, clicking
-outside it, or pressing Escape, and the sign-out control is a real button because it performs
-an action rather than navigating.
+it. The menu follows the standard menu keyboard pattern: opening it moves focus to its first
+item; the arrow keys move between items, wrapping at either end; Home and End jump to the
+first and last; Escape closes it and returns focus to the control. It also closes on selecting
+an item or clicking outside it. The sign-out control is a real button because it performs an
+action rather than navigating.
 
 ### 10.3 Voting interface
 
 Two contestant cards side by side.
 
-- Cards show image and name **only** — a bio belongs beside the card, a fast binary choice has
-  no room for it there. A contestant's bio, when it has one, renders in its own area outside
-  the tap-to-vote media (below) — never inside it, so reading it is never one gesture away
-  from a vote
+- Cards show image and name **only**; a contestant's bio renders in its own area outside the
+  tap-to-vote media (below), as §4.2 requires
 - Images use the width set the API supplies, sized for two cards sharing the viewport, so a
   phone downloads a small variant rather than a large one
 - Card media, the two names, and the progress bar are capped to fit one viewport on a typical
@@ -895,7 +910,7 @@ Two contestant cards side by side.
   (§10.4) — whether that happens because they just cast the final vote, or because they
   arrive at the vote page (fresh, or back from signing in) having already finished it
 
-**Bios sit outside the tap-to-vote block**, and clicking anywhere in one never casts a vote.
+Clicking anywhere in a bio never casts a vote.
 On a wide viewport, both contestants' bios render side by side below that block, reachable by
 scrolling down past it. On a narrow (stacked) viewport, where the two cards are already
 stacked to keep both visible without scrolling, each contestant's bio instead renders beside
@@ -913,7 +928,7 @@ users, and the card remains a single tab stop. Non-primary images load lazily �
 cards' full sets would multiply per-matchup transfer roughly tenfold for images most voters
 never look at.
 
-**In video mode** the two cards hold players and play one after the other: both start paused
+**In video mode** (planned, §9.2) the two cards hold players and play one after the other: both start paused
 showing posters, the voter presses play once for the pair, the first plays, the second starts
 automatically, and both cards become selectable when it ends. Because side assignment is
 already randomised per voter and recorded, which video plays first is randomised too and
@@ -937,25 +952,18 @@ unfinished task, and must never imply a partial contribution is wasted.
 
 **War detail is one page, not two — and one list, not two.** Results (rank, win count, appearance
 count) are not a separate section below a contestant gallery; each result row carries that same
-contestant's media and bio (§4) directly, in rank order, with unranked contestants at the bottom
+contestant's media and bio (§4.2) directly, in rank order, with unranked contestants at the bottom
 marked by a dash. There is no separate "Results" heading and no separate gallery — the rank-ordered
 list *is* the page. Results render exactly as returned, with no percentages computed or displayed.
-Needs no authentication for a public War (§6.4).
+Needs no authentication for any published War (§6.4).
 
-Each row stacks its parts top to bottom on a narrow, portrait-oriented viewport — media, then
-bio, then the wins/appearances/win-share group. At laptop width and above, or on
-any viewport wider than it is tall (a phone rotated to landscape, short on vertical room
-regardless of its width), media moves beside the bio instead of above it; the
-wins/appearances/win-share group stays underneath the bio either way, never beside it. Media
-stays large regardless of width, never shrinking to a sliver. A
-contestant's rank is shown directly on its media (a marker on the image itself, "—" for
-unranked) rather than in a column of its own. On a wide viewport the list is capped in width and
-centered, leaving open space on either side rather than stretching every row edge to edge. A
-contestant with more than one image is browsable in place — paging arrows sit on the image's own
-left and right edges and a row of dots along its bottom show which image and how many, so every
-image occupies the same space regardless of whether it has company, rather than the controls
-claiming a row of their own underneath (the same page-through affordance the vote card's own
-multi-image browsing already uses, 10.3). A contestant with no media (§6.1: media is optional)
+Each row shows the contestant's media, bio, and a wins/appearances/win-share group, with the
+rank marked directly on the media ("—" for unranked) rather than in a column of its own. Media
+stays large at every width: stacked above the bio on a narrow or portrait viewport, beside it
+on a wide or landscape one, with the numbers always beneath the bio. On a wide viewport the
+list is capped in width and centered. A contestant with more than one image is browsable in
+place with the same page-through controls as the vote card (§10.3), overlaid on the image so
+a lone image and a browsable one occupy the same space. A contestant with no media (§6.1: media is optional)
 shows no image at all in its row — never a placeholder standing in for the missing photo. Win
 share is a bar sized to a contestant's raw wins relative to the leader's, never wins over
 appearances — an appearance-normalized percentage is exactly what §7 rejects as a display value.
@@ -972,7 +980,7 @@ a second time from the page a creator is more likely to already be on, alongside
 **Delete** affordance the Edit page itself carries (below). A large, centered **Vote** call to
 action, set apart from the ordinary Edit/Delete/Export row rather than one item among them,
 appears for a published War whenever there's a reason to tap it: an anonymous visitor (tapping
-it sends them to sign in and back, the same as Home's own Vote link, §10.4 "Home"), or an
+it sends them to sign in and back, the same as Home's own Vote link), or an
 authenticated voter who hasn't yet cast every vote — returning them to where they left off.
 Neither the Edit nor Delete affordance appears for a War that isn't the viewer's own; Vote
 additionally requires the War to be published, and disappears once an authenticated voter has
@@ -1014,7 +1022,7 @@ counting a searched, sorted list is not free at any real scale. Changing the sor
 search text starts back at the first page.
 
 **Theme switching.** A War's detail (which carries its results) and vote pages render in its
-creator-chosen theme (§4) until the voter viewing them picks a different one from the theme control in the
+creator-chosen theme (§4.4) until the voter viewing them picks a different one from the theme control in the
 persistent navigation header — reachable from every page, not just the themed ones. That pick
 is remembered only on the device it was made on, independently per War — it is not part of
 the voter's account, so it does not follow them to a different browser, and it never changes
@@ -1033,7 +1041,7 @@ Every War card on Home is already known to be published — that is the page's w
 so the card does not repeat "published" as a status word; **My Wars** still shows status, since it
 lists every status a War can hold (below). Instead each card carries two direct entry
 points: **Vote**, going straight to the Vote page, and **Results**, going to the War detail
-page (10.1) for its overview and current standing — one merged page and one merged list, not a
+page (§10.1) for its overview and current standing — one merged page and one merged list, not a
 leaderboard reached separately. Results is public and needs no authentication. Vote requires
 an authenticated voter — an anonymous visitor who taps it is redirected to sign-in carrying
 that destination and returned to it afterward, the same rule §10.1 states for any protected
@@ -1053,7 +1061,8 @@ never status-gated (§6.1). This page adds no
 resume affordance beyond that. Its header and its empty state both carry two entry points, not
 one: Start a War, and Import a War (above).
 
-**Editing** is one page covering everything a War needs: title, category, visibility, theme,
+**Editing** is one page covering everything a War needs: title, category, visibility (with a
+one-line hint that unlisted means hidden from public lists but open to anyone with the link), theme,
 end date, share image, each contestant's name, bio, and images (add, remove, reorder, up to
 the per-contestant cap), **Publish/Unpublish**, **Clear Votes**, and **Delete**. There is no
 fixed order to walk, and none of it is gated by status — a War the creator finished voting on
@@ -1077,28 +1086,22 @@ image each; the control explains why it's unavailable rather than disappearing s
 that isn't met.
 
 **Pasting a War's own link elsewhere** (a chat app, a social post) shows that War's title and,
-when it has one, its share image — the reason the share image exists at all (§4). A War with
+when it has one, its share image — the reason the share image exists at all (§4.1). A War with
 no title or no share image falls back to a generic label and no image respectively, rather
 than a blank or broken preview. This applies to the War's detail page specifically; other
 pages under the same War (editing, voting) are not meant to be shared and carry no such
 preview of their own.
 
-**Delete** removes the War entirely — contestants, media, every vote, and any reports filed
-against it (§6.1) — regardless of status. **Clear Votes** deletes every vote cast in the War
-and resets every contestant's counters to zero, also regardless of status. Both ask for
-confirmation first, naming what will be lost, since neither can be undone; both, like removing
-a contestant that carries votes (§6.1), are visually distinguished from ordinary actions so a
-creator never mistakes a destructive choice for a routine one.
+**Delete** and **Clear Votes** act as §6.1 states, in any status. Both, like removing a
+contestant that carries votes, ask for confirmation first, naming what will be lost, and are
+visually distinguished from ordinary actions so a creator never mistakes a destructive choice
+for a routine one.
 
-**Publish** and **Unpublish** are the two directions of one toggle governing whether anyone but
-the creator can currently reach the War — not a one-time step, and reversible in either
-direction (§6.1). Publish is disabled with an inline reason until the War meets the API's own
+**Publish** and **Unpublish** are the two directions of one toggle (§6.1). Publish is disabled with an inline reason until the War meets the API's own
 requirement (at least two contestants) — a client-side mirror of a rule the API enforces
 regardless, so a creator sees why before attempting it rather than only after a rejected
 request. Unpublish requires nothing. Either action asks for confirmation first, naming what
-changes (who can now reach it, or who no longer can), and stays on the Edit page afterward
-rather than navigating away — there is nothing left to protect by leaving, since a subsequent
-edit is never blocked by the War's current status. A
+changes (who can now reach it, or who no longer can), and stays on the Edit page afterward. A
 failure the client-side check didn't catch (a race, a network error) shows the API's own
 validation messages verbatim, never generic error copy — these are addressed to the creator,
 and only the creator ever reaches them.
@@ -1142,6 +1145,9 @@ the server call is a courtesy.
 
 ## 11. Custom UIs
 
+**Planned — not yet built.** No registry, shared runtime, or custom-UI pipeline exists yet; this
+section is the target design.
+
 A custom UI is a brand-specific frontend for a single War, selected by that War's slug. It
 replaces **presentation only**: it consumes the same API, enforces no rules of its own, and
 cannot change how voting, ranking, or scoring behave. A branded UI and the default UI produce
@@ -1157,7 +1163,7 @@ Most campaign-to-campaign variation does not need one.
 | Different title, category, end date, visibility | Ordinary War configuration |
 | **Radically different branding, layout and styling** | **A custom UI** |
 
-A primary and a pageant describe contestants with entirely different fields and are both
+A primary and a pageant describe contestants in entirely different prose and are both
 served well by the default UI — that is a *data* difference, not a presentational one. A
 custom UI is warranted only when a campaign needs markup and styling the default UI cannot
 express. It is the heaviest option and the last to reach for.
@@ -1240,7 +1246,8 @@ than the standard ones, and per-slug infrastructure of any kind.
 
 Infrastructure is defined as code, and every environment change is applied by automated
 pipeline — no manual console changes in staging or production. This section states
-infrastructure by **role**; the products currently filling each role are named in `CLAUDE.md`.
+infrastructure by **role**; the products currently filling each role are named in the
+README's Stack section, and operational detail lives in `war-infra/README.md`.
 
 | Role | Responsibility |
 |---|---|
@@ -1276,9 +1283,11 @@ The database is reachable only from the application platform, never the public i
 automated daily backups and point-in-time recovery. Production runs a standby; staging runs
 single-node.
 
-**One open item.** The API's address-keyed rate limits (§8.4) are only accurate if the
-number of reverse-proxy hops in front of the application is configured. That count is not
-recorded for either environment; until it is, clients behind the same hop share a bucket.
+**Reverse-proxy hop count.** The API's address-keyed rate limits (§8.4) stay off until the
+number of reverse-proxy hops in front of the application is configured per deployment.
+The count must be verified against the real chain (edge, then platform ingress) before it
+is set, since a wrong value either lets clients spoof their address or collapses them into
+one.
 
 ### 12.3 Routing
 
@@ -1337,8 +1346,7 @@ gates are a required-approval step tied to the environment itself, not a step in
 pipeline, so a gate cannot be bypassed by editing a pipeline.
 
 **Migrations run as a pre-deploy hook inside the deployment**, not as a pipeline stage, so a
-failed migration aborts the deployment and never ships. They are plain ordered SQL files
-tracked in a table, must be backwards-compatible — the hook runs while the previous revision
+failed migration aborts the deployment and never ships. They are ordered, recorded as applied, must be backwards-compatible — the hook runs while the previous revision
 is still serving — and roll back manually, with point-in-time recovery as the backstop.
 
 Custom UIs share one pipeline template, invoked from each brand's own repository. Invoking it
@@ -1353,15 +1361,16 @@ and substituted into the deployment spec at deploy time from the CI secret store
 therefore updating the stored secret and triggering any deploy.
 
 Every value with a localhost-shaped default **must have a startup guard that refuses to boot
-when it is left at that default.** Three separate production incidents traced to the same
-shape — a deployment silently falling back to a local URL and redirecting real users there
-after sign-in, with nothing in the pipeline or the running process erroring. The guard is the
-lesson, not the individual variables.
+when it is left at that default**, so a deployment can never silently fall back to a local URL
+and redirect real users there after sign-in.
 
 Known limitation: platform-encrypted variables give encryption at rest but no versioning,
 per-component access policy, or audit trail. A dedicated secrets manager is deferred.
 
 ### 12.7 Monitoring
+
+**Planned — not yet built** for the table below: only platform resource and deploy alerts
+exist today. Edge protection and the content security policy that follow are built.
 
 | Signal | Threshold |
 |---|---|
@@ -1396,38 +1405,24 @@ stored state lags. War expiry is the worked example: the API evaluates end dates
 every read and write, so a War is closed the instant it expires; the nightly task only
 converges stored state.
 
-Every task must be safe to run repeatedly, concurrently, and after arbitrary delay. A failed
-run retries once; two consecutive failures raise an alert. Because correctness never depends
-on it, a failed run is a housekeeping incident, not an outage.
+Every task must be safe to run repeatedly, concurrently, and after arbitrary delay. Because
+correctness never depends on it, a failed run is a housekeeping incident, not an outage;
+alerting on repeated failure is part of the planned monitoring (§12.7).
 
 ### 12.9 Operational constraints
 
-Rules not visible in the infrastructure code, each of which has been broken at least once.
-Changing any of them needs a better reason than tidiness.
+Rules not visible in the infrastructure code; changing any needs a better reason than
+tidiness. Procedures live in `war-infra/README.md`.
 
-- **The application's identifier is a manual step after any from-scratch environment apply.**
-  Infrastructure creates the application and outputs its id, but nothing publishes it; the
-  deploy pipelines read it from a per-environment variable that must be set by hand. The
-  failure when missing does not obviously point at a missing variable.
-- **Each deploy pipeline needs its own named serialization group, per environment.** A "do not
-  cancel in progress" setting protects a *running* job, not a *pending* one, and only one
-  pending run is kept per serialization group. A job waiting at a required-reviewer gate is
-  pending, so a sibling pipeline entering the same serialization group evicts it — reading as
-  "cancelled", with nothing distinguishing it from any other cancellation. This silently
-  dropped three production deploys of a security fix before diagnosis. A build-time check now
-  fails if two pipelines declare the same serialization group. Sharing one also buys nothing:
-  both pipelines deploy components of the same application, and the platform already queues
-  concurrent deployment requests.
-- **Infrastructure cannot bootstrap the application with the real image**, which requires
-  secrets to boot and exits without them, failing the apply. A trivial placeholder image is
-  pushed once and replaced the moment the real spec deploys.
-- **The application is created by infrastructure and specified by its deployment spec.**
-  Infrastructure creates it with a placeholder and ignores subsequent spec changes; otherwise
-  every apply would roll the running API back. After bootstrap, change the spec, not the
-  infrastructure module.
-- **Each provider redirect URI must be registered by hand** with the provider, per
-  environment. Nothing in the pipeline does this, and the failure surfaces only when a real
-  user attempts sign-in.
+- The application's identifier is set by hand per environment after any from-scratch apply;
+  deploy pipelines read it from there.
+- Each deploy pipeline has its own named serialization group per environment. Sharing one lets
+  a sibling pipeline silently evict a deploy waiting at an approval gate; a build-time check
+  fails if two pipelines declare the same group.
+- Infrastructure creates the application with a placeholder image and ignores later spec
+  changes; the deployment spec, not the infrastructure module, owns the running application.
+- Each provider's redirect URI is registered by hand, per environment; nothing in the
+  pipeline does this.
 
 ### 12.10 Out of scope
 
