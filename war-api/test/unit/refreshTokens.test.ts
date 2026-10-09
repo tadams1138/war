@@ -22,7 +22,10 @@ function token(overrides: Partial<StoredRefreshToken> = {}): StoredRefreshToken 
 
 describe('generateRefreshTokenValue', () => {
   it('produces a unique opaque value each call', () => {
-    // Arrange & Act
+    // Arrange
+    // (no setup: the generator takes no input)
+
+    // Act
     const a = generateRefreshTokenValue();
     const b = generateRefreshTokenValue();
 
@@ -61,8 +64,11 @@ describe('decideRefresh', () => {
   });
 
   it('treats a missing token as invalid', () => {
-    // Arrange & Act
-    const decision = decideRefresh(undefined, now);
+    // Arrange
+    const token = undefined;
+
+    // Act
+    const decision = decideRefresh(token, now);
 
     // Assert
     expect(decision.kind).toBe('invalid');

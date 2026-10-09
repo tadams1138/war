@@ -3,9 +3,10 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
-import { requireModeratorOrAdmin } from '../roles/rolesAccess.js';
+import { requireModeratorOrAdmin } from '../auth/guards.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
-import { DEFAULT_MODERATION_LOG_LIMIT, listModerationLog, type ModerationLogEntry } from './moderationLogRepository.js';
+import { pagingProperties, sendInvalidCursor, type PagingQuery } from '../shared/paging.js';
+import { listModerationLog, type ModerationLogEntry } from './moderationLogRepository.js';
 
 export interface ModerationLogRouteDeps {
   db: Kysely<Database>;
@@ -47,20 +48,13 @@ function presentEntry(entry: ModerationLogEntry) {
 export function registerModerationLogRoutes(app: FastifyInstance, deps: ModerationLogRouteDeps): void {
   const { db, auth } = deps;
 
-  app.get(
+  app.get<{ Querystring: PagingQuery }>(
     '/moderation-log',
     bearerAuthRoute(
       auth,
       {
-        querystring: {
-          type: 'object',
-          properties: {
-            limit: { type: 'integer', minimum: 1, maximum: 100, default: DEFAULT_MODERATION_LOG_LIMIT },
-            cursor: { type: 'string' },
-          },
-        },
-        // Deliberately no `400` entry: declaring one would make Fastify serialize its own
-        // querystring-validation 400 through it (see `GET /wars`).
+        querystring: { type: 'object', properties: pagingProperties() },
+        // No `400` entry: declaring one would make Fastify serialize its own validation 400 through it (see `GET /wars`).
         response: {
           200: {
             type: 'object',
@@ -73,14 +67,12 @@ export function registerModerationLogRoutes(app: FastifyInstance, deps: Moderati
           403: errorResponseSchema,
         },
       },
-      [requireModeratorOrAdmin(db)],
+      [requireModeratorOrAdmin],
     ),
     async (request, reply) => {
-      // ajv has already applied the default and bounds, so `limit` is always a valid integer here.
-      const { limit, cursor } = request.query as { limit: number; cursor?: string };
-      const outcome = await listModerationLog(db, { limit, cursor });
+      const outcome = await listModerationLog(db, request.query);
       if (outcome.kind === 'invalidCursor') {
-        return reply.code(400).send({ error: 'invalid cursor' });
+        return sendInvalidCursor(reply);
       }
       return reply.send({ entries: outcome.entries.map(presentEntry), next_cursor: outcome.nextCursor });
     },

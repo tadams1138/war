@@ -1,12 +1,11 @@
 // The vote-session state machine for VoteMode (war-spec.md §10.3): join
 // orchestration, matchup fetching, vote submission, error
-// classification, and the rate-limit wait. Extracted out of VoteMode so
-// that component is rendering only — the transitions here (409 advances
-// silently, 429 keeps cards busy then re-enables, everything else shows
-// an error and re-enables) are the heart of the voting loop.
+// classification, and the rate-limit wait. The transitions (409 advances
+// silently, 429 keeps cards busy then re-enables, everything else shows an
+// error and re-enables) are the heart of the voting loop.
 import { useEffect, useRef, useState } from 'react'
 import { castVote, getNextMatchup, joinWar, type NextMatchupResponse } from '../api/client'
-import { ApiError, toUserMessage } from '../api/errors'
+import { ApiError, isRateLimited, toUserMessage } from '../api/errors'
 
 type Matchup = NextMatchupResponse['matchup']
 type Progress = NextMatchupResponse['progress']
@@ -19,7 +18,7 @@ type ActiveState = {
   errorMessage: string | null
 }
 
-export type VoteSessionState =
+type VoteSessionState =
   | { phase: 'loading' }
   | ActiveState
   | { phase: 'completed' }
@@ -32,10 +31,6 @@ export interface VoteSession {
 
 function isConflict(error: unknown): boolean {
   return error instanceof ApiError && error.reason === 'conflict'
-}
-
-function isRateLimited(error: unknown): error is ApiError & { reason: 'rate-limited' } {
-  return error instanceof ApiError && error.reason === 'rate-limited'
 }
 
 function isActionable(state: VoteSessionState): state is ActiveState {

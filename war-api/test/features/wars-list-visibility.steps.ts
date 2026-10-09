@@ -2,9 +2,10 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeVoter, makeDraftWar, makeDraftWarWithContestants, publishWarForTest, closeWarForTest } from '../setup/fixtures.js';
+import { closeWarForTest, makeDraftWar, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
+import { getWars } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/wars-list-visibility.feature', import.meta.url)));
 
@@ -17,59 +18,53 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     await harness.app.ready();
   });
 
-  async function getWars(query = '', voterId?: string): Promise<request.Response> {
-    const req = request(harness.app.server).get(`/api/v1/wars${query}`);
-    if (voterId) {
-      const jwt = await harness.jwtFor(voterId);
-      req.set('Authorization', `Bearer ${jwt}`);
-    }
-    return req;
-  }
-
   function idsOf(response: request.Response): string[] {
     return (response.body.wars as { id: string }[]).map((war) => war.id);
   }
 
   Scenario(
-    'Anonymous listing excludes drafts, invite-only Wars, and non-active Wars by default',
+    'Anonymous listing excludes drafts, unlisted Wars, and unpublished Wars by default',
     ({ Given, When, Then }) => {
-      let activeWarId: string;
+      let publishedWarId: string;
       let response: request.Response;
 
       Given(
-        'a voter has created a public active War, a public draft War, a public closed War, and an active invite-only War',
+        'a voter has created a public published War, a public draft War, a public closed War, and a published unlisted War',
         async () => {
+        // Arrange
           const creator = await makeVoter(harness.db, 'creator');
 
-          const { war: activeWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
-            title: 'Public Active War',
+          const { war: publishedWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
+            title: 'Public Published War',
           });
-          const active = await publishWarForTest(harness.db, activeWar);
-          activeWarId = active.id;
+          const published = await publishWarForTest(harness.db, publishedWar);
+          publishedWarId = published.id;
 
           await makeDraftWar(harness.db, creator.id, { title: 'Public Draft War' });
 
           const { war: closedWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
             title: 'Public Closed War',
           });
-          const activatedClosed = await publishWarForTest(harness.db, closedWar);
-          await closeWarForTest(harness.db, activatedClosed);
+          const publishedClosed = await publishWarForTest(harness.db, closedWar);
+          await closeWarForTest(harness.db, publishedClosed);
 
-          const { war: inviteOnlyWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
-            title: 'Active Invite Only War',
-            visibility: 'invite_only',
+          const { war: unlistedWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
+            title: 'Published Unlisted War',
+            visibility: 'unlisted',
           });
-          await publishWarForTest(harness.db, inviteOnlyWar);
+          await publishWarForTest(harness.db, unlistedWar);
         },
       );
 
       When('anyone GETs /api/v1/wars', async () => {
-        response = await getWars();
+        // Act
+        response = await getWars(harness, );
       });
 
-      Then('only the public active War is returned', () => {
+      Then('only the public published War is returned', () => {
+        // Assert
         expect(response.status).toBe(200);
-        expect(idsOf(response)).toEqual([activeWarId]);
+        expect(idsOf(response)).toEqual([publishedWarId]);
       });
     },
   );
@@ -80,6 +75,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter has created a public draft War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const draft = await makeDraftWar(harness.db, creator.id, { title: 'Someone Else’s Draft' });
       draftWarId = draft.id;
@@ -89,37 +85,42 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When('a different, authenticated voter GETs /api/v1/wars', async () => {
-      response = await getWars('', otherVoterId);
+      // Act
+      response = await getWars(harness, '', otherVoterId);
     });
 
     Then('that draft War is not returned', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect(idsOf(response)).not.toContain(draftWarId);
     });
   });
 
   Scenario('An explicit status filter does not override visibility scoping', ({ Given, When, Then }) => {
-    let closedInviteOnlyWarId: string;
+    let closedUnlistedWarId: string;
     let response: request.Response;
 
-    Given('a voter has created a closed, invite-only War', async () => {
+    Given('a voter has created a closed, unlisted War', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
-        title: 'Closed Invite Only War',
-        visibility: 'invite_only',
+        title: 'Closed Unlisted War',
+        visibility: 'unlisted',
       });
-      const active = await publishWarForTest(harness.db, war);
-      const closed = await closeWarForTest(harness.db, active);
-      closedInviteOnlyWarId = closed.id;
+      const published = await publishWarForTest(harness.db, war);
+      const closed = await closeWarForTest(harness.db, published);
+      closedUnlistedWarId = closed.id;
     });
 
     When('anyone GETs /api/v1/wars?status=closed', async () => {
-      response = await getWars('?status=closed');
+      // Act
+      response = await getWars(harness, '?status=closed');
     });
 
     Then('that War is not returned', () => {
+      // Assert
       expect(response.status).toBe(200);
-      expect(idsOf(response)).not.toContain(closedInviteOnlyWarId);
+      expect(idsOf(response)).not.toContain(closedUnlistedWarId);
     });
   });
 
@@ -137,23 +138,22 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario(
     'A War whose end date has passed is absent from the default listing before the close task runs',
-    ({ Given, And, When, Then }) => {
+    ({ Given, When, Then }) => {
       let expiredWarId: string;
       let response: request.Response;
 
-      Given('a voter has created a public published War whose end date passed a minute ago', async () => {
+      Given('a voter has created a public published War whose end date passed a minute ago and has not yet been closed by the close task', async () => {
+        // Arrange
         expiredWarId = await makeExpiredUnclosedWar('Expired Unclosed War');
       });
 
-      And('the close-expired-wars task has not yet run', () => {
-        // No-op: nothing in this scenario calls the internal endpoint.
-      });
-
       When('anyone GETs /api/v1/wars', async () => {
-        response = await getWars();
+        // Act
+        response = await getWars(harness, );
       });
 
       Then('that War is not returned', () => {
+        // Assert
         expect(response.status).toBe(200);
         expect(idsOf(response)).not.toContain(expiredWarId);
       });
@@ -166,24 +166,24 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       let expiredWarId: string;
       let response: request.Response;
 
-      Given('a voter has created a public published War whose end date passed a minute ago', async () => {
+      Given('a voter has created a public published War whose end date passed a minute ago and has not yet been closed by the close task', async () => {
+        // Arrange
         expiredWarId = await makeExpiredUnclosedWar('Expired Unclosed War');
       });
 
-      And('the close-expired-wars task has not yet run', () => {
-        // No-op: nothing in this scenario calls the internal endpoint.
-      });
-
       When('anyone GETs /api/v1/wars?status=closed', async () => {
-        response = await getWars('?status=closed');
+        // Act
+        response = await getWars(harness, '?status=closed');
       });
 
       Then('that War is returned', () => {
+        // Assert
         expect(response.status).toBe(200);
         expect(idsOf(response)).toContain(expiredWarId);
       });
 
       And('that War reports its status as "closed"', () => {
+        // Assert
         const listed = (response.body.wars as { id: string; status: string }[]).find((war) => war.id === expiredWarId);
         expect(listed?.status).toBe('closed');
       });
@@ -195,16 +195,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let response: request.Response;
 
     Given('a voter has created a public draft War whose end date passed a minute ago', async () => {
+      // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const draft = await makeDraftWar(harness.db, creator.id, { title: 'Expired Draft', endsAt: new Date(Date.now() - 60_000) });
       draftWarId = draft.id;
     });
 
     When('anyone GETs /api/v1/wars?status=closed', async () => {
-      response = await getWars('?status=closed');
+      // Act
+      response = await getWars(harness, '?status=closed');
     });
 
     Then('that draft War is not returned', () => {
+      // Assert
       expect(response.status).toBe(200);
       expect(idsOf(response)).not.toContain(draftWarId);
     });

@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { bearerAuthRoute } from '../auth/plugin.js';
-import { requireModeratorOrAdmin } from '../roles/rolesAccess.js';
-import { errorResponseSchema } from '../shared/httpOutcomes.js';
-import { pagingProperties, sendInvalidCursor, type AdminRouteDeps } from './adminRouteShared.js';
+import { requireModeratorOrAdmin } from '../auth/guards.js';
+import { errorResponseSchema, sendNotFound } from '../shared/httpOutcomes.js';
+import { pagingProperties, sendInvalidCursor, type PagingQuery } from '../shared/paging.js';
+import type { AdminRouteDeps } from './adminRouteShared.js';
 import { findAdminWar, listAdminWars, type AdminWar, type AdminWarDetail } from './adminWarsRepository.js';
 
 const adminWarProperties = {
@@ -71,7 +72,7 @@ function presentAdminWarDetail(war: AdminWarDetail) {
 export function registerAdminWarsRoutes(app: FastifyInstance, deps: AdminRouteDeps): void {
   const { db, auth } = deps;
 
-  app.get(
+  app.get<{ Querystring: PagingQuery & { status?: string; q?: string } }>(
     '/admin/wars',
     bearerAuthRoute(
       auth,
@@ -81,7 +82,7 @@ export function registerAdminWarsRoutes(app: FastifyInstance, deps: AdminRouteDe
           properties: {
             status: { type: 'string', enum: ['draft', 'published', 'closed', 'removed'] },
             q: { type: 'string' },
-            ...pagingProperties,
+            ...pagingProperties(),
           },
         },
         response: {
@@ -96,11 +97,10 @@ export function registerAdminWarsRoutes(app: FastifyInstance, deps: AdminRouteDe
           403: errorResponseSchema,
         },
       },
-      [requireModeratorOrAdmin(db)],
+      [requireModeratorOrAdmin],
     ),
     async (request, reply) => {
-      // ajv has already applied the default and bounds, so `limit` is always a valid integer here.
-      const { status, q, limit, cursor } = request.query as { status?: string; q?: string; limit: number; cursor?: string };
+      const { status, q, limit, cursor } = request.query;
       const outcome = await listAdminWars(db, { now: new Date(), status, q, limit, cursor });
       if (outcome.kind === 'invalidCursor') {
         return sendInvalidCursor(reply);
@@ -117,12 +117,12 @@ export function registerAdminWarsRoutes(app: FastifyInstance, deps: AdminRouteDe
         params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
         response: { 200: adminWarDetailSchema, 403: errorResponseSchema, 404: errorResponseSchema },
       },
-      [requireModeratorOrAdmin(db)],
+      [requireModeratorOrAdmin],
     ),
     async (request, reply) => {
       const war = await findAdminWar(db, request.params.id, new Date());
       if (!war) {
-        return reply.code(404).send({ error: 'not found' });
+        return sendNotFound(reply);
       }
       return reply.send(presentAdminWarDetail(war));
     },

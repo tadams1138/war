@@ -1,15 +1,14 @@
 // The shared paged/sorted/searched War list Home and MyWars both drive
-// their controls from. Never fetches more than one page at a time (the
-// spec's "server-side, not client-side" requirement) -- the only thing
-// kept client-side is a cache of pages already turned to *this session*,
-// purely so Prev doesn't need a network round-trip.
-import { useEffect, useRef, useState } from 'react'
+// their controls from. Paging is server-side: only one page is fetched at a
+// time, and pages already visited are cached so Prev needs no round-trip.
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getWars, type GetWarsParams, type WarSummary } from '../api/client'
 import { toUserMessage } from '../api/errors'
+import { useDebouncedValue } from './useDebouncedValue'
 
 export type WarListSort = 'newest' | 'oldest' | 'expiring_soonest' | 'alphabetical'
 
-export type WarListPageState =
+type WarListPageState =
   | { status: 'loading' }
   | { status: 'loaded'; wars: WarSummary[] }
   | { status: 'error'; message: string }
@@ -38,8 +37,7 @@ export interface UseWarListPageResult {
 }
 
 const SEARCH_DEBOUNCE_MS = 300
-// Backlog item 2 (PROGRESS.md): 10 cards per page.
-const PAGE_SIZE = '10'
+const PAGE_SIZE = 10
 
 function buildParams(sort: WarListSort, q: string, creatorMe: boolean, cursor?: string): GetWarsParams {
   const params: GetWarsParams = { sort, limit: PAGE_SIZE }
@@ -52,15 +50,12 @@ function buildParams(sort: WarListSort, q: string, creatorMe: boolean, cursor?: 
 export function useWarListPage({ creatorMe = false }: UseWarListPageOptions = {}): UseWarListPageResult {
   const [sort, setSort] = useState<WarListSort>('newest')
   const [searchText, setSearchText] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_MS)
   const [pages, setPages] = useState<CachedPage[]>([])
   const [pageIndex, setPageIndex] = useState(0)
   const [state, setState] = useState<WarListPageState>({ status: 'loading' })
-  // Guards against a fetch that resolves after a newer one has already
-  // been issued (a sort/search change, or Next, racing a slower in-flight
-  // request) — the same staleness protection useAsyncResource's
-  // `cancelled` flag gives a single fetch-on-mount, generalized to cover
-  // every fetch this hook can issue, not just the initial one.
+  // Drops a response that arrives after a newer request was issued (a
+  // sort/search change, or Next, racing a slower in-flight fetch).
   const requestSeq = useRef(0)
   const mounted = useRef(true)
 
@@ -71,12 +66,27 @@ export function useWarListPage({ creatorMe = false }: UseWarListPageOptions = {}
     }
   }, [])
 
-  // Only the settled value below ever triggers a fetch -- typing shouldn't
-  // fire a request per keystroke.
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_MS)
-    return () => clearTimeout(timer)
-  }, [searchText])
+  const fetchPage = useCallback(async (params: GetWarsParams, mode: 'reset' | 'append'): Promise<void> => {
+    requestSeq.current += 1
+    const seq = requestSeq.current
+    const isCurrent = () => mounted.current && requestSeq.current === seq
+    setState({ status: 'loading' })
+    try {
+      const response = await getWars(params)
+      if (!isCurrent()) return
+      const page: CachedPage = { wars: response.wars, nextCursor: response.next_cursor }
+      setState({ status: 'loaded', wars: page.wars })
+      if (mode === 'reset') {
+        setPages([page])
+        setPageIndex(0)
+      } else {
+        setPages((previous) => [...previous, page])
+        setPageIndex((index) => index + 1)
+      }
+    } catch (error) {
+      if (isCurrent()) setState({ status: 'error', message: toUserMessage(error) })
+    }
+  }, [])
 
   // A sort or (debounced) search change is a new query, not a
   // continuation: drop the cache and fetch page 1 fresh.
@@ -84,36 +94,7 @@ export function useWarListPage({ creatorMe = false }: UseWarListPageOptions = {}
     setPages([])
     setPageIndex(0)
     void fetchPage(buildParams(sort, debouncedSearch, creatorMe), 'reset')
-  }, [sort, debouncedSearch, creatorMe])
-
-  function commitSuccess(seq: number, page: CachedPage, mode: 'reset' | 'append'): void {
-    if (!mounted.current || requestSeq.current !== seq) return
-    setState({ status: 'loaded', wars: page.wars })
-    if (mode === 'reset') {
-      setPages([page])
-      setPageIndex(0)
-    } else {
-      setPages((previous) => [...previous, page])
-      setPageIndex((index) => index + 1)
-    }
-  }
-
-  function commitFailure(seq: number, error: unknown): void {
-    if (!mounted.current || requestSeq.current !== seq) return
-    setState({ status: 'error', message: toUserMessage(error) })
-  }
-
-  async function fetchPage(params: GetWarsParams, mode: 'reset' | 'append'): Promise<void> {
-    requestSeq.current += 1
-    const seq = requestSeq.current
-    setState({ status: 'loading' })
-    try {
-      const response = await getWars(params)
-      commitSuccess(seq, { wars: response.wars, nextCursor: response.next_cursor }, mode)
-    } catch (error) {
-      commitFailure(seq, error)
-    }
-  }
+  }, [fetchPage, sort, debouncedSearch, creatorMe])
 
   function goPrev(): void {
     if (pageIndex === 0) return

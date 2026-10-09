@@ -4,7 +4,7 @@ import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema, replyForOutcome } from '../shared/httpOutcomes.js';
-import { requireAdmin } from './rolesAccess.js';
+import { requireAdmin } from '../auth/guards.js';
 import { grantRole } from './rolesService.js';
 
 export interface RolesRouteDeps {
@@ -38,7 +38,7 @@ export function registerRolesRoutes(app: FastifyInstance, deps: RolesRouteDeps):
         body: { type: 'object', required: ['granted'], properties: { granted: { type: 'boolean' } } },
         response: { 200: voterRoleViewSchema, 403: errorResponseSchema, 404: errorResponseSchema },
       },
-      [requireAdmin(db)],
+      [requireAdmin],
     ),
     async (request, reply) => {
       const outcome = await grantRole(db, request.voterId!, request.params.id, request.params.role as 'moderator' | 'admin', request.body.granted);

@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { setVoterRole, findVoterById } from '../../src/auth/votersRepository.js';
-import { makeVoter } from '../setup/fixtures.js';
+import { UNKNOWN_ID, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -29,8 +29,11 @@ describe('setVoterRole (war-spec.md §3, §6.7)', () => {
   });
 
   it('returns undefined for a voter id that does not exist', async () => {
+    // Arrange
+    const voterId = UNKNOWN_ID;
+
     // Act
-    const result = await setVoterRole(harness.db, '00000000-0000-0000-0000-000000000000', 'moderator', true);
+    const result = await setVoterRole(harness.db, voterId, 'moderator', true);
 
     // Assert
     expect(result).toBeUndefined();

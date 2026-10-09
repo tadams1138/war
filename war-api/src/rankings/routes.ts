@@ -2,9 +2,9 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import type { AuthDependencies } from '../auth/authService.js';
-import { authenticatedVoterId } from '../auth/authService.js';
-import { errorResponseSchema } from '../shared/httpOutcomes.js';
-import { rankingsFor, rankingsResponseSchema, type RankingsOutcome } from './rankingsService.js';
+import { optionalAuth } from '../auth/plugin.js';
+import { errorResponseSchema, sendNotFound } from '../shared/httpOutcomes.js';
+import { getRankings, rankingsResponseSchema, type RankingsOutcome } from './rankingsService.js';
 
 export interface RankingsRouteDeps {
   db: Kysely<Database>;
@@ -12,29 +12,11 @@ export interface RankingsRouteDeps {
   publicBaseUrl: string;
 }
 
-async function optionalVoterId(auth: AuthDependencies, authorizationHeader: string | undefined): Promise<string | null> {
-  if (!authorizationHeader) return null;
-  try {
-    return await authenticatedVoterId(auth, authorizationHeader);
-  } catch {
-    return null;
-  }
-}
-
-function cacheControlFor(visibility: string): string {
-  return visibility === 'invite_only' ? 'private, max-age=30' : 'public, max-age=30';
-}
-
+/** Unlike `replyForOutcome`, a success carries a shared-cache header: an unlisted War's rankings are as public as a public War's (§6.4). */
 function sendRankingsOutcome(reply: FastifyReply, outcome: RankingsOutcome) {
-  switch (outcome.kind) {
-    case 'notFound':
-      return reply.code(404).send({ error: 'not found' });
-    case 'unauthorized':
-      return reply.code(401).send({ error: 'unauthorized' });
-    case 'ok':
-      void reply.header('Cache-Control', cacheControlFor(outcome.visibility));
-      return reply.send(outcome.view);
-  }
+  if (outcome.kind === 'notFound') return sendNotFound(reply);
+  void reply.header('Cache-Control', 'public, max-age=30');
+  return reply.send(outcome.view);
 }
 
 export function registerRankingsRoutes(app: FastifyInstance, deps: RankingsRouteDeps): void {
@@ -42,10 +24,12 @@ export function registerRankingsRoutes(app: FastifyInstance, deps: RankingsRoute
 
   app.get<{ Params: { id: string } }>(
     '/wars/:id/rankings',
-    { schema: { response: { 200: rankingsResponseSchema, 401: errorResponseSchema, 404: errorResponseSchema } } },
+    {
+      schema: { response: { 200: rankingsResponseSchema, 404: errorResponseSchema } },
+      preHandler: optionalAuth(deps.auth),
+    },
     async (request, reply) => {
-      const voterId = await optionalVoterId(deps.auth, request.headers.authorization);
-      const outcome = await rankingsFor(db, request.params.id, voterId, new Date(), deps.publicBaseUrl);
+      const outcome = await getRankings(db, request.params.id, request.voterId ?? null, new Date(), deps.publicBaseUrl);
       return sendRankingsOutcome(reply, outcome);
     },
   );

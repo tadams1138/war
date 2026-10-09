@@ -1,10 +1,6 @@
-# Normalise to LF in the repository and in the working tree.
-#
-# Without this, Git for Windows checks files out as CRLF while storing LF,
-# which makes every checked-out file differ from its blob. The Fire Team
-# preflight checks for LF endings and repairs what it can; pinning the working
-# tree to LF here means it has nothing to repair, and the shell scripts under
-# war-infra/scripts/ stay executable on the Linux runners that run them.
+# Normalise to LF in the repository and in the working tree. Without the
+# working-tree half, Git for Windows checks files out as CRLF, and the shell
+# scripts under war-infra/scripts/ would break on the Linux runners.
 * text=auto eol=lf
 
 # Binary — never touch these.

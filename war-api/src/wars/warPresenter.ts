@@ -21,6 +21,9 @@ export interface WarSummaryView {
   creator_name: string | null;
 }
 
+/** `wars.category` is `VARCHAR(64)`. */
+export const MAX_CATEGORY_LENGTH = 64;
+
 /**
  * Properties shared by {@link WarSummaryView}'s schema and
  * {@link WarDetailView}'s (which is a `WarSummary` plus `contestants`).
@@ -32,9 +35,9 @@ export interface WarSummaryView {
 export const warSummaryProperties = {
   id: { type: 'string', format: 'uuid' },
   title: { type: ['string', 'null'] },
-  category: { type: ['string', 'null'] },
+  category: { type: ['string', 'null'], maxLength: MAX_CATEGORY_LENGTH },
   status: { type: 'string', enum: ['draft', 'published', 'closed'] },
-  visibility: { type: 'string', enum: ['public', 'invite_only'] },
+  visibility: { type: 'string', enum: ['public', 'unlisted'] },
   media_mode: { type: 'string', enum: ['image'] },
   theme: { type: 'string', enum: [...THEMES] },
   ends_at: { type: ['string', 'null'], format: 'date-time' },
@@ -57,7 +60,7 @@ const warSummaryRequired = [
   'creator_name',
 ];
 
-/** The response body JSON Schema for {@link WarSummaryView} (spec). Registered under `$id: "WarSummary"`. */
+/** The response body JSON Schema for {@link WarSummaryView}. Registered under `$id: "WarSummary"`. */
 export const warSummarySchema = {
   $id: 'WarSummary',
   type: 'object',
@@ -66,7 +69,7 @@ export const warSummarySchema = {
 };
 
 /**
- * The response body JSON Schema for {@link WarDetailView} (spec):
+ * The response body JSON Schema for {@link WarDetailView}:
  * `warSummaryProperties` plus a required `contestants` array. Not
  * registered under a shared `$id` -- only `GET /wars/:id` uses it.
  */
@@ -119,7 +122,7 @@ export async function presentWarDetail(
     db,
     contestants.map((c) => c.id),
   );
-  const views = contestants.map((c) => presentContestant(c, war, mediaByContestant.get(c.id) ?? [], publicBaseUrl));
+  const views = contestants.map((c) => presentContestant(c, mediaByContestant.get(c.id) ?? [], publicBaseUrl));
   return {
     ...presentWarSummary(war, now, contestants.length, publicBaseUrl, null),
     contestants: views,

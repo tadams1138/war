@@ -3,13 +3,16 @@ import sharp from 'sharp';
 import type { Kysely } from 'kysely';
 import type { Database } from '../../src/db/types.js';
 import { findOrCreateVoter, setVoterRole, type Voter } from '../../src/auth/votersRepository.js';
-import { createWar, type War } from '../../src/wars/warsRepository.js';
-import { publishWar, closeWar } from '../../src/wars/warsService.js';
+import { createWar, setWarStatus, type War } from '../../src/wars/warsRepository.js';
+import { publishWar } from '../../src/wars/warsService.js';
 import { createContestant, type Contestant } from '../../src/contestants/contestantsRepository.js';
 import { uploadContestantImage } from '../../src/contestants/imageUploadService.js';
 import { generateMatchupsForNewContestant } from '../../src/matchups/matchupsRepository.js';
 import type { ObjectStorage } from '../../src/contestants/storage.js';
 import { createMembership } from '../../src/wars/warsRepository.js';
+
+/** A well-formed id that no seeded row ever has. */
+export const UNKNOWN_ID = '00000000-0000-0000-0000-000000000000';
 
 export async function makeVoter(db: Kysely<Database>, seed: string): Promise<Voter> {
   const { voter } = await findOrCreateVoter(db, 'google', {
@@ -38,6 +41,8 @@ export interface DraftWarOptions {
   visibility?: string;
   theme?: string;
   endsAt?: Date | null;
+  /** Uploads (and processes) one image per contestant. Off by default: it is by far the slowest part of seeding. */
+  withImages?: boolean;
 }
 
 function withDefault<T>(value: T | undefined, fallback: T): T {
@@ -76,15 +81,15 @@ export async function giveContestantAnImage(
     mimeType: 'image/jpeg',
     originalExt: 'jpg',
   });
-  if (!outcome.ok) {
-    throw new Error(`failed to seed contestant image: ${outcome.reason}`);
+  if (outcome.kind !== 'ok') {
+    throw new Error(`failed to seed contestant image: ${outcome.kind}`);
   }
 }
 
 /**
- * Builds a War with `count` contestants, each with one image, still in
- * draft. Generates matchups incrementally as each contestant is added,
- * mirroring `addContestant` (spec §4 "Matchup") -- matchups exist as soon as
+ * Builds a War with `count` contestants (each with one image when
+ * `options.withImages` is set), still in draft. Generates matchups incrementally as each contestant is added,
+ * mirroring `addContestant` (war-spec.md §4 "Matchup") -- matchups exist as soon as
  * a War has contestants to pair, independent of publishing.
  */
 export async function makeDraftWarWithContestants(
@@ -104,7 +109,9 @@ export async function makeDraftWarWithContestants(
       contestant.id,
       contestants.map((c) => c.id),
     );
-    await giveContestantAnImage(db, storage, contestant.id);
+    if (options.withImages) {
+      await giveContestantAnImage(db, storage, contestant.id);
+    }
     contestants.push(contestant);
   }
   return { war, contestants };
@@ -123,11 +130,7 @@ export async function joinWarAsVoter(db: Kysely<Database>, warId: string, voterI
   await createMembership(db, warId, voterId);
 }
 
-/** Closes an already-published War as its creator. Throws if closing is rejected. */
+/** Marks a War closed, as the expiry task does once its end date has passed. */
 export async function closeWarForTest(db: Kysely<Database>, war: War): Promise<War> {
-  const outcome = await closeWar(db, war.id, war.creatorId!, new Date());
-  if (outcome.kind !== 'ok') {
-    throw new Error(`failed to close War in test fixture: ${outcome.kind}`);
-  }
-  return outcome.value;
+  return setWarStatus(db, war.id, 'closed');
 }

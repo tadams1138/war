@@ -3,29 +3,11 @@
 // file up front (spec §10.4, "Import") -- a malformed file is rejected with
 // one clear message and nothing is ever sent to the server from here.
 import { strFromU8, unzipSync } from 'fflate'
-
-export interface ValidatedMedia {
-  display_order: number
-  aspect_ratio: number | null
-  path: string
-}
-
-export interface ValidatedContestant {
-  name: string
-  bio: string | null
-  media: ValidatedMedia[]
-}
+import type { WarExportContestant, WarExportMedia, WarExportMetadata } from '../export/warExportFile'
 
 export interface ValidatedWarImport {
-  metadata: {
-    title: string | null
-    category: string | null
-    visibility: string
-    theme: string
-    ends_at: string | null
-    share_image: string | null
-  }
-  contestants: ValidatedContestant[]
+  metadata: WarExportMetadata
+  contestants: WarExportContestant[]
 }
 
 export type WarImportValidation =
@@ -42,13 +24,13 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
 }
 
-function isValidMedia(value: unknown): value is ValidatedMedia {
+function isValidMedia(value: unknown): value is WarExportMedia {
   if (typeof value !== 'object' || value === null) return false
   const media = value as Record<string, unknown>
   return typeof media.display_order === 'number' && typeof media.path === 'string'
 }
 
-function isValidContestant(value: unknown): value is ValidatedContestant {
+function isValidContestant(value: unknown): value is WarExportContestant {
   if (typeof value !== 'object' || value === null) return false
   const contestant = value as Record<string, unknown>
   const checks = [
@@ -59,7 +41,7 @@ function isValidContestant(value: unknown): value is ValidatedContestant {
   return checks.every(Boolean)
 }
 
-function isValidMetadata(value: unknown): value is ValidatedWarImport['metadata'] {
+function isValidMetadata(value: unknown): value is WarExportMetadata {
   if (typeof value !== 'object' || value === null) return false
   const metadata = value as Record<string, unknown>
   const checks = [
@@ -88,14 +70,14 @@ function parseWarJson(raw: string): ParsedWarJson {
   if (!contestants.every(isValidContestant)) {
     return fail("This file isn't a valid War export — it's missing required data.")
   }
-  const metadata: ValidatedWarImport['metadata'] = { ...parsed, share_image: defaultShareImage(parsed.share_image) }
+  const metadata: WarExportMetadata = { ...parsed, share_image: defaultShareImage(parsed.share_image) }
   return {
     ok: true,
-    data: { metadata, contestants: contestants as ValidatedContestant[] },
+    data: { metadata, contestants: contestants as WarExportContestant[] },
   }
 }
 
-function missingMediaPath(contestants: ValidatedContestant[], files: Record<string, Uint8Array>): string | null {
+function missingMediaPath(contestants: WarExportContestant[], files: Record<string, Uint8Array>): string | null {
   for (const contestant of contestants) {
     for (const media of contestant.media) {
       if (!(media.path in files)) return media.path

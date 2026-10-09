@@ -25,7 +25,13 @@ describe('mapMicrosoftProfile', () => {
   });
 
   it('throws when there is no subject claim to identify the voter by', () => {
-    // Arrange / Act / Assert
-    expect(() => mapMicrosoftProfile(undefined)).toThrow('Microsoft did not return a subject claim');
+    // Arrange
+    const input = undefined;
+
+    // Act
+    const act = () => mapMicrosoftProfile(input);
+
+    // Assert
+    expect(act).toThrow('Microsoft did not return a subject claim');
   });
 });

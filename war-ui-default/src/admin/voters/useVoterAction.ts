@@ -1,4 +1,4 @@
-// State machine behind one Staff action on a Voter (the spec, §6.7): an
+// State machine behind one Staff action on a Voter (war-spec.md §6.7): an
 // optional in-page confirmation first, then the request; a failure leaves the
 // Voter as it was and shows why.
 import { useState } from 'react'

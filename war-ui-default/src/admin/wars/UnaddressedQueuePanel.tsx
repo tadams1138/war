@@ -1,9 +1,10 @@
-// The unaddressed-reports queue (the spec, §8.5): Wars with reports no Staff
+// The unaddressed-reports queue (war-spec.md §8.5): Wars with reports no Staff
 // member has dealt with yet; each opens that War's Staff detail.
 import { Link } from 'react-router-dom'
 import { getUnaddressedReports, type UnaddressedReportsWar } from '../../api/client'
 import { useAsyncResource } from '../../hooks/useAsyncResource'
 import { warTitle } from '../../utils/warTitle'
+import { AsyncStatus } from '../../components/AsyncStatus'
 
 export function UnaddressedQueuePanel() {
   const queue = useAsyncResource(() => getUnaddressedReports(), [])
@@ -11,8 +12,7 @@ export function UnaddressedQueuePanel() {
   return (
     <section aria-labelledby="unaddressed-queue-heading">
       <h2 id="unaddressed-queue-heading">Unaddressed reports</h2>
-      {queue.status === 'loading' && <p>Loading…</p>}
-      {queue.status === 'error' && <p role="alert">{queue.message}</p>}
+      <AsyncStatus state={queue} />
       {queue.status === 'loaded' && <QueueEntries wars={queue.value} />}
     </section>
   )

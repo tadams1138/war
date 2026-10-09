@@ -17,10 +17,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   Scenario('Same email, different provider creates separate voters', ({ Given, When, Then, And }) => {
     Given('voter A signed in with Google using "user@example.com"', async () => {
+      // Arrange
       await loginAndCallback(harness, { providerUserId: 'user@example.com', displayName: 'User', avatarUrl: null });
     });
 
     When('a user signs in with Microsoft using "user@example.com"', async () => {
+      // Act
       await loginAndCallback(
         harness,
         { providerUserId: 'user@example.com', displayName: 'User', avatarUrl: null },
@@ -29,11 +31,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('a separate Voter record is created', async () => {
+      // Assert
       const row = await harness.db.selectFrom('voters').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
       expect(Number(row.count)).toBe(2);
     });
 
     And('the two accounts are not linked', async () => {
+      // Assert
       const rows = await harness.db.selectFrom('voters').selectAll().execute();
       const providers = rows.map((row) => row.provider).sort();
       expect(providers).toEqual(['google', 'microsoft']);

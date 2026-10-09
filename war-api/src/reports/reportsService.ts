@@ -1,10 +1,11 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import type { MutationOutcome, NotFound, ValidationError } from '../shared/outcomes.js';
+import { nonEmptyStringError } from '../shared/bodyValidation.js';
 import { findWarById } from '../wars/warsRepository.js';
 import {
   createReport,
-  listReportsForWar,
+  listReportsForWar as findReportsForWar,
   listWarsWithUnaddressedReports,
   setReportAddressed,
   type Report,
@@ -44,12 +45,7 @@ export function presentReport(report: Report): ReportView {
   };
 }
 
-function explanationError(explanation: unknown): string | null {
-  if (typeof explanation !== 'string' || explanation.length === 0 || explanation.length > 1000) {
-    return 'explanation must be a non-empty string of at most 1000 characters';
-  }
-  return null;
-}
+const MAX_EXPLANATION_LENGTH = 1000;
 
 export interface FileReportInput {
   warId: string;
@@ -59,12 +55,12 @@ export interface FileReportInput {
 
 export type FileReportOutcome = MutationOutcome<Report, NotFound | ValidationError>;
 
-/** Files one abuse report (spec §8.5) — any authenticated Voter, any War, any number of times; never deduplicated. */
+/** Files one abuse report (§8.5) — any authenticated Voter, any War, any number of times; never deduplicated. */
 export async function fileReport(db: Kysely<Database>, input: FileReportInput): Promise<FileReportOutcome> {
   const war = await findWarById(db, input.warId);
   if (!war) return { kind: 'notFound' };
 
-  const error = explanationError(input.explanation);
+  const error = nonEmptyStringError('explanation', input.explanation, MAX_EXPLANATION_LENGTH);
   if (error) return { kind: 'validationError', errors: [error] };
 
   const report = await createReport(db, { warId: input.warId, reporterId: input.reporterId, explanation: input.explanation as string });
@@ -73,12 +69,12 @@ export async function fileReport(db: Kysely<Database>, input: FileReportInput): 
 
 export type ListReportsOutcome = MutationOutcome<Report[], NotFound>;
 
-/** Every report against `warId`, newest first (spec §8.5). 404s if the War itself doesn't exist; caller permission (Moderator/Admin) is enforced by `requireModeratorOrAdmin`, not here. */
-export async function listReportsForWarOutcome(db: Kysely<Database>, warId: string): Promise<ListReportsOutcome> {
+/** Every report against `warId`, newest first (§8.5). 404s if the War itself doesn't exist; caller permission (Moderator/Admin) is enforced by `requireModeratorOrAdmin`, not here. */
+export async function listReportsForWar(db: Kysely<Database>, warId: string): Promise<ListReportsOutcome> {
   const war = await findWarById(db, warId);
   if (!war) return { kind: 'notFound' };
 
-  const reports = await listReportsForWar(db, warId);
+  const reports = await findReportsForWar(db, warId);
   return { kind: 'ok', value: reports };
 }
 
@@ -98,7 +94,7 @@ export const unaddressedWarViewSchema = {
   },
 };
 
-/** The moderation queue (spec §8.5) — never fails; an empty result just means nothing is waiting. */
+/** The moderation queue (§8.5) — never fails; an empty result just means nothing is waiting. */
 export async function unaddressedQueue(db: Kysely<Database>): Promise<UnaddressedWarView[]> {
   const entries = await listWarsWithUnaddressedReports(db);
   return entries.map((entry: UnaddressedWarQueueEntry) => ({
@@ -110,7 +106,7 @@ export async function unaddressedQueue(db: Kysely<Database>): Promise<Unaddresse
 
 export type SetAddressedOutcome = MutationOutcome<Report, NotFound>;
 
-/** Toggles one report's addressed flag (spec §8.5). Caller permission (Moderator/Admin) is enforced by `requireModeratorOrAdmin`, not here. */
+/** Toggles one report's addressed flag (§8.5). Caller permission (Moderator/Admin) is enforced by `requireModeratorOrAdmin`, not here. */
 export async function setAddressed(db: Kysely<Database>, reportId: string, addressed: boolean): Promise<SetAddressedOutcome> {
   const report = await setReportAddressed(db, reportId, addressed);
   return report ? { kind: 'ok', value: report } : { kind: 'notFound' };

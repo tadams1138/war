@@ -1,5 +1,5 @@
 // The API redirects here after setting the httpOnly refresh cookie,
-// carrying no token (the spec step 3). This route
+// carrying no token (war-spec.md §5.1). This route
 // exchanges that cookie for a JWT and returns the voter to where they
 // started. A banned Voter is never issued a session (§6.7); a redirect
 // carrying `error=banned` shows that explicitly instead of attempting the

@@ -11,7 +11,7 @@ import { logAction } from '../moderation/moderationLogRepository.js';
 export type ChangeSuspensionOutcome = MutationOutcome<Voter, NotFound | Forbidden>;
 
 /**
- * Looks up the target of a Staff moderation action (spec §6.7). Staff (and so
+ * Looks up the target of a Staff moderation action (§6.7). Staff (and so
  * the caller themself) can never be a target: a Moderator or Admin must have
  * their role revoked by an Admin first. The target's row is locked (`FOR UPDATE`)
  * until the caller's transaction ends, so a concurrent role grant (whose UPDATE
@@ -31,7 +31,7 @@ async function findModerationTarget(
 }
 
 /**
- * Suspends or unsuspends a Voter (spec §6.7). Staff-only access is enforced
+ * Suspends or unsuspends a Voter (§6.7). Staff-only access is enforced
  * by the route's guard. The state change and its moderation log entry commit
  * together or not at all.
  */
@@ -53,7 +53,7 @@ export async function changeSuspension(
 export type ChangeBanOutcome = MutationOutcome<Voter, NotFound | Forbidden>;
 
 /**
- * Bans or unbans a Voter (spec §6.7). Banning also hard-deletes what the
+ * Bans or unbans a Voter (§6.7). Banning also hard-deletes what the
  * Voter created. The state change, the deletions and the moderation log entry
  * commit together or not at all; the stored media objects are deleted only
  * after that commit, best effort.

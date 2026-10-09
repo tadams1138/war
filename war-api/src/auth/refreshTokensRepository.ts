@@ -35,7 +35,7 @@ export async function findRefreshTokenByHash(
   return row ? toStored(row) : undefined;
 }
 
-/** Starts a new refresh-token family — one per login session (spec). */
+/** Starts a new refresh-token family — one per login session. */
 export async function createRefreshTokenFamily(
   db: Kysely<Database>,
   voterId: string,
@@ -55,15 +55,13 @@ export async function createRefreshTokenFamily(
   return toStored(row);
 }
 
-export type RotateResult = { kind: 'rotated'; token: StoredRefreshToken } | { kind: 'lost-race' };
+export type RotateResult = { kind: 'rotated'; token: StoredRefreshToken } | { kind: 'lostRace' };
 
 /**
- * Marks a token used and inserts its rotated successor, same family (spec).
- * The marking UPDATE is conditional on the token still being unused
- * and unrevoked, and its affected-row count is the arbiter: if a concurrent
- * call already rotated this exact token, this call loses the race and must
- * not also mint a successor, or reuse detection could never trigger (design
- * review finding 1). The DB, not application code, decides who won.
+ * Marks a token used and inserts its rotated successor, same family. The marking UPDATE is conditional on
+ * the token still being unused and unrevoked, and its affected-row count decides the winner: a call that
+ * loses a concurrent rotation of the same token must not also mint a successor, or reuse detection could
+ * never trigger.
  */
 export async function rotateRefreshToken(
   db: Kysely<Database>,
@@ -81,7 +79,7 @@ export async function rotateRefreshToken(
       .execute();
 
     if (claimed.length === 0) {
-      return { kind: 'lost-race' };
+      return { kind: 'lostRace' };
     }
 
     const row = await trx
@@ -99,7 +97,7 @@ export async function rotateRefreshToken(
   });
 }
 
-/** Revokes every token in a family immediately (spec: reuse detection / logout). */
+/** Revokes every token in a family immediately (reuse detection, logout). */
 export async function revokeFamily(db: Kysely<Database>, familyId: string): Promise<void> {
   await db
     .updateTable('refresh_tokens')
@@ -109,7 +107,7 @@ export async function revokeFamily(db: Kysely<Database>, familyId: string): Prom
     .execute();
 }
 
-/** Revokes every not-yet-revoked refresh token of a Voter, across all their families (spec §6.7: a ban ends every session). */
+/** Revokes every not-yet-revoked refresh token of a Voter, across all their families (§6.7: a ban ends every session). */
 export async function revokeAllForVoter(db: Kysely<Database>, voterId: string): Promise<void> {
   await db
     .updateTable('refresh_tokens')

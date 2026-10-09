@@ -15,7 +15,7 @@ export interface MediaItemView {
 }
 
 /**
- * The response body JSON Schema for {@link MediaItemView} (spec).
+ * The response body JSON Schema for {@link MediaItemView}.
  * Registered under `$id: "MediaItem"` (`registerSharedSchemas`,
  * `src/openapi/schemas.ts`) so other routes' schemas can `$ref` it instead
  * of repeating it. Kept beside the interface it mirrors, on pain of the
@@ -46,12 +46,9 @@ export const mediaItemSchema = {
 };
 
 /**
- * Builds the response shape for a contestant's media array (war-spec.md
- * §9.1). Which variant widths exist prefers the widths actually written at
- * upload time (`variantWidths`) so that changing today's `VARIANT_WIDTHS`
- * later cannot silently break URLs already advertised for existing content.
- * Rows written before that column existed fall back to filtering the stored
- * source width against today's config — no backfill required.
+ * Builds the response shape for a contestant's media array (§9.1). Variant widths come from those actually
+ * written at upload time (`variantWidths`), so changing `VARIANT_WIDTHS` later cannot break URLs already
+ * advertised. Rows predating that column fall back to filtering the source width against today's config.
  */
 export function presentMedia(media: ContestantMedia[], publicBaseUrl: string): MediaItemView[] {
   return media.map((item) => {

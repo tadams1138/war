@@ -54,16 +54,38 @@ Feature: War Lifecycle
     Then the response status is 422
     And the War remains "closed"
 
+  Scenario: A War cannot be closed by hand
+    Given a published War
+    When the creator POSTs to /api/v1/wars/:id/close
+    Then the response status is 404
+    And the War remains "published"
+
   Scenario: A War remains editable after publishing
     Given a published War
     When the creator PATCHes the title
     Then the response status is 200
+
+  Scenario: A category longer than 64 characters is rejected on edit
+    Given a War in "draft" status
+    When the creator PATCHes the category to 65 characters
+    Then the response status is 422
 
   Scenario: A creator changes a War's theme while it's still a draft
     Given a War in "draft" status
     When the creator PATCHes the theme to "fight_card"
     Then the response status is 200
     And the War's theme is "fight_card"
+
+  Scenario: A creator makes a draft War unlisted
+    Given a War in "draft" status
+    When the creator PATCHes the visibility to "unlisted"
+    Then the response status is 200
+    And the War's visibility is "unlisted"
+
+  Scenario: The retired visibility "invite_only" is rejected on edit
+    Given a War in "draft" status
+    When the creator PATCHes the visibility to "invite_only"
+    Then the response status is 422
 
   Scenario: A voter joins a published War
     Given a published War

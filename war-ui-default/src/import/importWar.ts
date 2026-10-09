@@ -5,13 +5,14 @@
 // orchestration is testable without a network, mirroring exportWar.ts's
 // injected `fetchBinary`.
 import { toUserMessage } from '../api/errors'
-import type { ValidatedContestant, ValidatedWarImport } from './validateWarImport'
+import type { WarExportContestant } from '../export/warExportFile'
+import type { ValidatedWarImport } from './validateWarImport'
 
-export interface CreatedWar {
+interface CreatedWar {
   id: string
 }
 
-export interface CreatedContestant {
+interface CreatedContestant {
   id: string
 }
 
@@ -59,7 +60,7 @@ function fileFromZip(path: string, files: Record<string, Uint8Array>): File {
 
 async function importContestant(
   warId: string,
-  contestant: ValidatedContestant,
+  contestant: WarExportContestant,
   files: Record<string, Uint8Array>,
   api: ImportApi,
 ): Promise<void> {

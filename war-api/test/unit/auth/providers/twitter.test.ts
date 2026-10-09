@@ -25,8 +25,14 @@ describe('mapTwitterProfile', () => {
   });
 
   it('throws when there is no account id to identify the voter by', () => {
-    // Arrange / Act / Assert
-    expect(() => mapTwitterProfile({ data: { id: '' } })).toThrow('Twitter/X did not return an account id');
+    // Arrange
+    const input = { data: { id: '' } };
+
+    // Act
+    const act = () => mapTwitterProfile(input);
+
+    // Assert
+    expect(act).toThrow('Twitter/X did not return an account id');
   });
 });
 

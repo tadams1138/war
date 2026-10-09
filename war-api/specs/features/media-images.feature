@@ -7,13 +7,13 @@ Feature: Image Processing
     And the original is retained in a private prefix
 
   Scenario: EXIF metadata is stripped
-    Given an uploaded photo containing GPS coordinates in its EXIF data
-    When the variants are generated
+    Given a photo containing GPS coordinates in its EXIF data
+    When the photo is uploaded
     Then no EXIF metadata is present in any variant
 
   Scenario: Images are never upscaled
-    Given an uploaded image 600 pixels wide
-    When the variants are generated
+    Given an image 600 pixels wide
+    When the image is uploaded
     Then a 400px variant exists
     And no 800px or 1600px variant is produced
 
@@ -37,3 +37,9 @@ Feature: Image Processing
     Given a contestant with two uploaded images
     When the creator deletes the first image
     Then only the second image's variants and original remain in storage
+
+  Scenario: Reordering an image requires a display order
+    Given a contestant with two uploaded images
+    When the creator PATCHes the second image with no display_order
+    Then the response status is 422
+    And the second image keeps its display order

@@ -1,4 +1,4 @@
-// Auth state (JWT held in memory only — the spec).
+// Auth state (JWT held in memory only — war-spec.md).
 // The token itself lives in api/authState.ts (a plain module, so
 // api/client.ts can read/write it outside React); this provider mirrors
 // "is there a token" into React state so components can react to it, and

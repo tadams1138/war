@@ -64,7 +64,24 @@ Feature: Browse Wars
     When a visitor types into the search box
     Then Wars are requested matching that search text, once typing settles
 
-  Scenario: Paging through Wars with Next and Prev
+  Scenario: Paging through Wars with Next and Prev re-shows the cached page without a new request
     Given more published public Wars exist than fit on one page
     When a visitor selects Next then Prev
     Then the first page's Wars are shown again without a new request
+
+  Scenario: Home has a page heading above the War cards
+    Given published public Wars
+    When a visitor opens Home
+    Then the page has a level-one heading
+    And each War card title is a level-two heading
+
+  Scenario: A War card's Vote and Results actions lay out horizontally with consistent themed button styling
+    Given a published War listed on Home
+    When a visitor opens Home
+    Then the card's Vote and Results actions sit side by side
+    And both use the same themed button styling
+
+  Scenario: Requests 10 Wars per page
+    Given published Wars listed on Home
+    When a visitor opens Home
+    Then Wars are requested 10 per page

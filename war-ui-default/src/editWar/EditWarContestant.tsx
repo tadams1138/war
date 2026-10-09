@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from 'react'
 import type { ContestantDetail } from '../api/client'
 import { BioEditor } from '../bio/BioEditor'
+import { byDisplayOrder } from '../utils/media'
+import type { ImageNotice } from './useEditWar'
 
 // Mirrors war-api's own per-contestant cap
 // (war-api/src/contestants/imageUploadService.ts) -- a UX convenience only,
@@ -12,7 +14,7 @@ const MAX_IMAGES_PER_CONTESTANT = 10
 interface EditWarContestantProps {
   contestant: ContestantDetail
   error: string | null
-  imageNotice: { message: string; kind: 'error' | 'wait' } | null
+  imageNotice: ImageNotice | null
   onSave: (payload: { name: string; bio: string | null }) => Promise<void>
   onRemove: () => void
   onAddImages: (files: File[]) => void
@@ -34,13 +36,13 @@ export function EditWarContestant({
   const [bio, setBio] = useState(contestant.bio ?? '')
   const [saving, setSaving] = useState(false)
   const [nameRequiredError, setNameRequiredError] = useState<string | null>(null)
-  const sortedMedia = [...contestant.media].sort((a, b) => a.display_order - b.display_order)
+  const sortedMedia = byDisplayOrder(contestant.media)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     // Checked before any request goes out — an empty name is never valid,
     // so there is nothing the server needs to tell us that we don't
-    // already know (the spec, "client-side validate mandatory fields").
+    // already know (war-spec.md, "client-side validate mandatory fields").
     if (name.trim().length === 0) {
       setNameRequiredError('Name is required')
       return
@@ -81,17 +83,17 @@ export function EditWarContestant({
         onRemoveImage={onRemoveImage}
         onMoveImageUp={onMoveImageUp}
       />
-      <ImageNotice notice={imageNotice} />
+      <ImageNoticeMessage notice={imageNotice} />
       <AddImageControl imageCount={sortedMedia.length} onAddImages={onAddImages} waiting={imageNotice?.kind === 'wait'} />
     </li>
   )
 }
 
-// Rate-limited (the spec §10.5: "a wait, using the supplied delay --
+// Rate-limited (war-spec.md §10.5: "a wait, using the supplied delay --
 // never presented as an error") renders on role="status", not
 // role="alert" -- the same distinction useVoteSession's vote-error
 // message already draws.
-function ImageNotice({ notice }: { notice: { message: string; kind: 'error' | 'wait' } | null }) {
+function ImageNoticeMessage({ notice }: { notice: ImageNotice | null }) {
   if (!notice) return null
   if (notice.kind === 'wait') {
     return (

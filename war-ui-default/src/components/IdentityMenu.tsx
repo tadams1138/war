@@ -1,23 +1,45 @@
-// The authenticated half of NavBar (the spec, "NavBar"): a single
-// avatar+name control that opens a menu holding My Wars, Start a War,
-// Import a War, and Log out — collapsed by default so the persistent
-// chrome stays small. Home lives outside this menu now, as the brand
-// mark every visitor sees regardless of auth state (NavBar.tsx).
-// Reads the identity the auth context fetched once for this sign-in.
-import { useEffect, useRef, useState } from 'react'
+// The authenticated half of NavBar (war-spec.md §10.2): one avatar+name
+// control that opens a menu of My Wars, Start a War, Import a War, Admin
+// Dashboard (Staff) and Log out. Follows the ARIA menu pattern: focus moves
+// into the menu on open, arrow keys/Home/End move between items, and Escape
+// closes it and returns focus to the trigger.
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/context'
 import { isStaff } from '../auth/staff'
 import { resolveVoterIdentity } from './voterIdentity'
+
+function nextItemIndex(key: string, current: number, count: number): number | null {
+  if (key === 'ArrowDown') return (current + 1) % count
+  if (key === 'ArrowUp') return (current - 1 + count) % count
+  if (key === 'Home') return 0
+  if (key === 'End') return count - 1
+  return null
+}
 
 export function IdentityMenu() {
   const { logout, me: identityState } = useAuth()
   const identity = resolveVoterIdentity(identityState)
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  function menuItems(): HTMLElement[] {
+    return Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+  }
+
+  function handleMenuKeyDown(event: ReactKeyboardEvent) {
+    const items = menuItems()
+    const target = nextItemIndex(event.key, items.indexOf(document.activeElement as HTMLElement), items.length)
+    if (target === null) return
+    event.preventDefault()
+    items[target]?.focus()
+  }
 
   useEffect(() => {
     if (!open) return
+    menuItems()[0]?.focus()
 
     function onDocumentMouseDown(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -25,7 +47,9 @@ export function IdentityMenu() {
       }
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      triggerRef.current?.focus()
     }
 
     document.addEventListener('mousedown', onDocumentMouseDown)
@@ -46,6 +70,7 @@ export function IdentityMenu() {
   return (
     <div className="identity-menu" ref={containerRef}>
       <button
+        ref={triggerRef}
         type="button"
         data-testid="nav-identity"
         aria-haspopup="menu"
@@ -56,7 +81,7 @@ export function IdentityMenu() {
         {identity.displayName}
       </button>
       {open && (
-        <div role="menu" aria-label="Account">
+        <div ref={menuRef} role="menu" aria-label="Account" onKeyDown={handleMenuKeyDown}>
           <NavLink role="menuitem" to="/my-wars" onClick={closeThen()}>
             My Wars
           </NavLink>

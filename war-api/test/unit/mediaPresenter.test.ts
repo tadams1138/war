@@ -55,7 +55,7 @@ describe('presentMedia', () => {
     expect(view!.aspect_ratio).toBeCloseTo(1.333, 3);
   });
 
-  it('prefers the recorded variant widths over recomputing from today\'s config (spec)', () => {
+  it('prefers the recorded variant widths over recomputing from today\'s config', () => {
     // Arrange: recorded at upload time under widths that differ from the
     // current VARIANT_WIDTHS — simulating the spec's anticipated future
     // change to variant widths without touching this historical row.

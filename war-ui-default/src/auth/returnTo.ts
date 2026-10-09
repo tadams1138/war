@@ -1,10 +1,9 @@
 // Single source of truth for the /login?returnTo=...&reason=... URL
 // contract and the sessionStorage key that carries returnTo across the
-// full-page OAuth round trip. Three modules
-// need to agree on this today (RequireAuth's redirect, AuthProvider's
-// unauthorized redirect, Login's persist-before-navigating-away, and
-// AuthCallback's read-back) — kept in one place so the next one doesn't
-// re-derive it, possibly with the parameters in the other order.
+// full-page OAuth round trip. Four modules
+// agree on this (RequireAuth's redirect, AuthProvider's unauthorized
+// redirect, Login's persist-before-navigating-away, AuthCallback's
+// read-back).
 // login-and-auth.spec.ts asserts the exact URL this produces, including
 // parameter order, so any change here is a change to a pinned contract.
 

@@ -1,4 +1,4 @@
-// Staff means a Moderator or an Admin (the spec, §6.7).
+// Staff means a Moderator or an Admin (war-spec.md §6.7).
 import type { VoterMe } from '../api/client'
 
 export function isStaff(me: VoterMe): boolean {

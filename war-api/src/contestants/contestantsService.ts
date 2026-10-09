@@ -4,8 +4,8 @@ import type { Database } from '../db/types.js';
 import { loadOwnedWar } from '../wars/warAccess.js';
 import { contestantMediaPrefixes, deleteMediaObjects } from '../wars/warMediaStorage.js';
 import type { ObjectStorage } from './storage.js';
-import type { War } from '../wars/warsRepository.js';
-import type { MutationOutcome } from '../shared/outcomes.js';
+import { nonEmptyStringError } from '../shared/bodyValidation.js';
+import type { MutationOutcome, ValidationError } from '../shared/outcomes.js';
 import {
   deleteMatchupsByIds,
   findMatchupIdsForContestant,
@@ -29,27 +29,12 @@ export interface CreateContestantInput {
   bio?: string | null;
 }
 
-/** A Contestant alongside the War it belongs to, so callers presenting the
- * response never need to re-fetch the War the guard already loaded. */
-export interface ContestantWithWar {
-  contestant: Contestant;
-  war: War;
-}
+const MAX_NAME_LENGTH = 256;
 
-const NAME_LENGTH_ERROR = ['name must be a non-empty string of at most 256 characters'];
-
-function isValidNameLength(name: string): boolean {
-  return name.length > 0 && name.length <= 256;
-}
-
-function isValidName(name: unknown): name is string {
-  return typeof name === 'string' && isValidNameLength(name);
-}
-
-/** `undefined` when `name` is absent (patch: no change requested) or valid; the outcome to return otherwise. */
-function invalidNameOutcome(name: string | undefined): MutationOutcome<never> | undefined {
-  if (name === undefined || isValidNameLength(name)) return undefined;
-  return { kind: 'validationError', errors: NAME_LENGTH_ERROR };
+/** `undefined` when `name` is valid; otherwise the outcome to return. */
+function invalidNameOutcome(name: unknown): ValidationError | undefined {
+  const error = nonEmptyStringError('name', name, MAX_NAME_LENGTH);
+  return error ? { kind: 'validationError', errors: [error] } : undefined;
 }
 
 /** The contestant, only if it belongs to this War -- `null` covers both "doesn't exist" and "wrong War". */
@@ -59,18 +44,12 @@ async function findContestantInWar(db: Kysely<Database>, warId: string, contesta
   return contestant;
 }
 
-export async function addContestant(
-  db: Kysely<Database>,
-  input: CreateContestantInput,
-  now: Date,
-): Promise<MutationOutcome<ContestantWithWar>> {
-  const guard = await loadOwnedWar(db, input.warId, input.voterId, now);
+export async function addContestant(db: Kysely<Database>, input: CreateContestantInput): Promise<MutationOutcome<Contestant>> {
+  const guard = await loadOwnedWar(db, input.warId, input.voterId);
   if (guard.kind !== 'ok') return guard;
-  const { war } = guard;
 
-  if (!isValidName(input.name)) {
-    return { kind: 'validationError', errors: NAME_LENGTH_ERROR };
-  }
+  const nameError = invalidNameOutcome(input.name);
+  if (nameError) return nameError;
 
   const existing = await listContestantsByWar(db, input.warId);
   const contestant = await createContestant(db, {
@@ -78,16 +57,14 @@ export async function addContestant(
     name: input.name,
     bio: input.bio ?? null,
   });
-  // Matchups generate incrementally: this new contestant is paired against
-  // every contestant already on the roster, not recomputed for the whole
-  // War (spec §4 "Matchup").
+  // Matchups generate incrementally: the new contestant is paired against everyone already on the roster (§4 "Matchup").
   await generateMatchupsForNewContestant(
     db,
     input.warId,
     contestant.id,
     existing.map((c) => c.id),
   );
-  return { kind: 'ok', value: { contestant, war } };
+  return { kind: 'ok', value: contestant };
 }
 
 export interface PatchContestantInput {
@@ -101,33 +78,27 @@ export async function patchContestant(
   contestantId: string,
   voterId: string,
   input: PatchContestantInput,
-  now: Date,
-): Promise<MutationOutcome<ContestantWithWar>> {
-  const guard = await loadOwnedWar(db, warId, voterId, now);
+): Promise<MutationOutcome<Contestant>> {
+  const guard = await loadOwnedWar(db, warId, voterId);
   if (guard.kind !== 'ok') return guard;
-  const { war } = guard;
 
   const contestant = await findContestantInWar(db, warId, contestantId);
   if (!contestant) return { kind: 'notFound' };
 
-  const nameError = invalidNameOutcome(input.name);
+  const nameError = input.name === undefined ? undefined : invalidNameOutcome(input.name);
   if (nameError) return nameError;
 
   const updated = await updateContestant(db, contestantId, {
     name: input.name,
     bio: input.bio,
   });
-  return { kind: 'ok', value: { contestant: updated, war } };
+  return { kind: 'ok', value: updated };
 }
 
 /**
- * Removes a contestant, any status, creator-only (spec §6.1). A contestant
- * with no votes on its matchups is simply removed; one that does carry
- * votes has those votes cleared as part of removing it -- scoped to that
- * contestant's own matchups only, never the whole War -- and every
- * surviving contestant's counters are recomputed from what remains
- * afterward. All in one transaction so a failure partway never leaves a
- * matchup or vote orphaned from a contestant that no longer exists.
+ * Removes a contestant, any status, creator-only (§6.1). Votes on its matchups (and only those) are
+ * cleared with it and the surviving contestants' counters recomputed, all in one transaction so a failure
+ * never leaves a matchup or vote orphaned from a contestant that no longer exists.
  */
 export async function removeContestant(
   db: Kysely<Database>,
@@ -136,9 +107,8 @@ export async function removeContestant(
   warId: string,
   contestantId: string,
   voterId: string,
-  now: Date,
 ): Promise<MutationOutcome<void>> {
-  const guard = await loadOwnedWar(db, warId, voterId, now);
+  const guard = await loadOwnedWar(db, warId, voterId);
   if (guard.kind !== 'ok') return guard;
 
   const contestant = await findContestantInWar(db, warId, contestantId);

@@ -59,7 +59,7 @@ Feature: Navigation
     When they open the identity menu
     Then the menu renders on an opaque or translucent surface of its own
 
-  Scenario Outline: My Wars, Start a War and Home remain reachable from every route
+  Scenario Outline: My Wars, Start a War and Home remain reachable from <page>
     Given an authenticated voter who has already created a War
     When they navigate to "<page>"
     Then the Home brand mark links to the home page
@@ -71,7 +71,7 @@ Feature: Navigation
       | page                       |
       | the home page              |
       | their My Wars page         |
-      | the Start a War page       |
+      | a draft War's Edit page    |
       | that War's detail page     |
       | that War's vote page       |
 
@@ -114,3 +114,20 @@ Feature: Navigation
     Then the navigation shows a link to log in
     And it no longer shows their identity or the identity menu
     And no error message is displayed
+
+  Scenario: Opening the identity menu moves focus to its first item
+    Given an authenticated voter
+    When they open the identity menu
+    Then focus is on the first menu item
+
+  Scenario: Arrow keys move between identity menu items
+    Given the identity menu is open
+    When the voter presses the down arrow
+    Then focus moves to the next menu item
+    And pressing the up arrow moves it back
+
+  Scenario: Escape closes the identity menu and returns focus to its trigger
+    Given the identity menu is open
+    When the voter presses Escape
+    Then the menu is closed
+    And focus is on the identity control

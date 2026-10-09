@@ -3,9 +3,13 @@
 // the viewport with no scroll needed to vote, opened already scrolled past
 // the header; bios sit outside that block -- below it on a wide viewport,
 // beside each card on a narrow one -- and clicking one never casts a vote.
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { buildMatchupResponse, buildMediaItem } from '../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario } from './support/mocking'
+import { ok, reply } from './support/recipes'
+import { gotoVotePage } from './support/pages'
+
+const WAR_ID = 'war-1'
 
 // .matchup-view distributes its exact pixel budget between two flex-grow
 // rows and a fixed (negative-margined) vs-divider -- Chromium's internal
@@ -15,24 +19,13 @@ import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario }
 // row of content.
 const SUBPIXEL_ROUNDING_TOLERANCE_PX = 0.5
 
-async function mockVotePage(page: import('@playwright/test').Page, matchupOverrides: Parameters<typeof buildMatchupResponse>[0] = {}) {
+async function mockVotePage(page: Page, matchupOverrides: Parameters<typeof buildMatchupResponse>[0] = {}) {
   const matchup = buildMatchupResponse(matchupOverrides)
   await useScenario(page, [
-    { method: 'POST', path: `${API}/wars/war-1/join`, responses: [{ status: 204 }] },
-    { method: 'GET', path: `${API}/wars/war-1/matchups/next`, responses: [{ status: 200, body: matchup }] },
-    { method: 'GET', path: `${API}/wars/war-1`, responses: [{ status: 200, body: { id: 'war-1', title: 'Miss Universe 2026', category: null, status: 'published', visibility: 'public', media_mode: 'image', theme: 'arcade', ends_at: null, contestant_count: 2, contestants: [] } }] },
+    reply('POST', `${API}/wars/war-1/join`, 204),
+    ok('GET', `${API}/wars/war-1/matchups/next`, matchup),
+    ok('GET', `${API}/wars/war-1`, { id: 'war-1', title: 'Miss Universe 2026', category: null, status: 'published', visibility: 'public', media_mode: 'image', theme: 'arcade', ends_at: null, contestant_count: 2, contestants: [] }),
   ])
-}
-
-async function gotoVotePage(page: import('@playwright/test').Page) {
-  await page.goto('/')
-  await loginAsTestVoter(page)
-  await navigateAuthenticated(page, '/wars/war-1/vote')
-  // Web fonts (Google Fonts, index.html) can still be swapping in after the
-  // card is visible -- measuring layout before the swap finishes races the
-  // fallback font's own metrics under load (CI's shared runners), not a
-  // real regression.
-  await page.evaluate(() => document.fonts.ready)
 }
 
 test('Both contestant cards stay visible without scrolling on a phone, and the page opens scrolled past the header', async ({ page }) => {
@@ -78,7 +71,7 @@ test('On a narrow viewport, each bio sits beside its own card, not below the fol
   })
 
   // Act
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Assert — both bios are already on screen, no scroll needed.
   await expect(page.getByTestId('matchup-bio-left').getByTestId('contestant-bio')).toBeInViewport()
@@ -92,7 +85,7 @@ test('On a narrow viewport, each bio sits beside its own card, not below the fol
   expect(bio!.x).toBeGreaterThan(card!.x)
 })
 
-test("On a narrow viewport, a long bio scrolls within its own space instead of pushing the other contestant's card off screen", async ({ page }) => {
+test("A long bio scrolls within its own space instead of pushing the other contestant's card off screen", async ({ page }) => {
   // Arrange
   await page.setViewportSize({ width: 390, height: 844 })
   const longBio = Array.from({ length: 40 }, (_, i) => `Paragraph ${i} of a very long bio.`).join('\n\n')
@@ -105,7 +98,7 @@ test("On a narrow viewport, a long bio scrolls within its own space instead of p
   })
 
   // Act
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Assert — the right contestant's card stays fully on screen; the left
   // bio's own overflow scrolls internally rather than growing its row (and
@@ -129,7 +122,7 @@ test('Clicking a bio never casts a vote', async ({ page }) => {
       right: { id: 'contestant-right', name: 'Right Contestant', bio: null, media: [] },
     },
   })
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Act
   await page.getByTestId('matchup-bio-left').getByTestId('contestant-bio').click()
@@ -151,7 +144,7 @@ test('The matchup lays out side by side above the phone breakpoint, with bios be
   })
 
   // Act
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Assert — cards side by side: left sits left of right, roughly the same
   // vertical position, proving the wide breakpoint is actually firing.
@@ -183,7 +176,7 @@ test('The footer is reachable below the fold on both breakpoints', async ({ page
   await mockVotePage(page)
 
   // Act
-  await gotoVotePage(page)
+  await gotoVotePage(page, WAR_ID)
 
   // Assert
   await expect(page.locator('.app-footer')).not.toBeInViewport()

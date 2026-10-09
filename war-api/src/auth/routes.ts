@@ -1,25 +1,22 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { beginLogin, completeCallback, currentVoter, exchangeAuthorizationCode, logout, refresh, type AuthDependencies } from './authService.js';
+import { beginLogin, completeCallback, exchangeAuthorizationCode, logout, refresh, type AuthDependencies } from './authService.js';
 import { bearerAuthRoute } from './plugin.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
+import { rateLimitByAddress, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 
 const REFRESH_COOKIE = 'refresh_token';
 const STATE_COOKIE = 'oauth_state';
 const PKCE_COOKIE = 'oauth_pkce';
 const AUTH_COOKIE_PATH = '/api/v1/auth';
+const OAUTH_COOKIE_MAX_AGE_SECONDS = 600;
 
-/** The `{ error, reason }` body check #1 of the spec's "Callback failure responses" table returns. */
+/** The body of a declined authorization (§5.1). */
 export interface OAuthDeclinedView {
   error: 'authorization declined';
   reason: string;
 }
 
-/**
- * Unlike `voteForbiddenResponseSchema` (matchups/routes.ts), `reason` here
- * is not a closed `enum`: spec passes the OAuth provider's `error`
- * parameter through verbatim, since the set of codes a provider can send is
- * not this API's vocabulary to close off.
- */
+/** `reason` passes the provider's `error` parameter through verbatim, so it is not a closed enum. */
 export const oauthDeclinedResponseSchema = {
   type: 'object',
   required: ['error', 'reason'],
@@ -36,9 +33,18 @@ const callbackForbiddenResponseSchema = {
   properties: { error: { type: 'string' }, reason: { type: 'string' } },
 };
 
+/** The address-keyed limit as a preHandler list, empty while address limits are off. */
+function addressLimit(limiter: RateLimiter | undefined) {
+  return limiter ? [rateLimitByAddress(limiter)] : [];
+}
+
 export interface AuthRouteConfig {
   uiOrigins: string[];
   apiBaseUrl: string;
+  /** Per-client-address limit on starting sign-in (§8.4: 10/minute); absent while address limits are off. */
+  signInRateLimiter?: RateLimiter;
+  /** Per-client-address limit on token refresh (§8.4: 30/minute); absent while address limits are off. */
+  tokenRefreshRateLimiter?: RateLimiter;
 }
 
 /** Every provider's callback lives at the same path shape, so the redirect_uri is derived, not configured. */
@@ -46,7 +52,7 @@ function redirectUriFor(apiBaseUrl: string, providerSlug: string): string {
   return `${apiBaseUrl}/api/v1/auth/${providerSlug}/callback`;
 }
 
-function refreshCookieOptions() {
+function authCookieOptions() {
   return {
     httpOnly: true,
     secure: true,
@@ -60,9 +66,7 @@ function clearOAuthCookies(reply: FastifyReply): void {
   void reply.clearCookie(PKCE_COOKIE, { path: AUTH_COOKIE_PATH });
 }
 
-// The state and PKCE cookies are always set and cleared together, so a
-// mismatch or an absence of either is one failure mode, not two: there is
-// nothing safe to exchange without both.
+// The state and PKCE cookies are set and cleared together, so a mismatch or absence of either is one failure mode.
 function resolveCallbackCodeVerifier(
   expectedState: string | undefined,
   state: string | undefined,
@@ -83,19 +87,12 @@ type CallbackValidation =
   | { kind: 'stateMismatch' }
   | { kind: 'ok'; code: string; codeVerifier: string };
 
-/**
- * The spec's "Callback failure responses" table, checked in that exact
- * order -- extracted purely to keep the callback route handler's own
- * branch count down; the security-relevant sequencing (declined check
- * before state validation, independent of it) is unchanged.
- */
+/** The callback failure checks of §5.1, in order: a declined authorization is checked before, and independently of, state validation. */
 function validateCallbackRequest(request: FastifyRequest<CallbackRoute>): CallbackValidation {
   const { code, state, error } = request.query;
 
-  // #1 -- the provider declined to grant what was asked (spec). Checked
-  // first and independent of the state cookie: no code is ever exchanged
-  // on this branch, so there is nothing for state validation to protect.
-  // An empty `error` (`?error=`) is treated as absent.
+  // A declined authorization is checked first and independent of the state cookie: no code is exchanged on this
+  // branch, so there is nothing for state validation to protect. An empty `error` (`?error=`) counts as absent.
   if (error) return { kind: 'declined', reason: error };
   if (!code) return { kind: 'missingCode' };
 
@@ -124,29 +121,24 @@ function sendCallbackValidationFailure(
 export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies, config: AuthRouteConfig): void {
   app.get<{ Params: { provider: string } }>(
     '/auth/:provider/login',
-    // Success is a bare 302 redirect (no body); the only bodied outcome is
-    // an unsupported provider's 404 (spec, discrepancy 2: "confirmed
-    // redirect-or-empty-404 only -- no body to schema on that route").
-    { schema: { response: { 404: {} } } },
+    // Success is a bare 302 redirect; an unsupported provider's 404 has no body.
+    { schema: { response: { 404: {}, 429: rateLimitedResponseSchema } }, preHandler: addressLimit(config.signInRateLimiter) },
     async (request, reply) => {
       const provider = deps.providers.get(request.params.provider);
       if (!provider) {
         return reply.code(404).send();
       }
       const redirectUri = redirectUriFor(config.apiBaseUrl, provider.slug);
-      const { state, codeVerifier, authorizationUrl } = await beginLogin(deps, provider, redirectUri);
-      void reply.setCookie(STATE_COOKIE, state, { ...refreshCookieOptions(), maxAge: 600 });
-      void reply.setCookie(PKCE_COOKIE, codeVerifier, { ...refreshCookieOptions(), maxAge: 600 });
+      const { state, codeVerifier, authorizationUrl } = await beginLogin(provider, redirectUri);
+      void reply.setCookie(STATE_COOKIE, state, { ...authCookieOptions(), maxAge: OAUTH_COOKIE_MAX_AGE_SECONDS });
+      void reply.setCookie(PKCE_COOKIE, codeVerifier, { ...authCookieOptions(), maxAge: OAUTH_COOKIE_MAX_AGE_SECONDS });
       return reply.redirect(authorizationUrl);
     },
   );
 
   app.get<{ Params: { provider: string }; Querystring: { code?: string; state?: string; error?: string } }>(
     '/auth/:provider/callback',
-    // Success is a redirect with no body (spec, discrepancy 1: the
-    // stale 200-body example is superseded by the spec's cookie flow).
-    // The four failure responses are the spec's "Callback failure
-    // responses" table, checked in that exact order below.
+    // Success is a redirect with no body; the failures are the table checked in order by `validateCallbackRequest`.
     { schema: { response: { 400: errorResponseSchema, 403: callbackForbiddenResponseSchema, 502: errorResponseSchema } } },
     async (request, reply) => {
       const provider = deps.providers.get(request.params.provider);
@@ -161,26 +153,17 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
       }
       const { codeVerifier } = validation;
 
-      // The provider's real callback query, verbatim -- RFC 9207's `iss` and the rest,
-      // which the token-exchange library validates straight off this URL. The
-      // origin and path come from `redirectUriFor`, the same pure function the
-      // login leg above calls with the same provider slug, so the two legs
-      // cannot diverge for a given provider and nothing off the request line
-      // can steer them.
+      // The provider's callback query verbatim (RFC 9207's `iss` and the rest), which the token-exchange library
+      // validates off this URL. Origin and path come from `redirectUriFor`, as in the login leg, so nothing off
+      // the request line can steer them.
       const redirectUri = redirectUriFor(config.apiBaseUrl, provider.slug);
       const callbackUrl = new URL(redirectUri);
       callbackUrl.search = new URL(request.url, redirectUri).search;
 
-      // #4 -- the error boundary is scoped to the exchange call alone
-      // (spec). Whatever completeCallback does afterwards (voter upsert,
-      // refresh-token issuance) runs outside this check, so a failure there
-      // keeps surfacing as an unmapped 500, exactly as before.
-      const exchange = await exchangeAuthorizationCode(deps, provider, { callbackUrl, codeVerifier, redirectUri });
+      // Only this exchange is the 502 boundary; a failure in completeCallback (voter upsert, token issuance) stays a 500.
+      const exchange = await exchangeAuthorizationCode(provider, { callbackUrl, codeVerifier });
       if (exchange.kind === 'exchangeFailed') {
-        // The 502 body stays deliberately vague (spec: none of this
-        // is safe to show verbatim) -- but the real cause is still worth a
-        // server-side record, which `request.log` now actually is (see
-        // app.ts's logger config).
+        // The 502 body stays vague; the real cause goes to the server log.
         request.log.error({ err: exchange.cause }, `${provider.slug} code exchange failed`);
         clearOAuthCookies(reply);
         return reply.code(502).send({ error: `authentication with ${provider.slug} failed` });
@@ -192,10 +175,10 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
         return reply.redirect(`${config.uiOrigins[0]}/auth/callback?error=banned`);
       }
 
-      void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, refreshCookieOptions());
+      void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, authCookieOptions());
       clearOAuthCookies(reply);
 
-      // No token of any kind in the redirect (spec).
+      // No token of any kind in the redirect.
       return reply.redirect(`${config.uiOrigins[0]}/auth/callback`);
     },
   );
@@ -203,11 +186,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
   app.post(
     '/auth/refresh',
     {
+      preHandler: addressLimit(config.tokenRefreshRateLimiter),
       schema: {
         response: {
           200: { type: 'object', required: ['token'], properties: { token: { type: 'string' } } },
           401: errorResponseSchema,
           403: errorResponseSchema,
+          429: rateLimitedResponseSchema,
         },
       },
     },
@@ -228,7 +213,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
         return reply.code(401).send({ error: 'invalid refresh token' });
       }
 
-      void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, refreshCookieOptions());
+      void reply.setCookie(REFRESH_COOKIE, result.refreshTokenValue, authCookieOptions());
       return reply.send({ token: result.jwt });
     },
   );
@@ -268,7 +253,10 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDependencies,
       },
     }),
     async (request, reply) => {
-      const voter = await currentVoter(deps, request.headers.authorization);
+      const voter = request.voter;
+      if (!voter) {
+        throw new Error('authenticated voter no longer exists');
+      }
       return reply.send({
         voter: {
           id: voter.id,
