@@ -44,7 +44,7 @@ export function requireAuthIf(deps: AuthDependencies, shouldRequireAuth: (reques
 /**
  * Populates `request.voterId` when a valid Bearer JWT is present but never rejects: an absent, malformed or
  * expired token leaves the caller anonymous. For a route that is public but whose response depends on who is
- * asking (`GET /wars/:id`'s `is_owner`, rankings of an invite-only War).
+ * asking (`GET /wars/:id`'s `is_owner`).
  */
 export function optionalAuth(deps: AuthDependencies) {
   return async function preHandler(request: FastifyRequest): Promise<void> {

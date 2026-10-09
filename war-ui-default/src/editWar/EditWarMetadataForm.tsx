@@ -16,6 +16,8 @@ interface EditWarMetadataFormProps {
   onUploadShareImage: (blob: Blob) => Promise<void>
 }
 
+const UNLISTED_HINT = 'Unlisted: hidden from public lists; anyone with the link can view and vote'
+
 // The `<input type="date">` value shape (YYYY-MM-DD) an ISO timestamp
 // collapses to -- needed as the field's initial value.
 function endsAtInputValue(endsAt: string | null): string {
@@ -77,7 +79,7 @@ function ShareImageField({
 export function EditWarMetadataForm({ war, error, saving, onSave, onUploadShareImage }: EditWarMetadataFormProps) {
   const [title, setTitle] = useState(war.title ?? '')
   const [category, setCategory] = useState(war.category ?? '')
-  const [visibility, setVisibility] = useState<'public' | 'invite_only'>(war.visibility)
+  const [visibility, setVisibility] = useState<'public' | 'unlisted'>(war.visibility)
   const [theme, setTheme] = useState<Theme>(war.theme as Theme)
   const [endsAt, setEndsAt] = useState(endsAtInputValue(war.ends_at))
   const [titleRequiredError, setTitleRequiredError] = useState<string | null>(null)
@@ -145,11 +147,12 @@ export function EditWarMetadataForm({ war, error, saving, onSave, onUploadShareI
         <select
           data-testid="edit-war-visibility-select"
           value={visibility}
-          onChange={(event) => setVisibility(event.target.value as 'public' | 'invite_only')}
+          onChange={(event) => setVisibility(event.target.value as 'public' | 'unlisted')}
         >
           <option value="public">Public</option>
-          <option value="invite_only">Invite only</option>
+          <option value="unlisted">Unlisted</option>
         </select>
+        <small data-testid="edit-war-visibility-hint">{UNLISTED_HINT}</small>
       </label>
       <label>
         Theme

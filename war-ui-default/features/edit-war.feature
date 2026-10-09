@@ -261,10 +261,15 @@ Feature: Edit War
     When the creator changes the title and saves
     Then the new title is sent to the API
 
-  Scenario: Changing visibility to invite-only persists
+  Scenario: Changing visibility to unlisted persists
     Given a draft War open on its Edit page
-    When the creator changes visibility to invite-only and saves
+    When the creator changes visibility to unlisted and saves
     Then the new visibility is sent to the API
+
+  Scenario: The unlisted visibility option explains itself
+    Given a draft War open on its Edit page
+    Then the visibility control offers "Unlisted"
+    And it explains that an unlisted War is hidden from public lists and that anyone with the link can view and vote
 
   Scenario: Changing the theme persists it
     Given a draft War open on its Edit page

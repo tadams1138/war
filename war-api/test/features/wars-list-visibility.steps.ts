@@ -23,13 +23,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   }
 
   Scenario(
-    'Anonymous listing excludes drafts, invite-only Wars, and unpublished Wars by default',
+    'Anonymous listing excludes drafts, unlisted Wars, and unpublished Wars by default',
     ({ Given, When, Then }) => {
       let publishedWarId: string;
       let response: request.Response;
 
       Given(
-        'a voter has created a public published War, a public draft War, a public closed War, and a published invite-only War',
+        'a voter has created a public published War, a public draft War, a public closed War, and a published unlisted War',
         async () => {
         // Arrange
           const creator = await makeVoter(harness.db, 'creator');
@@ -48,11 +48,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
           const publishedClosed = await publishWarForTest(harness.db, closedWar);
           await closeWarForTest(harness.db, publishedClosed);
 
-          const { war: inviteOnlyWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
-            title: 'Published Invite Only War',
-            visibility: 'invite_only',
+          const { war: unlistedWar } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
+            title: 'Published Unlisted War',
+            visibility: 'unlisted',
           });
-          await publishWarForTest(harness.db, inviteOnlyWar);
+          await publishWarForTest(harness.db, unlistedWar);
         },
       );
 
@@ -97,19 +97,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('An explicit status filter does not override visibility scoping', ({ Given, When, Then }) => {
-    let closedInviteOnlyWarId: string;
+    let closedUnlistedWarId: string;
     let response: request.Response;
 
-    Given('a voter has created a closed, invite-only War', async () => {
+    Given('a voter has created a closed, unlisted War', async () => {
       // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, {
-        title: 'Closed Invite Only War',
-        visibility: 'invite_only',
+        title: 'Closed Unlisted War',
+        visibility: 'unlisted',
       });
       const published = await publishWarForTest(harness.db, war);
       const closed = await closeWarForTest(harness.db, published);
-      closedInviteOnlyWarId = closed.id;
+      closedUnlistedWarId = closed.id;
     });
 
     When('anyone GETs /api/v1/wars?status=closed', async () => {
@@ -120,7 +120,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('that War is not returned', () => {
       // Assert
       expect(response.status).toBe(200);
-      expect(idsOf(response)).not.toContain(closedInviteOnlyWarId);
+      expect(idsOf(response)).not.toContain(closedUnlistedWarId);
     });
   });
 

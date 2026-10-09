@@ -465,7 +465,7 @@ export interface paths {
                             /** @enum {string} */
                             status: "draft" | "published" | "closed";
                             /** @enum {string} */
-                            visibility: "public" | "invite_only";
+                            visibility: "public" | "unlisted";
                             /** @enum {string} */
                             media_mode: "image";
                             /** @enum {string} */
@@ -557,7 +557,7 @@ export interface paths {
                         title?: null | string;
                         category?: null | string;
                         /** @enum {string} */
-                        visibility?: "public" | "invite_only";
+                        visibility?: "public" | "unlisted";
                         /** @enum {string} */
                         theme?: "arcade" | "fight_card" | "scrapbook";
                         /** Format: date-time */
@@ -1719,17 +1719,6 @@ export interface paths {
                     };
                 };
                 /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: string;
-                        };
-                    };
-                };
-                /** @description Default Response */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -2776,7 +2765,7 @@ export interface components {
             /** @enum {string} */
             status: "draft" | "published" | "closed";
             /** @enum {string} */
-            visibility: "public" | "invite_only";
+            visibility: "public" | "unlisted";
             /** @enum {string} */
             media_mode: "image";
             /** @enum {string} */

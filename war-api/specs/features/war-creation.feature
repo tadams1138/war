@@ -40,6 +40,18 @@ Feature: War Creation
     Then the response status is 422
     And no War is created
 
+  Scenario: A creator makes a War unlisted at creation
+    Given an authenticated voter
+    When they POST a title and visibility "unlisted" to /api/v1/wars
+    Then a new War is created in "draft" status
+    And its visibility is "unlisted"
+
+  Scenario: The retired visibility "invite_only" is rejected
+    Given an authenticated voter
+    When they POST a title and visibility "invite_only" to /api/v1/wars
+    Then the response status is 422
+    And no War is created
+
   Scenario: The creator adds a contestant to their draft War
     Given a draft War created by the requester
     When they POST a name to /api/v1/wars/:id/contestants

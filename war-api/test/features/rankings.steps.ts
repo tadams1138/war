@@ -253,43 +253,20 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Invite-only rankings are not stored in a shared cache', ({ Given, When, Then }) => {
-    let warId: string;
-    let memberId: string;
-    let response: request.Response;
+  async function givenPublishedUnlistedWar(): Promise<string> {
+    const creator = await makeVoter(harness.db, 'creator');
+    const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { visibility: 'unlisted' });
+    const published = await publishWarForTest(harness.db, war);
+    return published.id;
+  }
 
-    Given('an invite_only War', async () => {
-      // Arrange
-      const creator = await makeVoter(harness.db, 'creator');
-      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { visibility: 'invite_only' });
-      const published = await publishWarForTest(harness.db, war);
-      warId = published.id;
-      const member = await makeVoter(harness.db, 'member');
-      memberId = member.id;
-      await joinWarAsVoter(harness.db, warId, memberId);
-    });
-
-    When('rankings are fetched by a member', async () => {
-      // Act
-      response = await as(harness, memberId).get(`/api/v1/wars/${warId}/rankings`);
-    });
-
-    Then('the response sets Cache-Control private', () => {
-      // Assert
-      expect(response.headers['cache-control']).toContain('private');
-    });
-  });
-
-  Scenario('Invite-only War rankings blocked for anonymous users', ({ Given, When, Then }) => {
+  Scenario("Anonymous user views an unlisted War's rankings", ({ Given, When, Then, And }) => {
     let warId: string;
     let response: request.Response;
 
-    Given('an invite_only War', async () => {
+    Given('an unlisted War in "published" status', async () => {
       // Arrange
-      const creator = await makeVoter(harness.db, 'creator');
-      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { visibility: 'invite_only' });
-      const published = await publishWarForTest(harness.db, war);
-      warId = published.id;
+      warId = await givenPublishedUnlistedWar();
     });
 
     When('an unauthenticated user GETs rankings', async () => {
@@ -298,9 +275,46 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       response = await anonymous(harness).get(`/api/v1/wars/${warId}/rankings`);
     });
 
-    Then('the response status is 401', () => {
+    Then('the response status is 200', () => {
       // Assert
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(200);
+    });
+
+    And('the response sets Cache-Control public with max-age 30', () => {
+      // Assert
+      expect(response.headers['cache-control']).toBe('public, max-age=30');
+    });
+  });
+
+  Scenario("A signed-in non-member views an unlisted War's rankings", ({ Given, And, When, Then }) => {
+    let warId: string;
+    let voterId: string;
+    let response: request.Response;
+
+    Given('an unlisted War in "published" status', async () => {
+      // Arrange
+      warId = await givenPublishedUnlistedWar();
+    });
+
+    And('a signed-in voter who has not joined it', async () => {
+      // Arrange
+      const voter = await makeVoter(harness.db, 'outsider');
+      voterId = voter.id;
+    });
+
+    When('that voter GETs rankings', async () => {
+      // Act
+      response = await as(harness, voterId).get(`/api/v1/wars/${warId}/rankings`);
+    });
+
+    Then('the response status is 200', () => {
+      // Assert
+      expect(response.status).toBe(200);
+    });
+
+    And('the response sets Cache-Control public with max-age 30', () => {
+      // Assert
+      expect(response.headers['cache-control']).toBe('public, max-age=30');
     });
   });
 

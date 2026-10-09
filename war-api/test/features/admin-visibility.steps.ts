@@ -50,23 +50,23 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
 
   interface SeededWars {
     creatorId: string;
-    warIds: { draft: string; invite: string; closed: string; removed: string };
+    warIds: { draft: string; unlisted: string; closed: string; removed: string };
   }
 
-  /** One creator with a draft, an invite-only (published), a closed (2 unaddressed + 1 addressed report) and a removed War, created in that order. */
+  /** One creator with a draft, an unlisted (published), a closed (2 unaddressed + 1 addressed report) and a removed War, created in that order. */
   async function seedWarsOfEveryKind(): Promise<SeededWars> {
     const creatorId = (await makeVoter(harness.db, 'alice')).id;
     const draft = await makeDraftWar(harness.db, creatorId, { title: 'Draft War' });
-    const invite = await makeDraftWar(harness.db, creatorId, { title: 'Invite War', visibility: 'invite_only' });
+    const unlisted = await makeDraftWar(harness.db, creatorId, { title: 'Unlisted War', visibility: 'unlisted' });
     const closed = await makeDraftWar(harness.db, creatorId, { title: 'Closed War' });
     const removed = await makeDraftWar(harness.db, creatorId, { title: 'Removed War' });
-    await setWarColumns(invite.id, { status: 'published' });
+    await setWarColumns(unlisted.id, { status: 'published' });
     await setWarColumns(closed.id, { status: 'closed' });
     await setWarColumns(removed.id, { status: 'published', removed: true });
     await addReport(closed.id, creatorId, false);
     await addReport(closed.id, creatorId, false);
     await addReport(closed.id, creatorId, true);
-    return { creatorId, warIds: { draft: draft.id, invite: invite.id, closed: closed.id, removed: removed.id } };
+    return { creatorId, warIds: { draft: draft.id, unlisted: unlisted.id, closed: closed.id, removed: removed.id } };
   }
 
   /** A published War whose end date passed a minute ago and which the close task has not touched, so its stored status still says published. */
@@ -79,12 +79,12 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
 
   Scenario('A Moderator lists every War whatever its status',({ Given, And, When, Then }) => {
     let creatorId: string;
-    let warIds: { draft: string; invite: string; closed: string; removed: string };
+    let warIds: { draft: string; unlisted: string; closed: string; removed: string };
     let moderatorId: string;
     let response: request.Response;
 
     Given(
-      'a Voter who created a draft, an invite-only, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
+      'a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
       async () => {
         // Arrange
         ({ creatorId, warIds } = await seedWarsOfEveryKind());
@@ -105,9 +105,9 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
       // Assert
       expect(response.status).toBe(200);
       const wars = response.body.wars as Item[];
-      expect(wars.map((war) => war.id)).toEqual([warIds.removed, warIds.closed, warIds.invite, warIds.draft]);
+      expect(wars.map((war) => war.id)).toEqual([warIds.removed, warIds.closed, warIds.unlisted, warIds.draft]);
       expect(wars.map((war) => war.status)).toEqual(['published', 'closed', 'published', 'draft']);
-      expect(wars.map((war) => war.visibility)).toEqual(['public', 'public', 'invite_only', 'public']);
+      expect(wars.map((war) => war.visibility)).toEqual(['public', 'public', 'unlisted', 'public']);
       expect(wars.map((war) => war.unaddressed_report_count)).toEqual([0, 2, 0, 0]);
       expect(wars.map((war) => war.removed_at === null)).toEqual([false, true, true, true]);
       expect(Number.isNaN(Date.parse(wars[0]?.removed_at as string))).toBe(false);
@@ -126,7 +126,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     let response: request.Response;
 
     Given(
-      'a Voter who created a draft, an invite-only, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
+      'a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
       async () => {
         // Arrange
         ({ warIds } = await seedWarsOfEveryKind());
@@ -156,7 +156,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     let response: request.Response;
 
     Given(
-      'a Voter who created a draft, an invite-only, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
+      'a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
       async () => {
         // Arrange
         ({ warIds } = await seedWarsOfEveryKind());
@@ -176,7 +176,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     Then('the response lists only the published War that was not removed', () => {
       // Assert
       expect(response.status).toBe(200);
-      expect((response.body.wars as Item[]).map((war) => war.id)).toEqual([warIds.invite]);
+      expect((response.body.wars as Item[]).map((war) => war.id)).toEqual([warIds.unlisted]);
     });
   });
 
@@ -186,7 +186,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     let response: request.Response;
 
     Given(
-      'a Voter who created a draft, an invite-only, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
+      'a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
       async () => {
         // Arrange
         ({ warIds } = await seedWarsOfEveryKind());
@@ -712,14 +712,14 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     let response: request.Response;
 
     Given(
-      'a Voter who voted in a published War, then in another Voter\'s invite-only War, then in a War that was later removed',
+      'a Voter who voted in a published War, then in another Voter\'s unlisted War, then in a War that was later removed',
       async () => {
         // Arrange
         voterId = (await makeVoter(harness.db, 'alice')).id;
         const creatorId = (await makeVoter(harness.db, 'bob')).id;
         votes = [
           await castVoteInNewWar(voterId, creatorId, { title: 'Open', castAt: '2026-01-01T00:00:00Z' }),
-          await castVoteInNewWar(voterId, creatorId, { title: 'Secret', castAt: '2026-01-02T00:00:00Z', visibility: 'invite_only' }),
+          await castVoteInNewWar(voterId, creatorId, { title: 'Secret', castAt: '2026-01-02T00:00:00Z', visibility: 'unlisted' }),
           await castVoteInNewWar(voterId, creatorId, { title: 'Gone', castAt: '2026-01-03T00:00:00Z', removed: true }),
         ];
       },

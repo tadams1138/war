@@ -1,7 +1,7 @@
 Feature: Public Wars List Visibility
 
-  Scenario: Anonymous listing excludes drafts, invite-only Wars, and unpublished Wars by default
-    Given a voter has created a public published War, a public draft War, a public closed War, and a published invite-only War
+  Scenario: Anonymous listing excludes drafts, unlisted Wars, and unpublished Wars by default
+    Given a voter has created a public published War, a public draft War, a public closed War, and a published unlisted War
     When anyone GETs /api/v1/wars
     Then only the public published War is returned
 
@@ -11,7 +11,7 @@ Feature: Public Wars List Visibility
     Then that draft War is not returned
 
   Scenario: An explicit status filter does not override visibility scoping
-    Given a voter has created a closed, invite-only War
+    Given a voter has created a closed, unlisted War
     When anyone GETs /api/v1/wars?status=closed
     Then that War is not returned
 

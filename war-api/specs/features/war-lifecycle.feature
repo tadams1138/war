@@ -76,6 +76,17 @@ Feature: War Lifecycle
     Then the response status is 200
     And the War's theme is "fight_card"
 
+  Scenario: A creator makes a draft War unlisted
+    Given a War in "draft" status
+    When the creator PATCHes the visibility to "unlisted"
+    Then the response status is 200
+    And the War's visibility is "unlisted"
+
+  Scenario: The retired visibility "invite_only" is rejected on edit
+    Given a War in "draft" status
+    When the creator PATCHes the visibility to "invite_only"
+    Then the response status is 422
+
   Scenario: A voter joins a published War
     Given a published War
     And an authenticated voter who has not joined

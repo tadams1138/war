@@ -20,11 +20,11 @@ Feature: My Wars
     When a caller bearing an invalid or expired JWT GETs /api/v1/wars?creator=me
     Then the response status is 401
 
-  Scenario: A voter's own invite-only or draft Wars are included, and another voter's are not
-    Given a voter has created a draft, invite-only War
-    And another voter has created a draft, invite-only War
+  Scenario: A voter's own unlisted or draft Wars are included, and another voter's are not
+    Given a voter has created a draft, unlisted War
+    And another voter has created a draft, unlisted War
     When they GET /api/v1/wars?creator=me
-    Then their own invite-only draft War is returned
+    Then their own unlisted draft War is returned
     And the other voter's is not
 
   Scenario: A creator value other than "me" is rejected

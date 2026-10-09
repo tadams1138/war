@@ -38,15 +38,18 @@ Feature: Rankings
     When rankings are fetched
     Then the response sets Cache-Control public with max-age 30
 
-  Scenario: Invite-only rankings are not stored in a shared cache
-    Given an invite_only War
-    When rankings are fetched by a member
-    Then the response sets Cache-Control private
-
-  Scenario: Invite-only War rankings blocked for anonymous users
-    Given an invite_only War
+  Scenario: Anonymous user views an unlisted War's rankings
+    Given an unlisted War in "published" status
     When an unauthenticated user GETs rankings
-    Then the response status is 401
+    Then the response status is 200
+    And the response sets Cache-Control public with max-age 30
+
+  Scenario: A signed-in non-member views an unlisted War's rankings
+    Given an unlisted War in "published" status
+    And a signed-in voter who has not joined it
+    When that voter GETs rankings
+    Then the response status is 200
+    And the response sets Cache-Control public with max-age 30
 
   Scenario: Rankings report the War's own theme
     Given a public War with theme "fight_card"

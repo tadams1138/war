@@ -17,7 +17,7 @@ describe('buildWarExportZip', () => {
     const war = buildWarDetail({
       title: 'Miss Universe 2026',
       category: 'Pageant',
-      visibility: 'invite_only',
+      visibility: 'unlisted',
       theme: 'fight_card',
       ends_at: '2026-12-31T00:00:00.000Z',
       contestants: [],
@@ -31,7 +31,7 @@ describe('buildWarExportZip', () => {
     expect(json).toMatchObject({
       title: 'Miss Universe 2026',
       category: 'Pageant',
-      visibility: 'invite_only',
+      visibility: 'unlisted',
       theme: 'fight_card',
       ends_at: '2026-12-31T00:00:00.000Z',
     })

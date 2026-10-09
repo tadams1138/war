@@ -67,7 +67,7 @@ async function seed(pool: pg.Pool): Promise<void> {
            (array['Best','Worst','Ultimate','Greatest','Final','Epic'])[1 + g % 6] || ' ' ||
            (array['Pizza','Movie','Album','Cartoon','Sneaker','Game','Snack'])[1 + g % 7] || ' war ' || g,
            (array['draft','published','published','published','closed'])[1 + g % 5],
-           CASE WHEN g % 9 = 0 THEN 'invite_only' ELSE 'public' END,
+           CASE WHEN g % 9 = 0 THEN 'unlisted' ELSE 'public' END,
            CASE WHEN g % 50 = 0 THEN now() END,
            now() - random() * interval '730 days'
     FROM generate_series(1, ${WARS}) g JOIN vn v ON v.n = 1 + (g * 7919) % ${VOTERS}`);

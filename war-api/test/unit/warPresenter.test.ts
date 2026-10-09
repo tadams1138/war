@@ -35,7 +35,7 @@ describe('presentWarSummary', () => {
       title: 'Best Pageant',
       category: 'pageant',
       status: 'published',
-      visibility: 'invite_only',
+      visibility: 'unlisted',
       endsAt: new Date('2026-02-01T00:00:00Z'),
     });
 
@@ -48,7 +48,7 @@ describe('presentWarSummary', () => {
       title: 'Best Pageant',
       category: 'pageant',
       status: 'published',
-      visibility: 'invite_only',
+      visibility: 'unlisted',
       media_mode: 'image',
       theme: 'arcade',
       ends_at: '2026-02-01T00:00:00.000Z',

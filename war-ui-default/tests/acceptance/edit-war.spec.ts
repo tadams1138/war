@@ -332,10 +332,10 @@ test('A blank title shows a validation error', async ({ page }) => {
   await expect(page.getByTestId('edit-war-metadata-error')).toBeVisible()
 })
 
-test('Changing visibility to invite-only persists', async ({ page }) => {
+test('Changing visibility to unlisted persists', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({ id: WAR_ID, status: 'draft', visibility: 'public' })
-  const patched = buildWarSummary({ id: WAR_ID, status: 'draft', visibility: 'invite_only' })
+  const patched = buildWarSummary({ id: WAR_ID, status: 'draft', visibility: 'unlisted' })
   await useScenario(page, [
     ok('GET', `${API}/wars/${WAR_ID}`, detail),
     ok('PATCH', `${API}/wars/${WAR_ID}`, patched),
@@ -343,7 +343,7 @@ test('Changing visibility to invite-only persists', async ({ page }) => {
   await gotoEditPage(page, WAR_ID)
 
   // Act
-  await page.getByTestId('edit-war-visibility-select').selectOption('invite_only')
+  await page.getByTestId('edit-war-visibility-select').selectOption('unlisted')
   await page.getByTestId('edit-war-metadata-submit').click()
   // Waits for the save to actually settle (button re-enables either way) —
   // reading the call log right after click() would race the in-flight PATCH.
@@ -352,7 +352,22 @@ test('Changing visibility to invite-only persists', async ({ page }) => {
   // Assert
   const calls = await getCallLog(page)
   const patchCall = calls.find((c) => c.method === 'PATCH' && c.url.endsWith(`/wars/${WAR_ID}`))
-  expect(JSON.parse(patchCall!.body ?? '{}').visibility).toBe('invite_only')
+  expect(JSON.parse(patchCall!.body ?? '{}').visibility).toBe('unlisted')
+})
+
+test('The unlisted visibility option explains itself', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({ id: WAR_ID, status: 'draft', visibility: 'public' })
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+
+  // Act
+  await gotoEditPage(page, WAR_ID)
+
+  // Assert
+  await expect(page.getByTestId('edit-war-visibility-select').getByRole('option', { name: 'Unlisted' })).toHaveCount(1)
+  await expect(page.getByTestId('edit-war-visibility-hint')).toHaveText(
+    'Unlisted: hidden from public lists; anyone with the link can view and vote',
+  )
 })
 
 test('Changing the theme persists it', async ({ page }) => {

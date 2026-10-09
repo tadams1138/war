@@ -94,7 +94,7 @@ export interface ListWarsFilter {
   now: Date;
   /**
    * Scopes the list to Wars created by this voter, across every status --
-   * including their own drafts and invite-only Wars (§6.1).
+   * including their own drafts and unlisted Wars (§6.1).
    * Composes with `status`/`category` exactly as
    * those two already compose with each other. Only ever set from the
    * authenticated requester's own id -- never from a client-supplied one --
@@ -142,13 +142,13 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
     const ownScoped = query.where('wars.creator_id', '=', filter.creatorId);
     return filter.status ? ownScoped.where(hasEffectiveStatus(filter.status, filter.now)) : ownScoped;
   }
-  // Default scoping when `creatorId` is absent (§6.1): never a draft, never an invite-only War, whatever
+  // Default scoping when `creatorId` is absent (§6.1): never a draft, never an unlisted War, whatever
   // `status` asks for (`status=draft` returns empty, not another voter's drafts). No `status` means `published`.
   // Enforced here so every caller of `listWars` inherits it.
   return query
     .where(hasEffectiveStatus(filter.status ?? 'published', filter.now))
     .where('wars.status', '!=', 'draft')
-    .where('wars.visibility', '!=', 'invite_only');
+    .where('wars.visibility', '=', 'public');
 }
 
 type WarsQuery = ReturnType<typeof baseWarsQuery>;

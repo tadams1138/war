@@ -34,7 +34,7 @@ type VoteForbiddenBody =
 export interface CreateWarPayload {
   title?: string
   category?: string | null
-  visibility?: 'public' | 'invite_only'
+  visibility?: 'public' | 'unlisted'
   theme?: 'arcade' | 'fight_card' | 'scrapbook'
   ends_at?: string | null
 }

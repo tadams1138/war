@@ -770,21 +770,6 @@ test('Results do not poll once the War is closed', async ({ page }) => {
   expect(rankingsCalls).toHaveLength(1)
 })
 
-test("An invite-only War's results require sign-in", async ({ page }) => {
-  // Arrange
-  await useScenario(page, [
-    reply('GET', `${API}/wars/${RESULTS_WAR_ID}/rankings`, 401, { error: 'unauthorized' }),
-    reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid refresh token' }),
-  ])
-
-  // Act
-  await page.goto(`/wars/${RESULTS_WAR_ID}`)
-
-  // Assert
-  await expect(page).toHaveURL(/\/login\?/)
-  await expect(page.getByText('Please log in to continue')).toBeVisible()
-})
-
 test("A completed vote flow redirects to the War's results", async ({ page }) => {
   // Arrange
   const lastMatchup = buildMatchupResponse({

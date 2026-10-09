@@ -79,12 +79,6 @@ Feature: War Detail
     When 30 seconds elapse
     Then the detail page does not re-fetch results from the API
 
-  Scenario: An invite-only War's results require sign-in
-    Given an invite-only War
-    When an unauthenticated visitor navigates to that War's detail page
-    Then the message "Please log in to continue" is shown
-    And they are redirected to /login
-
   Scenario: A completed vote flow redirects to the War's results
     Given a voter who has just cast their final vote in a War
     Then they are redirected to that War's detail page
