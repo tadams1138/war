@@ -239,7 +239,7 @@ describe('getRankings', () => {
     expect(result.rankings).toHaveLength(rankings.rankings.length)
   })
 
-  it('throws an unauthorized ApiError on 401 — an invite-only War, anonymous request', async () => {
+  it('throws an unauthorized ApiError on 401 from rankings', async () => {
     // Arrange — the client retries once through a refresh attempt before
     // giving up; stub that endpoint failing too, same as the generic "401
     // handling" tests above.

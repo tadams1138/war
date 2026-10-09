@@ -12,21 +12,11 @@ export interface RankingsRouteDeps {
   publicBaseUrl: string;
 }
 
-function cacheControlFor(visibility: string): string {
-  return visibility === 'invite_only' ? 'private, max-age=30' : 'public, max-age=30';
-}
-
-/** Unlike `replyForOutcome`, a success carries cache headers and an invite-only War answers an anonymous or non-member viewer with 401 (§6.4). */
+/** Unlike `replyForOutcome`, a success carries a shared-cache header: an unlisted War's rankings are as public as a public War's (§6.4). */
 function sendRankingsOutcome(reply: FastifyReply, outcome: RankingsOutcome) {
-  switch (outcome.kind) {
-    case 'notFound':
-      return sendNotFound(reply);
-    case 'unauthorized':
-      return reply.code(401).send({ error: 'unauthorized' });
-    case 'ok':
-      void reply.header('Cache-Control', cacheControlFor(outcome.visibility));
-      return reply.send(outcome.view);
-  }
+  if (outcome.kind === 'notFound') return sendNotFound(reply);
+  void reply.header('Cache-Control', 'public, max-age=30');
+  return reply.send(outcome.view);
 }
 
 export function registerRankingsRoutes(app: FastifyInstance, deps: RankingsRouteDeps): void {
@@ -35,7 +25,7 @@ export function registerRankingsRoutes(app: FastifyInstance, deps: RankingsRoute
   app.get<{ Params: { id: string } }>(
     '/wars/:id/rankings',
     {
-      schema: { response: { 200: rankingsResponseSchema, 401: errorResponseSchema, 404: errorResponseSchema } },
+      schema: { response: { 200: rankingsResponseSchema, 404: errorResponseSchema } },
       preHandler: optionalAuth(deps.auth),
     },
     async (request, reply) => {

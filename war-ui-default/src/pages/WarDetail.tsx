@@ -1,9 +1,7 @@
 // War overview and results, image mode only (war-spec.md: "War detail is one
 // page, not two" — 10.1, 10.4). One merged results list, ordered by rank —
 // no separate contestant gallery and no separate "Results" section. No
-// authentication required for a public War; an invite-only War's results
-// 401, and that 401 is handled entirely by api/client.ts's existing
-// unauthorized pipeline, which clears the token and redirects to /login.
+// authentication required to view a War or its results, listed or unlisted.
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getToken } from '../api/authState'

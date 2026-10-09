@@ -37,7 +37,7 @@ export const warSummaryProperties = {
   title: { type: ['string', 'null'] },
   category: { type: ['string', 'null'], maxLength: MAX_CATEGORY_LENGTH },
   status: { type: 'string', enum: ['draft', 'published', 'closed'] },
-  visibility: { type: 'string', enum: ['public', 'invite_only'] },
+  visibility: { type: 'string', enum: ['public', 'unlisted'] },
   media_mode: { type: 'string', enum: ['image'] },
   theme: { type: 'string', enum: [...THEMES] },
   ends_at: { type: ['string', 'null'], format: 'date-time' },

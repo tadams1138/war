@@ -55,8 +55,8 @@ function titleError(title: unknown): string | null {
 }
 
 function visibilityError(visibility: unknown): string | null {
-  if (visibility !== 'public' && visibility !== 'invite_only') {
-    return 'visibility must be "public" or "invite_only"';
+  if (visibility !== 'public' && visibility !== 'unlisted') {
+    return 'visibility must be "public" or "unlisted"';
   }
   return null;
 }

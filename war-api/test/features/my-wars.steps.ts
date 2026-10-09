@@ -143,26 +143,26 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario("A voter's own invite-only or draft Wars are included, and another voter's are not", ({ Given, And, When, Then }) => {
+  Scenario("A voter's own unlisted or draft Wars are included, and another voter's are not", ({ Given, And, When, Then }) => {
     let creatorId: string;
     let warId: string;
     let otherWarId: string;
     let response: request.Response;
 
-    Given('a voter has created a draft, invite-only War', async () => {
+    Given('a voter has created a draft, unlisted War', async () => {
       // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
-      const war = await makeDraftWar(harness.db, creatorId, { title: 'Invite Only Draft', visibility: 'invite_only' });
+      const war = await makeDraftWar(harness.db, creatorId, { title: 'Unlisted Draft', visibility: 'unlisted' });
       warId = war.id;
     });
 
-    And('another voter has created a draft, invite-only War', async () => {
+    And('another voter has created a draft, unlisted War', async () => {
       // Arrange
       const other = await makeVoter(harness.db, 'other');
       const war = await makeDraftWar(harness.db, other.id, {
-        title: "Someone Else's Invite Only Draft",
-        visibility: 'invite_only',
+        title: "Someone Else's Unlisted Draft",
+        visibility: 'unlisted',
       });
       otherWarId = war.id;
     });
@@ -172,7 +172,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       response = await getWars(harness, '?creator=me', creatorId);
     });
 
-    Then('their own invite-only draft War is returned', () => {
+    Then('their own unlisted draft War is returned', () => {
       // Assert
       expect(response.status).toBe(200);
       expect(idsOf(response)).toContain(warId);

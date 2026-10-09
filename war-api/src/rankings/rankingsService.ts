@@ -6,7 +6,6 @@ import { presentMedia } from '../contestants/mediaPresenter.js';
 import { contestantViewSchema, type ContestantView } from '../contestants/contestantPresenter.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
 import { findVisibleWar } from '../wars/warAccess.js';
-import { isMember } from '../wars/warsRepository.js';
 import { THEMES } from '../wars/theme.js';
 import { rankContestants } from './scoring.js';
 
@@ -51,20 +50,8 @@ export const rankingsResponseSchema = {
 };
 
 export type RankingsOutcome =
-  | { kind: 'ok'; view: RankingsView; visibility: string }
-  | { kind: 'notFound' }
-  | { kind: 'unauthorized' };
-
-/** An invite-only War's rankings are for its creator and members only. */
-async function isUnauthorizedForRankings(
-  db: Kysely<Database>,
-  war: { id: string; creatorId: string | null; visibility: string },
-  viewerId: string | null,
-): Promise<boolean> {
-  if (war.visibility !== 'invite_only') return false;
-  if (viewerId === null) return true;
-  return war.creatorId !== viewerId && !(await isMember(db, war.id, viewerId));
-}
+  | { kind: 'ok'; view: RankingsView }
+  | { kind: 'notFound' };
 
 /** Assembles a War's rankings response (§6.4). `viewerId` is `null` for an anonymous request. */
 export async function getRankings(
@@ -78,10 +65,6 @@ export async function getRankings(
   const war = await findVisibleWar(db, warId, viewerId);
   if (!war) {
     return { kind: 'notFound' };
-  }
-
-  if (await isUnauthorizedForRankings(db, war, viewerId)) {
-    return { kind: 'unauthorized' };
   }
 
   const contestants = await listContestantsByWar(db, war.id);
@@ -107,7 +90,6 @@ export async function getRankings(
 
   return {
     kind: 'ok',
-    visibility: war.visibility,
     view: {
       war_id: war.id,
       status: effectiveStatus(war, now),

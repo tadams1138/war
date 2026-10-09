@@ -177,6 +177,60 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario('A creator makes a War unlisted at creation', ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('an authenticated voter', async () => {
+      // Arrange
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+    });
+
+    When('they POST a title and visibility "unlisted" to /api/v1/wars', async () => {
+      // Act
+      response = await authedPost(creatorId, '/api/v1/wars', { title: 'Miss Universe 2026', visibility: 'unlisted' });
+    });
+
+    Then('a new War is created in "draft" status', () => {
+      // Assert
+      expect(response.status).toBe(201);
+      expect(response.body.status).toBe('draft');
+    });
+
+    And('its visibility is "unlisted"', () => {
+      // Assert
+      expect(response.body.visibility).toBe('unlisted');
+    });
+  });
+
+  Scenario('The retired visibility "invite_only" is rejected', ({ Given, When, Then, And }) => {
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('an authenticated voter', async () => {
+      // Arrange
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+    });
+
+    When('they POST a title and visibility "invite_only" to /api/v1/wars', async () => {
+      // Act
+      response = await authedPost(creatorId, '/api/v1/wars', { title: 'Miss Universe 2026', visibility: 'invite_only' });
+    });
+
+    Then('the response status is 422', () => {
+      // Assert
+      expect(response.status).toBe(422);
+    });
+
+    And('no War is created', async () => {
+      // Assert
+      const rows = await harness.db.selectFrom('wars').selectAll().where('creator_id', '=', creatorId).execute();
+      expect(rows).toHaveLength(0);
+    });
+  });
+
   Scenario('An invalid theme is rejected', ({ Given, When, Then, And }) => {
     let creatorId: string;
     let response: request.Response;

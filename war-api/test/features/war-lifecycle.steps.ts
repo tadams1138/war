@@ -434,6 +434,59 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario('A creator makes a draft War unlisted', ({ Given, When, Then, And }) => {
+    let warId: string;
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('a War in "draft" status', async () => {
+      // Arrange
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      const war = await makeDraftWar(harness.db, creatorId);
+      warId = war.id;
+    });
+
+    When('the creator PATCHes the visibility to "unlisted"', async () => {
+      // Act
+      response = await as(harness, creatorId).patch(`/api/v1/wars/${warId}`, { visibility: 'unlisted' });
+    });
+
+    Then('the response status is 200', () => {
+      // Assert
+      expect(response.status).toBe(200);
+    });
+
+    And("the War's visibility is \"unlisted\"", () => {
+      // Assert
+      expect(response.body.visibility).toBe('unlisted');
+    });
+  });
+
+  Scenario('The retired visibility "invite_only" is rejected on edit', ({ Given, When, Then }) => {
+    let warId: string;
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('a War in "draft" status', async () => {
+      // Arrange
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      const war = await makeDraftWar(harness.db, creatorId);
+      warId = war.id;
+    });
+
+    When('the creator PATCHes the visibility to "invite_only"', async () => {
+      // Act
+      response = await as(harness, creatorId).patch(`/api/v1/wars/${warId}`, { visibility: 'invite_only' });
+    });
+
+    Then('the response status is 422', () => {
+      // Assert
+      expect(response.status).toBe(422);
+    });
+  });
+
   Scenario('A voter joins a published War', ({ Given, And, When, Then }) => {
     let warId: string;
     let voterId: string;

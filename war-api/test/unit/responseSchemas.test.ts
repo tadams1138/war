@@ -96,7 +96,7 @@ describe('response body schemas serialize every field', () => {
       title: 'Best Pageant',
       category: null,
       status: 'draft',
-      visibility: 'invite_only',
+      visibility: 'unlisted',
       media_mode: 'image',
       theme: 'arcade',
       ends_at: null,
