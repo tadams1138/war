@@ -101,6 +101,14 @@ These commands mirror the pipelines in `.github/workflows/`, so local runs match
 - **Fork for large multi-file refactors.** A change touching many files at once (a
   cyclomatic-complexity sweep, a cross-cutting rename) belongs in a forked subagent, not
   inline — it keeps the raw diffs and test output out of the main conversation.
+- **Delegate on the cheapest model that can do the job.** Set the model explicitly on every
+  subagent. Use Haiku for mechanical, well-specified edits (renames, doc and label changes,
+  small single-file fixes). Use Sonnet for multi-file refactors, test-first feature work, and
+  reviews that need judgement. Never leave a subagent on this session's own top-tier model by
+  default. A fork inherits this session's model, so use one only when the task needs this
+  conversation's context. Resume an interrupted subagent before restarting it on another
+  model, since it keeps its context. Verify a subagent's work yourself before committing it:
+  run the checks and read the diff, and check a cheaper model's factual claims most closely.
 - **Close `claude-in-chrome` tabs as soon as a browser task finishes.** Don't leave automation
   tabs open across turns.
 
