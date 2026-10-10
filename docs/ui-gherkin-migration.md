@@ -1,6 +1,6 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 8 of 17 feature files converted (54 of 274
+**Status as of 2026-10-10: in progress, paused. 9 of 17 feature files converted (64 of 275
 acceptance tests).** Nothing is half-done: every feature is either fully converted or
 untouched, and the whole suite passes.
 
@@ -24,8 +24,8 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth` | 54 | Steps executed by playwright-bdd |
-| Not converted | the 9 in the backlog | 220 | Scenario title must equal a Playwright test title |
+| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images` | 64 | Steps executed by playwright-bdd |
+| Not converted | the 8 in the backlog | 211 | Scenario title must equal a Playwright test title |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
 `npm run test:acceptance`.
@@ -89,7 +89,7 @@ Rules:
 9. **Mark each step's phase** with one comment, as `war-api` does: `// Arrange` in a Given,
    `// Act` in a When, `// Assert` in a Then.
 10. **Keep `World` small.** Add a field to the `World` class in `fixtures.ts` only for state
-    that a later step really needs (today: `warId`, `matchup`, and the `booted`/`signedIn` flags).
+    that a later step really needs (today: `warId`, `matchup`, `requestOutcomes`, `requestedUrls`, and the `booted`/`signedIn` flags).
 
 ### Shared vocabulary
 
@@ -147,7 +147,7 @@ Run every command from the repository root. Never `cd` (see `CLAUDE.md`).
 
 **Done means:** the spec file is gone, every old assertion has a step, the step text is true,
 the red check was seen, all five commands pass with zero lint warnings, and the acceptance
-total is still 274 (273 before `vote-mode-responsive` turned its footer scenario into a two-row Scenario Outline, 272 before `error-handling` split a scenario in two) unless a scenario was deliberately added or removed (say which and why).
+total is still 275 (274 before `contestant-images` turned its on-demand scenario into a two-row Scenario Outline, 273 before `vote-mode-responsive` turned its footer scenario into a two-row Scenario Outline, 272 before `error-handling` split a scenario in two) unless a scenario was deliberately added or removed (say which and why).
 
 Work on a branch, one converted feature per commit. Do not push to `master`; the owner merges.
 
@@ -158,18 +158,17 @@ are the hand-written spec's line count on 2026-10-10.
 
 | Order | Feature | Scenarios | Spec lines | Notes |
 |---|---|---|---|---|
-| 1 | `contestant-images` | 9 | 194 | |
-| 2 | `vote-mode` | 11 | 267 | |
-| 3 | `browse-wars` | 16 | 305 | |
-| 4 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
-| 5 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
-| 6 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
-| 7 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
-| 8 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
-| 9 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
+| 1 | `vote-mode` | 11 | 267 | |
+| 2 | `browse-wars` | 16 | 305 | |
+| 3 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
+| 4 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
+| 5 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
+| 6 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
+| 7 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
+| 8 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
 
-Total remaining: 216 scenarios (220 tests, since the `navigation` loop runs five), about
-4,850 spec lines. The two converted features grew by about 27% (208 spec lines became 264
+Total remaining: 207 scenarios (211 tests, since the `navigation` loop runs five), about
+4,656 spec lines. The two converted features grew by about 27% (208 spec lines became 264
 lines of steps and helpers), so expect roughly 7,000 to 8,000 lines of steps. That estimate
 comes from two small features only.
 
@@ -190,8 +189,6 @@ corrects them as a side effect (rules 4 and 5).
   (`Then {page} is shown`).
 - **`features/pending/` must never run.** It is not in `CONVERTED_FEATURES`, so `bddgen` does
   not see it.
-- `fixtures.ts` carries one ESLint suppression (`no-empty-pattern`). It is Playwright's own
-  fixture signature, not a shortcut.
 
 ## Finishing the migration
 
@@ -207,8 +204,8 @@ When `CONVERTED_FEATURES` lists every feature:
 
 - Traces, videos and the HTML report for the generated tests. They run as native Playwright
   tests, so they are expected to work; nobody has looked.
-- Scenario Outlines under playwright-bdd are used by `vote-mode-responsive` (the footer scenario) and
-  run, but the report titles keep the unsubstituted `<screen>` in the parent describe block.
+- Scenario Outlines under playwright-bdd are used by `vote-mode-responsive` (the footer scenario) and `contestant-images`, and
+  run, but the report titles keep the unsubstituted placeholder in the parent describe block.
   `navigation` will need more of them.
 - The spike ran the suite locally through the same npm script CI calls. Check the first CI run
   after any change to the wiring.
