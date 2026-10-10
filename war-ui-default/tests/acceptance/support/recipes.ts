@@ -52,3 +52,8 @@ export function queueCreation(world: World, postResponses: RecipeResponse[]): vo
   const detail = buildWarDetail({ id: CREATED_WAR_ID, title: null, status: 'draft', contestants: [] })
   world.queue({ method: 'POST', path: `${API}/wars`, responses: postResponses }, ok('GET', `${API}/wars/${CREATED_WAR_ID}`, detail))
 }
+
+// The voter's progress in the War, as the results page asks for it.
+export function queueProgress(world: World, voted: number, total: number): void {
+  world.queue(ok('GET', `${API}/wars/${world.warId}/my-progress`, { voted, total }))
+}

@@ -86,6 +86,8 @@ export const CALLS: Record<string, CallDef> = {
   "revoke that Voter's Admin role": put('/roles/admin', { granted: false }, { is_admin: false }),
   "that War's Staff detail": { method: 'GET', path: ({ warId }) => `/admin/wars/${warId}` },
   "that War's reports": { method: 'GET', path: ({ warId }) => `/wars/${warId}/reports` },
+  "that War's results": { method: 'GET', path: warPath('/rankings') },
+  "the voter's progress in that War": { method: 'GET', path: warPath('/my-progress') },
   "that Voter's Staff detail": { method: 'GET', path: ({ voterId }) => `/admin/voters/${voterId}` },
   "the current Voter's identity": { method: 'GET', path: () => '/auth/me' },
   // The answer to a save is the record as the request now has it.

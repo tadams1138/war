@@ -1,23 +1,29 @@
 // Steps whose text and behaviour are identical in every converted feature.
 // Feature-specific steps live in <feature>.steps.ts, scoped by feature tag
 // (see create-war.steps.ts); anything here must stay unscoped and generic.
+import { readFileSync } from 'node:fs'
 import { expect, type Locator, type Page } from '@playwright/test'
+import { strFromU8, unzipSync } from 'fflate'
 import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
 import type { WarSummary } from '../../../src/api/client'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { me } from '../support/adminFixtures'
 import { contestantFrom, warDetail } from '../support/editWar'
+import { queueResults } from '../support/results'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario, votesSubmitted, waitForCallLog } from '../support/mocking'
-import { contestantCard, dots, expectSignedOut, matchupCard, nav, nextArrow, sortMenu } from '../support/pages'
-import { createdWar, failWarCalls, ok, queueCreation, queueListedWars, reply, voteRecipe } from '../support/recipes'
+import type { CardRef } from '../support/cards'
+import { contestantCard, expectSignedOut, nav, sortMenu } from '../support/pages'
+import { createdWar, failWarCalls, ok, queueCreation, queueListedWars, queueProgress, reply, voteRecipe } from '../support/recipes'
 import type { CallRef } from '../support/calls'
 import type { PageRef } from '../support/pageNames'
 import type { RoleFlags } from '../support/roles'
 import type { Side } from '../support/screens'
+import { byDisplayOrder, srcSetFor } from '../../../src/utils/media'
 
 const { Given, When, Then } = createBdd(test)
 
+type ControlKind = 'button' | 'link'
 type WarTheme = NonNullable<Parameters<typeof buildWarDetail>[0]>['theme']
 type WarStatus = NonNullable<Parameters<typeof buildWarDetail>[0]>['status']
 
@@ -71,12 +77,15 @@ Given('a(nother) {status} War', async ({ world }, status: WarStatus) => {
 
 // One row per contestant: name and optionally "bio", "images" (a count, one by
 // default) and "votes" (those cast on its matchups, none by default). They
-// replace the War's default contestant.
+// replace the War's default contestant. The War's results list them in this
+// order, ranked 1, 2, ... unless the row has a "rank" (blank: unranked),
+// "wins" and "appearances".
 Given('that War has contestants:', async ({ world }, table: DataTable) => {
   // Arrange
   const war = warDetail(world)
   war.contestants = table.hashes().map((row) => contestantFrom(war.id, row))
   war.contestant_count = war.contestants.length
+  queueResults(world, table.hashes())
 })
 
 Given('a(nother) War themed {string}', async ({ world }, theme: string) => {
@@ -125,6 +134,21 @@ Given('the {side} contestant has {int} image(s)', async ({ world }, side: Side, 
 Given("the voter's session has expired and cannot be refreshed", async ({ world }) => {
   // Arrange
   world.queue(...failWarCalls(world.nextWarId(), { status: 401, body: { error: 'unauthorized' } }), reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid' }))
+})
+
+// The matchup is the voter's last: deciding it finishes the War, whose results
+// page then reports every matchup decided.
+Given('that matchup is the last one the voter has to decide', async ({ world }) => {
+  // Arrange
+  const { progress } = world.matchupResponse!
+  progress.voted = progress.total - 1
+  world.matchupCalls.push({ status: 204 })
+  queueProgress(world, progress.total, progress.total)
+})
+
+Given('the voter has voted on {int} of {int} matchups in that War', async ({ world }, voted: number, total: number) => {
+  // Arrange
+  queueProgress(world, voted, total)
 })
 
 Given('the API accepts votes', async ({ world }) => {
@@ -177,9 +201,9 @@ When('they vote for {string}', async ({ page }, name: string) => {
 // A real mouse click, not a keyboard press: pointerdown/pointerup on the arrow
 // button bubble to the carousel's own tap-to-vote gesture handlers before the
 // button's click handler ever runs, a materially different path from the keyboard.
-When("they click the next-image arrow on the {side} contestant's card", async ({ page }, side: Side) => {
+When('they click the next-image arrow on {card}', async ({ page }, card: CardRef) => {
   // Act
-  await nextArrow(page, side).click()
+  await card.locator(page).getByTestId('carousel-arrow-next').click()
 })
 
 When('they choose {string} from the sort menu', async ({ page }, label: string) => {
@@ -187,9 +211,9 @@ When('they choose {string} from the sort menu', async ({ page }, label: string) 
   await sortMenu(page).selectOption({ label })
 })
 
-When('they select the {string} button', async ({ page }, name: string) => {
+When(/^they select the "([^"]*)" (button|link)$/, async ({ page }, name: string, kind: ControlKind) => {
   // Act
-  await page.getByRole('button', { name, exact: true }).click()
+  await page.getByRole(kind, { name, exact: true }).click()
 })
 
 // The confirmation dialog every dangerous action asks first.
@@ -238,9 +262,9 @@ const BUTTON_STATES: Record<string, (button: Locator) => Promise<void>> = {
   },
 }
 
-Then(/^the "([^"]*)" button is (shown|hidden|enabled|disabled)$/, async ({ page }, name: string, state: string) => {
+Then(/^the "([^"]*)" (button|link) is (shown|hidden|enabled|disabled)$/, async ({ page }, name: string, kind: ControlKind, state: string) => {
   // Assert
-  await BUTTON_STATES[state]!(page.getByRole('button', { name, exact: true }))
+  await BUTTON_STATES[state]!(page.getByRole(kind, { name, exact: true }))
 })
 
 Then('the message {string} is shown', async ({ page }, message: string) => {
@@ -292,10 +316,20 @@ Then('no vote is submitted', async ({ page }) => {
   expect(await votesSubmitted(page)).toHaveLength(0)
 })
 
-Then("the {side} contestant's card shows image {int}", async ({ page }, side: Side, image: number) => {
+Then('{card} offers paging controls', async ({ page }, card: CardRef) => {
   // Assert
-  await expect(dots(page, side).nth(image - 1)).toHaveAttribute('data-active', 'true')
-  await expect(matchupCard(page, side).locator('.carousel-frame[data-active="true"]').getByTestId('carousel-image')).toBeVisible()
+  await expect(card.locator(page).getByTestId('carousel-arrow-next')).toBeVisible()
+})
+
+// The card's images, by display order. A lone image has no dots to page with.
+Then('{card} shows image {int}', async ({ page, world }, card: CardRef, image: number) => {
+  // Assert
+  const media = byDisplayOrder(card.media(world))
+  const shown = card.locator(page).locator('.carousel-frame[data-active="true"]').getByTestId('carousel-image')
+  if (media.length > 1) await expect(card.locator(page).getByTestId('carousel-dot').nth(image - 1)).toHaveAttribute('data-active', 'true')
+  await expect(shown).toBeVisible()
+  await expect(shown).toHaveAttribute('src', media[image - 1]!.variants[0]!.url)
+  await expect(shown).toHaveAttribute('srcset', srcSetFor(media[image - 1]!))
 })
 
 // Both cards of the pair, never just one.
@@ -320,6 +354,16 @@ Then('voting re-enables( once that delay has passed)', async ({ page }) => {
 Then('the share image is uploaded to that War', async ({ page, world }) => {
   // Assert
   await waitForCallLog(page, (log) => log.some((entry) => entry.method === 'POST' && entry.url.endsWith(`/wars/${world.warId}/share-image`)))
+})
+
+Then("a zip of that War's definition downloads", async ({ world }) => {
+  // Assert
+  await expect.poll(() => world.downloads.length).toBe(1)
+  const download = world.downloads[0]!
+  expect(download.suggestedFilename()).toBe(`war-${world.warId}.zip`)
+  const definition = JSON.parse(strFromU8(unzipSync(readFileSync((await download.path())!))['war.json']!))
+  const war = warDetail(world)
+  expect(definition).toMatchObject({ title: war.title, contestants: war.contestants.map(({ name }) => ({ name })) })
 })
 
 async function expectOn(page: Page, world: World, target: PageRef): Promise<void> {

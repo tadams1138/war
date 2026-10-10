@@ -3,10 +3,10 @@
 import { expect } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildMatchupResponse, buildMediaItem } from '../../../src/mocks/fixtures'
-import { test, type World } from './fixtures'
+import { test } from './fixtures'
 import { API, getCallLog, votesSubmitted, waitForCallLog, type MswCallLogEntry } from '../support/mocking'
 import { contestantCard, controlNamed, matchupCard } from '../support/pages'
-import { ok, reply, voteRecipe } from '../support/recipes'
+import { queueProgress, reply, voteRecipe } from '../support/recipes'
 import type { Side } from '../support/screens'
 
 const { Given, Then } = createBdd(test, { tags: '@vote-mode' })
@@ -26,23 +26,11 @@ Given('a later matchup between {string} and {string}', async ({ world }, left: s
   world.matchupCalls.push({ status: 200, body: response })
 })
 
-// The results page, once reached, asks for the voter's progress.
-function queueProgress(world: World, total: number): void {
-  world.queue(ok('GET', `${API}/wars/${world.warId}/my-progress`, { voted: total, total }))
-}
-
-Given('that matchup is the last one the voter has to decide', async ({ world }) => {
-  // Arrange
-  const { progress } = world.matchupResponse!
-  progress.voted = progress.total - 1
-  world.matchupCalls.push({ status: 204 })
-  queueProgress(world, progress.total)
-})
-
 Given('the voter has voted on every matchup in that War', async ({ world }) => {
   // Arrange
   world.queue(reply('POST', `${API}/wars/${world.warId}/join`, 204), reply('GET', `${API}/wars/${world.warId}/matchups/next`, 204))
-  queueProgress(world, buildMatchupResponse().progress.total)
+  const { total } = buildMatchupResponse().progress
+  queueProgress(world, total, total)
 })
 
 Given('the voter already decided that matchup elsewhere', async ({ world }) => {

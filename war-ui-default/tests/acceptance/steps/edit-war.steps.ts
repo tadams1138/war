@@ -5,14 +5,10 @@
 // contestant") picks the one section the other pane shows. A War, its
 // contestants and the calls about them are given by shared steps (shared.steps.ts,
 // support/editWar.ts, support/calls.ts).
-import { readFileSync } from 'node:fs'
-import { expect, type Locator, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
-import { strFromU8, unzipSync } from 'fflate'
 import { test } from './fixtures'
-import { warDetail } from '../support/editWar'
 import type { FieldRef } from '../support/fields'
-import { backgroundOf } from '../support/pages'
 
 const { When, Then } = createBdd(test, { tags: '@edit-war' })
 
@@ -20,7 +16,6 @@ const sections = (page: Page) => page.getByRole('navigation', { name: 'War secti
 const section = (page: Page, name: string) => sections(page).getByRole('button', { name, exact: true })
 const editors = (page: Page) => page.getByTestId('edit-war-contestant')
 const gallery = (page: Page) => page.getByTestId('edit-war-contestant-image')
-const preview = (page: Page) => page.getByTestId('bio-preview')
 const addImageControl = (page: Page) => page.getByLabel('Add image')
 const control = (page: Page, field: FieldRef) => page.getByTestId(field.testId)
 
@@ -136,27 +131,6 @@ Then('a link to the markdown syntax reference is shown', async ({ page }) => {
   await expect(link).toHaveAttribute('href', /^https:\/\//)
 })
 
-Then('the bio preview shows the level-{int} heading {string}', async ({ page }, level: number, text: string) => {
-  // Assert
-  await expect(preview(page).getByRole('heading', { level, name: text })).toBeVisible()
-})
-
-Then('the bio preview shows {string} emphasised', async ({ page }, text: string) => {
-  // Assert
-  await expect(preview(page).locator('em')).toHaveText(text)
-})
-
-Then(/^the bio preview shows a (bulleted|numbered) list of (\d+) items$/, async ({ page }, kind: string, count: string) => {
-  // Assert
-  await expect(preview(page).locator(kind === 'bulleted' ? 'ul li' : 'ol li')).toHaveCount(Number(count))
-})
-
-Then('the bio preview shows the link {string}, underlined unlike the text around it', async ({ page }, text: string) => {
-  // Assert
-  await expect(preview(page).getByRole('link', { name: text })).toHaveCSS('text-decoration-line', 'underline')
-  await expect(preview(page)).toHaveCSS('text-decoration-line', 'none')
-})
-
 // --- Assert: images --------------------------------------------------------
 
 Then(/^(a|no) control to add an image is shown$/, async ({ page }, article: string) => {
@@ -178,42 +152,4 @@ Then('the add-image control re-enables on its own once the delay passes', async 
   // Assert
   await expect(addImageControl(page)).toBeDisabled()
   await expect(addImageControl(page)).toBeEnabled({ timeout: 2000 })
-})
-
-// --- Assert: the top action row --------------------------------------------
-
-const TOP_ACTIONS = ['Export', 'Delete', 'Publish War', 'Clear Votes']
-const topAction = (page: Page, name: string): Locator => page.getByRole('button', { name, exact: true })
-
-Then('the top action buttons sit in one horizontal row', async ({ page }) => {
-  // Assert
-  const boxes = await Promise.all(TOP_ACTIONS.map((name) => topAction(page, name).boundingBox()))
-  for (const [index, box] of boxes.entries()) {
-    expect(box).not.toBeNull()
-    expect(Math.abs(box!.y - boxes[0]!.y)).toBeLessThan(5)
-    if (index > 0) expect(box!.x).toBeGreaterThan(boxes[index - 1]!.x)
-  }
-})
-
-Then('Export, Publish War and Clear Votes share consistent button styling', async ({ page }) => {
-  // Assert
-  const exportBackground = await backgroundOf(topAction(page, 'Export'))
-  for (const name of ['Publish War', 'Clear Votes']) expect(await backgroundOf(topAction(page, name))).toBe(exportBackground)
-})
-
-Then('Delete is visually set apart from the other top action buttons', async ({ page }) => {
-  // Assert
-  expect(await backgroundOf(topAction(page, 'Delete'))).not.toBe(await backgroundOf(topAction(page, 'Export')))
-})
-
-// --- Assert: export --------------------------------------------------------
-
-Then("a zip of that War's definition downloads", async ({ world }) => {
-  // Assert
-  await expect.poll(() => world.downloads.length).toBe(1)
-  const download = world.downloads[0]!
-  expect(download.suggestedFilename()).toBe(`war-${world.warId}.zip`)
-  const definition = JSON.parse(strFromU8(unzipSync(readFileSync((await download.path())!))['war.json']!))
-  const war = warDetail(world)
-  expect(definition).toMatchObject({ title: war.title, contestants: war.contestants.map(({ name }) => ({ name })) })
 })

@@ -188,7 +188,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | about 200 unit tests (22 files), 286 acceptance tests | 242 tests (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`) execute their Gherkin steps through playwright-bdd. The other 44 are bound by title to a Playwright test, enforced by `tests/bindings`. See *In progress* |
+| war-ui-default | about 200 unit tests (22 files), 290 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Pending scenarios (no binding, nothing runs):
@@ -262,10 +262,9 @@ Every test labels its Arrange, Act and Assert phases.
 
 ## In progress
 
-- **UI Gherkin migration: title-bound scenarios to executed steps (playwright-bdd).** Paused
-  after 16 of 17 feature files. Both styles run side by side and the suite passes.
-  `docs/ui-gherkin-migration.md` has the status, conventions, per-feature procedure and the
-  ordered backlog of the remaining feature. Next: `war-detail`.
+- **UI Gherkin migration: title-bound scenarios to executed steps (playwright-bdd).** Every
+  feature file is converted. Remaining: remove the now-unused title-binding scaffolding
+  (`docs/ui-gherkin-migration.md`, *Finishing the migration*).
 
 ---
 
