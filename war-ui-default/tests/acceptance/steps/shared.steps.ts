@@ -20,6 +20,11 @@ async function boot(page: Page, world: World): Promise<void> {
   await useScenario(page, world.recipes)
 }
 
+function queueWar(world: World, overrides: Parameters<typeof buildWarDetail>[0]): void {
+  const id = world.nextWarId()
+  world.queue(ok('GET', `${API}/wars/${id}`, buildWarDetail({ id, ...overrides })))
+}
+
 // Signed in, navigation must stay client-side: a full page load wipes the
 // in-memory session.
 async function open(page: Page, world: World, target: PageRef): Promise<void> {
@@ -37,10 +42,14 @@ Given('an authenticated voter', async ({ page, world }) => {
   world.signedIn = true
 })
 
+Given('a(nother) War', async ({ world }) => {
+  // Arrange
+  queueWar(world, {})
+})
+
 Given('a(nother) War themed {string}', async ({ world }, theme: string) => {
   // Arrange
-  const id = world.nextWarId()
-  world.queue(ok('GET', `${API}/wars/${id}`, buildWarDetail({ id, theme: theme as WarTheme })))
+  queueWar(world, { theme: theme as WarTheme })
 })
 
 Given('that War has a matchup to vote on', async ({ world }) => {
