@@ -34,7 +34,7 @@ export interface CommonAppDeps {
 /**
  * The dependencies every test harness wires the same way, regardless of
  * whether it backs `db` with a real database or a stub. Shared here so
- * `buildTestHarness` and `buildAppWithoutDb` (test/setup/testAppNoDb.ts)
+ * `buildTestHarness` and `buildAppWithoutDb` (test/setup/testAppWithoutDb.ts)
  * cannot drift in how they construct `providers`/`storage`/`config`.
  */
 export function buildCommonDeps(): CommonAppDeps {

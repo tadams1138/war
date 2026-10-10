@@ -33,9 +33,11 @@ Feature: War Lifecycle
     Then the War status becomes "draft"
 
   Scenario: Unpublishing touches no matchup, vote, or contestant
-    Given a published War with 3 contestants
+    Given a published War with 3 contestants and one vote cast
     When the creator POSTs to /api/v1/wars/:id/unpublish
     Then the War still has exactly 3 matchups
+    And the War still has its 3 contestants
+    And the vote is kept
 
   Scenario: A War can be republished after being unpublished
     Given a War that was published and then unpublished

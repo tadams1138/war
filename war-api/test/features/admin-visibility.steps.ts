@@ -6,10 +6,11 @@ import { newId } from '../../src/db/uuid.js';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { generateMatchupsForNewContestant } from '../../src/matchups/matchupsRepository.js';
 import { setVoterBanned, setVoterSuspended } from '../../src/auth/votersRepository.js';
-import { makeAdmin, makeContestant, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
+import { expireWar, makeAdmin, makeContestant, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { anonymous } from '../setup/apiClient.js';
+import { moderationLog } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/admin-visibility.feature', import.meta.url)));
 
@@ -29,13 +30,12 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     return request(harness.app.server).get(`/api/v1${path}`).query(query).set('Authorization', `Bearer ${jwt}`);
   }
 
-  async function setWarColumns(warId: string, columns: { status?: string; removed?: boolean; endsAt?: Date }): Promise<void> {
+  async function setWarColumns(warId: string, columns: { status?: string; removed?: boolean }): Promise<void> {
     await harness.db
       .updateTable('wars')
       .set({
         ...(columns.status ? { status: columns.status } : {}),
         ...(columns.removed ? { removed_at: sql<Date>`now()` } : {}),
-        ...(columns.endsAt ? { ends_at: columns.endsAt } : {}),
       })
       .where('id', '=', warId)
       .execute();
@@ -73,7 +73,8 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
   async function seedExpiredUnclosedWar(): Promise<{ creatorId: string; warId: string }> {
     const creatorId = (await makeVoter(harness.db, 'alice')).id;
     const war = await makeDraftWar(harness.db, creatorId, { title: 'Expired War' });
-    await setWarColumns(war.id, { status: 'published', endsAt: new Date(Date.now() - 60_000) });
+    await setWarColumns(war.id, { status: 'published' });
+    await expireWar(harness.db, war.id);
     return { creatorId, warId: war.id };
   }
 
@@ -120,93 +121,31 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
   });
 
-  Scenario('Filtering the admin Wars by status removed lists only removed Wars', ({ Given, And, When, Then }) => {
+  ScenarioOutline('A Moderator narrows the admin Wars by status or title', ({ Given, And, When, Then }, variables) => {
     let warIds: SeededWars['warIds'];
     let moderatorId: string;
     let response: request.Response;
 
-    Given(
-      'a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
-      async () => {
-        // Arrange
-        ({ warIds } = await seedWarsOfEveryKind());
-      },
-    );
+    Given('a Voter who created a draft, an unlisted, a closed and a removed War', async () => {
+      // Arrange
+      ({ warIds } = await seedWarsOfEveryKind());
+    });
 
     And('a Moderator', async () => {
       // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
-    When('the Moderator GETs the admin Wars with status removed', async () => {
+    When('the Moderator GETs the admin Wars with <filter> "<value>"', async () => {
       // Act
-      response = await getAs(moderatorId, '/admin/wars', { status: 'removed' });
+      response = await getAs(moderatorId, '/admin/wars', { [variables.filter as string]: variables.value as string });
     });
 
-    Then('the response lists only the removed War', () => {
+    Then('the response lists only the <expected> War', () => {
       // Assert
       expect(response.status).toBe(200);
-      expect((response.body.wars as Item[]).map((war) => war.id)).toEqual([warIds.removed]);
-    });
-  });
-
-  Scenario('Filtering the admin Wars by another status excludes removed Wars', ({ Given, And, When, Then }) => {
-    let warIds: SeededWars['warIds'];
-    let moderatorId: string;
-    let response: request.Response;
-
-    Given(
-      'a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
-      async () => {
-        // Arrange
-        ({ warIds } = await seedWarsOfEveryKind());
-      },
-    );
-
-    And('a Moderator', async () => {
-      // Arrange
-      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
-    });
-
-    When('the Moderator GETs the admin Wars with status published', async () => {
-      // Act
-      response = await getAs(moderatorId, '/admin/wars', { status: 'published' });
-    });
-
-    Then('the response lists only the published War that was not removed', () => {
-      // Assert
-      expect(response.status).toBe(200);
-      expect((response.body.wars as Item[]).map((war) => war.id)).toEqual([warIds.unlisted]);
-    });
-  });
-
-  Scenario('Searching the admin Wars matches a title case-insensitively', ({ Given, And, When, Then }) => {
-    let warIds: SeededWars['warIds'];
-    let moderatorId: string;
-    let response: request.Response;
-
-    Given(
-      'a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report',
-      async () => {
-        // Arrange
-        ({ warIds } = await seedWarsOfEveryKind());
-      },
-    );
-
-    And('a Moderator', async () => {
-      // Arrange
-      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
-    });
-
-    When('the Moderator GETs the admin Wars with q "cLOSED"', async () => {
-      // Act
-      response = await getAs(moderatorId, '/admin/wars', { q: 'cLOSED' });
-    });
-
-    Then('the response lists only the War titled "Closed War"', () => {
-      // Assert
-      expect(response.status).toBe(200);
-      expect((response.body.wars as Item[]).map((war) => war.id)).toEqual([warIds.closed]);
+      const expectedId = warIds[variables.expected as keyof SeededWars['warIds']];
+      expect((response.body.wars as Item[]).map((war) => war.id)).toEqual([expectedId]);
     });
   });
 
@@ -909,7 +848,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
 
     Then('the moderation log is empty', async () => {
       // Assert
-      expect(await harness.db.selectFrom('moderation_log').selectAll().execute()).toHaveLength(0);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
     });
   });
 

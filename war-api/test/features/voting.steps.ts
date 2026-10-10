@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
+import { newId } from '../../src/db/uuid.js';
 import type { Contestant } from '../../src/contestants/contestantsRepository.js';
 import { updateContestant } from '../../src/contestants/contestantsRepository.js';
 import { stableHash } from '../../src/matchups/stableHash.js';
@@ -180,7 +181,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       insertion = harness.db
         .insertInto('matchups')
         .values({
-          id: crypto.randomUUID(),
+          id: newId(),
           war_id: setup.war.id,
           contestant_a_id: b!.id,
           contestant_b_id: a!.id,
@@ -277,7 +278,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Pair order is randomised but stable per voter', ({ Given, When, Then, And }) => {
+  Scenario('Pair order is randomized but stable per voter', ({ Given, When, Then, And }) => {
     let setup: Setup;
     let voterBId: string;
     let firstForA: request.Response;

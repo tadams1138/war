@@ -2,17 +2,17 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { randomUUID } from 'node:crypto';
 import { newId } from '../../src/db/uuid.js';
 import { castVoteForVoter, type CastVoteOutcome } from '../../src/votes/votesService.js';
 import { recomputeContestantCounters } from '../../src/contestants/contestantsRepository.js';
 import { markWarRemoved } from '../../src/wars/warsRepository.js';
-import { beginLogin, loginAndCallback, postRefresh } from '../setup/authFlow.js';
-import { extractCookieValue } from '../setup/httpHelpers.js';
+import { beginLogin, postRefresh, profileFor, signInAs } from '../setup/authFlow.js';
+import { extractCookieValue } from '../setup/cookies.js';
 import { UNKNOWN_ID, joinWarAsVoter, makeAdmin, makeDraftWar, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as } from '../setup/apiClient.js';
+import { moderationLog } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/ban-voter.feature', import.meta.url)));
 
@@ -26,10 +26,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   async function putBan(callerId: string, targetId: string, banned: boolean): Promise<request.Response> {
     return as(harness, callerId).put(`/api/v1/voters/${targetId}/ban`, { banned });
-  }
-
-  async function logRows() {
-    return harness.db.selectFrom('moderation_log').selectAll().execute();
   }
 
   Scenario('An Admin bans a Voter and the ban is logged', ({ Given, When, Then }) => {
@@ -52,7 +48,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ id: voterId, suspended: false, banned: true });
-      const rows = await logRows();
+      const rows = await moderationLog(harness.db);
       expect(rows).toHaveLength(1);
       expect(rows[0]?.action).toBe('ban_voter');
       expect(rows[0]?.staff_voter_id).toBe(adminId);
@@ -88,12 +84,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  async function signIn(seed: string): Promise<{ voterId: string; refreshTokenValue: string }> {
-    const { refreshTokenValue } = await loginAndCallback(harness, { providerUserId: seed, displayName: seed, avatarUrl: null });
-    const row = await harness.db.selectFrom('voters').select('id').where('provider_user_id', '=', seed).executeTakeFirstOrThrow();
-    return { voterId: row.id, refreshTokenValue };
-  }
-
   Scenario('A banned Voter cannot refresh', ({ Given, When, Then }) => {
     let adminId: string;
     let voterId: string;
@@ -102,7 +92,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('an Admin and a Voter who signed in', async () => {
       // Arrange
       adminId = (await makeAdmin(harness.db, 'admin')).id;
-      ({ voterId, refreshTokenValue } = await signIn('signed-in-voter'));
+      ({ voterId, refreshTokenValue } = await signInAs(harness, profileFor('signed-in-voter')));
     });
 
     When('the Admin bans the Voter', async () => {
@@ -119,7 +109,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   async function callbackFor(seed: string): Promise<request.Response> {
     const { agent, stateCookie, cookieHeader } = await beginLogin(harness);
-    const code = randomUUID();
+    const code = newId();
     harness.google.registerCode(code, { providerUserId: seed, displayName: seed, avatarUrl: null });
     return agent.get('/api/v1/auth/google/callback').query({ code, state: stateCookie }).set('Cookie', cookieHeader);
   }
@@ -132,7 +122,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('an Admin and a Voter who signed in', async () => {
       // Arrange
       adminId = (await makeAdmin(harness.db, 'admin')).id;
-      ({ voterId } = await signIn('returning-voter'));
+      ({ voterId } = await signInAs(harness, profileFor('returning-voter')));
     });
 
     When('the Admin bans the Voter', async () => {
@@ -275,7 +265,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A vote attempt that got past authentication just before the ban is rejected', ({ Given, And, When, Then }) => {
+  Scenario('The vote service rejects a banned Voter even when a membership remains',({ Given, And, When, Then }) => {
     let adminId: string;
     let voterId: string;
     let warId: string;
@@ -293,14 +283,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       matchup = await harness.db.selectFrom('matchups').select(['id', 'contestant_a_id']).where('war_id', '=', warId).executeTakeFirstOrThrow();
     });
 
-    And("the Admin bans the Voter after the Voter's request authenticated", async () => {
+    And("the Admin bans the Voter and the Voter's membership is restored", async () => {
       // Arrange
       expect((await putBan(adminId, voterId, true)).status).toBe(200);
       // The ban purged the membership; restore it so only the ban can reject the vote.
       await joinWarAsVoter(harness.db, warId, voterId);
     });
 
-    When("the Voter's vote attempt reaches the vote service", async () => {
+    When("the banned Voter's vote reaches the vote service", async () => {
       // Act
       outcome = await castVoteForVoter(harness.db, { warId, matchupId: matchup.id, voterId, winnerId: matchup.contestant_a_id });
     });
@@ -319,8 +309,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('an Admin and a Voter who signed in twice', async () => {
       // Arrange
       adminId = (await makeAdmin(harness.db, 'admin')).id;
-      ({ voterId } = await signIn('two-sessions'));
-      await signIn('two-sessions');
+      ({ voterId } = await signInAs(harness, profileFor('two-sessions')));
+      await signInAs(harness, profileFor('two-sessions'));
     });
 
     When('the Admin bans the Voter', async () => {
@@ -349,7 +339,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     const row = await harness.db.selectFrom('voters').select('banned_at').where('id', '=', targetId).executeTakeFirstOrThrow();
     expect(row.banned_at).toBeNull();
     expect(await count('wars')).toBe(1);
-    expect(await logRows()).toHaveLength(0);
+    expect(await moderationLog(harness.db)).toHaveLength(0);
   }
 
   Scenario('Unbanning restores sign-in but not the deleted data', ({ Given, When, And, Then }) => {
@@ -377,7 +367,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(callbackResponse.status).toBe(302);
       expect(extractCookieValue(callbackResponse.get('Set-Cookie'), 'refresh_token')).toBeTruthy();
       expect(await count('wars')).toBe(0);
-      expect((await logRows()).map((row) => row.action)).toContain('unban_voter');
+      expect((await moderationLog(harness.db)).map((row) => row.action)).toContain('unban_voter');
     });
   });
 
@@ -400,7 +390,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ id: voterId, suspended: false, banned: true });
-      expect((await logRows()).filter((row) => row.action === 'ban_voter')).toHaveLength(2);
+      expect((await moderationLog(harness.db)).filter((row) => row.action === 'ban_voter')).toHaveLength(2);
     });
   });
 
@@ -437,7 +427,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       await makeDraftWar(harness.db, adminId);
     });
 
-    When('the Admin bans themself', async () => {
+    When('the Admin bans themselves', async () => {
       // Act
       response = await putBan(adminId, adminId, true);
     });
@@ -488,7 +478,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the response is 404 and nothing is logged', async () => {
       // Assert
       expect(response.status).toBe(404);
-      expect(await logRows()).toHaveLength(0);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
     });
   });
 

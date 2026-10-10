@@ -6,23 +6,18 @@ Feature: Admin visibility
     When the Moderator GETs the admin Wars
     Then the response lists all 4 Wars newest first with their status, visibility, creator, removed_at and unaddressed report count
 
-  Scenario: Filtering the admin Wars by status removed lists only removed Wars
-    Given a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
+  # The removed War is stored as published, yet the published filter leaves it out; the title search ignores case.
+  Scenario Outline: A Moderator narrows the admin Wars by status or title
+    Given a Voter who created a draft, an unlisted, a closed and a removed War
     And a Moderator
-    When the Moderator GETs the admin Wars with status removed
-    Then the response lists only the removed War
+    When the Moderator GETs the admin Wars with <filter> "<value>"
+    Then the response lists only the <expected> War
 
-  Scenario: Filtering the admin Wars by another status excludes removed Wars
-    Given a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
-    And a Moderator
-    When the Moderator GETs the admin Wars with status published
-    Then the response lists only the published War that was not removed
-
-  Scenario: Searching the admin Wars matches a title case-insensitively
-    Given a Voter who created a draft, an unlisted, a closed and a removed War, the closed one with 2 unaddressed and 1 addressed report
-    And a Moderator
-    When the Moderator GETs the admin Wars with q "cLOSED"
-    Then the response lists only the War titled "Closed War"
+    Examples:
+      | filter | value     | expected |
+      | status | removed   | removed  |
+      | status | published | unlisted |
+      | q      | cLOSED    | closed   |
 
   Scenario: Searching the admin Wars matches a creator name
     Given a Voter "alice" with a War and a Voter "bob" with a War

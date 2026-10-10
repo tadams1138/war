@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '../../src/db/uuid.js';
 import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect, vi } from 'vitest';
@@ -8,6 +8,7 @@ import { makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTes
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as } from '../setup/apiClient.js';
+import { moderationLog, storedObjectKeys } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/remove-war.feature', import.meta.url)));
 
@@ -64,7 +65,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       await harness.db
         .insertInto('votes')
         .values({
-          id: randomUUID(),
+          id: newId(),
           matchup_id: matchup.id,
           voter_id: creatorId,
           winner_id: contestants[0]!.id,
@@ -121,7 +122,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(responses.map((r) => r.status)).toEqual([403, 403]);
       expect((await as(harness, voterId).get(`/api/v1/wars/${warId}`)).status).toBe(200);
-      expect(await harness.db.selectFrom('moderation_log').selectAll().execute()).toHaveLength(0);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
     });
   });
 
@@ -144,7 +145,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('a moderation log entry records the Moderator removing the War', async () => {
       // Assert
-      const rows = await harness.db.selectFrom('moderation_log').selectAll().execute();
+      const rows = await moderationLog(harness.db);
       expect(rows).toHaveLength(1);
       expect(rows[0]?.action).toBe('remove_war');
       expect(rows[0]?.staff_voter_id).toBe(moderatorId);
@@ -171,14 +172,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       responses = [
         await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`),
         await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`),
-        await as(harness, moderatorId).post(`/api/v1/wars/${randomUUID()}/remove`),
+        await as(harness, moderatorId).post(`/api/v1/wars/${newId()}/remove`),
       ];
     });
 
     Then('the first response is 204, the other two are 404 and exactly one moderation log entry exists', async () => {
       // Assert
       expect(responses.map((r) => r.status)).toEqual([204, 404, 404]);
-      expect(await harness.db.selectFrom('moderation_log').selectAll().execute()).toHaveLength(1);
+      expect(await moderationLog(harness.db)).toHaveLength(1);
     });
   });
 
@@ -248,9 +249,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let otherContestantIds: string[];
     let otherKeysBefore: string[];
 
-    const allKeys = () => [...harness.storage.publicObjects.keys(), ...harness.storage.privateObjects.keys()];
+    const allKeys = () => storedObjectKeys(harness.storage);
 
-    Given('a removed-to-be War with contestant images and a share image, another War with images, and a Moderator', async () => {
+    Given('a War about to be removed with contestant images and a share image, another War with images, and a Moderator', async () => {
       // Arrange
       const creatorId = (await makeVoter(harness.db, 'creator')).id;
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;

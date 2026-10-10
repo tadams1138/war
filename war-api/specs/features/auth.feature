@@ -1,4 +1,4 @@
-Feature: Google OAuth Authentication
+Feature: Authentication and sessions
 
   Scenario: New voter signs in with Google
     Given a user has never signed in before
@@ -12,11 +12,16 @@ Feature: Google OAuth Authentication
     Then no new Voter record is created
     And the existing record is returned
 
-  Scenario: Two different Google accounts create separate voters
-    Given voter A signed in with Google using "user-a@example.com"
-    When a user signs in with Google using "user-b@example.com"
+  Scenario Outline: Accounts are keyed by provider and provider subject, never linked by email
+    Given voter A signed in with <first_provider> using "<first_subject>"
+    When a user signs in with <second_provider> using "<second_subject>"
     Then a separate Voter record is created
     And the two accounts are not linked
+
+    Examples:
+      | first_provider | first_subject      | second_provider | second_subject     |
+      | Google         | user-a@example.com | Google          | user-b@example.com |
+      | Google         | user@example.com   | Microsoft       | user@example.com   |
 
   Scenario: Unauthenticated request to protected endpoint
     When an unauthenticated caller calls GET /api/v1/auth/me
