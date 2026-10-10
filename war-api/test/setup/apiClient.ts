@@ -24,6 +24,16 @@ export interface ApiClient {
 
 type Harness = Pick<TestHarness, 'app'>;
 
+/**
+ * Starts the app listening, for a test that sends requests concurrently. Given a server that is
+ * not listening, supertest binds it for each request and closes it when that request ends, so
+ * the first of several concurrent requests to finish resets the others.
+ */
+export async function listening(harness: Harness): Promise<void> {
+  if (harness.app.server.listening) return;
+  await harness.app.listen({ port: 0, host: '127.0.0.1' });
+}
+
 function isCallOptions(value: object): value is CallOptions {
   return 'body' in value || 'query' in value || 'headers' in value || 'configure' in value;
 }

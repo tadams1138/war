@@ -346,8 +346,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('anyone GETs /api/v1/wars with a limit of 0, -5, 101, 1.5 and "many"', async () => {
       // Act
-      const responses = await Promise.all(['0', '-5', '101', '1.5', 'many'].map((limit) => getWars(harness, `?limit=${limit}`)));
-      statuses = responses.map((response) => response.status);
+      statuses = [];
+      for (const limit of ['0', '-5', '101', '1.5', 'many']) {
+        statuses.push((await getWars(harness, `?limit=${limit}`)).status);
+      }
     });
 
     Then('every response status is 400', () => {
