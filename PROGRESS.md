@@ -188,7 +188,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | about 200 unit tests (22 files), 272 acceptance tests | Each of the 272 scenarios in `features/` is bound to exactly one Playwright test with the same title; `tests/bindings` enforces it |
+| war-ui-default | about 200 unit tests (22 files), 272 acceptance tests | 7 tests (`create-war`, `import-war`) execute their Gherkin steps through playwright-bdd. The other 265 are bound by title to a Playwright test, enforced by `tests/bindings`. See *In progress* |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Pending scenarios (no binding, nothing runs):
@@ -257,6 +257,15 @@ Every test labels its Arrange, Act and Assert phases.
 - **GitHub environments** `staging` and `production` carry `DO_APP_ID` and
   `PUBLIC_BASE_URL`; `production` has the required reviewer. Repository secrets and variables
   are listed in the header of `.github/workflows/api.yml`.
+
+---
+
+## In progress
+
+- **UI Gherkin migration: title-bound scenarios to executed steps (playwright-bdd).** Paused
+  after 2 of 17 feature files. Both styles run side by side and the suite passes.
+  `docs/ui-gherkin-migration.md` has the status, conventions, per-feature procedure and the
+  ordered backlog of the remaining 15 features. Next: `theme-switching`.
 
 ---
 
