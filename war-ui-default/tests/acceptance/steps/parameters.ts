@@ -2,6 +2,7 @@
 // fixtures.ts so they are registered before any step file is read.
 import { defineParameterType } from 'playwright-bdd'
 import { PAGES, literalPage, type PageRef } from '../support/pageNames'
+import { SCREENS, SIDES, type Side } from '../support/screens'
 
 const names = Object.keys(PAGES).map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
 
@@ -11,4 +12,18 @@ defineParameterType({
   name: 'page',
   regexp: new RegExp(`${names.join('|')}|"[^"]*"`),
   transformer: (text: string): PageRef => PAGES[text] ?? literalPage(text.slice(1, -1)),
+})
+
+// {screen}: a screen size by its name in SCREENS ("phone", "desktop").
+defineParameterType({
+  name: 'screen',
+  regexp: new RegExp(Object.keys(SCREENS).join('|')),
+  transformer: (text: string) => SCREENS[text],
+})
+
+// {side}: which contestant of the matchup.
+defineParameterType({
+  name: 'side',
+  regexp: new RegExp(SIDES.join('|')),
+  transformer: (text: string): Side => text as Side,
 })

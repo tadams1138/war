@@ -4,10 +4,11 @@
 import { expect, type Page } from '@playwright/test'
 import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
-import { buildMatchupResponse, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
-import { API, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from '../support/mocking'
-import { ok, reply } from '../support/recipes'
+import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
+import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from '../support/mocking'
+import { ok, reply, voteRecipe } from '../support/recipes'
 import type { PageRef } from '../support/pageNames'
+import type { Side } from '../support/screens'
 
 const { Given, When, Then } = createBdd(test)
 
@@ -54,10 +55,39 @@ Given('a(nother) War themed {string}', async ({ world }, theme: string) => {
 
 Given('that War has a matchup to vote on', async ({ world }) => {
   // Arrange
-  world.queue(
-    reply('POST', `${API}/wars/${world.warId}/join`, 204),
-    ok('GET', `${API}/wars/${world.warId}/matchups/next`, buildMatchupResponse()),
-  )
+  const response = buildMatchupResponse()
+  world.matchup = response.matchup
+  world.queue(reply('POST', `${API}/wars/${world.warId}/join`, 204), ok('GET', `${API}/wars/${world.warId}/matchups/next`, response))
+})
+
+function contestant(world: World, side: Side) {
+  if (!world.matchup) throw new Error('Give "that War has a matchup to vote on" first')
+  return world.matchup[side]
+}
+
+Given("the {side} contestant's bio is {string}", async ({ world }, side: Side, bio: string) => {
+  // Arrange
+  contestant(world, side).bio = bio
+})
+
+Given("the {side} contestant's bio is very long", async ({ world }, side: Side) => {
+  // Arrange
+  contestant(world, side).bio = Array.from({ length: 40 }, (_, i) => `Paragraph ${i} of a very long bio.`).join('\n\n')
+})
+
+Given('the {side} contestant has {int} image(s)', async ({ world }, side: Side, count: number) => {
+  // Arrange
+  contestant(world, side).media = Array.from({ length: count }, (_, i) => buildMediaItem({ id: `${side}-media-${i}`, display_order: i }))
+})
+
+Given('the API accepts votes', async ({ world }) => {
+  // Arrange
+  world.queue(voteRecipe(world.warId, { status: 201, body: { vote_id: 'vote-1' } }))
+})
+
+Given('a {screen} screen', async ({ page }, size: { width: number; height: number }) => {
+  // Arrange
+  await page.setViewportSize(size)
 })
 
 // One row per War: title, status and optionally "share image" (a URL). Queues
@@ -111,6 +141,12 @@ When('they reload the page', async ({ page }) => {
 Then('the matchup is shown', async ({ page }) => {
   // Assert
   await expect(page.getByTestId('matchup-view')).toBeVisible()
+})
+
+Then('no vote is submitted', async ({ page }) => {
+  // Assert
+  const votes = (await getCallLog(page)).filter((entry) => entry.method === 'POST' && entry.url.includes('/vote'))
+  expect(votes).toHaveLength(0)
 })
 
 Then('the share image is uploaded to that War', async ({ page, world }) => {

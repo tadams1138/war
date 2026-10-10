@@ -2,18 +2,15 @@
 // so no other feature can ever bind to (or collide with) this text.
 import { expect, type Page } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
-import { buildMatchupResponse } from '../../../src/mocks/fixtures'
 import type { RecipeResponse } from '../../../src/mocks/scenarios'
 import { test, type World } from './fixtures'
 import { API } from '../support/mocking'
-import { reply } from '../support/recipes'
+import { reply, voteRecipe } from '../support/recipes'
 
 const { Given, When, Then } = createBdd(test, { tags: '@error-handling' })
 
-const MATCHUP_ID = buildMatchupResponse().matchup.id
-
 function answerVotes(world: World, response: RecipeResponse): void {
-  world.queue({ method: 'POST', path: `${API}/wars/${world.warId}/matchups/${MATCHUP_ID}/vote`, responses: [response] })
+  world.queue(voteRecipe(world.warId, response))
 }
 
 // Answers every request about the next War (its detail, join and next matchup).
