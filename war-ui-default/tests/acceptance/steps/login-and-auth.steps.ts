@@ -3,6 +3,7 @@
 import { expect, type Page } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildMatchupResponse, buildWarDetail } from '../../../src/mocks/fixtures'
+import { MOCK_ACCESS_TOKEN } from '../../../src/mocks/handlers'
 import { test, type World } from './fixtures'
 import { API, getCallLog, waitForCallLog } from '../support/mocking'
 import { nav } from '../support/pages'
@@ -94,23 +95,27 @@ Then('they are signed out', async ({ page }) => {
   await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
 })
 
-Then('no access token is stored in localStorage or sessionStorage', async ({ page }) => {
+// The token lives in memory only (war-spec.md §10): a script-readable copy in
+// any browser storage is what an XSS payload would exfiltrate.
+Then('the access token is not in browser storage', async ({ page }) => {
   // Assert
-  const stored = await page.evaluate(() => JSON.stringify({ local: localStorage, session: sessionStorage }))
-  expect(stored).not.toContain('mock-refreshed-token')
-})
-
-// Signed in (so a token exists) while no storage holds it: it lives in memory.
-Then('the JWT exists only in memory', async ({ page }) => {
-  // Assert
-  await expect(nav(page).getByTestId('nav-identity')).toBeVisible()
-  const stored = await page.evaluate(() => JSON.stringify({ local: localStorage, session: sessionStorage, cookie: document.cookie }))
-  expect(stored).not.toContain('mock-refreshed-token')
+  const contents = await page.evaluate(async () => {
+    const entries = (storage: Storage) => Object.entries(storage)
+    const rows = (store: IDBObjectStore) => new Promise<unknown[]>((resolve) => Object.assign(store.getAll(), { onsuccess: (event: Event) => resolve((event.target as IDBRequest).result) }))
+    const stores = async (name: string) => {
+      const db = await new Promise<IDBDatabase>((resolve) => Object.assign(indexedDB.open(name), { onsuccess: (event: Event) => resolve((event.target as IDBOpenDBRequest).result) }))
+      const names = Array.from(db.objectStoreNames)
+      return Promise.all(names.map((store) => rows(db.transaction(store).objectStore(store))))
+    }
+    const databases = (await indexedDB.databases()).map((database) => database.name!)
+    return JSON.stringify([entries(localStorage), entries(sessionStorage), document.cookie, await Promise.all(databases.map(stores))])
+  })
+  expect(contents).not.toContain(MOCK_ACCESS_TOKEN)
 })
 
 Then('no token appears in the page URL', async ({ page }) => {
   // Assert
-  expect(page.url()).not.toContain('mock-refreshed-token')
+  expect(page.url()).not.toContain(MOCK_ACCESS_TOKEN)
   expect(page.url()).not.toMatch(/[?#&](access_)?token=/)
 })
 
