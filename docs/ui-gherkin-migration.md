@@ -181,6 +181,9 @@ corrects them as a side effect (rules 4 and 5).
   and reports point at `.features-gen/...`. `-g "<scenario title>"` still matches.
 - **Vitest must not see `.features-gen/`.** `vitest.config.ts` excludes it; without that the
   unit run fails with "test.describe() not expected here".
+- **The keyword is not part of a step's identity.** playwright-bdd matches step text alone, so
+  `Given they are on {page}` and `Then they are on {page}` collide. Give a Then its own text
+  (`Then {page} is shown`).
 - **`features/pending/` must never run.** It is not in `CONVERTED_FEATURES`, so `bddgen` does
   not see it.
 - `fixtures.ts` carries one ESLint suppression (`no-empty-pattern`). It is Playwright's own
