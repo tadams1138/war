@@ -20,15 +20,18 @@ const previousArrow = (page: Page, side: Side) => carousel(page, side).getByTest
 // sibling elements mid-drag on a real layout, and what this needs to
 // verify is purely how ImageCarousel classifies a given clientX delta, not
 // pixel-perfect cursor travel.
-async function swipe(target: Locator, deltaX: number, returnToStart = false): Promise<void> {
+type SwipeEnd = 'release' | 'return' | 'cancel'
+
+async function swipe(target: Locator, deltaX: number, end: SwipeEnd = 'release'): Promise<void> {
   const box = (await target.boundingBox())!
   const startX = box.x + box.width / 2
   const startY = box.y + box.height / 2
   const pointer = (clientX: number) => ({ pointerId: 1, clientX, clientY: startY, button: 0, bubbles: true })
   await target.dispatchEvent('pointerdown', pointer(startX))
   await target.dispatchEvent('pointermove', pointer(startX + deltaX))
-  if (returnToStart) await target.dispatchEvent('pointermove', pointer(startX))
-  await target.dispatchEvent('pointerup', pointer(returnToStart ? startX : startX + deltaX))
+  if (end === 'cancel') return target.dispatchEvent('pointercancel', pointer(startX + deltaX))
+  if (end === 'return') await target.dispatchEvent('pointermove', pointer(startX))
+  await target.dispatchEvent('pointerup', pointer(end === 'return' ? startX : startX + deltaX))
 }
 
 const wasRequested = (urls: string[], side: Side, image: number) => urls.some((url) => url.includes(`cdn.example.test/${side}-media-${image - 1}/`))
@@ -45,7 +48,12 @@ When("they swipe the {side} contestant's card beyond the swipe threshold", async
 
 When("they begin swiping the {side} contestant's card and release it back over its starting position", async ({ page }, side: Side) => {
   // Act
-  await swipe(carousel(page, side), SWIPE_BEYOND_THRESHOLD_PX, true)
+  await swipe(carousel(page, side), SWIPE_BEYOND_THRESHOLD_PX, 'return')
+})
+
+When("they begin swiping the {side} contestant's card and the browser cancels the swipe", async ({ page }, side: Side) => {
+  // Act
+  await swipe(carousel(page, side), SWIPE_BEYOND_THRESHOLD_PX, 'cancel')
 })
 
 When("they tap the {side} contestant's card", async ({ page }, side: Side) => {

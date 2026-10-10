@@ -14,12 +14,18 @@ Feature: Contestant Images
     Then the left contestant's card shows image 2
     And no vote is submitted
 
-  Scenario: A swipe never casts a vote however it ends
+  Scenario Outline: A swipe never casts a vote however it ends
     Given the left contestant has 3 images
     And an authenticated voter
     And they are on that War's vote page
-    When they begin swiping the left contestant's card and release it back over its starting position
+    When they <swipe>
     Then no vote is submitted
+
+    Examples:
+      | swipe                                                                                    |
+      | swipe the left contestant's card beyond the swipe threshold                              |
+      | begin swiping the left contestant's card and release it back over its starting position |
+      | begin swiping the left contestant's card and the browser cancels the swipe               |
 
   Scenario: Tapping votes
     Given the left contestant has 3 images
