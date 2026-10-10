@@ -33,7 +33,7 @@ Red-Green-Refactor cycle:
 
 Guidance by test type in `war-ui-default`:
 
-- **Acceptance tests** (Playwright): preferred for user-facing behaviour — page loads, navigation, voting interactions, error states
+- **Acceptance tests** (Playwright): preferred for user-facing behaviour — page loads, navigation, voting interactions, error states. How a scenario binds to a test depends on the feature; see *Specs* below
 - **Unit tests** (Vitest): use for `war-ui-default/src/api/client.ts` logic (401 retry, error mapping) and any pure functions; not for React components that only render API data
 
 ## Build and test
@@ -68,6 +68,9 @@ Postgres when it is unset.
 - acceptance test (scoped): `npm --prefix war-ui-default run test:acceptance -- -g "<name>"`
 - build: `npm --prefix war-ui-default run build`
 
+`test:acceptance` runs `bddgen` and then Playwright. Always go through the npm script:
+calling `playwright test` directly runs stale generated tests.
+
 ### war-infra
 
 - format check: `terraform fmt -check -recursive war-infra`
@@ -98,6 +101,14 @@ These commands mirror the pipelines in `.github/workflows/`, so local runs match
 - **Fork for large multi-file refactors.** A change touching many files at once (a
   cyclomatic-complexity sweep, a cross-cutting rename) belongs in a forked subagent, not
   inline — it keeps the raw diffs and test output out of the main conversation.
+- **Delegate on the cheapest model that can do the job.** Set the model explicitly on every
+  subagent. Use Haiku for mechanical, well-specified edits (renames, doc and label changes,
+  small single-file fixes). Use Sonnet for multi-file refactors, test-first feature work, and
+  reviews that need judgement. Never leave a subagent on this session's own top-tier model by
+  default. A fork inherits this session's model, so use one only when the task needs this
+  conversation's context. Resume an interrupted subagent before restarting it on another
+  model, since it keeps its context. Verify a subagent's work yourself before committing it:
+  run the checks and read the diff, and check a cheaper model's factual claims most closely.
 - **Close `claude-in-chrome` tabs as soon as a browser task finishes.** Don't leave automation
   tabs open across turns.
 
@@ -118,3 +129,12 @@ custom UI (war-spec.md §11) is its own separate repository, not a directory her
 keeps its own Gherkin — `.github/workflows/ui-custom.yml` is the reusable pipeline each one
 calls.
 
+**The UI's Gherkin is mid-migration** from title-bound scenarios to executed steps
+(playwright-bdd). `docs/ui-gherkin-migration.md` holds the status, the conventions, the
+per-feature procedure and the backlog. Read it before adding or changing a UI scenario, and
+when asked to continue the migration. Until it is finished:
+
+- A feature listed in `war-ui-default/tests/bindings/convertedFeatures.ts` has step
+  definitions in `war-ui-default/tests/acceptance/steps/`. Every step is executed.
+- Any other feature needs a Playwright test in `war-ui-default/tests/acceptance/<feature>.spec.ts`
+  whose title equals the scenario title. `npm --prefix war-ui-default test` fails on a mismatch.
