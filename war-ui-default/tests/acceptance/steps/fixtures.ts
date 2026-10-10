@@ -21,6 +21,8 @@ export class World {
   matchup: NextMatchupResponse['matchup'] | undefined
   // How each request made by "two API requests ..." ended: fulfilled or rejected.
   requestOutcomes: string[] = []
+  // Every URL the page requested, in order.
+  readonly requestedUrls: string[] = []
   private warCount = 0
 
   nextWarId(): string {
@@ -36,8 +38,9 @@ export class World {
 }
 
 export const test = base.extend<{ world: World }>({
-  // eslint-disable-next-line no-empty-pattern
-  world: async ({}, use) => {
-    await use(new World())
+  world: async ({ page }, use) => {
+    const world = new World()
+    page.on('request', (request) => world.requestedUrls.push(request.url()))
+    await use(world)
   },
 })
