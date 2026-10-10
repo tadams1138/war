@@ -4,8 +4,7 @@ import { expect, type Page } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import type { RecipeResponse } from '../../../src/mocks/scenarios'
 import { test, type World } from './fixtures'
-import { API } from '../support/mocking'
-import { reply, voteRecipe } from '../support/recipes'
+import { failWarCalls, voteRecipe } from '../support/recipes'
 
 const { Given, When, Then } = createBdd(test, { tags: '@error-handling' })
 
@@ -13,30 +12,11 @@ function answerVotes(world: World, response: RecipeResponse): void {
   world.queue(voteRecipe(world.warId, response))
 }
 
-// Answers every request about the next War (its detail, join and next matchup).
-function answerWar(world: World, status: number, error: string): void {
-  const id = world.nextWarId()
-  const body = { error }
-  world.queue(
-    reply('GET', `${API}/wars/${id}`, status, body),
-    reply('POST', `${API}/wars/${id}/join`, status, body),
-    reply('GET', `${API}/wars/${id}/matchups/next`, status, body),
-  )
-}
-
 const card = (page: Page, name: string) => page.getByTestId('contestant-card').filter({ hasText: name })
 
 Given('a War that does not exist', async ({ world }) => {
   // Arrange
-  answerWar(world, 404, 'not found')
-})
-
-// The expired session surfaces as a 401 on the first request the voter makes,
-// here for the next War.
-Given("the voter's session has expired and cannot be refreshed", async ({ world }) => {
-  // Arrange
-  answerWar(world, 401, 'unauthorized')
-  world.queue(reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid' }))
+  world.queue(...failWarCalls(world.nextWarId(), 404, 'not found'))
 })
 
 Given('that War has closed', async ({ world }) => {

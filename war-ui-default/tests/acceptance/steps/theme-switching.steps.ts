@@ -17,11 +17,6 @@ Then('the nav theme menu is visible', async ({ page }) => {
   await expect(themeSelect(page)).toBeVisible()
 })
 
-Then('the page renders in the {string} theme', async ({ page }, theme: string) => {
-  // Assert
-  await expect(page.locator('main')).toHaveAttribute('data-theme', theme)
-})
-
 Then('the nav bar renders in the {string} theme', async ({ page }, theme: string) => {
   // Assert
   await expect(nav(page)).toHaveAttribute('data-theme', theme)

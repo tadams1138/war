@@ -17,3 +17,13 @@ export function voteRecipe(warId: string, response: RecipeResponse): HandlerReci
   const matchupId = buildMatchupResponse().matchup.id
   return { method: 'POST', path: `${API}/wars/${warId}/matchups/${matchupId}/vote`, responses: [response] }
 }
+
+// Every call a War's pages make (its detail, the join, the next matchup)
+// answered with the same error.
+export function failWarCalls(warId: string, status: number, error: string): HandlerRecipe[] {
+  return [
+    reply('GET', `${API}/wars/${warId}`, status, { error }),
+    reply('POST', `${API}/wars/${warId}/join`, status, { error }),
+    reply('GET', `${API}/wars/${warId}/matchups/next`, status, { error }),
+  ]
+}

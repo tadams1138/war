@@ -19,6 +19,8 @@ export class World {
   // The matchup "that War has a matchup to vote on" queued. Later Givens edit
   // it in place: the queued call holds this same object until the app boots.
   matchup: NextMatchupResponse['matchup'] | undefined
+  // How each request made by "two API requests ..." ended: fulfilled or rejected.
+  requestOutcomes: string[] = []
   private warCount = 0
 
   nextWarId(): string {
