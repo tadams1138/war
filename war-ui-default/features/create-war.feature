@@ -12,7 +12,7 @@ Feature: Create War
     Given the API rate limits the first creation request for 1 second, then accepts the retry
     And an authenticated voter
     When they open the Start a War page
-    Then a wait is shown, not an error
+    Then a wait is shown, using the supplied delay, not an error
     And creation retries on its own once the supplied delay passes
 
   Scenario: An unauthenticated visitor is redirected to log in

@@ -69,6 +69,17 @@ Feature: Error Handling
     When they vote for "Left Contestant"
     Then the message "Server error — please try again shortly" is shown
 
+  Scenario Outline: A server error on a page's requests shows a generic retry message
+    Given the API fails every request about a War with a server error
+    And an authenticated voter
+    When they open <page>
+    Then the message "Server error — please try again shortly" is shown
+
+    Examples:
+      | page                   |
+      | that War's detail page |
+      | that War's vote page   |
+
   Scenario: A network failure shows a connectivity message
     Given a War
     And that War has a matchup to vote on
@@ -77,3 +88,14 @@ Feature: Error Handling
     And they are on that War's vote page
     When they vote for "Left Contestant"
     Then the message "Unable to reach the server — check your connection" is shown
+
+  Scenario Outline: A network failure on a page's requests shows a connectivity message
+    Given the API cannot be reached for any request about a War
+    And an authenticated voter
+    When they open <page>
+    Then the message "Unable to reach the server — check your connection" is shown
+
+    Examples:
+      | page                   |
+      | that War's detail page |
+      | that War's vote page   |

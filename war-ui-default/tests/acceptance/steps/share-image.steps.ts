@@ -1,6 +1,6 @@
 // Steps for features/share-image.feature. Scoped with the feature's own tag so
 // no other feature can ever bind to (or collide with) this text.
-import { expect } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildContestant, buildMediaItem, buildWarDetail } from '../../../src/mocks/fixtures'
 import { test } from './fixtures'
@@ -35,9 +35,18 @@ When('they choose a share image file', async ({ page }) => {
   await page.getByTestId('edit-war-share-image-input').setInputFiles({ name: 'share.png', mimeType: 'image/png', buffer: TINY_PNG })
 })
 
-When('they generate a share image( again)', async ({ page }) => {
+const generate = (page: Page) => page.getByTestId('edit-war-share-image-generate')
+const preview = (page: Page) => page.getByTestId('edit-war-share-image-preview')
+
+When('they generate a share image', async ({ page }) => {
   // Act
-  await page.getByTestId('edit-war-share-image-generate').click()
+  await generate(page).click()
+})
+
+When('they generate a share image again', async ({ page, world }) => {
+  // Act
+  world.previousPreview = await preview(page).getAttribute('src')
+  await generate(page).click()
 })
 
 When('they click Save', async ({ page }) => {
@@ -47,7 +56,14 @@ When('they click Save', async ({ page }) => {
 
 Then('a share image preview is shown', async ({ page }) => {
   // Assert
-  await expect(page.getByTestId('edit-war-share-image-preview')).toBeVisible()
+  await expect(preview(page)).toBeVisible()
+})
+
+Then('a fresh share image preview is shown', async ({ page, world }) => {
+  // Assert
+  expect(world.previousPreview).not.toBeNull()
+  await expect(preview(page)).toBeVisible()
+  await expect(preview(page)).not.toHaveAttribute('src', world.previousPreview!)
 })
 
 Then('no share image has been uploaded', async ({ page }) => {
@@ -58,7 +74,7 @@ Then('no share image has been uploaded', async ({ page }) => {
 
 Then('the generate control is disabled', async ({ page }) => {
   // Assert
-  await expect(page.getByTestId('edit-war-share-image-generate')).toBeDisabled()
+  await expect(generate(page)).toBeDisabled()
 })
 
 Then('an explanation is shown', async ({ page }) => {

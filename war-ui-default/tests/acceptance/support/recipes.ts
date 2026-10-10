@@ -19,11 +19,11 @@ export function voteRecipe(warId: string, response: RecipeResponse): HandlerReci
 }
 
 // Every call a War's pages make (its detail, the join, the next matchup)
-// answered with the same error.
-export function failWarCalls(warId: string, status: number, error: string): HandlerRecipe[] {
+// answered the same way.
+export function failWarCalls(warId: string, response: RecipeResponse): HandlerRecipe[] {
   return [
-    reply('GET', `${API}/wars/${warId}`, status, { error }),
-    reply('POST', `${API}/wars/${warId}/join`, status, { error }),
-    reply('GET', `${API}/wars/${warId}/matchups/next`, status, { error }),
+    { method: 'GET', path: `${API}/wars/${warId}`, responses: [response] },
+    { method: 'POST', path: `${API}/wars/${warId}/join`, responses: [response] },
+    { method: 'GET', path: `${API}/wars/${warId}/matchups/next`, responses: [response] },
   ]
 }

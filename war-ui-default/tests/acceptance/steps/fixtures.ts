@@ -3,7 +3,7 @@
 // first navigation boots the app with them (recipes must be seeded before
 // page.goto, see support/mocking.ts useScenario).
 import { test as base } from 'playwright-bdd'
-import type { NextMatchupResponse } from '../../../src/api/client'
+import type { NextMatchupResponse, WarSummary } from '../../../src/api/client'
 import type { HandlerRecipe } from '../../../src/mocks/scenarios'
 import './parameters'
 
@@ -19,6 +19,10 @@ export class World {
   // The matchup "that War has a matchup to vote on" queued. Later Givens edit
   // it in place: the queued call holds this same object until the app boots.
   matchup: NextMatchupResponse['matchup'] | undefined
+  // The Wars "the API lists these Wars:" gave, in the order listed.
+  listedWars: WarSummary[] = []
+  // The share image preview's source just before it was generated again.
+  previousPreview: string | null = null
   // How each request made by "two API requests ..." ended: fulfilled or rejected.
   requestOutcomes: string[] = []
   // Every URL the page requested, in order.

@@ -21,7 +21,7 @@ Feature: Share Image
     Then a share image preview is shown
     And no share image has been uploaded
     When they generate a share image again
-    Then a share image preview is shown
+    Then a fresh share image preview is shown
     And no share image has been uploaded
     When they click Save
     Then the share image is uploaded to that War

@@ -4,7 +4,7 @@ import { expect } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildContestant, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { test } from './fixtures'
-import { API, getCallLog, waitForCallLog } from '../support/mocking'
+import { API, getCallLog, waitForCallLog, type MswCallLogEntry } from '../support/mocking'
 import { ok, reply } from '../support/recipes'
 import { validWarJson, zipBuffer } from '../support/exportArchive'
 
@@ -14,8 +14,10 @@ const WAR_ID = 'war-imported'
 const importedWar = () => buildWarSummary({ id: WAR_ID, status: 'draft', title: 'Miss Universe 2026' })
 const importedContestant = () => buildContestant({ id: 'c-imported', name: 'Ada' })
 
-function isCreateWar(entry: { method: string; url: string }): boolean {
-  return entry.method === 'POST' && entry.url.endsWith('/wars')
+const exported = JSON.parse(validWarJson()) as { title: string; category: string; contestants: { name: string }[] }
+
+function posted(log: MswCallLogEntry[], urlEnd: string): unknown[] {
+  return log.filter((entry) => entry.method === 'POST' && entry.url.endsWith(urlEnd)).map((entry) => JSON.parse(entry.body || '{}'))
 }
 
 Given('the API accepts an imported War', async ({ world }) => {
@@ -54,7 +56,9 @@ When('they choose a valid War export file that includes a share image', async ({
 
 Then('a new draft War is created from it', async ({ page }) => {
   // Assert
-  await waitForCallLog(page, (log) => log.some(isCreateWar))
+  const log = await waitForCallLog(page, (calls) => posted(calls, `/wars/${WAR_ID}/contestants`).length > 0)
+  expect(posted(log, '/wars')).toEqual([expect.objectContaining({ title: exported.title, category: exported.category })])
+  expect(posted(log, `/wars/${WAR_ID}/contestants`)).toEqual([expect.objectContaining({ name: exported.contestants[0]!.name })])
 })
 
 Then('an error is shown', async ({ page }) => {
