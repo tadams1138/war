@@ -6,7 +6,7 @@ import { findWarById } from '../../src/wars/warsRepository.js';
 import { joinWarAsVoter, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
-import { anonymous, as, withInternalToken } from '../setup/apiClient.js';
+import { anonymous, as, listening, withInternalToken } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/war-expiry.feature', import.meta.url)));
 
@@ -180,9 +180,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     When('the close-expired-wars task runs twice at the same moment', async () => {
       // Act
-      await harness.app.ready();
-      const run = () =>
-        withInternalToken(harness).post('/api/v1/internal/close-expired-wars');
+      await listening(harness);
+      const run = () => withInternalToken(harness).post('/api/v1/internal/close-expired-wars');
       responses = await Promise.all([run(), run()]);
     });
 
