@@ -353,7 +353,8 @@ function EditWarDetailPane({
 }) {
   return (
     <div className="edit-war-detail">
-      {selected === 'metadata' && (
+      {/* Hidden, not unmounted, while another pane is selected: the form's unsaved edits live in its own state. */}
+      <div hidden={selected !== 'metadata'}>
         <EditWarMetadataForm
           war={state.war}
           error={state.metadataError}
@@ -361,7 +362,7 @@ function EditWarDetailPane({
           onSave={editWar.saveMetadata}
           onUploadShareImage={editWar.uploadShareImage}
         />
-      )}
+      </div>
       {selected === 'add' && (
         <AddContestantForm
           error={state.addContestantError}
