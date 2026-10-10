@@ -12,8 +12,16 @@ export class World {
   // Set by "an authenticated voter". Navigation then stays client-side: a
   // full page load would wipe the in-memory session.
   signedIn = false
-  // The id of the War in scope; "that War's ... page" resolves against it.
+  // The id of the War in scope (the latest one given); "that War's ... page"
+  // resolves against it. Wars are numbered war-1, war-2, ... in the order given.
   warId = ''
+  private warCount = 0
+
+  nextWarId(): string {
+    this.warCount += 1
+    this.warId = `war-${this.warCount}`
+    return this.warId
+  }
 
   queue(...recipes: HandlerRecipe[]): void {
     if (this.booted) throw new Error('API recipes must be given before the app boots (the first navigation or "an authenticated voter")')

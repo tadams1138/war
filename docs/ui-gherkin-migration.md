@@ -1,6 +1,6 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 2 of 17 feature files converted (7 of 272
+**Status as of 2026-10-10: in progress, paused. 3 of 17 feature files converted (14 of 272
 acceptance tests).** Nothing is half-done: every feature is either fully converted or
 untouched, and the whole suite passes.
 
@@ -24,8 +24,8 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war` | 7 | Steps executed by playwright-bdd |
-| Not converted | the 15 in the backlog | 265 | Scenario title must equal a Playwright test title |
+| Converted | `create-war`, `import-war`, `theme-switching` | 14 | Steps executed by playwright-bdd |
+| Not converted | the 14 in the backlog | 258 | Scenario title must equal a Playwright test title |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
 `npm run test:acceptance`.
@@ -99,6 +99,10 @@ Rules:
 |---|---|
 | `Given an authenticated voter` | Boots the app with the queued mocks, opens Home, signs in |
 | `Given they are on {page}` / `When they open {page}` / `When a visitor opens {page}` | Boots if needed and navigates (client-side once signed in). "A visitor" means not signed in |
+| `Given a War themed {string}` / `Given another War themed {string}` | Queues the War's detail. Wars are numbered `war-1`, `war-2`, ...; "that War" is the latest given |
+| `Given that War has a matchup to vote on` | Queues the join and next-matchup calls for that War |
+| `When they reload the page` | Reloads (drops an in-memory session) |
+| `Then the matchup is shown` | Asserts the matchup view is visible |
 | `Then they are redirected to {page}` | Asserts the path, and the page's landmark when it has one |
 | `Then they are redirected to the login page with returnTo {page}` | Asserts `/login?returnTo=<path>` |
 
@@ -144,24 +148,23 @@ are the hand-written spec's line count on 2026-10-10.
 
 | Order | Feature | Scenarios | Spec lines | Notes |
 |---|---|---|---|---|
-| 1 | `theme-switching` | 7 | 122 | |
-| 2 | `share-image` | 5 | 136 | |
-| 3 | `error-handling` | 8 | 143 | |
-| 4 | `my-wars` | 10 | 176 | |
-| 5 | `vote-mode-responsive` | 6 | 185 | Viewport-dependent |
-| 6 | `login-and-auth` | 9 | 190 | |
-| 7 | `contestant-images` | 9 | 194 | |
-| 8 | `vote-mode` | 11 | 267 | |
-| 9 | `browse-wars` | 16 | 305 | |
-| 10 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
-| 11 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
-| 12 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
-| 13 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
-| 14 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
-| 15 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
+| 1 | `share-image` | 5 | 136 | |
+| 2 | `error-handling` | 8 | 143 | |
+| 3 | `my-wars` | 10 | 176 | |
+| 4 | `vote-mode-responsive` | 6 | 185 | Viewport-dependent |
+| 5 | `login-and-auth` | 9 | 190 | |
+| 6 | `contestant-images` | 9 | 194 | |
+| 7 | `vote-mode` | 11 | 267 | |
+| 8 | `browse-wars` | 16 | 305 | |
+| 9 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
+| 10 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
+| 11 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
+| 12 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
+| 13 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
+| 14 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
 
-Total remaining: 261 scenarios (265 tests, since the `navigation` loop runs five), about
-5,800 spec lines. The two converted features grew by about 27% (208 spec lines became 264
+Total remaining: 254 scenarios (258 tests, since the `navigation` loop runs five), about
+5,680 spec lines. The two converted features grew by about 27% (208 spec lines became 264
 lines of steps and helpers), so expect roughly 7,000 to 8,000 lines of steps. That estimate
 comes from two small features only.
 
