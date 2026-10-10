@@ -16,40 +16,58 @@ function answerVotes(world: World, response: RecipeResponse): void {
   world.queue({ method: 'POST', path: `${API}/wars/${world.warId}/matchups/${MATCHUP_ID}/vote`, responses: [response] })
 }
 
-const card = (page: Page, name: string) => page.getByTestId('contestant-card').filter({ hasText: name })
-
-Given('a War whose requests are answered with {int}', async ({ world }, status: number) => {
-  // Arrange
+// Answers every request about the next War (its detail, join and next matchup).
+function answerWar(world: World, status: number, error: string): void {
   const id = world.nextWarId()
-  const body = { error: 'error' }
+  const body = { error }
   world.queue(
     reply('GET', `${API}/wars/${id}`, status, body),
     reply('POST', `${API}/wars/${id}/join`, status, body),
     reply('GET', `${API}/wars/${id}/matchups/next`, status, body),
   )
+}
+
+const card = (page: Page, name: string) => page.getByTestId('contestant-card').filter({ hasText: name })
+
+Given('a War that does not exist', async ({ world }) => {
+  // Arrange
+  answerWar(world, 404, 'not found')
 })
 
-Given('the session cannot be refreshed', async ({ world }) => {
+// The expired session surfaces as a 401 on the first request the voter makes,
+// here for the next War.
+Given("the voter's session has expired and cannot be refreshed", async ({ world }) => {
   // Arrange
+  answerWar(world, 401, 'unauthorized')
   world.queue(reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid' }))
 })
 
-Given('the API answers votes with {int}', async ({ world }, status: number) => {
+Given('that War has closed', async ({ world }) => {
   // Arrange
-  answerVotes(world, { status, body: { error: 'error' } })
+  answerVotes(world, { status: 403, body: { error: 'error', reason: 'war_not_published' } })
 })
 
-Given('the API answers votes with {int} and reason {string}', async ({ world }, status: number, reason: string) => {
+Given("the voter's automatic join did not take effect", async ({ world }) => {
   // Arrange
-  answerVotes(world, { status, body: { error: 'error', reason } })
+  answerVotes(world, { status: 403, body: { error: 'error', reason: 'not_joined' } })
 })
 
-Given('the API answers votes with {int} and Retry-After {int}', async ({ world }, status: number, seconds: number) => {
+Given('the API is rate limiting votes for {int} second(s)', async ({ world }, seconds: number) => {
   // Arrange
-  answerVotes(world, { status, body: { error: 'error' }, headers: { 'Retry-After': String(seconds) } })
+  answerVotes(world, { status: 429, body: { error: 'error' }, headers: { 'Retry-After': String(seconds) } })
 })
 
-Given('the API cannot be reached when voting', async ({ world }) => {
+Given('the API rejects a vote as invalid', async ({ world }) => {
+  // Arrange
+  answerVotes(world, { status: 422, body: { error: 'error' } })
+})
+
+Given('the API fails a vote with a server error', async ({ world }) => {
+  // Arrange
+  answerVotes(world, { status: 503, body: { error: 'error' } })
+})
+
+Given('the API cannot be reached to cast a vote', async ({ world }) => {
   // Arrange
   answerVotes(world, { status: 0, networkError: true })
 })
