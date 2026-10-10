@@ -1,7 +1,9 @@
 // Builders for the single-response HandlerRecipe literals that fill most
 // acceptance scenarios. Recipes with several responses stay spelled out.
-import { buildMatchupResponse } from '../../../src/mocks/fixtures'
+import type { WarSummary } from '../../../src/api/client'
+import { buildMatchupResponse, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import type { HandlerRecipe, RecipeResponse } from '../../../src/mocks/scenarios'
+import type { World } from '../steps/fixtures'
 import { API } from './mocking'
 
 export function reply(method: HandlerRecipe['method'], path: string, status: number, body?: unknown): HandlerRecipe {
@@ -26,4 +28,16 @@ export function failWarCalls(warId: string, response: RecipeResponse): HandlerRe
     { method: 'POST', path: `${API}/wars/${warId}/join`, responses: [response] },
     { method: 'GET', path: `${API}/wars/${warId}/matchups/next`, responses: [response] },
   ]
+}
+
+// The API lists these Wars (one page), numbered like every other War given,
+// and answers each one's detail so a listed War can be opened.
+export function queueListedWars(world: World, wars: Partial<WarSummary>[]): WarSummary[] {
+  const listed = wars.map((war) => buildWarSummary({ ...war, id: world.nextWarId() }))
+  world.listedWars = listed
+  world.queue(
+    ok('GET', `${API}/wars`, { wars: listed, next_cursor: null }),
+    ...listed.map((war) => ok('GET', `${API}/wars/${war.id}`, buildWarDetail({ ...war, contestants: [] }))),
+  )
+  return listed
 }
