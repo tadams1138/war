@@ -1,9 +1,9 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '../../src/db/uuid.js';
 import request from 'supertest';
 import type { OAuthProfile } from '../../src/auth/oauthProvider.js';
 import type { FakeOAuthProvider } from './fakeOAuthProvider.js';
 import type { TestHarness } from './testApp.js';
-import { extractCookieValue } from './httpHelpers.js';
+import { extractCookieValue } from './cookies.js';
 
 export interface CompletedLogin {
   refreshTokenValue: string;
@@ -70,7 +70,7 @@ export async function loginAndCallback(
   const fake = options.fake ?? harness.google;
   const { agent, stateCookie, cookieHeader } = await beginLogin(harness, provider);
 
-  const code = randomUUID();
+  const code = newId();
   fake.registerCode(code, profile);
 
   const callbackResponse = await agent.get(`/api/v1/auth/${provider}/callback`).query({ code, state: stateCookie }).set('Cookie', cookieHeader);
@@ -90,4 +90,32 @@ export async function postRefresh(harness: TestHarness, refreshTokenValue: strin
     .set('Cookie', `refresh_token=${refreshTokenValue}`)
     .set('Origin', origin)
     .send();
+}
+
+/** A profile for a provider account known only by `seed`, which doubles as the provider subject and the display name. */
+export function profileFor(seed: string, options: { displayName?: string } = {}): OAuthProfile {
+  return { providerUserId: seed, displayName: options.displayName ?? seed, avatarUrl: null };
+}
+
+export interface SignedIn {
+  voterId: string;
+  jwt: string;
+  /** The refresh token the callback issued, still unused. */
+  refreshTokenValue: string;
+}
+
+/** Completes the real login → callback flow for `profile` and reports who signed in, without exchanging the refresh token. */
+export async function signInAs(
+  harness: TestHarness,
+  profile: OAuthProfile,
+  options: { provider?: string; fake?: FakeOAuthProvider } = {},
+): Promise<SignedIn> {
+  const { refreshTokenValue } = await loginAndCallback(harness, profile, options);
+  const voter = await harness.db
+    .selectFrom('voters')
+    .select('id')
+    .where('provider', '=', options.provider ?? 'google')
+    .where('provider_user_id', '=', profile.providerUserId)
+    .executeTakeFirstOrThrow();
+  return { voterId: voter.id, jwt: await harness.jwtFor(voter.id), refreshTokenValue };
 }

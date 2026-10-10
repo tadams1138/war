@@ -43,7 +43,7 @@ Feature: Voting
     When a voter requests and votes until /matchups/next returns 204
     Then they have voted on all 6 pairs exactly once
 
-  Scenario: Pair order is randomised but stable per voter
+  Scenario: Pair order is randomized but stable per voter
     Given two voters in the same published War
     When each voter requests /matchups/next
     Then the order pairs are served in differs between them

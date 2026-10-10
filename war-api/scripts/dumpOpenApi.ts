@@ -1,4 +1,4 @@
-import { buildAppWithoutDb } from '../test/setup/testAppNoDb.js';
+import { buildAppWithoutDb } from '../test/setup/testAppWithoutDb.js';
 
 /**
  * Dev tool for war-ui-default's `generate:api`: prints this

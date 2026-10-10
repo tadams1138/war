@@ -5,15 +5,16 @@ import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { hashRefreshToken } from '../../src/auth/refreshTokens.js';
 import { findRefreshTokenByHash } from '../../src/auth/refreshTokensRepository.js';
 import { findVoterById } from '../../src/auth/votersRepository.js';
-import { beginLogin, loginAndCallback, postRefresh } from '../setup/authFlow.js';
+import { beginLogin, loginAndCallback, postRefresh, profileFor, signInAs } from '../setup/authFlow.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
-import { extractCookieValue, findSetCookie } from '../setup/httpHelpers.js';
+import { extractCookieValue, findSetCookie } from '../setup/cookies.js';
 import { anonymous } from '../setup/apiClient.js';
+import { countVoters } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/auth.feature', import.meta.url)));
 
-describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
+describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => {
   let harness: TestHarness;
 
   BeforeEachScenario(async () => {
@@ -28,8 +29,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Given('a user has never signed in before', async () => {
       // Arrange
-      const row = await harness.db.selectFrom('voters').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
-      voterCountBefore = Number(row.count);
+      voterCountBefore = await countVoters(harness.db);
     });
 
     When('they authenticate via Google OAuth', async () => {
@@ -46,8 +46,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('a new Voter record is created', async () => {
       // Assert
-      const row = await harness.db.selectFrom('voters').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
-      expect(Number(row.count)).toBe(voterCountBefore + 1);
+      expect(await countVoters(harness.db)).toBe(voterCountBefore + 1);
     });
 
     And('a JWT and refresh token are returned', () => {
@@ -83,8 +82,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('no new Voter record is created', async () => {
       // Assert
-      const row = await harness.db.selectFrom('voters').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
-      expect(Number(row.count)).toBe(1);
+      expect(await countVoters(harness.db)).toBe(1);
     });
 
     And('the existing record is returned', async () => {
@@ -95,43 +93,37 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Two different Google accounts create separate voters', ({ Given, When, Then, And }) => {
+  ScenarioOutline('Accounts are keyed by provider and provider subject, never linked by email', ({ Given, When, Then, And }, variables) => {
     let voterAId: string;
     let voterBId: string;
 
-    Given('voter A signed in with Google using "user-a@example.com"', async () => {
+    function signIn(provider: string, subject: string) {
+      const providerId = provider.toLowerCase();
+      const fake = providerId === 'microsoft' ? harness.microsoft : harness.google;
+      return signInAs(harness, profileFor(subject), { provider: providerId, fake });
+    }
+
+    Given('voter A signed in with <first_provider> using "<first_subject>"', async () => {
       // Arrange
-      const { refreshTokenValue } = await loginAndCallback(harness, {
-        providerUserId: 'user-a@example.com',
-        displayName: 'User A',
-        avatarUrl: null,
-      });
-      const refreshResponse = await postRefresh(harness, refreshTokenValue);
-      const meResponse = await anonymous(harness).get('/api/v1/auth/me', { headers: { Authorization: `Bearer ${(refreshResponse.body as { token: string }).token}` } });
-      voterAId = (meResponse.body as { voter: { id: string } }).voter.id;
+      voterAId = (await signIn(variables.first_provider as string, variables.first_subject as string)).voterId;
     });
 
-    When('a user signs in with Google using "user-b@example.com"', async () => {
+    When('a user signs in with <second_provider> using "<second_subject>"', async () => {
       // Act
-      const { refreshTokenValue } = await loginAndCallback(harness, {
-        providerUserId: 'user-b@example.com',
-        displayName: 'User B',
-        avatarUrl: null,
-      });
-      const refreshResponse = await postRefresh(harness, refreshTokenValue);
-      const meResponse = await anonymous(harness).get('/api/v1/auth/me', { headers: { Authorization: `Bearer ${(refreshResponse.body as { token: string }).token}` } });
-      voterBId = (meResponse.body as { voter: { id: string } }).voter.id;
+      voterBId = (await signIn(variables.second_provider as string, variables.second_subject as string)).voterId;
     });
 
-    Then('a separate Voter record is created', () => {
+    Then('a separate Voter record is created', async () => {
       // Assert
       expect(voterBId).not.toBe(voterAId);
+      expect(await countVoters(harness.db)).toBe(2);
     });
 
     And('the two accounts are not linked', async () => {
       // Assert
-      const row = await harness.db.selectFrom('voters').select((eb) => eb.fn.countAll<string>().as('count')).executeTakeFirstOrThrow();
-      expect(Number(row.count)).toBe(2);
+      const rows = await harness.db.selectFrom('voters').select(['provider', 'provider_user_id']).execute();
+      const identities = new Set(rows.map((row) => `${row.provider}:${row.provider_user_id}`));
+      expect(identities.size).toBe(2);
     });
   });
 

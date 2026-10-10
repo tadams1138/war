@@ -9,7 +9,7 @@ import { putRole } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/role-grants.feature', import.meta.url)));
 
-describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
+describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => {
   let harness: TestHarness;
 
   BeforeEachScenario(async () => {
@@ -30,7 +30,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       targetId = target.id;
     });
 
-    When('the Admin PUTs granted true for the moderator role on that Voter', async () => {
+    When('the Admin grants the moderator role to that Voter', async () => {
       // Act
       response = await putRole(harness, adminId, targetId, 'moderator', true);
     });
@@ -59,7 +59,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       targetId = target.id;
     });
 
-    When('the Admin PUTs granted false for the moderator role on that Voter', async () => {
+    When('the Admin revokes the moderator role from that Voter', async () => {
       // Act
       response = await putRole(harness, adminId, targetId, 'moderator', false);
     });
@@ -75,46 +75,22 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A non-Admin cannot grant any role', ({ Given, When, Then }) => {
+  ScenarioOutline('A caller who is not an Admin cannot grant any role', ({ Given, When, Then }, variables) => {
     let callerId: string;
     let targetId: string;
     let response: request.Response;
 
-    Given('a plain Voter and another plain Voter', async () => {
+    Given('a <caller> and a target Voter', async () => {
       // Arrange
-      const caller = await makeVoter(harness.db, 'caller');
+      const caller = variables.caller === 'Moderator' ? await makeModerator(harness.db, 'caller') : await makeVoter(harness.db, 'caller');
       const target = await makeVoter(harness.db, 'target');
       callerId = caller.id;
       targetId = target.id;
     });
 
-    When('the first Voter PUTs granted true for the moderator role on the second', async () => {
+    When('the <caller> grants the <role> role to the target Voter', async () => {
       // Act
-      response = await putRole(harness, callerId, targetId, 'moderator', true);
-    });
-
-    Then('the response status is 403', () => {
-      // Assert
-      expect(response.status).toBe(403);
-    });
-  });
-
-  Scenario('A Moderator alone cannot grant any role', ({ Given, When, Then }) => {
-    let moderatorId: string;
-    let targetId: string;
-    let response: request.Response;
-
-    Given('a Moderator and a plain Voter', async () => {
-      // Arrange
-      const moderator = await makeModerator(harness.db, 'moderator');
-      const target = await makeVoter(harness.db, 'target');
-      moderatorId = moderator.id;
-      targetId = target.id;
-    });
-
-    When('the Moderator PUTs granted true for the admin role on the plain Voter', async () => {
-      // Act
-      response = await putRole(harness, moderatorId, targetId, 'admin', true);
+      response = await putRole(harness, callerId, targetId, variables.role as string, true);
     });
 
     Then('the response status is 403', () => {
@@ -133,7 +109,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       adminId = admin.id;
     });
 
-    When('the Admin PUTs granted true for the moderator role on a nonexistent voter id', async () => {
+    When('the Admin grants the moderator role to a nonexistent Voter', async () => {
       // Act
       response = await putRole(harness, adminId, UNKNOWN_ID, 'moderator', true);
     });
@@ -154,7 +130,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       adminId = admin.id;
     });
 
-    When('the Admin PUTs granted false for the admin role on themselves', async () => {
+    When('the Admin revokes the admin role from themselves', async () => {
       // Act
       response = await putRole(harness, adminId, adminId, 'admin', false);
     });
@@ -184,7 +160,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       secondAdminId = second.id;
     });
 
-    When("the first Admin PUTs granted false for the admin role on the second Admin", async () => {
+    When("the first Admin revokes the admin role from the second Admin", async () => {
       // Act
       response = await putRole(harness, firstAdminId, secondAdminId, 'admin', false);
     });

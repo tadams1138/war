@@ -1,13 +1,12 @@
-Feature: /auth/me reports Staff roles
+Feature: The signed-in Voter's roles
 
-  Scenario: A Moderator's /auth/me reports is_moderator true
-    Given a Moderator
+  Scenario Outline: GET /api/v1/auth/me reports the caller's Staff roles
+    Given a <caller>
     When they call GET /api/v1/auth/me
     Then the response status is 200
-    And the response reports is_moderator true and is_admin false
+    And the response reports is_moderator <moderator> and is_admin <admin>
 
-  Scenario: A plain Voter's /auth/me reports both roles false
-    Given a plain Voter
-    When they call GET /api/v1/auth/me
-    Then the response status is 200
-    And the response reports is_moderator false and is_admin false
+    Examples:
+      | caller      | moderator | admin |
+      | Moderator   | true      | false |
+      | plain Voter | false     | false |

@@ -8,8 +8,9 @@ import { giveContestantAnImage, makeContestant, makeDraftWar, makeVoter } from '
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as, uploadImage } from '../setup/apiClient.js';
+import { storedObjectKeys } from '../setup/queries.js';
 
-const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/media-images.feature', import.meta.url)));
+const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/image-processing.feature', import.meta.url)));
 
 async function largeNoiseJpeg(): Promise<Buffer> {
   // Random noise compresses poorly, approximating a large real-world photo
@@ -194,7 +195,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let firstMediaId: string;
     let secondImageId: string;
 
-    const allKeys = () => [...harness.storage.publicObjects.keys(), ...harness.storage.privateObjects.keys()];
+    const allKeys = () => storedObjectKeys(harness.storage);
 
     Given('a contestant with two uploaded images', async () => {
       // Arrange

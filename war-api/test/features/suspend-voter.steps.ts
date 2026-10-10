@@ -6,6 +6,7 @@ import { UNKNOWN_ID, joinWarAsVoter, makeAdmin, makeDraftWar, makeDraftWarWithCo
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as, postWar } from '../setup/apiClient.js';
+import { countWars, moderationLog } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/suspend-voter.feature', import.meta.url)));
 
@@ -19,10 +20,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
   async function putSuspension(callerId: string, targetId: string, suspended: boolean): Promise<request.Response> {
     return as(harness, callerId).put(`/api/v1/voters/${targetId}/suspension`, { suspended });
-  }
-
-  async function warCount(): Promise<number> {
-    return (await harness.db.selectFrom('wars').selectAll().execute()).length;
   }
 
   Scenario('A suspended Voter cannot create a War', ({ Given, When, And, Then }) => {
@@ -50,13 +47,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(403);
       expect(response.body).toEqual({ error: 'suspended' });
-      expect(await warCount()).toBe(0);
+      expect(await countWars(harness.db)).toBe(0);
     });
   });
-
-  async function logRows() {
-    return harness.db.selectFrom('moderation_log').selectAll().execute();
-  }
 
   async function isSuspended(voterId: string): Promise<boolean> {
     const row = await harness.db.selectFrom('voters').select('suspended_at').where('id', '=', voterId).executeTakeFirstOrThrow();
@@ -72,7 +65,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
-    When('the Moderator suspends themself', async () => {
+    When('the Moderator suspends themselves', async () => {
       // Act
       response = await putSuspension(moderatorId, moderatorId, true);
     });
@@ -81,7 +74,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(403);
       expect(await isSuspended(moderatorId)).toBe(false);
-      expect(await logRows()).toHaveLength(0);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
     });
   });
 
@@ -105,7 +98,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(403);
       expect(await isSuspended(adminId)).toBe(false);
-      expect(await logRows()).toHaveLength(0);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
     });
   });
 
@@ -138,7 +131,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the response is 201 and one War exists', async () => {
       // Assert
       expect(response.status).toBe(201);
-      expect(await warCount()).toBe(1);
+      expect(await countWars(harness.db)).toBe(1);
     });
   });
 
@@ -164,7 +157,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('the log holds a suspend_voter and an unsuspend_voter entry naming the Moderator and the Voter', async () => {
       // Assert
-      const rows = await logRows();
+      const rows = await moderationLog(harness.db);
       expect(rows.map((row) => row.action).sort()).toEqual(['suspend_voter', 'unsuspend_voter']);
       for (const row of rows) {
         expect(row.staff_voter_id).toBe(moderatorId);
@@ -194,7 +187,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(403);
       expect(await isSuspended(targetId)).toBe(false);
-      expect(await logRows()).toHaveLength(0);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
     });
   });
 
@@ -215,7 +208,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the response is 404 and nothing is logged', async () => {
       // Assert
       expect(response.status).toBe(404);
-      expect(await logRows()).toHaveLength(0);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
     });
   });
 

@@ -20,14 +20,9 @@ function makeWar(overrides: Partial<War> = {}): War {
 }
 
 describe('presentWarSummary', () => {
-  // presentWarSummary is a pure pass-through of the count it is given -- it
-  // never queries `contestants` itself, so it cannot verify (and this test
-  // does not claim) that the count is correct regardless of War status.
-  // That guarantee actually lives in `countContestantsByWarIds`
-  // (src/contestants/contestantsRepository.ts) having no status predicate,
-  // and is exercised end-to-end by the DB-gated "The browse list reports
-  // each War's contestant count" acceptance scenario, which deliberately
-  // uses a never-published draft War.
+  // presentWarSummary only passes the given count through; that the count is
+  // right for a War of any status is covered by the "The browse list reports
+  // each War's contestant count" acceptance scenario.
   it('places the given contestant count on the view as contestant_count, alongside every other mapped field', () => {
     // Arrange
     const war = makeWar({

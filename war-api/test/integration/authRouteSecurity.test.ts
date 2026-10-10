@@ -1,30 +1,36 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '../../src/db/uuid.js';
 import request from 'supertest';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { hashRefreshToken } from '../../src/auth/refreshTokens.js';
 import { findRefreshTokenByHash } from '../../src/auth/refreshTokensRepository.js';
-import { extractCookieValue } from '../setup/httpHelpers.js';
+import { extractCookieValue } from '../setup/cookies.js';
 import { beginLogin, loginAndCallback, postRefresh } from '../setup/authFlow.js';
 import { makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
 /**
- * Route-level security checks that no scenario in auth.feature exercises
- * directly. Not bound to a .feature file — these are implementation-owned
- * regression tests of behaviour war-spec.md §5.1 requires but the Gherkin
- * does not pin at this granularity.
+ * Route-level security checks that auth.feature does not pin at this
+ * granularity (the access_denied callback there overlaps `error` precedence
+ * below, which adds the state-mismatch and no-cookie cases). Not bound to a
+ * .feature file — these are implementation-owned regression tests of
+ * behaviour war-spec.md §5.1 requires.
  */
+let harness: TestHarness;
+
+beforeEach(async () => {
+  await truncateAll();
+  harness = await buildTestHarness();
+  await harness.app.ready();
+});
+
 describe('Login sets PKCE state alongside the OAuth state cookie', () => {
-  let harness: TestHarness;
-
-  beforeEach(async () => {
-    await truncateAll();
-    harness = await buildTestHarness();
-    await harness.app.ready();
-  });
-
-  it('sets an oauth_pkce cookie in addition to oauth_state', async () => {
+  // Note: the challenge check is a *route-wiring* check only — the provider here is
+  // FakeOAuthProvider, so the challenge in this URL is whatever the double
+  // chose to emit. That the challenge is a real S256 derivation of the
+  // verifier is proved in test/unit/auth/openIdBackedProvider.test.ts,
+  // against the production OpenIdBackedProvider.
+  it('sets an oauth_pkce cookie in addition to oauth_state and advertises an S256 code_challenge', async () => {
     // Arrange
     const agent = request(harness.app.server);
 
@@ -34,40 +40,17 @@ describe('Login sets PKCE state alongside the OAuth state cookie', () => {
     // Assert
     expect(extractCookieValue(response.get('Set-Cookie'), 'oauth_state')).toBeTruthy();
     expect(extractCookieValue(response.get('Set-Cookie'), 'oauth_pkce')).toBeTruthy();
-  });
-
-  // Note: this is a *route-wiring* check only — the provider here is
-  // FakeOAuthProvider, so the challenge in this URL is whatever the double
-  // chose to emit. That the challenge is a real S256 derivation of the
-  // verifier is proved in test/unit/auth/openIdBackedProvider.test.ts,
-  // against the production OpenIdBackedProvider.
-  it('carries a PKCE code_challenge derived from the cookie in the authorization URL', async () => {
-    // Arrange
-    const agent = request(harness.app.server);
-
-    // Act
-    const response = await agent.get('/api/v1/auth/google/login');
-
-    // Assert
     const location = new URL(response.headers.location as string);
     expect(location.searchParams.get('code_challenge')).toBeTruthy();
     expect(location.searchParams.get('code_challenge_method')).toBe('S256');
   });
 });
 
-describe('OAuth callback state validation (spec: "API validates state")', () => {
-  let harness: TestHarness;
-
-  beforeEach(async () => {
-    await truncateAll();
-    harness = await buildTestHarness();
-    await harness.app.ready();
-  });
-
+describe('OAuth callback state validation (war-spec.md §5.1)', () => {
   it('rejects a callback that omits the state query parameter entirely', async () => {
     // Arrange
     const { agent, stateCookie } = await beginLogin(harness);
-    const code = randomUUID();
+    const code = newId();
     harness.google.registerCode(code, { providerUserId: 'no-state@example.com', displayName: 'No State', avatarUrl: null });
 
     // Act
@@ -80,9 +63,8 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
 
   it('rejects a callback that arrives with no oauth_state cookie at all', async () => {
     // Arrange
-    await harness.app.ready();
     const agent = request(harness.app.server);
-    const code = randomUUID();
+    const code = newId();
     harness.google.registerCode(code, { providerUserId: 'no-cookie@example.com', displayName: 'No Cookie', avatarUrl: null });
 
     // Act
@@ -96,7 +78,7 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
   it('rejects a callback whose state does not match the cookie', async () => {
     // Arrange
     const { agent } = await beginLogin(harness);
-    const code = randomUUID();
+    const code = newId();
     harness.google.registerCode(code, { providerUserId: 'mismatch@example.com', displayName: 'Mismatch', avatarUrl: null });
 
     // Act
@@ -112,7 +94,7 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
   it('accepts a callback whose state matches the cookie', async () => {
     // Arrange
     const { agent, stateCookie, pkceCookie, cookieHeader, advertisedRedirectUri } = await beginLogin(harness);
-    const code = randomUUID();
+    const code = newId();
     harness.google.registerCode(code, { providerUserId: 'matches@example.com', displayName: 'Matches', avatarUrl: null });
 
     // Act
@@ -136,7 +118,7 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
   it('passes Google\'s real callback query parameters (e.g. iss) through to exchangeCode unchanged, not a synthetic reconstruction', async () => {
     // Arrange
     const { agent, stateCookie, cookieHeader } = await beginLogin(harness);
-    const code = randomUUID();
+    const code = newId();
     harness.google.registerCode(code, { providerUserId: 'iss-fidelity@example.com', displayName: 'Iss Fidelity', avatarUrl: null });
 
     // Act: Google's real callback carries more than just code/state (RFC 9207's
@@ -175,14 +157,6 @@ describe('OAuth callback state validation (spec: "API validates state")', () => 
  * scope is pinned exactly, not just its existence.
  */
 describe('Callback exchange failures (war-spec.md §5.1)', () => {
-  let harness: TestHarness;
-
-  beforeEach(async () => {
-    await truncateAll();
-    harness = await buildTestHarness();
-    await harness.app.ready();
-  });
-
   it('maps an openid-client/oauth4webapi validation error from the exchange to a 502, not a raw 500', async () => {
     // Arrange: a class-typed error carrying the library's own internal
     // error code as its message -- exactly the shape that reached three
@@ -195,7 +169,7 @@ describe('Callback exchange failures (war-spec.md §5.1)', () => {
       }
     }
     const { agent, stateCookie, cookieHeader } = await beginLogin(harness);
-    const code = randomUUID();
+    const code = newId();
     harness.google.failNextExchange(new FakeOperationProcessingError());
 
     // Act
@@ -210,7 +184,7 @@ describe('Callback exchange failures (war-spec.md §5.1)', () => {
   it('maps a network failure reaching Google to a 502', async () => {
     // Arrange
     const { agent, stateCookie, cookieHeader } = await beginLogin(harness);
-    const code = randomUUID();
+    const code = newId();
     harness.google.failNextExchange(new Error('getaddrinfo ENOTFOUND accounts.google.com'));
 
     // Act
@@ -226,7 +200,7 @@ describe('Callback exchange failures (war-spec.md §5.1)', () => {
     // VARCHAR(256) forces the insert itself to fail -- a real defect in
     // this API's own logic, not the provider's response being unusable.
     const { agent, stateCookie, cookieHeader } = await beginLogin(harness);
-    const code = randomUUID();
+    const code = newId();
     harness.google.registerCode(code, {
       providerUserId: 'x'.repeat(300),
       displayName: 'Downstream Failure',
@@ -251,21 +225,13 @@ describe('Callback exchange failures (war-spec.md §5.1)', () => {
  * cookie, which would pass even a subtly wrong `if (error && expectedState)`.
  */
 describe('OAuth error parameter precedence and independence (war-spec.md §5.1)', () => {
-  let harness: TestHarness;
-
-  beforeEach(async () => {
-    await truncateAll();
-    harness = await buildTestHarness();
-    await harness.app.ready();
-  });
-
   it('is honored even when a state mismatch would otherwise fire, and never reaches the exchange', async () => {
     // Arrange: a real, valid oauth_state cookie is present, but the query's
     // own `state` is deliberately wrong -- if `error` were checked only
     // after (or gated on) state matching, this would come back 400 "state
     // mismatch" instead.
     const { agent, stateCookie } = await beginLogin(harness);
-    const code = randomUUID();
+    const code = newId();
 
     // Act
     const response = await agent
@@ -281,7 +247,6 @@ describe('OAuth error parameter precedence and independence (war-spec.md §5.1)'
 
   it('is honored with no oauth_state cookie present at all', async () => {
     // Arrange: no login leg at all, so no cookie is ever set.
-    await harness.app.ready();
     const agent = request(harness.app.server);
 
     // Act
@@ -306,14 +271,6 @@ describe('OAuth error parameter precedence and independence (war-spec.md §5.1)'
 });
 
 describe('DELETE /auth/session only revokes the caller\'s own refresh-token family', () => {
-  let harness: TestHarness;
-
-  beforeEach(async () => {
-    await truncateAll();
-    harness = await buildTestHarness();
-    await harness.app.ready();
-  });
-
   it('does not revoke another voter\'s refresh-token family when their cookie is presented', async () => {
     // Arrange: voter A logs in and gets a refresh-token family.
     const victim = await loginAndCallback(harness, {

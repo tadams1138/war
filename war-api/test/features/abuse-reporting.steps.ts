@@ -9,7 +9,7 @@ import { asOrAnonymous } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/abuse-reporting.feature', import.meta.url)));
 
-describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
+describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => {
   let harness: TestHarness;
 
   BeforeEachScenario(async () => {
@@ -21,6 +21,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     return asOrAnonymous(harness, voterId).post(`/api/v1/wars/${warId}/reports`, explanation === undefined ? {} : { explanation });
   }
 
+  /** A Voter and a draft War created by a different Voter. */
+  async function seedReporterAndWar(): Promise<{ reporterId: string; warId: string }> {
+    const creator = await makeVoter(harness.db, 'creator');
+    const reporter = await makeVoter(harness.db, 'reporter');
+    const war = await makeDraftWar(harness.db, creator.id);
+    return { reporterId: reporter.id, warId: war.id };
+  }
+
   Scenario('Any authenticated Voter can report a War', ({ Given, When, Then, And }) => {
     let reporterId: string;
     let warId: string;
@@ -28,11 +36,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Given('an authenticated Voter and a War created by someone else', async () => {
       // Arrange
-      const creator = await makeVoter(harness.db, 'creator');
-      const reporter = await makeVoter(harness.db, 'reporter');
-      const war = await makeDraftWar(harness.db, creator.id);
-      reporterId = reporter.id;
-      warId = war.id;
+      ({ reporterId, warId } = await seedReporterAndWar());
     });
 
     When("they POST an explanation to that War's reports", async () => {
@@ -65,11 +69,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Given('an authenticated Voter and a War', async () => {
       // Arrange
-      const creator = await makeVoter(harness.db, 'creator');
-      const reporter = await makeVoter(harness.db, 'reporter');
-      const war = await makeDraftWar(harness.db, creator.id);
-      reporterId = reporter.id;
-      warId = war.id;
+      ({ reporterId, warId } = await seedReporterAndWar());
     });
 
     When('they POST two different explanations to that War\'s reports', async () => {
@@ -91,54 +91,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('An empty explanation is rejected', ({ Given, When, Then, And }) => {
+  ScenarioOutline('An explanation of the wrong length is rejected', ({ Given, When, Then, And }, variables) => {
     let reporterId: string;
     let warId: string;
     let response: request.Response;
 
     Given('an authenticated Voter and a War', async () => {
       // Arrange
-      const creator = await makeVoter(harness.db, 'creator');
-      const reporter = await makeVoter(harness.db, 'reporter');
-      const war = await makeDraftWar(harness.db, creator.id);
-      reporterId = reporter.id;
-      warId = war.id;
+      ({ reporterId, warId } = await seedReporterAndWar());
     });
 
-    When('they POST an empty-string explanation to that War\'s reports', async () => {
+    When("they POST an explanation of <length> characters to that War's reports", async () => {
       // Act
-      response = await postReport(reporterId, warId, '');
-    });
-
-    Then('the response status is 422', () => {
-      // Assert
-      expect(response.status).toBe(422);
-    });
-
-    And('no report is created', async () => {
-      // Assert
-      const rows = await harness.db.selectFrom('reports').selectAll().where('war_id', '=', warId).execute();
-      expect(rows).toHaveLength(0);
-    });
-  });
-
-  Scenario('An overly long explanation is rejected', ({ Given, When, Then, And }) => {
-    let reporterId: string;
-    let warId: string;
-    let response: request.Response;
-
-    Given('an authenticated Voter and a War', async () => {
-      // Arrange
-      const creator = await makeVoter(harness.db, 'creator');
-      const reporter = await makeVoter(harness.db, 'reporter');
-      const war = await makeDraftWar(harness.db, creator.id);
-      reporterId = reporter.id;
-      warId = war.id;
-    });
-
-    When("they POST an explanation longer than 1000 characters to that War's reports", async () => {
-      // Act
-      response = await postReport(reporterId, warId, 'a'.repeat(1001));
+      response = await postReport(reporterId, warId, 'a'.repeat(Number(variables.length)));
     });
 
     Then('the response status is 422', () => {

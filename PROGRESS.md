@@ -187,7 +187,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 
 | Project | Size | Notes |
 |---|---|---|
-| war-api | 58 test files, about 1,200 tests (24 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
+| war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
 | war-ui-default | about 200 unit tests (22 files), 272 acceptance tests | Each of the 272 scenarios in `features/` is bound to exactly one Playwright test with the same title; `tests/bindings` enforces it |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
