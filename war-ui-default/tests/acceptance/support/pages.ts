@@ -73,3 +73,9 @@ export async function expectSignedOut(page: Page, options?: { timeout: number })
   await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
   await expect(nav(page).getByRole('menu')).toHaveCount(0)
 }
+
+// The element has this text, or (for an empty text) there is none.
+export async function expectTextOrNone(locator: Locator, text: string): Promise<void> {
+  if (text) await expect(locator).toHaveText(text)
+  else await expect(locator).toHaveCount(0)
+}

@@ -1,151 +1,327 @@
+@admin-voters
 Feature: Admin Dashboard Voters
 
   Scenario: The Voters list shows badges and War counts
-    Given Voters exist, including a Moderator, an Admin, a suspended Voter and a banned Voter
-    When a Staff member opens the Admin Dashboard
-    Then each Voter is listed with their name and the number of Wars they created
-    And Moderator, Admin, Suspended and Banned Voters carry the matching badge
+    Given the API lists these Voters to Staff:
+      | name          | badge     | war count |
+      | Plain Pat     |           | 2         |
+      | Mod Max       | Moderator | 1         |
+      | Admin Ada     | Admin     | 0         |
+      | Suspended Sam | Suspended | 0         |
+      | Banned Bo     | Banned    | 0         |
+    And an authenticated Staff member
+    When they open the Admin Dashboard
+    Then the Voters list shows these Voters, in order:
+      | name          | badge     | Wars   |
+      | Plain Pat     |           | 2 Wars |
+      | Mod Max       | Moderator | 1 War  |
+      | Admin Ada     | Admin     | 0 Wars |
+      | Suspended Sam | Suspended | 0 Wars |
+      | Banned Bo     | Banned    | 0 Wars |
 
   Scenario: Filtering the Voters list by status
-    Given the Voters list is shown
-    When a Staff member picks each of the Suspended, Banned, Staff and All filters in turn
-    Then each request carries the matching status, none for All, and the matching Voters are shown
+    Given the API lists these Voters to Staff:
+      | name          | badge     |
+      | Plain Pat     |           |
+      | Suspended Sam | Suspended |
+      | Banned Bo     | Banned    |
+      | Staff Stu     | Moderator |
+    And an authenticated Staff member
+    And they are on the Admin Dashboard
+    When they filter the Voters list by "Suspended"
+    Then the Voters list shows only "Suspended Sam"
+    And the Voters list was last requested for the "Suspended" filter
+    When they filter the Voters list by "Banned"
+    Then the Voters list shows only "Banned Bo"
+    And the Voters list was last requested for the "Banned" filter
+    When they filter the Voters list by "Staff"
+    Then the Voters list shows only "Staff Stu"
+    And the Voters list was last requested for the "Staff" filter
+    When they filter the Voters list by "All"
+    Then the Voters list shows, in order:
+      | Plain Pat     |
+      | Suspended Sam |
+      | Banned Bo     |
+      | Staff Stu     |
+    And the Voters list was last requested for the "All" filter
+    And the Voters list was requested 5 times
 
   Scenario: Searching the Voters list is debounced
-    Given the Voters list is shown
-    When a Staff member types a search term
-    Then one request carrying the settled term is made and the matching Voters are shown
+    Given the API lists these Voters to Staff:
+      | name  |
+      | Alpha |
+      | Beta  |
+    And an authenticated Staff member
+    And they are on the Admin Dashboard
+    When they search the Voters list for "beta"
+    Then the Voters list shows only "Beta"
+    And the Voters list was searched exactly once, for "beta"
 
   Scenario: Load more appends the next page of Voters
-    Given the Voters list has a further page
-    When a Staff member chooses Load more in the Voters list
-    Then the next page is requested with its cursor and appended
-    And Load more is hidden once there is no next cursor
+    Given the API lists these Voters to Staff, 1 per page:
+      | name  |
+      | Alpha |
+      | Beta  |
+    And an authenticated Staff member
+    And they are on the Admin Dashboard
+    Then the Voters list shows only "Alpha"
+    When they select the "Load more" button
+    Then the Voters list shows, in order:
+      | Alpha |
+      | Beta  |
+    And the next page of the Voters list was requested from where the first page ended
+    And the "Load more" button is hidden
 
   Scenario: Opening a Voter shows their Staff detail with their Wars
-    Given a Voter who created a published War and a removed War
-    When a Staff member selects them in the Voters list
-    Then they are taken to the Voter's Staff detail at "/admin/voters/:id"
+    Given the API lists these Voters to Staff:
+      | name          | badge     |
+      | Casey Creator | Moderator |
+    And that Voter created these Wars:
+      | title     | removed |
+      | Alpha War |         |
+      | Beta War  | yes     |
+    And an authenticated Staff member
+    And they are on the Admin Dashboard
+    When they select "Casey Creator" in the Voters list
+    Then that Voter's Staff detail page is shown
+    And the heading "Casey Creator" is shown
     And the Voter's badges and every War they created are shown, the removed one marked Removed
-    When they select a War
-    Then that War's Staff detail is shown
+    When they select "Alpha War" in the Voter's Wars
+    Then the first War's Staff detail page is shown
+    And the heading "Alpha War" is shown
 
   Scenario: A Voter's vote history shows the winner and loser of each vote
-    Given a Voter who has cast votes
-    When a Staff member opens their Staff detail
+    # A vote in a War with no title shows an untitled War.
+    Given a plain Voter
+    And that Voter has cast these votes:
+      | War       | winner | loser  | cast                 |
+      | Alpha War | Rocky  | Apollo | 2026-10-03T12:00:00Z |
+      |           | Creed  | Drago  | 2026-10-02T12:00:00Z |
+    And an authenticated Staff member
+    When they open that Voter's Staff detail page
     Then each vote shows its War, the winner, the loser and when it was cast
-    When they select a vote's War
-    Then that War's Staff detail is shown
+    When they select "Alpha War" in the vote history
+    Then the first War's Staff detail page is shown
+    And the heading "Alpha War" is shown
 
   Scenario: A Voter's vote history pages with Load more
-    Given a Voter whose vote history has a further page
-    When a Staff member chooses Load more in the vote history
-    Then the next page is requested with its cursor and appended
-    And Load more is hidden once there is no next cursor
+    Given a plain Voter
+    And that Voter has cast these votes, 1 per page:
+      | War       | winner | loser  |
+      | Alpha War | Rocky  | Apollo |
+      | Beta War  | Creed  | Drago  |
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    Then the vote history shows only "Alpha War"
+    When they select the "Load more" button
+    Then the vote history shows, in order:
+      | Alpha War |
+      | Beta War  |
+    And the next page of the vote history was requested from where the first page ended
+    And the "Load more" button is hidden
 
   Scenario: Suspending a Voter requires confirmation
-    Given a plain Voter's Staff detail
-    When a Staff member chooses Suspend and the confirmation is shown
-    Then nothing has been sent yet
+    Given a plain Voter
+    And the API accepts a request to suspend that Voter
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    When they select the "Suspend" button
+    Then a confirmation is shown
+    And the API has not been asked to suspend that Voter
     When they confirm
-    Then the suspension is requested, the detail is refetched and shows the Voter as Suspended
-    And the action now offers Unsuspend
+    Then the API has been asked to suspend that Voter
+    And that Voter's Staff detail was requested 2 times
+    And the Voter's badges are "Suspended"
+    And no confirmation is shown
+    And the "Unsuspend" button is shown
 
   Scenario: Cancelling the suspension confirmation does nothing
-    Given a plain Voter's Staff detail
-    When a Staff member chooses Suspend and cancels
-    Then no suspension is requested and the Voter is unchanged
+    Given a plain Voter
+    And the API accepts a request to suspend that Voter
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    When they select the "Suspend" button
+    And they cancel
+    Then no confirmation is shown
+    And the API has not been asked to suspend that Voter
+    And the Voter has no badges
+    And the "Suspend" button is shown
 
   Scenario: A failed suspension shows an error
-    Given a plain Voter's Staff detail and suspending will fail
-    When a Staff member chooses Suspend and confirms
-    Then an error is shown and the Voter is not shown as Suspended
+    Given a plain Voter
+    And the API fails a request to suspend that Voter with a server error
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    When they select the "Suspend" button
+    And they confirm
+    Then the message "Server error — please try again shortly" is shown
+    And the Voter has no badges
 
   Scenario: Unsuspending a Voter
-    Given a suspended Voter's Staff detail
-    When a Staff member chooses Unsuspend
-    Then the suspension is lifted with no confirmation, and the detail shows the Voter as no longer Suspended
+    Given a suspended Voter
+    And the API accepts a request to unsuspend that Voter
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    Then the Voter's badges are "Suspended"
+    When they select the "Unsuspend" button
+    Then the API has been asked to unsuspend that Voter
+    And no confirmation is shown
+    And the Voter has no badges
+    And the "Suspend" button is shown
 
   Scenario: Banning a Voter requires a confirmation that states what is deleted
-    Given a plain Voter's Staff detail
-    When a Staff member chooses Ban
-    Then the confirmation says every War the Voter created and every vote they cast is permanently deleted and sign-in is blocked, and nothing is sent yet
+    Given a plain Voter
+    And the API accepts a request to ban that Voter
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    When they select the "Ban" button
+    Then a confirmation is shown
+    And the confirmation says "permanently deletes every War they created and every vote they cast"
+    And the confirmation says "blocks their sign-in"
+    And the API has not been asked to ban that Voter
     When they confirm
-    Then the ban is requested, the detail is refetched and shows the Voter as Banned
-    And the action now offers Unban
+    Then the API has been asked to ban that Voter
+    And that Voter's Staff detail was requested 2 times
+    And the Voter's badges are "Banned"
+    And no confirmation is shown
+    And the "Unban" button is shown
 
   Scenario: Cancelling the ban confirmation does nothing
-    Given a plain Voter's Staff detail
-    When a Staff member chooses Ban and cancels
-    Then no ban is requested and the Voter is unchanged
+    Given a plain Voter
+    And the API accepts a request to ban that Voter
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    When they select the "Ban" button
+    And they cancel
+    Then no confirmation is shown
+    And the API has not been asked to ban that Voter
+    And the Voter has no badges
+    And the "Ban" button is shown
 
   Scenario: A failed ban shows an error
-    Given a plain Voter's Staff detail and banning will be refused
-    When a Staff member chooses Ban and confirms
-    Then an error is shown and the Voter is not shown as Banned
+    Given a plain Voter
+    And the API refuses a request to ban that Voter
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    When they select the "Ban" button
+    And they confirm
+    Then the message "Staff access is required" is shown
+    And the Voter has no badges
 
   Scenario: Unbanning a Voter
-    Given a banned Voter's Staff detail
-    When a Staff member chooses Unban and confirms
-    Then the confirmation says unban restores sign-in only, the unban is requested, and the Voter is no longer shown as Banned
+    Given a banned Voter
+    And the API accepts a request to unban that Voter
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    Then the Voter's badges are "Banned"
+    When they select the "Unban" button
+    Then a confirmation is shown
+    And the confirmation says "restores sign-in only"
+    When they confirm
+    Then the API has been asked to unban that Voter
+    And the Voter has no badges
+    And the "Ban" button is shown
 
   Scenario: An Admin sees role controls on a Voter
-    Given an authenticated Admin viewing a plain Voter's Staff detail
-    Then they can grant the Moderator and Admin roles
+    Given a plain Voter
+    And an authenticated Admin
+    And they are on that Voter's Staff detail page
+    Then the "Grant Moderator" button is shown
+    And the "Grant Admin" button is shown
 
   Scenario: A Moderator does not see role controls
-    Given an authenticated Moderator viewing a plain Voter's Staff detail
-    Then no role controls are offered
+    Given a plain Voter
+    And an authenticated Moderator
+    And they are on that Voter's Staff detail page
+    Then the "Suspend" button is shown
+    And no role controls are offered
 
   Scenario: Granting Moderator sends the grant and updates the badges
-    Given an authenticated Admin viewing a plain Voter's Staff detail
-    When they grant the Moderator role
-    Then the grant is requested with no confirmation, the detail is refetched and shows the Moderator badge
-    And the control now offers Revoke Moderator
+    Given a plain Voter
+    And the API accepts a request to grant that Voter the Moderator role
+    And an authenticated Admin
+    And they are on that Voter's Staff detail page
+    When they select the "Grant Moderator" button
+    Then the API has been asked to grant that Voter the Moderator role
+    And no confirmation is shown
+    And that Voter's Staff detail was requested 2 times
+    And the Voter's badges are "Moderator"
+    And the "Revoke Moderator" button is shown
 
   Scenario: Revoking Admin requires confirmation
-    Given an authenticated Admin viewing another Admin's Staff detail
-    When they choose Revoke Admin
-    Then a confirmation is shown and nothing is sent yet
+    Given another Admin
+    And the API accepts a request to revoke that Voter's Admin role
+    And an authenticated Admin
+    And they are on that Voter's Staff detail page
+    Then the Voter's badges are "Admin"
+    When they select the "Revoke Admin" button
+    Then a confirmation is shown
+    And the API has not been asked to revoke that Voter's Admin role
     When they confirm
-    Then the revocation is requested and the detail no longer shows the Admin badge
+    Then the API has been asked to revoke that Voter's Admin role
+    And the Voter has no badges
 
   Scenario: Cancelling the Revoke Admin confirmation does nothing
-    Given an authenticated Admin viewing another Admin's Staff detail
-    When they choose Revoke Admin and cancel
-    Then no revocation is requested and the Voter is unchanged
+    Given another Admin
+    And the API accepts a request to revoke that Voter's Admin role
+    And an authenticated Admin
+    And they are on that Voter's Staff detail page
+    When they select the "Revoke Admin" button
+    And they cancel
+    Then no confirmation is shown
+    And the API has not been asked to revoke that Voter's Admin role
+    And the Voter's badges are "Admin"
 
   Scenario: A refused role change shows an error
-    Given an authenticated Admin viewing a plain Voter's Staff detail and the grant will be refused
-    When they grant the Moderator role
-    Then an error is shown and the Voter's badges are unchanged
+    Given a plain Voter
+    And the API refuses a request to grant that Voter the Moderator role
+    And an authenticated Admin
+    And they are on that Voter's Staff detail page
+    When they select the "Grant Moderator" button
+    Then the message "Staff access is required" is shown
+    And the Voter has no badges
 
   Scenario: Staff cannot suspend or ban themselves or revoke their own Admin role
-    Given an authenticated Admin viewing their own Staff detail
-    Then no Suspend, Ban or Revoke Admin action is offered
-    And a note explains why
+    Given the signed-in voter is an Admin
+    And an authenticated Admin
+    And they are on their own Staff detail page
+    Then the "Grant Moderator" button is shown
+    And no "Suspend", "Ban" or "Revoke Admin" action is offered
+    And a note says "You cannot suspend or ban your own account."
 
   Scenario: Suspend and Ban are not offered against a Staff member
-    Given an authenticated Moderator viewing another Moderator's Staff detail
-    Then no Suspend or Ban action is offered
-    And a note says a Staff member's role must be revoked first
+    Given another Moderator
+    And an authenticated Moderator
+    And they are on that Voter's Staff detail page
+    Then the Voter's badges are "Moderator"
+    And no "Suspend" or "Ban" action is offered
+    And a note says "A Staff member cannot be suspended or banned; their role must be revoked by an Admin first."
 
   Scenario: A plain Voter cannot reach a Voter's Staff detail
-    Given an authenticated voter who is neither a Moderator nor an Admin
-    When they navigate to "/admin/voters/x"
-    Then they are redirected to "/"
+    Given a plain Voter
+    And an authenticated voter
+    When they open that Voter's Staff detail page
+    Then they are redirected to Home
+    And no Staff detail is shown
 
   Scenario: An unknown Voter's Staff detail says the Voter doesn't exist
     Given no Voter exists with the requested id
-    When a Staff member opens that Voter's Staff detail
-    Then they are told the Voter doesn't exist, not that a War is missing
+    And an authenticated Staff member
+    When they open that Voter's Staff detail page
+    Then the message "This Voter doesn't exist" is shown
 
   Scenario: A Staff action on a Voter who no longer exists says the Voter doesn't exist
-    Given a plain Voter's Staff detail and suspending will find no such Voter
-    When a Staff member suspends the Voter and confirms
-    Then they are told the Voter doesn't exist, not that a War is missing
+    Given a plain Voter
+    And the target of a request to suspend that Voter does not exist
+    And an authenticated Staff member
+    And they are on that Voter's Staff detail page
+    When they select the "Suspend" button
+    And they confirm
+    Then the message "This Voter doesn't exist" is shown
 
   Scenario: The current Voter's identity is fetched once per visit to a Voter's Staff detail
-    Given an authenticated Moderator
-    When they open a Voter's Staff detail
-    Then the current Voter's identity was requested exactly once
+    Given a plain Voter
+    And an authenticated Moderator
+    When they open that Voter's Staff detail page
+    Then the "Suspend" button is shown
+    And the current Voter's identity was requested 1 time

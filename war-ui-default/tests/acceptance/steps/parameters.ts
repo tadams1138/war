@@ -1,6 +1,7 @@
 // Custom Cucumber parameter types shared by every feature. Imported by
 // fixtures.ts so they are registered before any step file is read.
 import { defineParameterType } from 'playwright-bdd'
+import { CALLS, type CallRef } from '../support/calls'
 import { LISTS, type ListRef } from '../support/lists'
 import { PAGES, literalPage, type PageRef } from '../support/pageNames'
 import { PROVIDERS, type Provider } from '../support/providers'
@@ -50,6 +51,13 @@ defineParameterType({
   name: 'list',
   regexp: new RegExp(Object.keys(LISTS).join('|')),
   transformer: (text: string): ListRef => LISTS[text]!,
+})
+
+// {call}: an API call by its name in CALLS ("remove that War").
+defineParameterType({
+  name: 'call',
+  regexp: new RegExp(Object.keys(CALLS).map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')),
+  transformer: (text: string): CallRef => CALLS[text]!,
 })
 
 // {state}: a switch's state, as whether it is enabled.

@@ -110,7 +110,7 @@ Feature: Admin Dashboard Wars
 
   Scenario: Removing a War requires confirmation
     Given a published War
-    And the API accepts removing that War
+    And the API accepts a request to remove that War
     And an authenticated Staff member
     And they are on that War's Staff detail page
     When they select the "Remove War" button
@@ -126,7 +126,7 @@ Feature: Admin Dashboard Wars
 
   Scenario: Cancelling the removal confirmation does nothing
     Given a published War
-    And the API accepts removing that War
+    And the API accepts a request to remove that War
     And an authenticated Staff member
     And they are on that War's Staff detail page
     When they select the "Remove War" button
@@ -138,7 +138,7 @@ Feature: Admin Dashboard Wars
 
   Scenario: A failed removal shows an error
     Given a published War
-    And removing that War finds no such War
+    And the target of a request to remove that War does not exist
     And an authenticated Staff member
     And they are on that War's Staff detail page
     When they select the "Remove War" button
@@ -181,4 +181,4 @@ Feature: Admin Dashboard Wars
     And an authenticated voter
     When they open that War's Staff detail page
     Then they are redirected to Home
-    And that War's Staff detail is not shown
+    And no Staff detail is shown

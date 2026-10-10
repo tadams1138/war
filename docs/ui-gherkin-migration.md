@@ -1,6 +1,6 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 14 of 17 feature files converted (160 of 286
+**Status as of 2026-10-10: in progress, paused. 15 of 17 feature files converted (187 of 286
 acceptance tests).** Nothing is half-done: every feature is either fully converted or
 untouched, and the whole suite passes.
 
@@ -24,8 +24,8 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation` | 160 | Steps executed by playwright-bdd |
-| Not converted | the 3 in the backlog | 126 | Scenario title must equal a Playwright test title |
+| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters` | 187 | Steps executed by playwright-bdd |
+| Not converted | the 2 in the backlog | 99 | Scenario title must equal a Playwright test title |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
 `npm run test:acceptance`.
@@ -41,10 +41,11 @@ All paths are under `war-ui-default/`.
 | `tests/acceptance/steps/fixtures.ts` | The `test` object every step file imports, with the per-scenario `world` fixture |
 | `tests/acceptance/steps/shared.steps.ts` | Untagged steps whose text means the same in every feature |
 | `tests/acceptance/steps/shared-nav.steps.ts` | Untagged steps for the header's identity menu and name |
+| `tests/acceptance/steps/shared-calls.steps.ts` | Untagged steps for the API calls the app makes, named with `{call}` (`support/calls.ts`) |
 | `tests/acceptance/steps/shared-lists.steps.ts` | Untagged steps for the Staff lists, named with `{list}` (`support/lists.ts`) |
 | `tests/acceptance/steps/parameters.ts` | Custom parameter types (`{page}`), registered by `fixtures.ts` |
 | `tests/acceptance/steps/<feature>.steps.ts` | One feature's steps, scoped by that feature's tag |
-| `tests/acceptance/support/` | Helpers shared by steps and specs: `mocking.ts`, `recipes.ts`, `pages.ts`, `pageNames.ts`, `lists.ts`, `adminFixtures.ts`, `exportArchive.ts` |
+| `tests/acceptance/support/` | Helpers shared by steps and specs: `mocking.ts`, `recipes.ts`, `pages.ts`, `pageNames.ts`, `lists.ts`, `calls.ts`, `staffRecords.ts`, `adminFixtures.ts`, `exportArchive.ts` |
 | `tests/bindings/featureBindings.ts` | The title check. Still enforced for every feature *not* in `CONVERTED_FEATURES`; for a converted feature it reports a leftover spec file |
 | `.features-gen/` | Generated tests. Ignored by git, ESLint and Vitest. Never edit |
 
@@ -96,7 +97,7 @@ Rules:
 9. **Mark each step's phase** with one comment, as `war-api` does: `// Arrange` in a Given,
    `// Act` in a When, `// Assert` in a Then.
 10. **Keep `World` small.** Add a field to the `World` class in `fixtures.ts` only for state
-    that a later step really needs (today: `warId`, `matchupResponse` (and its `matchupCalls`), `listedWars`, `previousPreview`, `requestOutcomes`, `requestedUrls`, and the `booted`/`signedIn` flags).
+    that a later step really needs (today: `warId`, `voterId`, `matchupResponse` (and its `matchupCalls`), `listedWars`, `previousPreview`, `requestOutcomes`, `requestedUrls`, and the `booted`/`signedIn` flags).
 
 ### Shared vocabulary
 
@@ -137,8 +138,11 @@ Rules:
 | `Then the "<name>" button is shown` / `is hidden` | A button with that name is visible / absent |
 | `Then the message {string} is shown` | That exact text is visible (an error, usually) |
 | `When they select {string} in {list}` / `When they filter {list} by {string}` / `When they search {list} for {string}` | A Staff list row's link, its status filter (by label), its search box. `{list}` is a name in `support/lists.ts`: `the Wars list`, `the Voters list`, `the vote history`, `the Voter's Wars`, `the unaddressed reports queue`, `the moderation log` |
+| `Given the API accepts a request to {call}` / `refuses a request to {call}` / `fails a request to {call} with a server error` / `Given the target of a request to {call} does not exist` | Queues the answer to a write. `{call}` is a name in `support/calls.ts` (`remove that War`, `suspend that Voter`, `ban that Voter`, `grant that Voter the Moderator role`, ...). Accepting also queues how the changed record then reads (a suspended Voter, a removed War) as the next answer of its Staff detail |
+| `Then the API has been asked to {call}` / `has not been asked to {call}` / `Then {call} was/were requested {int} time(s)` | Exactly once, with the body the call carries / never / a read counted (`that War's Staff detail`, `that War's reports`, `that Voter's Staff detail`, `the current Voter's identity`) |
+| `Then no Staff detail is shown` | Neither Staff detail page (a War's, a Voter's) rendered |
 | `Then {list} shows only {string}` / `Then {list} shows, in order:` (one name per row) | The rows' first links, exactly |
-| `Then {list} was last requested for the {string} filter` / `was searched exactly once, for {string}` / `Then the next page of {list} was requested from where the first page ended` | What the list asked the API for |
+| `Then {list} was last requested for the {string} filter` / `was requested {int} time(s)` / `was searched exactly once, for {string}` / `Then the next page of {list} was requested from where the first page ended` | What the list asked the API for |
 
 ## Converting one feature
 
@@ -182,11 +186,10 @@ are the hand-written spec's line count on 2026-10-10.
 
 | Order | Feature | Scenarios | Spec lines | Notes |
 |---|---|---|---|---|
-| 1 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts`, `{list}` and the shared confirmation steps |
-| 2 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
-| 3 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
+| 1 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
+| 2 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
 
-Total remaining: 126 scenarios, about 2,912 spec lines. The two converted features grew by about 27% (208 spec lines became 264
+Total remaining: 99 scenarios, about 2,199 spec lines. The two converted features grew by about 27% (208 spec lines became 264
 lines of steps and helpers), so expect roughly 7,000 to 8,000 lines of steps. That estimate
 comes from two small features only.
 
