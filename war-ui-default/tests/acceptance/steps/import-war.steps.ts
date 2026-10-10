@@ -30,11 +30,6 @@ Given('the API accepts an imported War', async ({ world }) => {
   )
 })
 
-Given('the API accepts a share image upload', async ({ world }) => {
-  // Arrange
-  world.queue(ok('POST', `${API}/wars/${WAR_ID}/share-image`, importedWar()))
-})
-
 When('they choose a valid War export file', async ({ page }) => {
   // Act
   const zip = zipBuffer({ 'war.json': validWarJson(), 'media/c-1/m-1.jpg': new Uint8Array([1, 2, 3]) })
@@ -60,12 +55,6 @@ When('they choose a valid War export file that includes a share image', async ({
 Then('a new draft War is created from it', async ({ page }) => {
   // Assert
   await waitForCallLog(page, (log) => log.some(isCreateWar))
-})
-
-Then('the share image is uploaded to the new draft', async ({ page }) => {
-  // Assert
-  const log = await waitForCallLog(page, (entries) => entries.some((entry) => entry.url.includes('/share-image')))
-  expect(log.some((entry) => entry.method === 'POST' && entry.url.includes(`/wars/${WAR_ID}/share-image`))).toBe(true)
 })
 
 Then('an error is shown', async ({ page }) => {

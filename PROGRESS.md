@@ -188,7 +188,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | about 200 unit tests (22 files), 272 acceptance tests | 14 tests (`create-war`, `import-war`, `theme-switching`) execute their Gherkin steps through playwright-bdd. The other 258 are bound by title to a Playwright test, enforced by `tests/bindings`. See *In progress* |
+| war-ui-default | about 200 unit tests (22 files), 272 acceptance tests | 19 tests (`create-war`, `import-war`, `theme-switching`, `share-image`) execute their Gherkin steps through playwright-bdd. The other 253 are bound by title to a Playwright test, enforced by `tests/bindings`. See *In progress* |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Pending scenarios (no binding, nothing runs):
@@ -263,9 +263,9 @@ Every test labels its Arrange, Act and Assert phases.
 ## In progress
 
 - **UI Gherkin migration: title-bound scenarios to executed steps (playwright-bdd).** Paused
-  after 3 of 17 feature files. Both styles run side by side and the suite passes.
+  after 4 of 17 feature files. Both styles run side by side and the suite passes.
   `docs/ui-gherkin-migration.md` has the status, conventions, per-feature procedure and the
-  ordered backlog of the remaining 14 features. Next: `share-image`.
+  ordered backlog of the remaining 13 features. Next: `error-handling`.
 
 ---
 
