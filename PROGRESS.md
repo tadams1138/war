@@ -260,6 +260,14 @@ Every test labels its Arrange, Act and Assert phases.
 
 ---
 
+## To do
+
+- Hide Facebook login feature until facebook business verification can be completed.
+- Disable Prev and Next buttons on war dashboard when there are no previous or next wars to
+  display.
+
+---
+
 ## To revisit
 
 - **Apple sign-in.** Out of scope until a paid Apple Developer Program membership ($99/yr)
