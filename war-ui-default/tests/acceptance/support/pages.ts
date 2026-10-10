@@ -10,6 +10,10 @@ export function themeSelect(page: Page) {
   return nav(page).getByTestId('nav-theme-select')
 }
 
+export function warCard(page: Page, title: string) {
+  return page.getByTestId('war-card').filter({ hasText: title })
+}
+
 export function footer(page: Page) {
   return page.getByRole('contentinfo')
 }

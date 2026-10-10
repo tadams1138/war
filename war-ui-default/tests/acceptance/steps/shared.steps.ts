@@ -2,16 +2,17 @@
 // Feature-specific steps live in <feature>.steps.ts, scoped by feature tag
 // (see create-war.steps.ts); anything here must stay unscoped and generic.
 import { expect, type Page } from '@playwright/test'
-import { createBdd } from 'playwright-bdd'
+import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
-import { buildMatchupResponse, buildWarDetail } from '../../../src/mocks/fixtures'
-import { API, loginAsTestVoter, navigateAuthenticated, useScenario } from '../support/mocking'
+import { buildMatchupResponse, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
+import { API, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from '../support/mocking'
 import { ok, reply } from '../support/recipes'
 import type { PageRef } from '../support/pageNames'
 
 const { Given, When, Then } = createBdd(test)
 
 type WarTheme = NonNullable<Parameters<typeof buildWarDetail>[0]>['theme']
+type WarStatus = NonNullable<Parameters<typeof buildWarSummary>[0]>['status']
 
 async function boot(page: Page, world: World): Promise<void> {
   if (world.booted) return
@@ -50,6 +51,29 @@ Given('that War has a matchup to vote on', async ({ world }) => {
   )
 })
 
+// One row per War: title, status and optionally "share image" (a URL). Queues
+// the list and each War's detail, so a listed War can be opened.
+Given('the API lists these Wars:', async ({ world }, table: DataTable) => {
+  // Arrange
+  const wars = table.hashes().map((row) =>
+    buildWarSummary({
+      id: world.nextWarId(),
+      title: row.title,
+      status: row.status as WarStatus,
+      share_image_url: row['share image'] || null,
+    }),
+  )
+  world.queue(
+    ok('GET', `${API}/wars`, { wars, next_cursor: null }),
+    ...wars.map((war) => ok('GET', `${API}/wars/${war.id}`, buildWarDetail({ ...war, contestants: [] }))),
+  )
+})
+
+Given('the API accepts a share image upload', async ({ world }) => {
+  // Arrange
+  world.queue(ok('POST', `${API}/wars/${world.warId}/share-image`, buildWarSummary({ id: world.warId, status: 'draft' })))
+})
+
 Given('they are on {page}', async ({ page, world }, target: PageRef) => {
   // Arrange
   await open(page, world, target)
@@ -73,6 +97,11 @@ When('they reload the page', async ({ page }) => {
 Then('the matchup is shown', async ({ page }) => {
   // Assert
   await expect(page.getByTestId('matchup-view')).toBeVisible()
+})
+
+Then('the share image is uploaded to that War', async ({ page, world }) => {
+  // Assert
+  await waitForCallLog(page, (log) => log.some((entry) => entry.method === 'POST' && entry.url.endsWith(`/wars/${world.warId}/share-image`)))
 })
 
 Then('they are redirected to {page}', async ({ page, world }, target: PageRef) => {
