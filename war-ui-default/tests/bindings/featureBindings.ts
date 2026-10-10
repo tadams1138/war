@@ -48,11 +48,22 @@ function driftForPair(name: string, featureText: string, specText: string | unde
   ]
 }
 
-export function findBindingDrift(features: Record<string, string>, specs: Record<string, string>): string[] {
-  const problems = Object.entries(features).flatMap(([name, text]) => [
-    ...duplicates(scenarioTitles(text)).map((title) => `${name}.feature: duplicate scenario: "${title}"`),
-    ...driftForPair(name, text, specs[name]),
-  ])
+// A converted feature runs through playwright-bdd, which already fails on a
+// step without a definition, so it needs no title-bound spec; a leftover spec
+// would run the same scenarios twice.
+function driftForFeature(name: string, text: string, specs: Record<string, string>, converted: string[]): string[] {
+  const duplicateProblems = duplicates(scenarioTitles(text)).map((title) => `${name}.feature: duplicate scenario: "${title}"`)
+  if (!converted.includes(name)) return [...duplicateProblems, ...driftForPair(name, text, specs[name])]
+  const leftover = name in specs ? [`${name}.spec.ts: feature is converted to playwright-bdd, delete the spec`] : []
+  return [...duplicateProblems, ...leftover]
+}
+
+export function findBindingDrift(
+  features: Record<string, string>,
+  specs: Record<string, string>,
+  converted: string[] = [],
+): string[] {
+  const problems = Object.entries(features).flatMap(([name, text]) => driftForFeature(name, text, specs, converted))
   const orphanSpecs = Object.keys(specs).filter((name) => !(name in features))
   return [...problems, ...orphanSpecs.map((name) => `${name}.spec.ts: no features/${name}.feature`)]
 }

@@ -59,7 +59,7 @@ secrets and operational rules.
 | API | Node 24, TypeScript, Fastify 5, Kysely, `pg`, `node-pg-migrate`, `jose` (JWT), `openid-client` (OAuth/OIDC with PKCE), `sharp` (image processing), AWS S3 SDK (Spaces), `@fastify/swagger` (OpenAPI) |
 | UI | React 19, Vite, React Router, Tailwind CSS, `marked` + DOMPurify (sanitized bio markdown), `fflate` (War export/import zip), MSW (mock mode) |
 | API tests | Vitest, `@amiceli/vitest-cucumber` (Gherkin), Testcontainers (PostgreSQL), supertest |
-| UI tests | Vitest + Testing Library (unit), Playwright (acceptance, against MSW mocks) |
+| UI tests | Vitest + Testing Library (unit), Playwright and playwright-bdd (acceptance, against MSW mocks) |
 | Infra | Terraform (DigitalOcean and Cloudflare providers), DigitalOcean App Platform, managed PostgreSQL, Spaces + CDN, Cloudflare Workers, GitHub Actions |
 
 ## Engineering notes
@@ -68,9 +68,11 @@ Things a reviewer may want to look at:
 
 - **Executable Gherkin bound to tests.** Behaviour lives in `.feature` files next to the code
   (`war-api/specs/features/`, `war-ui-default/features/`). API scenarios are bound with
-  `@amiceli/vitest-cucumber`. In the UI, every scenario title must equal the title of exactly
-  one Playwright test and vice versa; `war-ui-default/tests/bindings/featureBindings.test.ts`
-  fails the unit run on drift.
+  `@amiceli/vitest-cucumber`, which executes every step. The UI is moving to the same model
+  with playwright-bdd: converted features execute their steps, and the rest are still bound by
+  title (each scenario title must equal exactly one Playwright test title;
+  `war-ui-default/tests/bindings/featureBindings.test.ts` fails the unit run on drift).
+  [`docs/ui-gherkin-migration.md`](docs/ui-gherkin-migration.md) tracks the migration.
 - **Typed client with a CI contract check.** The API's OpenAPI document is generated from its
   route definitions; the UI's request/response types are generated from it and committed.
   The [OpenAPI Contract workflow](.github/workflows/openapi-contract.yml) regenerates them on
@@ -202,7 +204,7 @@ npm --prefix war-infra/tools/concurrency-groups test
 | Project | Feature files | Bound by |
 |---|---|---|
 | API | `war-api/specs/features/` | `war-api/test/features/*.steps.ts` |
-| Default UI | `war-ui-default/features/` | `war-ui-default/tests/acceptance/*.spec.ts` |
+| Default UI | `war-ui-default/features/` | `war-ui-default/tests/acceptance/steps/*.steps.ts` for converted features; `tests/acceptance/*.spec.ts`, by title, for the rest |
 | Infrastructure | `war-infra/specs/features/` | not bound: `war-infra` has no scenario runner |
 
 Each `features/` directory has a `pending/` subdirectory for scenarios with no binding yet.

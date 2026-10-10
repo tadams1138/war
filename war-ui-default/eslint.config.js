@@ -6,7 +6,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['dist/**', 'mock-sw/**', 'playwright-report/**', 'test-results/**'],
+    ignores: ['dist/**', 'mock-sw/**', 'playwright-report/**', 'test-results/**', '.features-gen/**'],
   },
   {
     files: ['src/**/*.{ts,tsx}'],
