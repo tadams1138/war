@@ -1,6 +1,6 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 9 of 17 feature files converted (70 of 281
+**Status as of 2026-10-10: in progress, paused. 10 of 17 feature files converted (81 of 281
 acceptance tests).** Nothing is half-done: every feature is either fully converted or
 untouched, and the whole suite passes.
 
@@ -24,8 +24,8 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images` | 70 | Steps executed by playwright-bdd |
-| Not converted | the 8 in the backlog | 211 | Scenario title must equal a Playwright test title |
+| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode` | 81 | Steps executed by playwright-bdd |
+| Not converted | the 7 in the backlog | 200 | Scenario title must equal a Playwright test title |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
 `npm run test:acceptance`.
@@ -94,7 +94,7 @@ Rules:
 9. **Mark each step's phase** with one comment, as `war-api` does: `// Arrange` in a Given,
    `// Act` in a When, `// Assert` in a Then.
 10. **Keep `World` small.** Add a field to the `World` class in `fixtures.ts` only for state
-    that a later step really needs (today: `warId`, `matchup`, `listedWars`, `previousPreview`, `requestOutcomes`, `requestedUrls`, and the `booted`/`signedIn` flags).
+    that a later step really needs (today: `warId`, `matchupResponse` (and its `matchupCalls`), `listedWars`, `previousPreview`, `requestOutcomes`, `requestedUrls`, and the `booted`/`signedIn` flags).
 
 ### Shared vocabulary
 
@@ -110,14 +110,17 @@ Rules:
 | `Given a(nother) War` | Queues a default War's detail (numbering as above) |
 | `When they reload the page` | Reloads (drops an in-memory session) |
 | `Given a {screen} screen` | Sets the viewport to a size named in `support/screens.ts` (`phone`, `desktop`). Add sizes there |
-| `Given that War has a matchup to vote on` | Queues the join and next-matchup calls for that War (the default matchup, Left Contestant against Right Contestant, one image each, no bio) |
-| `Given the {side} contestant's bio is {string}` / `... is very long` / `Given the {side} contestant has {int} image(s)` | Edit that matchup in place; give them after the matchup step and before the app boots. `{side}` is `left` or `right` |
+| `Given that War has a matchup to vote on` | Queues the join and next-matchup calls for that War (the default matchup, Left Contestant against Right Contestant, one image each, no bio, 0 of 10 decided). `world.matchupCalls` holds the next-matchup responses in call order |
+| `Given the {side} contestant is named {string}` / `... 's bio is {string}` / `... is very long` / `Given the {side} contestant has {int} image(s)` | Edit the latest matchup given, in place; give them after its matchup step and before the app boots. `{side}` is `left` or `right` |
 | `Given the voter's session has expired and cannot be refreshed` | Queues a `401` for every call about the next War (numbered like the other Wars) and a `401` for the refresh |
 | `Given the API accepts votes` | Queues a `201` for a vote on that War's matchup |
 | `Then the page renders in the {string} theme` | Asserts the `main` element's theme |
+| `When they vote for {string}` | Clicks that contestant's card |
+| `When they click the next-image arrow on the {side} contestant's card` / `Then the {side} contestant's card shows image {int}` | Pages a card with its arrow; asserts the active dot and a visible active image |
 | `Then no vote is submitted` | Asserts no `POST` to a vote endpoint was made |
+| `Then voting is disabled` / `Then voting re-enables( once that delay has passed)` | Both cards of the pair are busy and disabled / enabled again |
 | `Then the matchup is shown` | Asserts the matchup view is visible |
-| `Then {page} is shown` / `Then they are redirected to {page}` | Asserts the path, and the page's landmark when it has one |
+| `Then {page} is shown` / `Then they are redirected to {page}` | Asserts the path, and the page's landmark when it has one. `that War's results page` is `that War's detail page` |
 | `Then they are redirected to the login page with returnTo {page}` | Asserts `/login?returnTo=<path>` |
 
 ## Converting one feature
@@ -162,17 +165,16 @@ are the hand-written spec's line count on 2026-10-10.
 
 | Order | Feature | Scenarios | Spec lines | Notes |
 |---|---|---|---|---|
-| 1 | `vote-mode` | 11 | 267 | |
-| 2 | `browse-wars` | 16 | 305 | |
-| 3 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
-| 4 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
-| 5 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
-| 6 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
-| 7 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
-| 8 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
+| 1 | `browse-wars` | 16 | 305 | |
+| 2 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
+| 3 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
+| 4 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
+| 5 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
+| 6 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
+| 7 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
 
-Total remaining: 207 scenarios (211 tests, since the `navigation` loop runs five), about
-4,656 spec lines. The two converted features grew by about 27% (208 spec lines became 264
+Total remaining: 196 scenarios (200 tests, since the `navigation` loop runs five), about
+4,389 spec lines. The two converted features grew by about 27% (208 spec lines became 264
 lines of steps and helpers), so expect roughly 7,000 to 8,000 lines of steps. That estimate
 comes from two small features only.
 

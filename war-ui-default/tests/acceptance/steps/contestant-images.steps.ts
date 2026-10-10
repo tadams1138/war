@@ -1,19 +1,15 @@
 // Steps for features/contestant-images.feature. Scoped with the feature's own
 // tag so no other feature can ever bind to (or collide with) this text.
-import { expect, type Locator, type Page } from '@playwright/test'
+import { expect, type Locator } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { test } from './fixtures'
 import { getCallLog } from '../support/mocking'
+import { carousel, dots, nextArrow, previousArrow } from '../support/pages'
 import type { Side } from '../support/screens'
 
 const { Given, When, Then } = createBdd(test, { tags: '@contestant-images' })
 
 const SWIPE_BEYOND_THRESHOLD_PX = -50
-
-const carousel = (page: Page, side: Side) => page.getByTestId(`matchup-card-${side}`).getByTestId('carousel-root')
-const dots = (page: Page, side: Side) => carousel(page, side).getByTestId('carousel-dot')
-const nextArrow = (page: Page, side: Side) => carousel(page, side).getByTestId('carousel-arrow-next')
-const previousArrow = (page: Page, side: Side) => carousel(page, side).getByTestId('carousel-arrow-previous')
 
 // Dispatches real pointer events directly at the carousel, rather than
 // driving the OS-level cursor via page.mouse — that traversal can cross
@@ -64,19 +60,6 @@ When("they tap the {side} contestant's card", async ({ page }, side: Side) => {
 When('they press the {side} arrow key', async ({ page }, side: Side) => {
   // Act
   await page.keyboard.press(side === 'left' ? 'ArrowLeft' : 'ArrowRight')
-})
-
-// A real mouse click, not a keyboard press: pointerdown/pointerup on the arrow
-// button bubble to the carousel's own tap-to-vote gesture handlers before the
-// button's click handler ever runs, a materially different path from the keyboard.
-When("they click the next-image arrow on the {side} contestant's card", async ({ page }, side: Side) => {
-  // Act
-  await nextArrow(page, side).click()
-})
-
-Then("the {side} contestant's card shows image {int}", async ({ page }, side: Side, image: number) => {
-  // Assert
-  await expect(dots(page, side).nth(image - 1)).toHaveAttribute('data-active', 'true')
 })
 
 // Polls the durable outcome (a vote request landed, naming the tapped
