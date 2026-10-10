@@ -89,12 +89,6 @@ Then('they are signed in', async ({ page }) => {
   await expect(nav(page).getByTestId('nav-identity')).toBeVisible()
 })
 
-Then('they are signed out', async ({ page }) => {
-  // Assert
-  await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible()
-  await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
-})
-
 // The token lives in memory only (war-spec.md §10): a script-readable copy in
 // any browser storage is what an XSS payload would exfiltrate.
 Then('the access token is not in browser storage', async ({ page }) => {

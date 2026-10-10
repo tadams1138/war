@@ -3,6 +3,7 @@
 import { defineParameterType } from 'playwright-bdd'
 import { PAGES, literalPage, type PageRef } from '../support/pageNames'
 import { PROVIDERS, type Provider } from '../support/providers'
+import { ROLES, type RoleFlags } from '../support/roles'
 import { SCREENS, SIDES, type Side } from '../support/screens'
 
 const names = Object.keys(PAGES).map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
@@ -34,4 +35,18 @@ defineParameterType({
   name: 'provider',
   regexp: new RegExp(PROVIDERS.map((provider) => provider.label).join('|')),
   transformer: (text: string): Provider => PROVIDERS.find((provider) => provider.label === text)!,
+})
+
+// {role}: who is signed in, by their name in ROLES ("voter", "Moderator", "Admin").
+defineParameterType({
+  name: 'role',
+  regexp: new RegExp(Object.keys(ROLES).join('|')),
+  transformer: (text: string): RoleFlags => ROLES[text],
+})
+
+// {state}: a switch's state, as whether it is enabled.
+defineParameterType({
+  name: 'state',
+  regexp: /on|off/,
+  transformer: (text: string) => text === 'on',
 })

@@ -78,11 +78,6 @@ When('they type {string} into the search box', async ({ page }, text: string) =>
   await page.getByTestId('war-search-input').fill(text)
 })
 
-When('they select the {string} button', async ({ page }, name: string) => {
-  // Act
-  await page.getByRole('button', { name, exact: true }).click()
-})
-
 const label = (count: number) => `${count} ${count === 1 ? 'contestant' : 'contestants'}`
 
 Then('a War card is shown for each War, with its title, category and contestant count', async ({ page, world }) => {
