@@ -2,8 +2,8 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    // Playwright specs run via `npm run test:acceptance`, not vitest.
-    exclude: ['node_modules/**', 'tests/acceptance/**'],
+    // Playwright specs (and playwright-bdd's generated ones) run via `npm run test:acceptance`, not vitest.
+    exclude: ['node_modules/**', 'tests/acceptance/**', '.features-gen/**'],
     environment: 'jsdom',
     // Node's fetch requires an absolute URL, so give api/client.ts an origin.
     env: {
