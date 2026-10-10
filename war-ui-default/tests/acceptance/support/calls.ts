@@ -22,6 +22,8 @@ export interface RequestDef {
 export interface CallDef extends RequestDef {
   // Requests the call makes besides this one, all answered alike.
   alongside?: RequestDef[]
+  // Test id of the error the app shows where the call was made when it fails.
+  error?: string
   // What the API answers when it accepts the request (200 with an empty body).
   accepted?: RecipeResponse | ((world: World, subject: string) => RecipeResponse)
   // A call that changes a record: how the API then reports it. The record is
@@ -59,6 +61,7 @@ const answers = (overrides: Partial<WarDetailResponse> = {}, mergeRequest = fals
   mergeRequest,
 })
 
+const IMAGE_ERROR = 'edit-war-image-error'
 const orderOf = (position: number) => ({ display_order: position })
 // Each of the two images takes the other's place.
 const reorderedBy = (media: WarDetailResponse['contestants'][number]['media']) => {
@@ -105,10 +108,11 @@ export const CALLS: Record<string, CallDef> = {
     path: contestantPath(),
     accepted: (world, name) => ({ status: 200, body: contestantNamed(warDetail(world), name), mergeRequest: true }),
   },
-  'remove the contestant': { method: 'DELETE', path: contestantPath(), accepted: { status: 204 } },
+  'remove the contestant': { method: 'DELETE', path: contestantPath(), accepted: { status: 204 }, error: 'edit-war-contestant-error' },
   'add an image to the contestant': {
     method: 'POST',
     path: contestantPath('/images'),
+    error: IMAGE_ERROR,
     accepted: (world, name) => {
       const { id, media } = contestantNamed(warDetail(world), name)
       return { status: 201, body: { id: imageIdOf(id, media.length + 1), ...orderOf(media.length) } }
@@ -124,12 +128,14 @@ export const CALLS: Record<string, CallDef> = {
   'remove the first image of the contestant': {
     method: 'DELETE',
     path: imagePath(1),
+    error: IMAGE_ERROR,
     accepted: { status: 204 },
     changes: { record: 'edited war', becomes: (war, name) => withContestant(war, name, ({ media }) => ({ media: media.slice(1) })) },
   },
   'move up the second image of the contestant': {
     method: 'PATCH',
     path: imagePath(2),
+    error: IMAGE_ERROR,
     body: orderOf(0),
     alongside: [{ method: 'PATCH', path: imagePath(1), body: orderOf(1) }],
     accepted: { status: 204 },
