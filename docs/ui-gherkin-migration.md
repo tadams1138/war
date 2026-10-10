@@ -71,8 +71,13 @@ Rules:
    other `*.steps.ts`: when another feature already has the same step, move it to
    `shared.steps.ts` (with its helpers) rather than duplicate it. Two untagged definitions of
    the same text make `bddgen` fail ("Multiple definitions matched scenario step").
-4. **Steps must be true.** If the step text does not describe what the test does, fix the text.
-   Keep each scenario's intent; reword its title when that says it more precisely.
+4. **Steps must be true, and the Gherkin is the owner's intent.** When a step claims more than
+   the test arranges or checks, strengthen the test: arrange what the Given says, assert what
+   the Then claims. Do not reword the Gherkin down to fit a weak test. Reword it only when it
+   contradicts `war-spec.md` or cannot be verified in a UI test, and then report the scenario
+   as an open question. Where the text merely misdescribes *how* the test works (an
+   implementation detail, a wrong name), fix the text. Reword a scenario's title only when
+   that says its intent more precisely.
 5. **No no-op steps.** A step whose definition does nothing (`Given no voter is
    authenticated`) is not allowed. Say it in the scenario title ("An unauthenticated visitor
    is redirected to log in"), in a subject that implies it (`When a visitor opens ...`), or in
