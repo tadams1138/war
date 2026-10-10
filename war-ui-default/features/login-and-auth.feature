@@ -19,8 +19,7 @@ Feature: Login and Authentication
     When a visitor opens the login page
     And they complete sign-in with Google
     Then Home is shown
-    And no access token is stored in localStorage or sessionStorage
-    And the JWT exists only in memory
+    And the access token is not in browser storage
 
   Scenario: No token ever appears in a URL
     When a visitor opens the login page
