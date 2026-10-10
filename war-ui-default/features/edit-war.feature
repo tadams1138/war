@@ -12,6 +12,12 @@ Feature: Edit War
     When they select a different contestant
     Then only the newly selected contestant's editor is shown
 
+  Scenario: Unsaved metadata edits survive switching to a contestant and back
+    Given an authenticated voter viewing a draft War's Edit page with a contestant
+    And they have changed the title and category without saving
+    When they select the contestant, then return to Metadata
+    Then the metadata form still shows their unsaved title and category
+
   Scenario: Switching contestants shows fresh field values, not a leftover selection
     Given an authenticated voter has made unsaved edits to one contestant's name and bio
     When they switch to a different contestant

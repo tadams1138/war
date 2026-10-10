@@ -1066,7 +1066,9 @@ one-line hint that unlisted means hidden from public lists but open to anyone wi
 end date, share image, each contestant's name, bio, and images (add, remove, reorder, up to
 the per-contestant cap), **Publish/Unpublish**, **Clear Votes**, and **Delete**. There is no
 fixed order to walk, and none of it is gated by status — a War the creator finished voting on
-is exactly as editable as one they just created. It is reachable only from its own My Wars
+is exactly as editable as one they just created. Unsaved changes to the War's own details are
+kept while the creator moves between those details and the War's contestants on the page. They
+are discarded only when the creator leaves the page without saving. It is reachable only from its own My Wars
 card, not from the public War detail page, and only for its creator: opened any other way, a
 non-owner sees whatever the War itself would show them (§6.1) — not found for a War that isn't
 published, a plain "this isn't your War" for one that is, never a form they could try to
