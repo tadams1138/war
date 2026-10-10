@@ -5,62 +5,23 @@
 // (war-1, war-2, ...; "that War" is the latest). It is queued with its Staff
 // detail and its (empty) reports, and listed to Staff. Later Givens edit what
 // was queued in place, so give them before the app boots.
-import { expect, type Locator, type Page } from '@playwright/test'
+import { expect } from '@playwright/test'
 import { createBdd, type DataTable } from 'playwright-bdd'
-import type { HandlerRecipe } from '../../../src/mocks/scenarios'
 import { test, type World } from './fixtures'
-import {
-  adminWar,
-  adminWarDetail,
-  adminWarDetailGet,
-  filteredListRecipes,
-  pagedListRecipe,
-  queueGet,
-  removePost,
-  report,
-  reportPatch,
-  reportsGet,
-  REMOVED_AT,
-} from '../support/adminFixtures'
+import { adminWarDetail, filteredListRecipes, pagedListRecipe, queueGet, report, reportPatch } from '../support/adminFixtures'
 import { API, getCallLog } from '../support/mocking'
+import { expectTextOrNone } from '../support/pages'
+import { addStaffWar, detailRecipe, recipeFor, type StaffWar } from '../support/staffRecords'
 
 const { Given, Then } = createBdd(test, { tags: '@admin-wars' })
 
-type StaffWar = ReturnType<typeof adminWar>
 type StaffWarDetail = ReturnType<typeof adminWarDetail>
 type WarReport = ReturnType<typeof report>
 
-const CREATOR = 'Casey Creator'
-
 // --- Arrange ---------------------------------------------------------------
 
-function recipeFor(world: World, path: string): HandlerRecipe {
-  const recipe = world.recipes.find((candidate) => candidate.path === `${API}${path}` && !candidate.query)
-  if (!recipe) throw new Error(`Give the War first: nothing is queued for ${path}`)
-  return recipe
-}
-
-const detailRecipe = (world: World) => recipeFor(world, `/admin/wars/${world.warId}`)
-const detailOf = (world: World) => detailRecipe(world).responses[0]!.body as StaffWarDetail
+const detailOf = (world: World) => detailRecipe(world, 'war').responses[0]!.body as StaffWarDetail
 const reportsOf = (world: World) => (recipeFor(world, `/wars/${world.warId}/reports`).responses[0]!.body as { reports: WarReport[] }).reports
-
-// A table row's columns, each with its default. A blank title is an untitled War.
-function overridesFrom(row: Record<string, string>) {
-  const columns: Record<string, string> = { status: 'published', creator: CREATOR, 'unaddressed reports': '0', ...row }
-  return {
-    title: columns.title || null,
-    status: columns.status,
-    creator_name: columns.creator,
-    unaddressed_report_count: Number(columns['unaddressed reports']),
-    removed_at: columns.removed ? REMOVED_AT : null,
-  }
-}
-
-function addWar(world: World, overrides: Record<string, unknown>): StaffWar {
-  const id = world.nextWarId()
-  world.queue(adminWarDetailGet(id, adminWarDetail(id, overrides)), reportsGet(id, []))
-  return adminWar(id, overrides)
-}
 
 // The API filters as the Staff list is filtered: by status (a removed War only
 // under "removed") and by the words of a title or a creator's name.
@@ -82,18 +43,18 @@ function queueListed(world: World, wars: StaffWar[], pageSize = wars.length): vo
 
 Given('the API lists these Wars to Staff:', async ({ world }, table: DataTable) => {
   // Arrange
-  queueListed(world, table.hashes().map((row) => addWar(world, overridesFrom(row))))
+  queueListed(world, table.hashes().map((row) => addStaffWar(world, row)))
 })
 
 Given('the API lists these Wars to Staff, {int} per page:', async ({ world }, size: number, table: DataTable) => {
   // Arrange
-  queueListed(world, table.hashes().map((row) => addWar(world, overridesFrom(row))), size)
+  queueListed(world, table.hashes().map((row) => addStaffWar(world, row)), size)
 })
 
 // Joins the Wars list, as a War of its own.
 Given(/^a (published|removed) War(?: titled "([^"]*)")?$/, async ({ world }, state: string, title?: string) => {
   // Arrange
-  const war = addWar(world, overridesFrom({ title: title ?? 'Alpha War', removed: state === 'removed' ? 'yes' : '' }))
+  const war = addStaffWar(world, { title: title ?? 'Alpha War', removed: state === 'removed' ? 'yes' : '' })
   const list = world.recipes.find((recipe) => recipe.path === `${API}/admin/wars` && !recipe.query)
   if (list) (list.responses[0]!.body as { wars: StaffWar[] }).wars.push(war)
   else world.queue(pagedListRecipe('/admin/wars', 'wars', [war]))
@@ -145,29 +106,12 @@ Given("changing that War's reports finds no such report", async ({ world }) => {
   answerReportChanges(world, 404)
 })
 
-// Once removed, the detail the API answers shows the War as removed.
-Given('the API accepts removing that War', async ({ world }) => {
-  // Arrange
-  detailRecipe(world).responses.push({ status: 200, body: { ...detailOf(world), removed_at: REMOVED_AT } })
-  world.queue(removePost(world.warId))
-})
-
-Given('removing that War finds no such War', async ({ world }) => {
-  // Arrange
-  world.queue(removePost(world.warId, 404))
-})
-
 Given('no reports are waiting', async ({ world }) => {
   // Arrange
   world.queue(queueGet([]))
 })
 
 // --- Assert ----------------------------------------------------------------
-
-async function expectMarker(marker: Locator, text: string): Promise<void> {
-  if (text) await expect(marker).toHaveText(text)
-  else await expect(marker).toHaveCount(0)
-}
 
 Then('the Wars list shows these Wars, in order:', async ({ page }, table: DataTable) => {
   // Assert
@@ -179,8 +123,8 @@ Then('the Wars list shows these Wars, in order:', async ({ page }, table: DataTa
     await expect(row.getByRole('link')).toHaveText(war.title)
     await expect(row).toContainText(`· ${war.status}`)
     await expect(row).toContainText(`· ${war.creator}`)
-    await expectMarker(row.getByTestId('admin-war-report-badge'), war['report badge']!)
-    await expectMarker(row.getByTestId('admin-war-removed'), war.marker!)
+    await expectTextOrNone(row.getByTestId('admin-war-report-badge'), war['report badge']!)
+    await expectTextOrNone(row.getByTestId('admin-war-removed'), war.marker!)
   }
 })
 
@@ -221,27 +165,9 @@ Then(/^the API has been asked to mark the report (addressed|unaddressed)$/, asyn
   await expect.poll(asked).toEqual({ path: `${API}/reports/${reportsOf(world)[0]!.id}`, body: { addressed: state === 'addressed' } })
 })
 
-const callsMatching = async (page: Page, method: string, endsWith: string) =>
-  (await getCallLog(page)).filter((entry) => entry.method === method && new URL(entry.url).pathname.endsWith(endsWith))
-
-Then(/^the API has (not )?been asked to remove that War$/, async ({ page, world }, not?: string) => {
-  // Assert
-  await expect.poll(async () => (await callsMatching(page, 'POST', `/wars/${world.warId}/remove`)).length).toBe(not ? 0 : 1)
-})
-
 Then(/^the War is (not )?shown as Removed$/, async ({ page }, not?: string) => {
   // Assert
-  await expectMarker(page.getByTestId('admin-war-removed'), not ? '' : 'Removed')
-})
-
-Then("that War's Staff detail was requested {int} time(s)", async ({ page, world }, count: number) => {
-  // Assert
-  await expect.poll(async () => (await callsMatching(page, 'GET', `/admin/wars/${world.warId}`)).length).toBe(count)
-})
-
-Then("that War's reports were requested {int} time(s)", async ({ page, world }, count: number) => {
-  // Assert
-  expect(await callsMatching(page, 'GET', `/wars/${world.warId}/reports`)).toHaveLength(count)
+  await expectTextOrNone(page.getByTestId('admin-war-removed'), not ? '' : 'Removed')
 })
 
 Then('the unaddressed reports queue lists:', async ({ page }, table: DataTable) => {
@@ -259,10 +185,4 @@ Then('the unaddressed reports queue says nothing is waiting', async ({ page }) =
   // Assert
   await expect(page.getByTestId('unaddressed-queue-empty')).toContainText('No reports are waiting')
   await expect(page.getByTestId('unaddressed-queue-entry')).toHaveCount(0)
-})
-
-Then("that War's Staff detail is not shown", async ({ page }) => {
-  // Assert
-  await expect(page.getByRole('link', { name: 'Back to Admin Dashboard' })).toHaveCount(0)
-  await expect(page.getByTestId('admin-contestant-row')).toHaveCount(0)
 })

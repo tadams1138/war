@@ -26,7 +26,7 @@ Then('the identity menu links {string} to {page}', async ({ page, world }: { pag
   // Assert
   const item = menu(page).getByRole('menuitem', { name, exact: true })
   await expect(item).toBeVisible()
-  await expect(item).toHaveAttribute('href', target.path(world.warId))
+  await expect(item).toHaveAttribute('href', target.path(world))
 })
 
 Then('the identity menu offers no {string} link', async ({ page }, name: string) => {

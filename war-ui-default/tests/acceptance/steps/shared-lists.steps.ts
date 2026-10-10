@@ -60,3 +60,8 @@ Then('the next page of {list} was requested from where the first page ended', as
   const calls = await callsTo(page, list)
   expect(searchParam(calls[calls.length - 1]!, 'cursor')).toBe(cursorAfter(1))
 })
+
+Then('{list} was requested {int} time(s)', async ({ page }, list: ListRef, count: number) => {
+  // Assert
+  expect(await callsTo(page, list)).toHaveLength(count)
+})

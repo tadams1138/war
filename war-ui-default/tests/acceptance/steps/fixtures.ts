@@ -31,7 +31,12 @@ export class World {
   requestOutcomes: string[] = []
   // Every URL the page requested, in order.
   readonly requestedUrls: string[] = []
+  // The id of the Voter in scope (the latest one given); "that Voter's ... page"
+  // resolves against it. Voters are numbered voter-2, voter-3, ... in the order
+  // given: voter-1 is the signed-in voter (the baseline GET /auth/me).
+  voterId = ''
   private warCount = 0
+  private voterCount = 1
 
   get matchup(): NextMatchupResponse['matchup'] | undefined {
     return this.matchupResponse?.matchup
@@ -41,6 +46,12 @@ export class World {
     this.warCount += 1
     this.warId = `war-${this.warCount}`
     return this.warId
+  }
+
+  nextVoterId(): string {
+    this.voterCount += 1
+    this.voterId = `voter-${this.voterCount}`
+    return this.voterId
   }
 
   queue(...recipes: HandlerRecipe[]): void {

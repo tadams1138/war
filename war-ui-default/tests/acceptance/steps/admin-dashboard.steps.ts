@@ -12,7 +12,6 @@ import {
   killSwitchGet,
   logEntry,
   logGet,
-  meCalls,
   noVotes,
   pagesOf,
   REMOVED_AT,
@@ -215,9 +214,4 @@ Then('the entry names it as an untitled War and links to its Staff detail', asyn
   // Assert
   await expect(entries(page)).not.toContainText('a deleted War')
   await expect(entries(page).getByRole('link', { name: 'Untitled War' })).toHaveAttribute('href', `/admin/wars/${world.warId}`)
-})
-
-Then("the current Voter's identity was requested {int} time(s)", async ({ page }, count: number) => {
-  // Assert
-  await expect.poll(async () => (await meCalls(page)).length).toBe(count)
 })

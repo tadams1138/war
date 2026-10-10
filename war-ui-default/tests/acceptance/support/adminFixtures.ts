@@ -1,7 +1,6 @@
-// Builders and recipes for the Admin Dashboard acceptance specs.
-import type { Page } from '@playwright/test'
-import type { HandlerRecipe } from '../../../src/mocks/scenarios'
-import { API, getCallLog } from './mocking'
+// Builders and recipes for the Admin Dashboard acceptance steps.
+import type { HandlerRecipe, RecipeResponse } from '../../../src/mocks/scenarios'
+import { API } from './mocking'
 
 export function me(flags: { is_moderator?: boolean; is_admin?: boolean }, displayName: string | null = 'Test Voter') {
   return {
@@ -18,18 +17,6 @@ export function me(flags: { is_moderator?: boolean; is_admin?: boolean }, displa
 
 export function killSwitchGet(enabled: boolean) {
   return { method: 'GET' as const, path: `${API}/kill-switch`, responses: [{ status: 200, body: { enabled } }] }
-}
-
-export function killSwitchPut(status: number, enabled: boolean) {
-  return {
-    method: 'PUT' as const,
-    path: `${API}/kill-switch`,
-    responses: [{ status, body: status === 200 ? { enabled } : { error: 'boom' } }],
-  }
-}
-
-export function killSwitchPuts(page: Page) {
-  return getCallLog(page).then((log) => log.filter((entry) => entry.method === 'PUT' && entry.url.endsWith('/kill-switch')))
 }
 
 export type LogTarget = { voter?: string; voterName?: string; war?: string; warTitle?: string; warDeleted?: boolean }
@@ -75,16 +62,6 @@ export function adminWar(id: string, overrides: Record<string, unknown> = {}) {
   }
 }
 
-export function adminWarsGet(...pages: { wars: ReturnType<typeof adminWar>[]; next_cursor: string | null }[]) {
-  return { method: 'GET' as const, path: `${API}/admin/wars`, responses: pages.map((body) => ({ status: 200, body })) }
-}
-
-export const quietLog = logGet({ entries: [], next_cursor: null })
-
-export function adminWarsCalls(page: Page) {
-  return getCallLog(page).then((log) => log.filter((entry) => /\/admin\/wars(\?|$)/.test(entry.url)))
-}
-
 export function adminWarDetail(id: string, overrides: Record<string, unknown> = {}) {
   return {
     ...adminWar(id),
@@ -125,18 +102,6 @@ export function reportPatch(reportId: string, status = 200) {
   }
 }
 
-export function removePost(warId: string, status = 204) {
-  return {
-    method: 'POST' as const,
-    path: `${API}/wars/${warId}/remove`,
-    responses: [{ status, body: status === 204 ? undefined : { error: 'boom' } }],
-  }
-}
-
-export function removePosts(page: Page) {
-  return getCallLog(page).then((log) => log.filter((entry) => entry.method === 'POST' && entry.url.endsWith('/remove')))
-}
-
 export const REMOVED_AT = '2026-10-04T12:00:00Z'
 
 export function queueGet(wars: { war_id: string; title: string | null; unaddressed_count: number }[]) {
@@ -156,14 +121,6 @@ export function adminVoter(id: string, overrides: Record<string, unknown> = {}) 
     war_count: 0,
     ...overrides,
   }
-}
-
-export function adminVotersGet(...pages: { voters: ReturnType<typeof adminVoter>[]; next_cursor: string | null }[]) {
-  return { method: 'GET' as const, path: `${API}/admin/voters`, responses: pages.map((body) => ({ status: 200, body })) }
-}
-
-export function adminVotersCalls(page: Page) {
-  return getCallLog(page).then((log) => log.filter((entry) => /\/admin\/voters(\?|$)/.test(entry.url)))
 }
 
 export function adminVoterDetail(id: string, overrides: Record<string, unknown> = {}) {
@@ -203,26 +160,6 @@ export function adminVoterVotesGet(id: string, ...pages: { votes: ReturnType<typ
 
 export const noVotes = (id: string) => adminVoterVotesGet(id, { votes: [], next_cursor: null })
 
-export function voterPut(path: string, status = 200, body: unknown = {}) {
-  return {
-    method: 'PUT' as const,
-    path: `${API}${path}`,
-    responses: [{ status, body: status === 200 ? body : { error: 'boom' } }],
-  }
-}
-
-export function voterPuts(page: Page, suffix: string) {
-  return getCallLog(page).then((log) => log.filter((entry) => entry.method === 'PUT' && entry.url.endsWith(suffix)))
-}
-
-export function voterDetailSequence(id: string, ...bodies: unknown[]) {
-  return { method: 'GET' as const, path: `${API}/admin/voters/${id}`, responses: bodies.map((body) => ({ status: 200, body })) }
-}
-
-export function meCalls(page: Page) {
-  return getCallLog(page).then((log) => log.filter((entry) => entry.url.endsWith('/auth/me')))
-}
-
 // --- Paged and filtered lists ---------------------------------------------
 
 export const cursorAfter = (pageNumber: number) => `cursor-${pageNumber}`
@@ -237,11 +174,13 @@ export function pagesOf<T>(items: T[], size: number): { items: T[]; next_cursor:
   }))
 }
 
-// A list endpoint (`key` names the array in its body) that answers its pages in
-// call order.
-export function pagedListRecipe<T>(path: string, key: string, items: T[], size = items.length): HandlerRecipe {
-  const responses = pagesOf(items, size || 1).map((page) => ({ status: 200, body: { [key]: page.items, next_cursor: page.next_cursor } }))
-  return { method: 'GET', path: `${API}${path}`, responses }
+// The responses of a paged list (`key` names the array in its body), in call order.
+export function pagedResponses<T>(key: string, items: T[], size = items.length): RecipeResponse[] {
+  return pagesOf(items, size || 1).map((page) => ({ status: 200, body: { [key]: page.items, next_cursor: page.next_cursor } }))
+}
+
+export function pagedListRecipe<T>(path: string, key: string, items: T[], size?: number): HandlerRecipe {
+  return { method: 'GET', path: `${API}${path}`, responses: pagedResponses(key, items, size) }
 }
 
 export interface ListFilters<T> {
