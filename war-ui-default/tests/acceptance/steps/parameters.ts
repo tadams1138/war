@@ -1,7 +1,9 @@
 // Custom Cucumber parameter types shared by every feature. Imported by
 // fixtures.ts so they are registered before any step file is read.
 import { defineParameterType } from 'playwright-bdd'
+import { BIO_PATTERN, bioFrom, type BioRef } from '../support/bios'
 import { CALLS, type CallRef } from '../support/calls'
+import { CARD_PATTERN, cardFrom, type CardRef } from '../support/cards'
 import { FIELDS, type FieldRef } from '../support/fields'
 import { LISTS, type ListRef } from '../support/lists'
 import { PAGES, literalPage, type PageRef } from '../support/pageNames'
@@ -32,6 +34,12 @@ defineParameterType({
   regexp: new RegExp(SIDES.join('|')),
   transformer: (text: string): Side => text as Side,
 })
+
+// {card}: a contestant's card ("the left contestant's card", "the result of "Ada"").
+defineParameterType({ name: 'card', regexp: CARD_PATTERN, transformer: (text: string): CardRef => cardFrom(text) })
+
+// {bio}: a rendered bio ("the bio preview", "the bio of "Ada"").
+defineParameterType({ name: 'bio', regexp: BIO_PATTERN, transformer: (text: string): BioRef => bioFrom(text) })
 
 // {provider}: a sign-in provider by its label ("Google", "X").
 defineParameterType({

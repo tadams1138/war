@@ -27,6 +27,10 @@ export const previousArrow = (page: Page, side: Side) => carousel(page, side).ge
 export const controlNamed = (page: Page, name: RegExp) =>
   page.getByText(name).or(page.getByRole('button', { name })).or(page.getByRole('link', { name }))
 
+// A result in the War detail's results list, by the contestant's exact name.
+export const resultRow = (page: Page, name: string) =>
+  page.getByTestId('ranking-row').filter({ has: page.locator('.results-name', { hasText: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }) })
+
 export const sortMenu = (page: Page) => page.getByTestId('war-sort-select')
 
 // The background colour of a real <button> in the page's theme, probed by
@@ -41,6 +45,12 @@ export async function themedButtonBackground(page: Page): Promise<string> {
   })
   expect(colour).not.toBe('rgba(0, 0, 0, 0)')
   return colour
+}
+
+export async function boxOf(locator: Locator) {
+  const box = await locator.boundingBox()
+  expect(box).not.toBeNull()
+  return box!
 }
 
 export const backgroundOf = (locator: Locator) => locator.evaluate((element) => getComputedStyle(element).backgroundColor)

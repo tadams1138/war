@@ -629,6 +629,6 @@ Feature: Edit War
       | Grace |
     And an authenticated voter
     When they open that War's Edit page
-    Then the top action buttons sit in one horizontal row
+    Then Export, Delete, Publish War and Clear Votes sit in one horizontal row, in that order
     And Export, Publish War and Clear Votes share consistent button styling
-    And Delete is visually set apart from the other top action buttons
+    And Delete is visually set apart from Export, Publish War and Clear Votes

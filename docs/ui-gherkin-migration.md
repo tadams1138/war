@@ -1,8 +1,7 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 16 of 17 feature files converted (242 of 286
-acceptance tests).** Nothing is half-done: every feature is either fully converted or
-untouched, and the whole suite passes.
+**Status as of 2026-10-10: every feature file converted (290 acceptance tests).** Only the
+title-binding scaffolding is left to remove (see *Finishing the migration*).
 
 **To resume:** read this file, then convert the next feature in the [backlog](#backlog)
 following [Converting one feature](#converting-one-feature). Stop at any feature boundary.
@@ -24,8 +23,8 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war` | 242 | Steps executed by playwright-bdd |
-| Not converted | the 1 in the backlog | 44 | Scenario title must equal a Playwright test title |
+| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail` | 290 | Steps executed by playwright-bdd |
+| Not converted | none | 0 | |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
 `npm run test:acceptance`.
