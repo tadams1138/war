@@ -188,7 +188,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 58 test files, about 1,200 tests (24 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | about 200 unit tests (22 files), 271 acceptance tests | Each of the 271 scenarios in `features/` is bound to exactly one Playwright test with the same title; `tests/bindings` enforces it |
+| war-ui-default | about 200 unit tests (22 files), 272 acceptance tests | Each of the 272 scenarios in `features/` is bound to exactly one Playwright test with the same title; `tests/bindings` enforces it |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Pending scenarios (no binding, nothing runs):
@@ -221,8 +221,9 @@ Every test labels its Arrange, Act and Assert phases.
   values are never listed.
 - **Admin indexes are built without `CONCURRENTLY`**, so each build locks writes to its
   table. Fine at the current size; not for a large `votes` table later.
-- **Edit War metadata form.** Switching the left nav away from Metadata unmounts the form
-  and discards unsaved edits.
+- **Edit War contestant forms.** Unsaved name and bio edits in a contestant's editor, and in
+  the add-contestant form, are discarded when the creator selects another pane. The War
+  metadata form keeps its unsaved edits.
 - **Share-image theme port.** The generated share image reproduces each theme's `VS` badge
   as Canvas paths, kept in sync with the CSS by hand.
 - **S3 integration test image.** `test/integration/s3ObjectStorage.test.ts` runs against an
@@ -256,6 +257,14 @@ Every test labels its Arrange, Act and Assert phases.
 - **GitHub environments** `staging` and `production` carry `DO_APP_ID` and
   `PUBLIC_BASE_URL`; `production` has the required reviewer. Repository secrets and variables
   are listed in the header of `.github/workflows/api.yml`.
+
+---
+
+## To do
+
+- Hide Facebook login feature until facebook business verification can be completed.
+- Disable Prev and Next buttons on war dashboard when there are no previous or next wars to
+  display.
 
 ---
 
