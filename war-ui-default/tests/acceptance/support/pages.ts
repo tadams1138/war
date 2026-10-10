@@ -64,3 +64,12 @@ export function gotoVotePage(page: Page, warId: string): Promise<void> {
 export function gotoEditPage(page: Page, warId: string): Promise<void> {
   return gotoAuthenticated(page, `/wars/${warId}/edit`)
 }
+
+// The navigation offers Log in (to the login page) and no identity or menu.
+export async function expectSignedOut(page: Page, options?: { timeout: number }): Promise<void> {
+  const login = nav(page).getByRole('link', { name: 'Log in' })
+  await expect(login).toBeVisible(options)
+  await expect(login).toHaveAttribute('href', '/login')
+  await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
+  await expect(nav(page).getByRole('menu')).toHaveCount(0)
+}

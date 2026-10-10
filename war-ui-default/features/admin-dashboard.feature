@@ -10,14 +10,14 @@ Feature: Admin Dashboard
     When they open the Admin Dashboard
     Then they are redirected to Home
     And no Admin Dashboard is shown
-    When they open the account menu
-    Then the account menu offers no "Admin Dashboard" link
+    When they open the identity menu
+    Then the identity menu offers no "Admin Dashboard" link
 
   Scenario: A Moderator sees the dashboard link and the dashboard
     Given an authenticated Moderator
-    When they open the account menu
-    Then the account menu offers the "Admin Dashboard" link
-    When they select the "Admin Dashboard" link in the account menu
+    When they open the identity menu
+    Then the identity menu links "Admin Dashboard" to the Admin Dashboard
+    When they select "Admin Dashboard" from the identity menu
     Then the Admin Dashboard is shown beneath the navigation header
 
   Scenario: An Admin reaches the dashboard
