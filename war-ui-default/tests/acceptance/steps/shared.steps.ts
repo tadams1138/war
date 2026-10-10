@@ -84,7 +84,7 @@ Given('the {side} contestant has {int} image(s)', async ({ world }, side: Side, 
 // here every call about the next War.
 Given("the voter's session has expired and cannot be refreshed", async ({ world }) => {
   // Arrange
-  world.queue(...failWarCalls(world.nextWarId(), 401, 'unauthorized'), reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid' }))
+  world.queue(...failWarCalls(world.nextWarId(), { status: 401, body: { error: 'unauthorized' } }), reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid' }))
 })
 
 Given('the API accepts votes', async ({ world }) => {
@@ -109,15 +109,11 @@ Given('the API lists these Wars:', async ({ world }, table: DataTable) => {
       share_image_url: row['share image'] || null,
     }),
   )
+  world.listedWars = wars
   world.queue(
     ok('GET', `${API}/wars`, { wars, next_cursor: null }),
     ...wars.map((war) => ok('GET', `${API}/wars/${war.id}`, buildWarDetail({ ...war, contestants: [] }))),
   )
-})
-
-Given('the API lists no Wars', async ({ world }) => {
-  // Arrange
-  world.queue(ok('GET', `${API}/wars`, { wars: [], next_cursor: null }))
 })
 
 Given('the API accepts a share image upload', async ({ world }) => {

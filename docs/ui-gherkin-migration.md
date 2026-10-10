@@ -1,6 +1,6 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 9 of 17 feature files converted (64 of 275
+**Status as of 2026-10-10: in progress, paused. 9 of 17 feature files converted (68 of 279
 acceptance tests).** Nothing is half-done: every feature is either fully converted or
 untouched, and the whole suite passes.
 
@@ -24,7 +24,7 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images` | 64 | Steps executed by playwright-bdd |
+| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images` | 68 | Steps executed by playwright-bdd |
 | Not converted | the 8 in the backlog | 211 | Scenario title must equal a Playwright test title |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
@@ -84,7 +84,7 @@ Rules:
    the feature's free-form description or a `#` comment.
 6. **Never lose an assertion.** Every assertion in the old Playwright test must survive in some
    Then step. Strengthening is fine; weakening or dropping is not.
-7. **API mocks come before the app boots.** Given steps queue mock responses with
+7. **API mocks come before the app boots.** A recipe may carry a `query` (`creator=me`) so it answers only requests with those parameters; the more specific recipe wins. Given steps queue mock responses with
    `world.queue(...)`. The app boots on the first navigation (`a visitor opens {page}`,
    `they open {page}`, `they are on {page}`) or on `Given an authenticated voter`, which then
    signs in. `world.queue` throws after boot, so order the Givens accordingly.
@@ -94,7 +94,7 @@ Rules:
 9. **Mark each step's phase** with one comment, as `war-api` does: `// Arrange` in a Given,
    `// Act` in a When, `// Assert` in a Then.
 10. **Keep `World` small.** Add a field to the `World` class in `fixtures.ts` only for state
-    that a later step really needs (today: `warId`, `matchup`, `requestOutcomes`, `requestedUrls`, and the `booted`/`signedIn` flags).
+    that a later step really needs (today: `warId`, `matchup`, `listedWars`, `previousPreview`, `requestOutcomes`, `requestedUrls`, and the `booted`/`signedIn` flags).
 
 ### Shared vocabulary
 
@@ -105,8 +105,7 @@ Rules:
 | `Given an authenticated voter` | Boots the app with the queued mocks, opens Home, signs in |
 | `Given they are on {page}` / `When they open {page}` / `When a visitor opens {page}` | Boots if needed and navigates (client-side once signed in). "A visitor" means not signed in |
 | `Given a War themed {string}` / `Given another War themed {string}` | Queues the War's detail. Wars are numbered `war-1`, `war-2`, ...; "that War" is the latest given |
-| `Given the API lists these Wars:` (table: `title`, `status`, optional `share image`) | Queues `GET /wars` and each War's detail. Numbered like the other Wars, so "that War" is the last row |
-| `Given the API lists no Wars` | Queues an empty `GET /wars` |
+| `Given the API lists these Wars:` (table: `title`, `status`, optional `share image`) | Queues `GET /wars` and each War's detail. Numbered like the other Wars, so "that War" is the last row. `world.listedWars` keeps them |
 | `Given the API accepts a share image upload` / `Then the share image is uploaded to that War` | Queues, and asserts, `POST` of that War's share image |
 | `Given a(nother) War` | Queues a default War's detail (numbering as above) |
 | `When they reload the page` | Reloads (drops an in-memory session) |
@@ -152,7 +151,7 @@ Run every command from the repository root. Never `cd` (see `CLAUDE.md`).
 
 **Done means:** the spec file is gone, every old assertion has a step, the step text is true,
 the red check was seen, all five commands pass with zero lint warnings, and the acceptance
-total is still 275 (274 before `contestant-images` turned its on-demand scenario into a two-row Scenario Outline, 273 before `vote-mode-responsive` turned its footer scenario into a two-row Scenario Outline, 272 before `error-handling` split a scenario in two) unless a scenario was deliberately added or removed (say which and why).
+total is still 279 (275 before `error-handling` gained two two-row Scenario Outlines, restoring "any request"; 274 before `contestant-images` turned its on-demand scenario into a two-row Scenario Outline, 273 before `vote-mode-responsive` turned its footer scenario into a two-row Scenario Outline, 272 before `error-handling` split a scenario in two) unless a scenario was deliberately added or removed (say which and why).
 
 Work on a branch, one converted feature per commit. Do not push to `master`; the owner merges.
 

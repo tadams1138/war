@@ -16,7 +16,17 @@ const card = (page: Page, name: string) => page.getByTestId('contestant-card').f
 
 Given('a War that does not exist', async ({ world }) => {
   // Arrange
-  world.queue(...failWarCalls(world.nextWarId(), 404, 'not found'))
+  world.queue(...failWarCalls(world.nextWarId(), { status: 404, body: { error: 'not found' } }))
+})
+
+Given('the API fails every request about a War with a server error', async ({ world }) => {
+  // Arrange
+  world.queue(...failWarCalls(world.nextWarId(), { status: 503, body: { error: 'error' } }))
+})
+
+Given('the API cannot be reached for any request about a War', async ({ world }) => {
+  // Arrange
+  world.queue(...failWarCalls(world.nextWarId(), { status: 0, networkError: true }))
 })
 
 Given('that War has closed', async ({ world }) => {
