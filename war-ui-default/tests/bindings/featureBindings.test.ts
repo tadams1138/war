@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { CONVERTED_FEATURES } from './convertedFeatures'
 import { findBindingDrift } from './featureBindings'
 
 const ROOT = join(__dirname, '..', '..')
@@ -63,13 +64,37 @@ describe('feature to acceptance test binding', () => {
     ])
   })
 
+  it('does not require a spec file for a feature converted to playwright-bdd', () => {
+    // Arrange
+    const features = { converted: 'Scenario: One', other: 'Scenario: Two' }
+    const specs = { other: "test('Two', async () => {})" }
+
+    // Act
+    const drift = findBindingDrift(features, specs, ['converted'])
+
+    // Assert
+    expect(drift).toEqual([])
+  })
+
+  it('reports a converted feature that still has a spec file', () => {
+    // Arrange
+    const features = { converted: 'Scenario: One' }
+    const specs = { converted: "test('One', async () => {})" }
+
+    // Act
+    const drift = findBindingDrift(features, specs, ['converted'])
+
+    // Assert
+    expect(drift).toEqual(['converted.spec.ts: feature is converted to playwright-bdd, delete the spec'])
+  })
+
   it('holds for every feature and acceptance spec in the repository', () => {
     // Arrange
     const features = readDir('features', '.feature')
     const specs = readDir('tests/acceptance', '.spec.ts')
 
     // Act
-    const drift = findBindingDrift(features, specs)
+    const drift = findBindingDrift(features, specs, CONVERTED_FEATURES)
 
     // Assert
     expect(drift).toEqual([])

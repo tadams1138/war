@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "test": "vitest run",
-    "test:acceptance": "playwright test",
+    "test:acceptance": "bddgen && playwright test",
     "generate:api": "npm --prefix ../war-api run dump-openapi --silent > openapi.json && openapi-typescript openapi.json -o src/api/generated/schema.d.ts",
     "build:mock": "vite build --mode mock"
   },
@@ -35,6 +35,7 @@
     "jsdom": "^30.0.1",
     "msw": "^2.15.0",
     "openapi-typescript": "^7.13.0",
+    "playwright-bdd": "^9.2.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.14.0",
