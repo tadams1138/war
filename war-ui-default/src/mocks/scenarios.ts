@@ -11,6 +11,9 @@ export interface RecipeResponse {
   headers?: Record<string, string>
   networkError?: boolean
   delayMs?: number
+  // Answers with the JSON body the request carried (a PUT that returns what
+  // it was asked to set), instead of `body`.
+  echoRequest?: boolean
 }
 
 export interface HandlerRecipe {
@@ -52,15 +55,20 @@ function buildHandler(recipe: HandlerRecipe): RequestHandler {
     if (!matchesQuery(request, recipe.query)) return undefined
     const response = recipe.responses[Math.min(callIndex, recipe.responses.length - 1)]
     callIndex += 1
-    return respond(response)
+    return respond(response, request)
   })
 }
 
-async function respond(response: RecipeResponse): Promise<Response> {
+function bodyOf(response: RecipeResponse, request: Request): Promise<unknown> | unknown {
+  return response.echoRequest ? request.json() : response.body
+}
+
+async function respond(response: RecipeResponse, request: Request): Promise<Response> {
   if (response.delayMs) await delay(response.delayMs)
   if (response.networkError) return HttpResponse.error()
-  if (response.status === 204 || response.body === undefined) {
+  const body = await bodyOf(response, request)
+  if (response.status === 204 || body === undefined) {
     return new HttpResponse(null, { status: response.status, headers: response.headers })
   }
-  return HttpResponse.json(response.body, { status: response.status, headers: response.headers })
+  return HttpResponse.json(body, { status: response.status, headers: response.headers })
 }

@@ -6,10 +6,12 @@ import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
 import type { WarSummary } from '../../../src/api/client'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
+import { me } from '../support/adminFixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario, votesSubmitted, waitForCallLog } from '../support/mocking'
-import { contestantCard, dots, matchupCard, nextArrow, sortMenu } from '../support/pages'
+import { contestantCard, dots, matchupCard, nav, nextArrow, sortMenu } from '../support/pages'
 import { failWarCalls, ok, queueListedWars, reply, voteRecipe } from '../support/recipes'
 import type { PageRef } from '../support/pageNames'
+import type { RoleFlags } from '../support/roles'
 import type { Side } from '../support/screens'
 
 const { Given, When, Then } = createBdd(test)
@@ -43,8 +45,11 @@ async function open(page: Page, world: World, target: PageRef): Promise<void> {
   await page.goto(path)
 }
 
-Given('an authenticated voter', async ({ page, world }) => {
+// A plain voter is what the baseline GET /auth/me already answers; the others
+// have their flags queued.
+Given('an authenticated {role}', async ({ page, world }, role: RoleFlags) => {
   // Arrange
+  if (role.is_moderator || role.is_admin) world.queue(me(role))
   await boot(page, world)
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -159,6 +164,11 @@ When('they choose {string} from the sort menu', async ({ page }, label: string) 
   await sortMenu(page).selectOption({ label })
 })
 
+When('they select the {string} button', async ({ page }, name: string) => {
+  // Act
+  await page.getByRole('button', { name, exact: true }).click()
+})
+
 When('they reload the page', async ({ page }) => {
   // Act
   await page.reload()
@@ -213,6 +223,12 @@ async function expectOn(page: Page, world: World, target: PageRef): Promise<void
   await expect.poll(() => new URL(page.url()).pathname).toBe(target.path(world.warId))
   if (target.landmark) await expect(page.getByTestId(target.landmark)).toBeVisible()
 }
+
+Then('they are signed out', async ({ page }) => {
+  // Assert
+  await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible()
+  await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
+})
 
 Then('an empty state is shown', async ({ page }) => {
   // Assert
