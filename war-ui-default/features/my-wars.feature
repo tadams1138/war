@@ -1,55 +1,85 @@
+@my-wars
 Feature: My Wars
 
   Scenario: A voter sees every War they created, across every status
-    Given an authenticated voter who created a draft War, a published War, and a closed War
-    When they navigate to their My Wars page
-    Then a War card is shown for each of their three Wars
-    And each card shows its status
+    Given the API lists these Wars:
+      | title            | status    |
+      | My Draft War     | draft     |
+      | My Published War | published |
+      | My Closed War    | closed    |
+    And an authenticated voter
+    When they open My Wars
+    Then 3 War cards are shown
+    And the "My Draft War" card shows the status "draft"
+    And the "My Published War" card shows the status "published"
+    And the "My Closed War" card shows the status "closed"
 
+  # The mocked API stands in for its own creator=me scoping, which war-api tests.
   Scenario: My Wars does not show another voter's Wars
-    Given an authenticated voter with no Wars of their own
-    And another voter has created a published public War
-    When they navigate to their My Wars page
-    Then that other voter's War is not shown
+    Given the API lists no Wars
+    And an authenticated voter
+    When they open My Wars
+    Then Wars are requested with "creator=me"
+    And 0 War cards are shown
+    And an empty state is shown
 
   Scenario: A War card links to its detail page
-    Given an authenticated voter who created a draft War
-    When they select its card on the My Wars page
+    Given the API lists these Wars:
+      | title        | status |
+      | My Draft War | draft  |
+    And an authenticated voter
+    And they are on My Wars
+    When they click the "My Draft War" card
     Then that War's detail page is shown
+    And the heading "My Draft War" is shown
 
   Scenario: No Wars created yet
-    Given an authenticated voter who has created no Wars
-    When they navigate to their My Wars page
+    Given the API lists no Wars
+    And an authenticated voter
+    When they open My Wars
     Then an empty state is shown
-    And a link to create a War is displayed
+    And a link to create a War is shown
 
   Scenario: My Wars requires authentication
-    Given no voter is authenticated
-    When they navigate directly to "/my-wars"
-    Then they are redirected to "/login"
-    And the returnTo query param is "/my-wars"
+    When a visitor opens My Wars
+    Then they are redirected to the login page with returnTo "/my-wars"
 
   Scenario: My Wars offers sorting and search controls
-    Given an authenticated voter who created several Wars
-    When they navigate to their My Wars page
-    Then a sort menu and a search box are shown
+    Given the API lists these Wars:
+      | title        | status |
+      | My Draft War | draft  |
+    And an authenticated voter
+    When they open My Wars
+    Then the sort menu shows "Newest"
+    And the search box is shown
 
   Scenario: Choosing a different sort on My Wars re-fetches their own Wars in that order
-    Given an authenticated voter who created several Wars
-    When they select "Oldest" from the sort menu
-    Then their own Wars are requested sorted "oldest" first, still scoped to creator=me
+    Given the API lists no Wars
+    And an authenticated voter
+    And they are on My Wars
+    When they choose "Oldest" from the sort menu
+    Then Wars are requested with "creator=me&sort=oldest"
 
   Scenario: A draft War card shows an Edit link
-    Given an authenticated voter who has created a draft War
+    Given the API lists these Wars:
+      | title        | status |
+      | My Draft War | draft  |
+    And an authenticated voter
     When they open My Wars
-    Then the draft War's card shows an Edit link
+    Then the "My Draft War" card shows an Edit link
 
-  Scenario: A draft War card's Edit link is styled as a themed button, not plain text
-    Given an authenticated voter who has created a draft War
+  Scenario: A draft War card's Edit link is styled as a button, not plain text
+    Given the API lists these Wars:
+      | title        | status |
+      | My Draft War | draft  |
+    And an authenticated voter
     When they open My Wars
-    Then the Edit link is styled as a themed button
+    Then the "My Draft War" card's Edit link has a background colour
 
   Scenario: A published War card also shows an Edit link — editing is never status-gated
-    Given an authenticated voter who has created a published War
+    Given the API lists these Wars:
+      | title            | status    |
+      | My Published War | published |
+    And an authenticated voter
     When they open My Wars
-    Then the published War's card shows an Edit link
+    Then the "My Published War" card shows an Edit link

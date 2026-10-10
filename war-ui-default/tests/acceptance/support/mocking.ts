@@ -53,6 +53,13 @@ export async function getCallLog(page: Page): Promise<MswCallLogEntry[]> {
   return page.evaluate(() => window.__mswCallLog ?? [])
 }
 
+// Whether `entry` called `path` with every `name=value` pair of `query`
+// ("creator=me&sort=oldest"), whatever other parameters it also sent.
+export function hasQuery(entry: MswCallLogEntry, path: string, query: string): boolean {
+  const url = new URL(entry.url)
+  return url.pathname === path && [...new URLSearchParams(query)].every(([name, value]) => url.searchParams.get(name) === value)
+}
+
 // A one-shot getCallLog() right after triggering a request races the
 // request itself under load (CI's shared runners, not a local machine,
 // is where this actually shows up) — the click/setInputFiles call resolves
