@@ -6,7 +6,7 @@ import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from '../support/mocking'
-import { ok, reply, voteRecipe } from '../support/recipes'
+import { failWarCalls, ok, reply, voteRecipe } from '../support/recipes'
 import type { PageRef } from '../support/pageNames'
 import type { Side } from '../support/screens'
 
@@ -80,6 +80,13 @@ Given('the {side} contestant has {int} image(s)', async ({ world }, side: Side, 
   contestant(world, side).media = Array.from({ length: count }, (_, i) => buildMediaItem({ id: `${side}-media-${i}`, display_order: i }))
 })
 
+// The expired session surfaces as a 401 on the first request the voter makes,
+// here every call about the next War.
+Given("the voter's session has expired and cannot be refreshed", async ({ world }) => {
+  // Arrange
+  world.queue(...failWarCalls(world.nextWarId(), 401, 'unauthorized'), reply('POST', `${API}/auth/refresh`, 401, { error: 'invalid' }))
+})
+
 Given('the API accepts votes', async ({ world }) => {
   // Arrange
   world.queue(voteRecipe(world.warId, { status: 201, body: { vote_id: 'vote-1' } }))
@@ -141,6 +148,11 @@ When('they reload the page', async ({ page }) => {
 Then('the matchup is shown', async ({ page }) => {
   // Assert
   await expect(page.getByTestId('matchup-view')).toBeVisible()
+})
+
+Then('the page renders in the {string} theme', async ({ page }, theme: string) => {
+  // Assert
+  await expect(page.locator('main')).toHaveAttribute('data-theme', theme)
 })
 
 Then('no vote is submitted', async ({ page }) => {

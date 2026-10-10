@@ -2,6 +2,7 @@
 // fixtures.ts so they are registered before any step file is read.
 import { defineParameterType } from 'playwright-bdd'
 import { PAGES, literalPage, type PageRef } from '../support/pageNames'
+import { PROVIDERS, type Provider } from '../support/providers'
 import { SCREENS, SIDES, type Side } from '../support/screens'
 
 const names = Object.keys(PAGES).map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
@@ -26,4 +27,11 @@ defineParameterType({
   name: 'side',
   regexp: new RegExp(SIDES.join('|')),
   transformer: (text: string): Side => text as Side,
+})
+
+// {provider}: a sign-in provider by its label ("Google", "X").
+defineParameterType({
+  name: 'provider',
+  regexp: new RegExp(PROVIDERS.map((provider) => provider.label).join('|')),
+  transformer: (text: string): Provider => PROVIDERS.find((provider) => provider.label === text)!,
 })
