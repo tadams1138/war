@@ -34,10 +34,10 @@ Feature: Ban a Voter
     Then the Voter's votes and memberships are gone and the counters reflect only the remaining vote
     And the other Voter's War, vote and membership remain
 
-  Scenario: A vote attempt that got past authentication just before the ban is rejected
+  Scenario: The vote service rejects a banned Voter even when a membership remains
     Given an Admin and a Voter who joined a published War
-    And the Admin bans the Voter after the Voter's request authenticated
-    When the Voter's vote attempt reaches the vote service
+    And the Admin bans the Voter and the Voter's membership is restored
+    When the banned Voter's vote reaches the vote service
     Then the vote is rejected as banned and no vote exists
 
   Scenario: Banning revokes every refresh-token family of the Voter
@@ -63,7 +63,7 @@ Feature: Ban a Voter
 
   Scenario: Staff cannot ban themselves
     Given an Admin who owns a War
-    When the Admin bans themself
+    When the Admin bans themselves
     Then the response is 403 and nothing changed and nothing is logged
 
   Scenario: Staff cannot ban other Staff

@@ -5,13 +5,13 @@ Feature: War-creation kill switch
     When the Moderator GETs the kill switch
     Then the response is 200 and the kill switch is off
 
-  Scenario: Staff enabling the kill switch blocks a plain Voter from creating a War
+  Scenario: A plain Voter cannot create a War while the kill switch is on
     Given an Admin and a plain Voter
     When the Admin enables the kill switch
     And the plain Voter POSTs a War
     Then the response is 503 war_creation_disabled and no War exists
 
-  Scenario: Staff are blocked from creating a War while the kill switch is on
+  Scenario: Staff cannot create a War while the kill switch is on
     Given an Admin
     When the Admin enables the kill switch
     And the Admin POSTs a War

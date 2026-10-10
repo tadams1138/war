@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { closeWarForTest, makeDraftWar, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
+import { closeWarForTest, expireWar, makeDraftWar, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { anonymous, getWars } from '../setup/apiClient.js';
@@ -204,14 +204,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  async function expireWar(warId: string): Promise<void> {
-    await harness.db
-      .updateTable('wars')
-      .set({ ends_at: new Date(Date.now() - 60_000) })
-      .where('id', '=', warId)
-      .execute();
-  }
-
   function statusOf(response: request.Response, warId: string): string | undefined {
     return (response.body.wars as { id: string; status: string }[]).find((war) => war.id === warId)?.status;
   }
@@ -227,7 +219,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2, { title: 'Expired Unclosed' });
       await publishWarForTest(harness.db, war);
-      await expireWar(war.id);
+      await expireWar(harness.db, war.id);
       expiredId = war.id;
     });
 
@@ -264,7 +256,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const draft = await makeDraftWar(harness.db, creatorId, { title: 'Expired Draft' });
-      await expireWar(draft.id);
+      await expireWar(harness.db, draft.id);
       expiredDraftId = draft.id;
     });
 

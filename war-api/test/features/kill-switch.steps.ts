@@ -6,6 +6,7 @@ import { makeAdmin, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { getKillSwitch, postWar, putKillSwitch } from '../setup/apiClient.js';
+import { countWars, moderationLog } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/kill-switch.feature', import.meta.url)));
 
@@ -16,14 +17,6 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     await truncateAll();
     harness = await buildTestHarness();
   });
-
-  async function warCount(): Promise<number> {
-    return (await harness.db.selectFrom('wars').selectAll().execute()).length;
-  }
-
-  async function logRows() {
-    return harness.db.selectFrom('moderation_log').selectAll().execute();
-  }
 
   Scenario('The kill switch defaults to off', ({ Given, When, Then }) => {
     let moderatorId: string;
@@ -46,7 +39,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Staff enabling the kill switch blocks a plain Voter from creating a War', ({ Given, When, And, Then }) => {
+  Scenario('A plain Voter cannot create a War while the kill switch is on', ({ Given, When, And, Then }) => {
     let adminId: string;
     let voterId: string;
     let response: request.Response;
@@ -71,11 +64,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(503);
       expect(response.body).toEqual({ error: 'war_creation_disabled' });
-      expect(await warCount()).toBe(0);
+      expect(await countWars(harness.db)).toBe(0);
     });
   });
 
-  Scenario('Staff are blocked from creating a War while the kill switch is on', ({ Given, When, And, Then }) => {
+  Scenario('Staff cannot create a War while the kill switch is on', ({ Given, When, And, Then }) => {
     let adminId: string;
     let response: request.Response;
 
@@ -98,7 +91,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(503);
       expect(response.body).toEqual({ error: 'war_creation_disabled' });
-      expect(await warCount()).toBe(0);
+      expect(await countWars(harness.db)).toBe(0);
     });
   });
 
@@ -131,7 +124,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the response is 201 and one War exists', async () => {
       // Assert
       expect(response.status).toBe(201);
-      expect(await warCount()).toBe(1);
+      expect(await countWars(harness.db)).toBe(1);
     });
   });
 
@@ -214,7 +207,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('a moderation log entry records the Admin enabling the kill switch with no target', async () => {
       // Assert
-      const rows = await logRows();
+      const rows = await moderationLog(harness.db);
       expect(rows).toHaveLength(1);
       expect(rows[0]?.action).toBe('enable_war_creation_kill_switch');
       expect(rows[0]?.staff_voter_id).toBe(adminId);
@@ -243,7 +236,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('a moderation log entry records the Moderator disabling the kill switch with no target', async () => {
       // Assert
-      const rows = (await logRows()).filter((row) => row.action === 'disable_war_creation_kill_switch');
+      const rows = (await moderationLog(harness.db)).filter((row) => row.action === 'disable_war_creation_kill_switch');
       expect(rows).toHaveLength(1);
       expect(rows[0]?.staff_voter_id).toBe(moderatorId);
       expect(rows[0]?.target_voter_id).toBeNull();
@@ -268,7 +261,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the response is 403 and no moderation log entry exists', async () => {
       // Assert
       expect(response.status).toBe(403);
-      expect(await logRows()).toHaveLength(0);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
     });
   });
 
@@ -289,7 +282,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the response is 400 and no moderation log entry exists', async () => {
       // Assert
       expect(response.status).toBe(400);
-      expect(await logRows()).toHaveLength(0);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
     });
   });
 });

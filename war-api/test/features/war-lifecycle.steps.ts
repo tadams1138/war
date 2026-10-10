@@ -2,12 +2,14 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect, vi } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
+import { newId } from '../../src/db/uuid.js';
 import { findWarById } from '../../src/wars/warsRepository.js';
 import { countMatchupsForWar } from '../../src/matchups/matchupsRepository.js';
 import { closeWarForTest, giveContestantAnImage, joinWarAsVoter, makeContestant, makeDraftWar, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { anonymous, as } from '../setup/apiClient.js';
+import { allVotes, matchupsOf, storedObjectKeys } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/war-lifecycle.feature', import.meta.url)));
 
@@ -24,14 +26,9 @@ async function castVoteAsNewVoter(
   await as(harness, voter.id).post(`/api/v1/wars/${warId}/matchups/${matchupId}/vote`, { winner_id: winnerId });
 }
 
-/** Every matchup row for a War, in no particular order. */
-async function matchupsForWar(harness: TestHarness, warId: string) {
-  return harness.db.selectFrom('matchups').selectAll().where('war_id', '=', warId).execute();
-}
-
 /** Casts one vote on every one of a War's matchups, each by a distinct fresh voter, naming contestant A as the winner each time. */
 async function castVoteOnEveryMatchup(harness: TestHarness, warId: string): Promise<void> {
-  const matchups = await matchupsForWar(harness, warId);
+  const matchups = await matchupsOf(harness.db, warId);
   let seed = 0;
   for (const matchup of matchups) {
     seed += 1;
@@ -209,17 +206,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Unpublishing touches no matchup, vote, or contestant', ({ Given, When, Then }) => {
+  Scenario('Unpublishing touches no matchup, vote, or contestant', ({ Given, When, Then, And }) => {
     let warId: string;
     let creatorId: string;
 
-    Given('a published War with 3 contestants', async () => {
+    Given('a published War with 3 contestants and one vote cast', async () => {
       // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       creatorId = creator.id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 3);
       await publishWarForTest(harness.db, war);
       warId = war.id;
+      const [matchup] = await matchupsOf(harness.db, warId);
+      await castVoteAsNewVoter(harness, warId, matchup!.id, matchup!.contestant_a_id, 'voter');
     });
 
     When('the creator POSTs to /api/v1/wars/:id/unpublish', async () => {
@@ -230,6 +229,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the War still has exactly 3 matchups', async () => {
       // Assert
       expect(await countMatchupsForWar(harness.db, warId)).toBe(3);
+    });
+
+    And('the War still has its 3 contestants', async () => {
+      // Assert
+      const contestants = await harness.db.selectFrom('contestants').select('id').where('war_id', '=', warId).execute();
+      expect(contestants).toHaveLength(3);
+    });
+
+    And('the vote is kept', async () => {
+      // Assert
+      expect(await allVotes(harness.db)).toHaveLength(1);
     });
   });
 
@@ -748,7 +758,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       await publishWarForTest(harness.db, war);
       warId = war.id;
       contestantIds = contestants.map((c) => c.id);
-      const matchups = await matchupsForWar(harness, warId);
+      const matchups = await matchupsOf(harness.db, warId);
       matchupIds = matchups.map((m) => m.id);
       await castVoteAsNewVoter(harness, warId, matchupIds[0]!, contestantIds[0]!, 'voter-1');
     });
@@ -817,7 +827,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let otherKeysBefore: string[];
     let response: request.Response;
 
-    const allKeys = () => [...harness.storage.publicObjects.keys(), ...harness.storage.privateObjects.keys()];
+    const allKeys = () => storedObjectKeys(harness.storage);
 
     Given('a War with contestant images and a share image, and another War with images', async () => {
       // Arrange
@@ -884,7 +894,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let removedId: string;
     let otherKeysBefore: string[];
 
-    const allKeys = () => [...harness.storage.publicObjects.keys(), ...harness.storage.privateObjects.keys()];
+    const allKeys = () => storedObjectKeys(harness.storage);
 
     Given('a War with 3 contestants that each have an image', async () => {
       // Arrange
@@ -956,7 +966,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       removedId = contestants[0]!.id;
       survivorAId = contestants[1]!.id;
       survivorBId = contestants[2]!.id;
-      const matchups = await matchupsForWar(harness, warId);
+      const matchups = await matchupsOf(harness.db, warId);
       const survivorMatchup = matchups.find(
         (m) =>
           (m.contestant_a_id === survivorAId || m.contestant_b_id === survivorAId) &&
@@ -1065,12 +1075,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // own published-only gate) is purely to exercise Clear Votes against a
       // draft War that happens to carry vote rows, not to assert anything
       // about how those rows got there.
-      const matchups = await matchupsForWar(harness, warId);
+      const matchups = await matchupsOf(harness.db, warId);
       for (const matchup of matchups) {
         await harness.db
           .insertInto('votes')
           .values({
-            id: crypto.randomUUID(),
+            id: newId(),
             matchup_id: matchup.id,
             voter_id: creatorId,
             winner_id: matchup.contestant_a_id,

@@ -3,16 +3,14 @@ import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { findWarById } from '../../src/wars/warsRepository.js';
-import { joinWarAsVoter, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
+import { expireWar, joinWarAsVoter, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { anonymous, as, listening, withInternalToken } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/war-expiry.feature', import.meta.url)));
 
-async function setEndsAt(harness: TestHarness, warId: string, endsAt: Date | null) {
-  await harness.db.updateTable('wars').set({ ends_at: endsAt }).where('id', '=', warId).execute();
-}
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
 describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   let harness: TestHarness;
@@ -31,7 +29,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
-      await setEndsAt(harness, war.id, new Date(Date.now() - 60_000));
+      await expireWar(harness.db, war.id);
       warId = war.id;
     });
 
@@ -47,7 +45,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Voting is rejected the moment a War expires', ({ Given, When, Then }) => {
+  Scenario('Voting is rejected the moment a War expires', ({ Given, When, Then, And }) => {
     let warId: string;
     let matchupId: string;
     let voterId: string;
@@ -62,7 +60,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const voter = await makeVoter(harness.db, 'voter');
       voterId = voter.id;
       await joinWarAsVoter(harness.db, war.id, voterId);
-      await setEndsAt(harness, war.id, new Date(Date.now() - 1000));
+      await expireWar(harness.db, war.id, 1000);
       warId = war.id;
     });
 
@@ -78,6 +76,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the response status is 403', () => {
       // Assert
       expect(response.status).toBe(403);
+    });
+
+    And('the response reason is "war_not_published"', () => {
+      // Assert
+      expect(response.body.reason).toBe('war_not_published');
     });
   });
 
@@ -105,7 +108,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('The close task materialises the stored status', ({ Given, When, Then, And }) => {
+  Scenario('The close task materializes the stored status', ({ Given, When, Then, And }) => {
     let warId: string;
     let response: request.Response;
 
@@ -114,7 +117,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
-      await setEndsAt(harness, war.id, new Date(Date.now() - 6 * 60 * 60 * 1000));
+      await expireWar(harness.db, war.id, SIX_HOURS_MS);
       warId = war.id;
     });
 
@@ -144,7 +147,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
-      await setEndsAt(harness, war.id, new Date(Date.now() - 6 * 60 * 60 * 1000));
+      await expireWar(harness.db, war.id, SIX_HOURS_MS);
       await harness.app.ready();
       await withInternalToken(harness).post('/api/v1/internal/close-expired-wars');
     });
@@ -174,7 +177,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
       await publishWarForTest(harness.db, war);
-      await setEndsAt(harness, war.id, new Date(Date.now() - 6 * 60 * 60 * 1000));
+      await expireWar(harness.db, war.id, SIX_HOURS_MS);
       warId = war.id;
     });
 
@@ -281,7 +284,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2);
-      await setEndsAt(harness, war.id, new Date(Date.now() - 60_000));
+      await expireWar(harness.db, war.id);
       warId = war.id;
       creatorId = creator.id;
     });

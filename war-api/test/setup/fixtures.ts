@@ -1,22 +1,21 @@
-import { randomUUID } from 'node:crypto';
+import { newId } from '../../src/db/uuid.js';
 import sharp from 'sharp';
 import type { Kysely } from 'kysely';
 import type { Database } from '../../src/db/types.js';
 import { findOrCreateVoter, setVoterRole, type Voter } from '../../src/auth/votersRepository.js';
-import { createWar, setWarStatus, type War } from '../../src/wars/warsRepository.js';
+import { createMembership, createWar, setWarStatus, type War } from '../../src/wars/warsRepository.js';
 import { publishWar } from '../../src/wars/warsService.js';
 import { createContestant, type Contestant } from '../../src/contestants/contestantsRepository.js';
 import { uploadContestantImage } from '../../src/contestants/imageUploadService.js';
 import { generateMatchupsForNewContestant } from '../../src/matchups/matchupsRepository.js';
 import type { ObjectStorage } from '../../src/contestants/storage.js';
-import { createMembership } from '../../src/wars/warsRepository.js';
 
 /** A well-formed id that no seeded row ever has. */
 export const UNKNOWN_ID = '00000000-0000-0000-0000-000000000000';
 
 export async function makeVoter(db: Kysely<Database>, seed: string): Promise<Voter> {
   const { voter } = await findOrCreateVoter(db, 'google', {
-    providerUserId: `${seed}-${randomUUID()}`,
+    providerUserId: `${seed}-${newId()}`,
     displayName: seed,
     avatarUrl: null,
   });
@@ -45,6 +44,7 @@ export interface DraftWarOptions {
   withImages?: boolean;
 }
 
+/** Keeps `makeDraftWar`'s branching low: each `??` would otherwise count towards its cyclomatic complexity. */
 function withDefault<T>(value: T | undefined, fallback: T): T {
   return value ?? fallback;
 }
@@ -128,6 +128,14 @@ export async function publishWarForTest(db: Kysely<Database>, war: War): Promise
 
 export async function joinWarAsVoter(db: Kysely<Database>, warId: string, voterId: string): Promise<void> {
   await createMembership(db, warId, voterId);
+}
+
+/**
+ * Moves a War's end date into the past without closing it, as it stands between
+ * its end date passing and the expiry task running.
+ */
+export async function expireWar(db: Kysely<Database>, warId: string, agoMs = 60_000): Promise<void> {
+  await db.updateTable('wars').set({ ends_at: new Date(Date.now() - agoMs) }).where('id', '=', warId).execute();
 }
 
 /** Marks a War closed, as the expiry task does once its end date has passed. */

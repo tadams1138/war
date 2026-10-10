@@ -13,17 +13,17 @@ Feature: Abuse reporting
     Then both requests succeed
     And two separate reports exist against that War
 
-  Scenario: An empty explanation is rejected
+  Scenario Outline: An explanation of the wrong length is rejected
     Given an authenticated Voter and a War
-    When they POST an empty-string explanation to that War's reports
+    When they POST an explanation of <length> characters to that War's reports
     Then the response status is 422
     And no report is created
 
-  Scenario: An overly long explanation is rejected
-    Given an authenticated Voter and a War
-    When they POST an explanation longer than 1000 characters to that War's reports
-    Then the response status is 422
-    And no report is created
+    # The limit is 1 to 1000 characters: empty, and one past the maximum.
+    Examples:
+      | length |
+      | 0      |
+      | 1001   |
 
   Scenario: Reporting a nonexistent War 404s
     Given an authenticated Voter

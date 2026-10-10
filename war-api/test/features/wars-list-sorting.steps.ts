@@ -10,7 +10,7 @@ import { getWars } from '../setup/apiClient.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/wars-list-sorting.feature', import.meta.url)));
 
-describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
+describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => {
   let harness: TestHarness;
 
   BeforeEachScenario(async () => {
@@ -37,7 +37,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     return { id: published.id, title: published.title };
   }
 
-  Scenario('Newest sort (the default) orders Wars by creation time, most recent first', ({ Given, When, Then, And }) => {
+  ScenarioOutline('Creation-time sorts order Wars by when they were created', ({ Given, When, Then, And }, variables) => {
     let response: request.Response;
 
     Given('published Wars were created in order: "First War", "Second War", "Third War"', async () => {
@@ -47,42 +47,21 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       await publishWarWithOptions('creator-third', { title: 'Third War' });
     });
 
-    When('anyone GETs /api/v1/wars', async () => {
+    When('anyone GETs /api/v1/wars<query>', async () => {
       // Act
-      response = await getWars(harness, '');
+      response = await getWars(harness, variables.query as string);
     });
 
-    Then('the Wars are returned in the order "Third War", "Second War", "First War"', () => {
+    Then('the Wars are returned in the order <order>', () => {
       // Assert
+      const expectedTitles = (variables.order as string).split(', ').map((quoted) => quoted.replaceAll('"', ''));
       expect(response.status).toBe(200);
-      expect(titlesOf(response)).toEqual(['Third War', 'Second War', 'First War']);
+      expect(titlesOf(response)).toEqual(expectedTitles);
     });
 
     And('next_cursor is null', () => {
       // Assert
       expect(response.body.next_cursor).toBeNull();
-    });
-  });
-
-  Scenario('Oldest sort orders Wars by creation time, earliest first', ({ Given, When, Then }) => {
-    let response: request.Response;
-
-    Given('published Wars were created in order: "First War", "Second War", "Third War"', async () => {
-      // Arrange
-      await publishWarWithOptions('creator-first', { title: 'First War' });
-      await publishWarWithOptions('creator-second', { title: 'Second War' });
-      await publishWarWithOptions('creator-third', { title: 'Third War' });
-    });
-
-    When('anyone GETs /api/v1/wars?sort=oldest', async () => {
-      // Act
-      response = await getWars(harness, '?sort=oldest');
-    });
-
-    Then('the Wars are returned in the order "First War", "Second War", "Third War"', () => {
-      // Assert
-      expect(response.status).toBe(200);
-      expect(titlesOf(response)).toEqual(['First War', 'Second War', 'Third War']);
     });
   });
 

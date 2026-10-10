@@ -1,15 +1,15 @@
 Feature: Wars List Sorting and Pagination
 
-  Scenario: Newest sort (the default) orders Wars by creation time, most recent first
+  Scenario Outline: Creation-time sorts order Wars by when they were created
     Given published Wars were created in order: "First War", "Second War", "Third War"
-    When anyone GETs /api/v1/wars
-    Then the Wars are returned in the order "Third War", "Second War", "First War"
+    When anyone GETs /api/v1/wars<query>
+    Then the Wars are returned in the order <order>
     And next_cursor is null
 
-  Scenario: Oldest sort orders Wars by creation time, earliest first
-    Given published Wars were created in order: "First War", "Second War", "Third War"
-    When anyone GETs /api/v1/wars?sort=oldest
-    Then the Wars are returned in the order "First War", "Second War", "Third War"
+    Examples:
+      | query        | order                                  |
+      |              | "Third War", "Second War", "First War" |
+      | ?sort=oldest | "First War", "Second War", "Third War" |
 
   Scenario: Alphabetical sort orders titled Wars before an untitled War, sorted by title
     Given published Wars, created out of title order: an untitled War, then "Zebra Pageant", then "Apple Pageant"

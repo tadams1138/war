@@ -21,15 +21,16 @@ import { rankingsResponseSchema, type RankingsView } from '../../src/rankings/ra
  * compile time until the fixture -- and by extension the schema under
  * test -- catches up.
  */
-function buildProbeApp(schema: object, fixture: unknown) {
+async function serialize(schema: object, fixture: unknown): Promise<string> {
   const app = Fastify();
   registerSharedSchemas(app);
   app.get('/probe', { schema: { response: { 200: schema } } }, async () => fixture);
-  return app;
+  const response = await app.inject({ method: 'GET', url: '/probe' });
+  return response.body;
 }
 
 describe('response body schemas serialize every field', () => {
-  it('MediaItem: every field, non-null aspect_ratio', async () => {
+  it('MediaItemView: every field, non-null aspect_ratio', async () => {
     // Arrange
     const fixture: MediaItemView = {
       kind: 'image',
@@ -38,16 +39,15 @@ describe('response body schemas serialize every field', () => {
       aspect_ratio: 1.5,
       variants: [{ width: 400, url: 'https://cdn.example.com/x-400.webp' }],
     };
-    const app = buildProbeApp(mediaItemSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(mediaItemSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
-  it('MediaItem: null aspect_ratio and empty variants survive', async () => {
+  it('MediaItemView: null aspect_ratio and empty variants survive', async () => {
     // Arrange
     const fixture: MediaItemView = {
       kind: 'image',
@@ -56,16 +56,15 @@ describe('response body schemas serialize every field', () => {
       aspect_ratio: null,
       variants: [],
     };
-    const app = buildProbeApp(mediaItemSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(mediaItemSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
-  it('WarSummary: every field, non-null category/ends_at', async () => {
+  it('WarSummaryView: every field, non-null category/ends_at', async () => {
     // Arrange
     const fixture: WarSummaryView = {
       id: 'a5b1e2c4-2222-4a11-8a11-000000000001',
@@ -80,16 +79,15 @@ describe('response body schemas serialize every field', () => {
       share_image_url: 'https://cdn.test/share-images/a5b1e2c4-2222-4a11-8a11-000000000001.jpg',
       creator_name: 'Creator Name',
     };
-    const app = buildProbeApp(warSummarySchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(warSummarySchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
-  it('WarSummary: null category/ends_at survive', async () => {
+  it('WarSummaryView: null category/ends_at survive', async () => {
     // Arrange
     const fixture: WarSummaryView = {
       id: 'a5b1e2c4-2222-4a11-8a11-000000000002',
@@ -104,16 +102,15 @@ describe('response body schemas serialize every field', () => {
       share_image_url: null,
       creator_name: null,
     };
-    const app = buildProbeApp(warSummarySchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(warSummarySchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
-  it('ContestantDetail: every field, non-null bio, nested media', async () => {
+  it('ContestantDetailView: every field, non-null bio, nested media', async () => {
     // Arrange
     const fixture: ContestantDetailView = {
       id: 'a5b1e2c4-3333-4a11-8a11-000000000001',
@@ -131,16 +128,15 @@ describe('response body schemas serialize every field', () => {
       win_count: 3,
       appearance_count: 5,
     };
-    const app = buildProbeApp(contestantDetailSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(contestantDetailSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
-  it('ContestantDetail: null bio and empty media survive', async () => {
+  it('ContestantDetailView: null bio and empty media survive', async () => {
     // Arrange
     const fixture: ContestantDetailView = {
       id: 'a5b1e2c4-3333-4a11-8a11-000000000003',
@@ -150,13 +146,12 @@ describe('response body schemas serialize every field', () => {
       win_count: 0,
       appearance_count: 0,
     };
-    const app = buildProbeApp(contestantDetailSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(contestantDetailSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
   it('NextMatchupView: prefetch present', async () => {
@@ -172,13 +167,12 @@ describe('response body schemas serialize every field', () => {
       progress: { voted: 2, total: 10 },
       prefetch: { matchup_id: 'a5b1e2c4-4444-4a11-8a11-000000000008', media: [] },
     };
-    const app = buildProbeApp(nextMatchupResponseSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(nextMatchupResponseSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
   it('NextMatchupView: prefetch absent (every pair already voted)', async () => {
@@ -193,49 +187,45 @@ describe('response body schemas serialize every field', () => {
       matchup: { id: 'a5b1e2c4-5555-4a11-8a11-000000000009', left: contestant('1'), right: contestant('2') },
       progress: { voted: 10, total: 10 },
     };
-    const app = buildProbeApp(nextMatchupResponseSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(nextMatchupResponseSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
   it('VoteForbiddenView: war_not_published', async () => {
     // Arrange
     const fixture: VoteForbiddenView = { error: 'War is not published', reason: 'war_not_published' };
-    const app = buildProbeApp(voteForbiddenResponseSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(voteForbiddenResponseSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
   it('VoteForbiddenView: not_joined', async () => {
     // Arrange
     const fixture: VoteForbiddenView = { error: 'voter has not joined this War', reason: 'not_joined' };
-    const app = buildProbeApp(voteForbiddenResponseSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(voteForbiddenResponseSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
-  it('OAuthDeclinedView: an arbitrary provider-supplied reason survives verbatim (spec: not a closed enum)', async () => {
+  it('OAuthDeclinedView: an arbitrary provider-supplied reason survives verbatim', async () => {
     // Arrange
     const fixture: OAuthDeclinedView = { error: 'authorization declined', reason: 'temporarily_unavailable' };
-    const app = buildProbeApp(oauthDeclinedResponseSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(oauthDeclinedResponseSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 
   it('RankingsView: a ranked and an unranked entry, every field intact', async () => {
@@ -276,13 +266,12 @@ describe('response body schemas serialize every field', () => {
         },
       ],
     };
-    const app = buildProbeApp(rankingsResponseSchema, fixture);
 
     // Act
-    const response = await app.inject({ method: 'GET', url: '/probe' });
+    const body = await serialize(rankingsResponseSchema, fixture);
 
     // Assert
-    expect(response.body).toBe(JSON.stringify(fixture));
+    expect(body).toBe(JSON.stringify(fixture));
   });
 });
 

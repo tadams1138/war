@@ -10,6 +10,7 @@ import { makeAdmin, makeDraftWar, makeModerator, makeVoter } from '../setup/fixt
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { putRole } from '../setup/apiClient.js';
+import { moderationLog } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/moderation-log.feature', import.meta.url)));
 
@@ -33,7 +34,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       targetId = target.id;
     });
 
-    When('the Admin PUTs granted true for the moderator role on that Voter', async () => {
+    When('the Admin grants the moderator role to that Voter', async () => {
       // Act
       await putRole(harness, adminId, targetId, 'moderator', true);
     });
@@ -59,7 +60,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       targetId = target.id;
     });
 
-    When('the Admin PUTs granted false for the moderator role on that Voter', async () => {
+    When('the Admin revokes the moderator role from that Voter', async () => {
       // Act
       await putRole(harness, adminId, targetId, 'moderator', false);
     });
@@ -82,7 +83,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       adminId = (await makeAdmin(harness.db, 'admin')).id;
     });
 
-    When('the Admin PUTs granted false for the admin role on themselves', async () => {
+    When('the Admin revokes the admin role from themselves', async () => {
       // Act
       response = await putRole(harness, adminId, adminId, 'admin', false);
     });
@@ -90,7 +91,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('no moderation log entry exists', async () => {
       // Assert
       expect(response.status).toBe(403);
-      const rows = await harness.db.selectFrom('moderation_log').selectAll().execute();
+      const rows = await moderationLog(harness.db);
       expect(rows).toHaveLength(0);
     });
   });

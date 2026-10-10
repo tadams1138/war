@@ -1,4 +1,4 @@
-Feature: Image Processing
+Feature: Contestant image processing
 
   Scenario: Uploaded images are re-encoded into variants
     Given a 10MB JPEG uploaded for a contestant
