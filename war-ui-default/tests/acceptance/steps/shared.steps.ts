@@ -1,12 +1,13 @@
 // Steps whose text and behaviour are identical in every converted feature.
 // Feature-specific steps live in <feature>.steps.ts, scoped by feature tag
 // (see create-war.steps.ts); anything here must stay unscoped and generic.
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
 import type { WarSummary } from '../../../src/api/client'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { me } from '../support/adminFixtures'
+import { contestantFrom, warDetail } from '../support/editWar'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario, votesSubmitted, waitForCallLog } from '../support/mocking'
 import { contestantCard, dots, expectSignedOut, matchupCard, nav, nextArrow, sortMenu } from '../support/pages'
 import { createdWar, failWarCalls, ok, queueCreation, queueListedWars, reply, voteRecipe } from '../support/recipes'
@@ -17,6 +18,7 @@ import type { Side } from '../support/screens'
 const { Given, When, Then } = createBdd(test)
 
 type WarTheme = NonNullable<Parameters<typeof buildWarDetail>[0]>['theme']
+type WarStatus = NonNullable<Parameters<typeof buildWarDetail>[0]>['status']
 
 async function boot(page: Page, world: World): Promise<void> {
   if (world.booted) return
@@ -59,6 +61,21 @@ Given('an authenticated {role}', async ({ page, world }, role: RoleFlags) => {
 Given('a(nother) War', async ({ world }) => {
   // Arrange
   queueWar(world, {})
+})
+
+Given('a(nother) {status} War', async ({ world }, status: WarStatus) => {
+  // Arrange
+  queueWar(world, { status })
+})
+
+// One row per contestant: name and optionally "bio", "images" (a count, one by
+// default) and "votes" (those cast on its matchups, none by default). They
+// replace the War's default contestant.
+Given('that War has contestants:', async ({ world }, table: DataTable) => {
+  // Arrange
+  const war = warDetail(world)
+  war.contestants = table.hashes().map((row) => contestantFrom(war.id, row))
+  war.contestant_count = war.contestants.length
 })
 
 Given('a(nother) War themed {string}', async ({ world }, theme: string) => {
@@ -207,16 +224,45 @@ Then('no confirmation is shown', async ({ page }) => {
   await expect(confirmation(page)).toHaveCount(0)
 })
 
-Then(/^the "([^"]*)" button is (shown|hidden)$/, async ({ page }, name: string, state: string) => {
+const BUTTON_STATES: Record<string, (button: Locator) => Promise<void>> = {
+  shown: (button) => expect(button).toBeVisible(),
+  hidden: (button) => expect(button).toHaveCount(0),
+  enabled: async (button) => {
+    await expect(button).toBeVisible()
+    await expect(button).toBeEnabled()
+  },
+  disabled: async (button) => {
+    await expect(button).toBeVisible()
+    await expect(button).toBeDisabled()
+  },
+}
+
+Then(/^the "([^"]*)" button is (shown|hidden|enabled|disabled)$/, async ({ page }, name: string, state: string) => {
   // Assert
-  const button = page.getByRole('button', { name, exact: true })
-  if (state === 'shown') await expect(button).toBeVisible()
-  else await expect(button).toHaveCount(0)
+  await BUTTON_STATES[state]!(page.getByRole('button', { name, exact: true }))
 })
 
 Then('the message {string} is shown', async ({ page }, message: string) => {
   // Assert
   await expect(page.getByText(message, { exact: true })).toBeVisible()
+})
+
+Then('the message {string} is not shown', async ({ page }, message: string) => {
+  // Assert
+  await expect(page.getByText(message, { exact: true })).toHaveCount(0)
+})
+
+// Every error the app shows is an alert (a wait is a status, never an alert).
+Then('an error is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByRole('alert')).toBeVisible()
+})
+
+Then('a wait is shown, using the supplied delay, not an error', async ({ page, world }) => {
+  // Assert
+  const wait = page.getByRole('status').filter({ hasText: 'Slow down a moment' })
+  await expect(wait).toHaveText(`Slow down a moment — try again in ${world.retryAfterSeconds}s`)
+  await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
 Then('the matchup is shown', async ({ page }) => {

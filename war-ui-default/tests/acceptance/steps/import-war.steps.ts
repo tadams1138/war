@@ -61,11 +61,6 @@ Then('a new draft War is created from it', async ({ page }) => {
   expect(posted(log, `/wars/${WAR_ID}/contestants`)).toEqual([expect.objectContaining({ name: exported.contestants[0]!.name })])
 })
 
-Then('an error is shown', async ({ page }) => {
-  // Assert
-  await expect(page.getByTestId('import-war-error')).toBeVisible()
-})
-
 Then('no War is created', async ({ page }) => {
   // Assert
   const postCalls = (await getCallLog(page)).filter((entry) => entry.method === 'POST')

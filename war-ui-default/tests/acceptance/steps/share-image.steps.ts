@@ -49,11 +49,6 @@ When('they generate a share image again', async ({ page, world }) => {
   await generate(page).click()
 })
 
-When('they click Save', async ({ page }) => {
-  // Act
-  await page.getByTestId('edit-war-metadata-submit').click()
-})
-
 Then('a share image preview is shown', async ({ page }) => {
   // Assert
   await expect(preview(page)).toBeVisible()

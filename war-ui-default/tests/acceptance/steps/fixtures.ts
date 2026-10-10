@@ -2,6 +2,7 @@
 // per-scenario state steps share: Given steps queue API recipes, and the
 // first navigation boots the app with them (recipes must be seeded before
 // page.goto, see support/mocking.ts useScenario).
+import type { Download } from '@playwright/test'
 import { test as base } from 'playwright-bdd'
 import type { NextMatchupResponse, WarSummary } from '../../../src/api/client'
 import type { HandlerRecipe, RecipeResponse } from '../../../src/mocks/scenarios'
@@ -35,6 +36,10 @@ export class World {
   // resolves against it. Voters are numbered voter-2, voter-3, ... in the order
   // given: voter-1 is the signed-in voter (the baseline GET /auth/me).
   voterId = ''
+  // The wait the API asked for ("rate limits a request ... for 1 second").
+  retryAfterSeconds = 0
+  // Every file the page offered to download, in order.
+  readonly downloads: Download[] = []
   private warCount = 0
   private voterCount = 1
 
@@ -64,6 +69,7 @@ export const test = base.extend<{ world: World }>({
   world: async ({ page }, use) => {
     const world = new World()
     page.on('request', (request) => world.requestedUrls.push(request.url()))
+    page.on('download', (download) => world.downloads.push(download))
     await use(world)
   },
 })

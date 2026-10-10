@@ -23,7 +23,7 @@ Feature: Create War
     Given the API rejects the first creation request, then accepts the retry
     And an authenticated voter
     When they open the Start a War page
-    Then an error message is shown
+    Then an error is shown
     And a retry control is offered
     When they use the retry control
     Then they are redirected to that War's Edit page

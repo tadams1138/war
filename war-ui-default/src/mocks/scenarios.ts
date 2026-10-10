@@ -14,6 +14,9 @@ export interface RecipeResponse {
   // Answers with the JSON body the request carried (a PUT that returns what
   // it was asked to set), instead of `body`.
   echoRequest?: boolean
+  // Answers with `body` updated by the JSON body the request carried (a PATCH
+  // that returns the record as it now reads).
+  mergeRequest?: boolean
 }
 
 export interface HandlerRecipe {
@@ -59,8 +62,10 @@ function buildHandler(recipe: HandlerRecipe): RequestHandler {
   })
 }
 
-function bodyOf(response: RecipeResponse, request: Request): Promise<unknown> | unknown {
-  return response.echoRequest ? request.json() : response.body
+async function bodyOf(response: RecipeResponse, request: Request): Promise<unknown> {
+  if (response.echoRequest) return request.json()
+  if (response.mergeRequest) return { ...(response.body as object), ...(await request.json()) }
+  return response.body
 }
 
 async function respond(response: RecipeResponse, request: Request): Promise<Response> {

@@ -15,9 +15,11 @@ export function recipeFor(world: World, path: string): HandlerRecipe {
   return recipe
 }
 
-// The API's Staff detail of the War or Voter in scope.
-export function detailRecipe(world: World, record: 'war' | 'voter'): HandlerRecipe {
-  return recipeFor(world, record === 'war' ? `/admin/wars/${world.warId}` : `/admin/voters/${world.voterId}`)
+// The API's detail of the War or Voter in scope: for Staff, or (an "edited
+// war") the War as its creator sees it.
+export function detailRecipe(world: World, record: 'war' | 'voter' | 'edited war'): HandlerRecipe {
+  const paths = { war: `/admin/wars/${world.warId}`, voter: `/admin/voters/${world.voterId}`, 'edited war': `/wars/${world.warId}` }
+  return recipeFor(world, paths[record])
 }
 
 const CREATOR = 'Casey Creator'

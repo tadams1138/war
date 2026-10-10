@@ -9,7 +9,7 @@ Feature: Share Image
     And they choose a share image file
     Then a share image preview is shown
     And no share image has been uploaded
-    When they click Save
+    When they select the "Save" button
     Then the share image is uploaded to that War
 
   Scenario: Generating a share image doesn't take effect until Save is clicked, and can be re-rolled
@@ -23,7 +23,7 @@ Feature: Share Image
     When they generate a share image again
     Then a fresh share image preview is shown
     And no share image has been uploaded
-    When they click Save
+    When they select the "Save" button
     Then the share image is uploaded to that War
 
   Scenario: Generate is disabled with an explanation when fewer than two contestants have an image

@@ -1,6 +1,6 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 15 of 17 feature files converted (187 of 286
+**Status as of 2026-10-10: in progress, paused. 16 of 17 feature files converted (242 of 286
 acceptance tests).** Nothing is half-done: every feature is either fully converted or
 untouched, and the whole suite passes.
 
@@ -24,8 +24,8 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters` | 187 | Steps executed by playwright-bdd |
-| Not converted | the 2 in the backlog | 99 | Scenario title must equal a Playwright test title |
+| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war` | 242 | Steps executed by playwright-bdd |
+| Not converted | the 1 in the backlog | 44 | Scenario title must equal a Playwright test title |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
 `npm run test:acceptance`.
@@ -43,9 +43,9 @@ All paths are under `war-ui-default/`.
 | `tests/acceptance/steps/shared-nav.steps.ts` | Untagged steps for the header's identity menu and name |
 | `tests/acceptance/steps/shared-calls.steps.ts` | Untagged steps for the API calls the app makes, named with `{call}` (`support/calls.ts`) |
 | `tests/acceptance/steps/shared-lists.steps.ts` | Untagged steps for the Staff lists, named with `{list}` (`support/lists.ts`) |
-| `tests/acceptance/steps/parameters.ts` | Custom parameter types (`{page}`), registered by `fixtures.ts` |
+| `tests/acceptance/steps/parameters.ts` | Custom parameter types (`{page}`, `{role}`, `{call}`, `{field}`, `{status}`, ...), registered by `fixtures.ts` |
 | `tests/acceptance/steps/<feature>.steps.ts` | One feature's steps, scoped by that feature's tag |
-| `tests/acceptance/support/` | Helpers shared by steps and specs: `mocking.ts`, `recipes.ts`, `pages.ts`, `pageNames.ts`, `lists.ts`, `calls.ts`, `staffRecords.ts`, `adminFixtures.ts`, `exportArchive.ts` |
+| `tests/acceptance/support/` | Helpers shared by steps and specs: `mocking.ts`, `recipes.ts`, `pages.ts`, `pageNames.ts`, `lists.ts`, `calls.ts`, `fields.ts`, `editWar.ts`, `staffRecords.ts`, `adminFixtures.ts`, `exportArchive.ts` |
 | `tests/bindings/featureBindings.ts` | The title check. Still enforced for every feature *not* in `CONVERTED_FEATURES`; for a converted feature it reports a leftover spec file |
 | `.features-gen/` | Generated tests. Ignored by git, ESLint and Vitest. Never edit |
 
@@ -97,7 +97,7 @@ Rules:
 9. **Mark each step's phase** with one comment, as `war-api` does: `// Arrange` in a Given,
    `// Act` in a When, `// Assert` in a Then.
 10. **Keep `World` small.** Add a field to the `World` class in `fixtures.ts` only for state
-    that a later step really needs (today: `warId`, `voterId`, `matchupResponse` (and its `matchupCalls`), `listedWars`, `previousPreview`, `requestOutcomes`, `requestedUrls`, and the `booted`/`signedIn` flags).
+    that a later step really needs (today: `warId`, `voterId`, `matchupResponse` (and its `matchupCalls`), `listedWars`, `previousPreview`, `requestOutcomes`, `requestedUrls`, `retryAfterSeconds`, `downloads`, and the `booted`/`signedIn` flags).
 
 ### Shared vocabulary
 
@@ -110,7 +110,8 @@ Rules:
 | `Given a War themed {string}` / `Given another War themed {string}` | Queues the War's detail. Wars are numbered `war-1`, `war-2`, ...; "that War" is the latest given |
 | `Given the API lists these Wars:` (table: `title`, `status`, optional `category`, `contestants`, `share image`) | Queues `GET /wars` and each War's detail. Numbered like the other Wars, so "that War" is the last row. `world.listedWars` keeps them |
 | `Given the API accepts a share image upload` / `Then the share image is uploaded to that War` | Queues, and asserts, `POST` of that War's share image |
-| `Given a(nother) War` | Queues a default War's detail (numbering as above) |
+| `Given a(nother) War` / `Given a(nother) {status} War` | Queues a default War's detail (numbering as above); `{status}` is `draft`, `published` or `closed` (a plain `a War` is published). It is the War as its creator sees it (`GET /wars/:id`) |
+| `Given that War has contestants:` (table: `name`, optional `bio`, `images` (default 1), `votes` (default 0)) | Replaces that War's default contestant. A contestant is addressed by its name (`support/editWar.ts`), its images by position |
 | `When they select the {string} button` | Clicks the button with that name |
 | `When they reload the page` | Reloads (drops an in-memory session) |
 | `Given a {screen} screen` | Sets the viewport to a size named in `support/screens.ts` (`phone`, `desktop`). Add sizes there |
@@ -135,11 +136,12 @@ Rules:
 | `Then {page} is shown` / `Then they are redirected to {page}` | Asserts the path, and the page's landmark when it has one. `that War's results page` is `that War's detail page`; `the Admin Dashboard` and `that War's Staff detail page` are the Staff pages |
 | `Then they are redirected to the login page with returnTo {page}` | Asserts `/login?returnTo=<path>` |
 | `Then a confirmation is shown` / `Then no confirmation is shown` / `Then the confirmation says {string}` / `When they confirm` / `When they cancel` | The alert dialog every dangerous action asks first (Kill switch, Remove War, ...) |
-| `Then the "<name>" button is shown` / `is hidden` | A button with that name is visible / absent |
-| `Then the message {string} is shown` | That exact text is visible (an error, usually) |
+| `Then the "<name>" button is shown` / `is hidden` / `is enabled` / `is disabled` | A button with that name is visible / absent / visible and enabled / visible and disabled |
+| `Then the message {string} is shown` / `is not shown` | That exact text is visible (an error, usually) / absent |
+| `Then an error is shown` / `Then a wait is shown, using the supplied delay, not an error` | Every error is an alert and a wait is a status (spec §10.5). The wait's delay is `world.retryAfterSeconds` |
 | `When they select {string} in {list}` / `When they filter {list} by {string}` / `When they search {list} for {string}` | A Staff list row's link, its status filter (by label), its search box. `{list}` is a name in `support/lists.ts`: `the Wars list`, `the Voters list`, `the vote history`, `the Voter's Wars`, `the unaddressed reports queue`, `the moderation log` |
-| `Given the API accepts a request to {call}` / `refuses a request to {call}` / `fails a request to {call} with a server error` / `Given the target of a request to {call} does not exist` | Queues the answer to a write. `{call}` is a name in `support/calls.ts` (`remove that War`, `suspend that Voter`, `ban that Voter`, `grant that Voter the Moderator role`, ...). Accepting also queues how the changed record then reads (a suspended Voter, a removed War) as the next answer of its Staff detail |
-| `Then the API has been asked to {call}` / `has not been asked to {call}` / `Then {call} was/were requested {int} time(s)` | Exactly once, with the body the call carries / never / a read counted (`that War's Staff detail`, `that War's reports`, `that Voter's Staff detail`, `the current Voter's identity`) |
+| `Given the API accepts a request to {call}` / `refuses a request to {call}` / `rejects a request to {call}`( `, saying {string}`) / `fails a request to {call} with a server error` / `rate limits a request to {call} for {int} second(s)` / `Given the target of a request to {call} does not exist` | Queues the answer to a write. `{call}` is a name in `support/calls.ts` (`remove that War`, `suspend that Voter`, `save that War's details`, `publish that War`, ...). A call about one contestant ends with its name in quotes (`remove the contestant "Ada"`, `add an image to the contestant "Ada"`). Accepting also queues how the changed record then reads (a suspended Voter, a removed War, a War with another image) as the next answer of its detail; a PATCH answers with the record merged with the request (`mergeRequest`) |
+| `Then the API has been asked to {call}` / `... {call} with:` (table: a `{field}` and the value it was given) / `has not been asked to {call}` / `Then {call} was/were requested {int} time(s)` | Exactly once, with the body the call carries (and the fields given) / never / a read counted (`that War's Staff detail`, `that War's reports`, `that Voter's Staff detail`, `the current Voter's identity`) |
 | `Then no Staff detail is shown` | Neither Staff detail page (a War's, a Voter's) rendered |
 | `Then {list} shows only {string}` / `Then {list} shows, in order:` (one name per row) | The rows' first links, exactly |
 | `Then {list} was last requested for the {string} filter` / `was requested {int} time(s)` / `was searched exactly once, for {string}` / `Then the next page of {list} was requested from where the first page ended` | What the list asked the API for |
@@ -186,10 +188,9 @@ are the hand-written spec's line count on 2026-10-10.
 
 | Order | Feature | Scenarios | Spec lines | Notes |
 |---|---|---|---|---|
-| 1 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
-| 2 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
+| 1 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
 
-Total remaining: 99 scenarios, about 2,199 spec lines. The two converted features grew by about 27% (208 spec lines became 264
+Total remaining: 44 scenarios, about 1,131 spec lines. The two converted features grew by about 27% (208 spec lines became 264
 lines of steps and helpers), so expect roughly 7,000 to 8,000 lines of steps. That estimate
 comes from two small features only.
 

@@ -58,7 +58,7 @@ Feature: Admin Dashboard Wars
     And the "Load more" button is hidden
 
   Scenario: Opening a War shows its Staff detail with contestants and reports
-    Given a published War titled "Alpha War"
+    Given the API lists a published War titled "Alpha War" to Staff
     And that War has these contestants:
       | name   | wins | appearances |
       | Rocky  | 7    | 10          |
@@ -76,7 +76,7 @@ Feature: Admin Dashboard Wars
     And its reports are shown with their explanation and addressed state
 
   Scenario: Marking a report addressed and unaddressed
-    Given a published War
+    Given the API lists a published War to Staff
     And that War has an unaddressed report
     And the API accepts changes to that War's reports
     And an authenticated Staff member
@@ -89,7 +89,7 @@ Feature: Admin Dashboard Wars
     And the report is shown as unaddressed
 
   Scenario: A failed report update shows an error and leaves the report unchanged
-    Given a published War
+    Given the API lists a published War to Staff
     And that War has an unaddressed report
     And changing that War's reports fails with a server error
     And an authenticated Staff member
@@ -99,7 +99,7 @@ Feature: Admin Dashboard Wars
     And the report is shown as unaddressed
 
   Scenario: Marking a report addressed when the report is gone says it no longer exists
-    Given a published War
+    Given the API lists a published War to Staff
     And that War has an unaddressed report
     And changing that War's reports finds no such report
     And an authenticated Staff member
@@ -109,7 +109,7 @@ Feature: Admin Dashboard Wars
     And the report is shown as unaddressed
 
   Scenario: Removing a War requires confirmation
-    Given a published War
+    Given the API lists a published War to Staff
     And the API accepts a request to remove that War
     And an authenticated Staff member
     And they are on that War's Staff detail page
@@ -125,7 +125,7 @@ Feature: Admin Dashboard Wars
     And the "Remove War" button is hidden
 
   Scenario: Cancelling the removal confirmation does nothing
-    Given a published War
+    Given the API lists a published War to Staff
     And the API accepts a request to remove that War
     And an authenticated Staff member
     And they are on that War's Staff detail page
@@ -137,7 +137,7 @@ Feature: Admin Dashboard Wars
     And the "Remove War" button is shown
 
   Scenario: A failed removal shows an error
-    Given a published War
+    Given the API lists a published War to Staff
     And the target of a request to remove that War does not exist
     And an authenticated Staff member
     And they are on that War's Staff detail page
@@ -147,7 +147,7 @@ Feature: Admin Dashboard Wars
     And the War is not shown as Removed
 
   Scenario: A removed War's detail offers no Remove action and requests no reports
-    Given a removed War
+    Given the API lists a removed War to Staff
     And an authenticated Staff member
     When they open that War's Staff detail page
     Then the War is shown as Removed
@@ -177,7 +177,7 @@ Feature: Admin Dashboard Wars
     Then the unaddressed reports queue says nothing is waiting
 
   Scenario: A plain Voter cannot reach a War's Staff detail
-    Given a published War
+    Given the API lists a published War to Staff
     And an authenticated voter
     When they open that War's Staff detail page
     Then they are redirected to Home
