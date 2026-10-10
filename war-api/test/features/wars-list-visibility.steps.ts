@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { closeWarForTest, makeDraftWar, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
+import { closeWarForTest, expireWar, makeDraftWar, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { getWars } from '../setup/apiClient.js';
@@ -128,11 +128,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     const creator = await makeVoter(harness.db, 'creator');
     const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { title });
     await publishWarForTest(harness.db, war);
-    await harness.db
-      .updateTable('wars')
-      .set({ ends_at: new Date(Date.now() - 60_000) })
-      .where('id', '=', war.id)
-      .execute();
+    await expireWar(harness.db, war.id);
     return war.id;
   }
 
@@ -197,7 +193,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Given('a voter has created a public draft War whose end date passed a minute ago', async () => {
       // Arrange
       const creator = await makeVoter(harness.db, 'creator');
-      const draft = await makeDraftWar(harness.db, creator.id, { title: 'Expired Draft', endsAt: new Date(Date.now() - 60_000) });
+      const draft = await makeDraftWar(harness.db, creator.id, { title: 'Expired Draft' });
+      await expireWar(harness.db, draft.id);
       draftWarId = draft.id;
     });
 

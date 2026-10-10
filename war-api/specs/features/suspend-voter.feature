@@ -8,7 +8,7 @@ Feature: Suspend a Voter
 
   Scenario: Staff cannot suspend themselves
     Given a Moderator
-    When the Moderator suspends themself
+    When the Moderator suspends themselves
     Then the response is 403 and the Moderator is not suspended and nothing is logged
 
   Scenario: Staff cannot suspend other Staff

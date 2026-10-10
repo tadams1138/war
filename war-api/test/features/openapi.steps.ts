@@ -3,7 +3,7 @@ import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { Validator } from '@seriousme/openapi-schema-validator';
-import { buildAppWithoutDb, type NoDbHarness } from '../setup/testAppNoDb.js';
+import { buildAppWithoutDb, type NoDbHarness } from '../setup/testAppWithoutDb.js';
 import { listRegisteredRoutes, type RegisteredRoute } from '../setup/routeTree.js';
 import { anonymous } from '../setup/apiClient.js';
 

@@ -9,13 +9,14 @@ Feature: War Expiry
     Given a published War whose ends_at passed one second ago and has not yet been closed by the close task
     When a joined voter POSTs a vote
     Then the response status is 403
+    And the response reason is "war_not_published"
 
   Scenario: A War with no end date never expires
     Given a published War with ends_at set to NULL
     When the close-expired-wars task runs
     Then the War remains "published"
 
-  Scenario: The close task materialises the stored status
+  Scenario: The close task materializes the stored status
     Given a published War whose ends_at passed six hours ago
     When the close-expired-wars task runs
     Then the stored status column becomes "closed"

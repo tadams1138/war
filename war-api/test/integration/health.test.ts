@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { buildAppWithoutDb, type NoDbHarness } from '../setup/testAppNoDb.js';
+import { buildAppWithoutDb, type NoDbHarness } from '../setup/testAppWithoutDb.js';
 
 /**
  * App Platform's health_check (platform/{env}.yaml in war-infra) polls this

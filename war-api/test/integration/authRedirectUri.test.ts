@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { buildAppWithoutDb } from '../setup/testAppNoDb.js';
+import { buildAppWithoutDb } from '../setup/testAppWithoutDb.js';
 
 /**
  * Closes an observability gap: nothing else in the suite inspects the

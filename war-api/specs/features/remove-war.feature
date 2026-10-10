@@ -41,7 +41,7 @@ Feature: Remove a War
     Then the vote response is 404 and no vote exists
 
   Scenario: Removing a War hard-deletes its media but leaves another War's media untouched
-    Given a removed-to-be War with contestant images and a share image, another War with images, and a Moderator
+    Given a War about to be removed with contestant images and a share image, another War with images, and a Moderator
     When the Moderator removes the first War
     Then its stored objects and contestant_media rows are gone, its share image key is cleared, and the other War's media remains
 

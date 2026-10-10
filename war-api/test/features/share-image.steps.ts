@@ -142,7 +142,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(200);
       const detail = await as(harness, creatorId).get(`/api/v1/wars/${war.id}`);
-      // Same deterministic key every time (spec: replaces, not accumulates)
+      // Same deterministic key every time, so a regenerated image replaces rather than accumulates
       // -- the URL string itself doesn't change, but the bytes behind it do.
       expect(detail.body.share_image_url).toBe(firstUrl);
       const key = [...harness.storage.publicObjects.keys()].filter((k) => k.startsWith('share-images/'));
