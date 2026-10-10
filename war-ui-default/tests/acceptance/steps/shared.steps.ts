@@ -169,9 +169,49 @@ When('they select the {string} button', async ({ page }, name: string) => {
   await page.getByRole('button', { name, exact: true }).click()
 })
 
+// The confirmation dialog every dangerous action asks first.
+const confirmation = (page: Page) => page.getByRole('alertdialog')
+
+When('they confirm', async ({ page }) => {
+  // Act
+  await confirmation(page).locator('[data-testid$="-submit"]').click()
+})
+
+When('they cancel', async ({ page }) => {
+  // Act
+  await confirmation(page).getByRole('button', { name: 'Cancel' }).click()
+})
+
 When('they reload the page', async ({ page }) => {
   // Act
   await page.reload()
+})
+
+Then('a confirmation is shown', async ({ page }) => {
+  // Assert
+  await expect(confirmation(page)).toBeVisible()
+})
+
+Then('the confirmation says {string}', async ({ page }, text: string) => {
+  // Assert
+  await expect(confirmation(page)).toContainText(text)
+})
+
+Then('no confirmation is shown', async ({ page }) => {
+  // Assert
+  await expect(confirmation(page)).toHaveCount(0)
+})
+
+Then(/^the "([^"]*)" button is (shown|hidden)$/, async ({ page }, name: string, state: string) => {
+  // Assert
+  const button = page.getByRole('button', { name, exact: true })
+  if (state === 'shown') await expect(button).toBeVisible()
+  else await expect(button).toHaveCount(0)
+})
+
+Then('the message {string} is shown', async ({ page }, message: string) => {
+  // Assert
+  await expect(page.getByText(message, { exact: true })).toBeVisible()
 })
 
 Then('the matchup is shown', async ({ page }) => {

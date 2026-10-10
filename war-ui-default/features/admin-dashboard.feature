@@ -101,7 +101,7 @@ Feature: Admin Dashboard
       | action label    | by           | target | when                 |
       | Banned a Voter  | Stella Staff | v-2    | 2026-10-02T12:00:00Z |
       | Unbanned a Voter | Stella Staff | v-1   | 2026-10-01T12:00:00Z |
-    And the next page was requested from where the first page ended
+    And the next page of the moderation log was requested from where the first page ended
     And the "Load more" button is hidden
 
   Scenario: Toggling the kill switch adds its entry to the moderation log
@@ -133,7 +133,7 @@ Feature: Admin Dashboard
     Given a moderation log entry targets a War titled "Alpha War"
     And an authenticated Staff member
     And they are on the Admin Dashboard
-    When they select "Alpha War" in the moderation log entry
+    When they select "Alpha War" in the moderation log
     Then that War's Staff detail page is shown
     And the heading "Alpha War" is shown
 
@@ -153,11 +153,11 @@ Feature: Admin Dashboard
     Given a moderation log entry targets the Voter "Casey Creator"
     And an authenticated Staff member
     And they are on the Admin Dashboard
-    When they select "Casey Creator" in the moderation log entry
+    When they select "Casey Creator" in the moderation log
     Then "/admin/voters/v-1" is shown
     And the heading "Casey Creator" is shown
     When they open the Admin Dashboard
-    And they select "Stella Staff" in the moderation log entry
+    And they select "Stella Staff" in the moderation log
     Then "/admin/voters/staff-voter-1" is shown
     And the heading "Stella Staff" is shown
 

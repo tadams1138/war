@@ -58,11 +58,6 @@ Given('the API cannot be reached to cast a vote', async ({ world }) => {
   answerVotes(world, { status: 0, networkError: true })
 })
 
-Then('the message {string} is shown', async ({ page }, message: string) => {
-  // Assert
-  await expect(page.getByText(message, { exact: true })).toBeVisible()
-})
-
 Then('the matchup still shows {string}', async ({ page }, name: string) => {
   // Assert
   await expect(contestantCard(page, name)).toBeVisible()
