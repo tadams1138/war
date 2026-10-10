@@ -4,7 +4,7 @@ import { expect } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { test, type World } from './fixtures'
-import { API, navigateAuthenticated, waitForCallLog } from '../support/mocking'
+import { API, waitForCallLog } from '../support/mocking'
 import { ok } from '../support/recipes'
 
 const { Given, When, Then } = createBdd(test, { tags: '@create-war' })
@@ -40,25 +40,9 @@ Given('the API rejects the first creation request, then accepts the retry', asyn
   ])
 })
 
-Given('no voter is authenticated', async () => {
-  // Arrange
-  // Nothing to set up: every scenario starts on a fresh browser context with
-  // no in-memory session, and nothing here boots the app.
-})
-
-When('they choose to create a War', async ({ page }) => {
-  // Act
-  await navigateAuthenticated(page, '/wars/new')
-})
-
 When('they use the retry control', async ({ page }) => {
   // Act
   await page.getByTestId('create-war-retry').click()
-})
-
-When('they navigate directly to {string}', async ({ page }, path: string) => {
-  // Act
-  await page.goto(path)
 })
 
 Then('an empty draft War is created via the API', async ({ page }) => {
@@ -76,9 +60,9 @@ Then('a wait is shown, not an error', async ({ page }) => {
   await expect(page.getByTestId('create-war-error')).toHaveCount(0)
 })
 
-Then('creation retries on its own once the supplied delay passes', async ({ page, world }) => {
+Then('creation retries on its own once the supplied delay passes', async ({ page }) => {
   // Assert
-  await expect(page).toHaveURL(`/wars/${world.warId}/edit`, { timeout: 3000 })
+  await expect(page).toHaveURL(`/wars/${WAR_ID}/edit`, { timeout: 3000 })
 })
 
 Then('an error message is shown', async ({ page }) => {
@@ -89,14 +73,4 @@ Then('an error message is shown', async ({ page }) => {
 Then('a retry control is offered', async ({ page }) => {
   // Assert
   await expect(page.getByTestId('create-war-retry')).toBeVisible()
-})
-
-Then('they are redirected to {string}', async ({ page }, path: string) => {
-  // Assert
-  await expect.poll(() => new URL(page.url()).pathname).toBe(path)
-})
-
-Then('the returnTo query param is {string}', async ({ page }, path: string) => {
-  // Assert
-  await expect.poll(() => new URL(page.url()).searchParams.get('returnTo')).toBe(path)
 })

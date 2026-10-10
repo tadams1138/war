@@ -4,7 +4,7 @@ import { expect } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildContestant, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { test } from './fixtures'
-import { API, getCallLog, navigateAuthenticated, waitForCallLog } from '../support/mocking'
+import { API, getCallLog, waitForCallLog } from '../support/mocking'
 import { ok, reply } from '../support/recipes'
 import { validWarJson, zipBuffer } from '../support/exportArchive'
 
@@ -33,11 +33,6 @@ Given('the API accepts an imported War', async ({ world }) => {
 Given('the API accepts a share image upload', async ({ world }) => {
   // Arrange
   world.queue(ok('POST', `${API}/wars/${WAR_ID}/share-image`, importedWar()))
-})
-
-Given('they are on the Import page', async ({ page }) => {
-  // Arrange
-  await navigateAuthenticated(page, '/wars/import')
 })
 
 When('they choose a valid War export file', async ({ page }) => {

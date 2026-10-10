@@ -40,8 +40,9 @@ All paths are under `war-ui-default/`.
 | `playwright.config.ts` | Two projects. `bdd` generates tests from the features in `CONVERTED_FEATURES` using the steps in `tests/acceptance/steps/*.ts`. `specs` runs the hand-written `tests/acceptance/*.spec.ts` |
 | `tests/acceptance/steps/fixtures.ts` | The `test` object every step file imports, with the per-scenario `world` fixture |
 | `tests/acceptance/steps/shared.steps.ts` | Untagged steps whose text means the same in every feature |
+| `tests/acceptance/steps/parameters.ts` | Custom parameter types (`{page}`), registered by `fixtures.ts` |
 | `tests/acceptance/steps/<feature>.steps.ts` | One feature's steps, scoped by that feature's tag |
-| `tests/acceptance/support/` | Helpers shared by steps and specs: `mocking.ts`, `recipes.ts`, `pages.ts`, `adminFixtures.ts`, `exportArchive.ts` |
+| `tests/acceptance/support/` | Helpers shared by steps and specs: `mocking.ts`, `recipes.ts`, `pages.ts`, `pageNames.ts`, `adminFixtures.ts`, `exportArchive.ts` |
 | `tests/bindings/featureBindings.ts` | The title check. Still enforced for every feature *not* in `CONVERTED_FEATURES`; for a converted feature it reports a leftover spec file |
 | `.features-gen/` | Generated tests. Ignored by git, ESLint and Vitest. Never edit |
 
@@ -50,29 +51,56 @@ the feature files on every run.
 
 ## Conventions
 
-These were settled in the spike. Follow them so the converted features stay uniform.
+Priorities, in order, when they conflict:
+
+1. **Accuracy.** The Gherkin says precisely what the owner means and what the test does.
+2. **Concision.** As few words as say it.
+3. **Reuse.** As few step definitions as cover every feature. Reword a step to match an
+   existing one when the meaning is the same; generalise a step (a parameter, the `{page}`
+   type) rather than adding a near-duplicate.
+4. **Code principles.** DRY, SOLID, cyclomatic complexity of 5 or below (ESLint enforces it).
+
+Rules:
 
 1. **Tag each converted feature** with `@<feature-name>` on the line above `Feature:`.
 2. **Scope a feature's steps by that tag**: in `<feature>.steps.ts`,
    `const { Given, When, Then } = createBdd(test, { tags: '@<feature-name>' })`, with `test`
    imported from `./fixtures`. A tagged step cannot collide with, or leak into, another feature.
 3. **Share a step only when its behaviour is identical everywhere.** Such steps go in
-   `shared.steps.ts`, untagged. Two untagged definitions of the same text make `bddgen` fail
-   ("Multiple definitions matched scenario step"). A tagged definition overrides the shared one
-   for scenarios carrying its tag.
+   `shared.steps.ts`, untagged. Before writing a feature step, check `shared.steps.ts` and the
+   other `*.steps.ts`: when another feature already has the same step, move it to
+   `shared.steps.ts` (with its helpers) rather than duplicate it. Two untagged definitions of
+   the same text make `bddgen` fail ("Multiple definitions matched scenario step").
 4. **Steps must be true.** If the step text does not describe what the test does, fix the text.
-   Keep each scenario's title and intent.
-5. **Never lose an assertion.** Every assertion in the old Playwright test must survive in some
+   Keep each scenario's intent; reword its title when that says it more precisely.
+5. **No no-op steps.** A step whose definition does nothing (`Given no voter is
+   authenticated`) is not allowed. Say it in the scenario title ("An unauthenticated visitor
+   is redirected to log in"), in a subject that implies it (`When a visitor opens ...`), or in
+   the feature's free-form description or a `#` comment.
+6. **Never lose an assertion.** Every assertion in the old Playwright test must survive in some
    Then step. Strengthening is fine; weakening or dropping is not.
-6. **API mocks come before the app boots.** Given steps queue mock responses with
-   `world.queue(...)`. The shared step `Given an authenticated voter` then seeds them, opens
-   the app and signs in. `world.queue` throws if called after that step, so order the Givens
-   accordingly.
-7. **Mark each step's phase** with one comment, as `war-api` does: `// Arrange` in a Given,
+7. **API mocks come before the app boots.** Given steps queue mock responses with
+   `world.queue(...)`. The app boots on the first navigation (`a visitor opens {page}`,
+   `they open {page}`, `they are on {page}`) or on `Given an authenticated voter`, which then
+   signs in. `world.queue` throws after boot, so order the Givens accordingly.
+8. **Name pages with `{page}`**, never with a new navigation step. `{page}` matches a name in
+   `support/pageNames.ts` (`Home`, `that War's Edit page`, ...) or a quoted literal path. Add
+   pages there. "That War" resolves against `world.warId`.
+9. **Mark each step's phase** with one comment, as `war-api` does: `// Arrange` in a Given,
    `// Act` in a When, `// Assert` in a Then.
-8. **Keep `World` small.** Add a field to the `World` class in `fixtures.ts` only for state
-   that a later step really needs (today: `warId`).
-9. Cyclomatic complexity stays at 5 or below; ESLint fails otherwise.
+10. **Keep `World` small.** Add a field to the `World` class in `fixtures.ts` only for state
+    that a later step really needs (today: `warId`, and the `booted`/`signedIn` flags).
+
+### Shared vocabulary
+
+`shared.steps.ts` today. Use these before writing new steps:
+
+| Step | Does |
+|---|---|
+| `Given an authenticated voter` | Boots the app with the queued mocks, opens Home, signs in |
+| `Given they are on {page}` / `When they open {page}` / `When a visitor opens {page}` | Boots if needed and navigates (client-side once signed in). "A visitor" means not signed in |
+| `Then they are redirected to {page}` | Asserts the path, and the page's landmark when it has one |
+| `Then they are redirected to the login page with returnTo {page}` | Asserts `/login?returnTo=<path>` |
 
 ## Converting one feature
 
@@ -85,7 +113,7 @@ Run every command from the repository root. Never `cd` (see `CLAUDE.md`).
    action into When steps and its assertions into Then steps. Reuse steps from
    `shared.steps.ts` where the behaviour is identical, and helpers from
    `tests/acceptance/support/`.
-4. Correct the feature's step text wherever it does not match the test (convention 4).
+4. Correct the feature's step text wherever it does not match the test (rules 4 and 5).
 5. Delete the spec: `git rm war-ui-default/tests/acceptance/<name>.spec.ts`. If it held helper
    functions other files could use, move them to `tests/acceptance/support/` first.
 6. Run the feature's scenarios while iterating:
@@ -139,7 +167,7 @@ comes from two small features only.
 
 About 31 scenarios in these files had their Given/When/Then written from the test's title
 when the title check was introduced, without reading the test body. Converting a feature
-corrects them as a side effect (convention 4).
+corrects them as a side effect (rules 4 and 5).
 
 ## Constraints and pitfalls
 
@@ -149,10 +177,6 @@ corrects them as a side effect (convention 4).
   and reports point at `.features-gen/...`. `-g "<scenario title>"` still matches.
 - **Vitest must not see `.features-gen/`.** `vitest.config.ts` excludes it; without that the
   unit run fails with "test.describe() not expected here".
-- **No shared step yet seeds mocks without signing in.** `create-war`'s unauthenticated
-  scenario needs no mocks. The first scenario that needs both will need a new shared step that
-  calls `useScenario(page, world.recipes)` before the first `page.goto` and sets
-  `world.booted`.
 - **`features/pending/` must never run.** It is not in `CONVERTED_FEATURES`, so `bddgen` does
   not see it.
 - `fixtures.ts` carries one ESLint suppression (`no-empty-pattern`). It is Playwright's own
