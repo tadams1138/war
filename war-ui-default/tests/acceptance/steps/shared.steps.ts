@@ -4,22 +4,29 @@
 import { expect, type Page } from '@playwright/test'
 import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
+import type { WarSummary } from '../../../src/api/client'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario, votesSubmitted, waitForCallLog } from '../support/mocking'
-import { contestantCard, dots, matchupCard, nextArrow } from '../support/pages'
-import { failWarCalls, ok, reply, voteRecipe } from '../support/recipes'
+import { contestantCard, dots, matchupCard, nextArrow, sortMenu } from '../support/pages'
+import { failWarCalls, ok, queueListedWars, reply, voteRecipe } from '../support/recipes'
 import type { PageRef } from '../support/pageNames'
 import type { Side } from '../support/screens'
 
 const { Given, When, Then } = createBdd(test)
 
 type WarTheme = NonNullable<Parameters<typeof buildWarDetail>[0]>['theme']
-type WarStatus = NonNullable<Parameters<typeof buildWarSummary>[0]>['status']
 
 async function boot(page: Page, world: World): Promise<void> {
   if (world.booted) return
   world.booted = true
   await useScenario(page, world.recipes)
+}
+
+function summaryFromRow(row: Record<string, string>): Partial<WarSummary> {
+  const summary: Partial<WarSummary> = { title: row.title, status: row.status as WarSummary['status'], share_image_url: row['share image'] || null }
+  if (row.category) summary.category = row.category
+  if (row.contestants) summary.contestant_count = Number(row.contestants)
+  return summary
 }
 
 function queueWar(world: World, overrides: Parameters<typeof buildWarDetail>[0]): void {
@@ -107,23 +114,11 @@ Given('a {screen} screen', async ({ page }, size: { width: number; height: numbe
   await page.setViewportSize(size)
 })
 
-// One row per War: title, status and optionally "share image" (a URL). Queues
-// the list and each War's detail, so a listed War can be opened.
+// One row per War: title, status and optionally "category", "contestants" (a
+// count) and "share image" (a URL).
 Given('the API lists these Wars:', async ({ world }, table: DataTable) => {
   // Arrange
-  const wars = table.hashes().map((row) =>
-    buildWarSummary({
-      id: world.nextWarId(),
-      title: row.title,
-      status: row.status as WarStatus,
-      share_image_url: row['share image'] || null,
-    }),
-  )
-  world.listedWars = wars
-  world.queue(
-    ok('GET', `${API}/wars`, { wars, next_cursor: null }),
-    ...wars.map((war) => ok('GET', `${API}/wars/${war.id}`, buildWarDetail({ ...war, contestants: [] }))),
-  )
+  queueListedWars(world, table.hashes().map(summaryFromRow))
 })
 
 Given('the API accepts a share image upload', async ({ world }) => {
@@ -157,6 +152,11 @@ When('they vote for {string}', async ({ page }, name: string) => {
 When("they click the next-image arrow on the {side} contestant's card", async ({ page }, side: Side) => {
   // Act
   await nextArrow(page, side).click()
+})
+
+When('they choose {string} from the sort menu', async ({ page }, label: string) => {
+  // Act
+  await sortMenu(page).selectOption({ label })
 })
 
 When('they reload the page', async ({ page }) => {
@@ -213,6 +213,31 @@ async function expectOn(page: Page, world: World, target: PageRef): Promise<void
   await expect.poll(() => new URL(page.url()).pathname).toBe(target.path(world.warId))
   if (target.landmark) await expect(page.getByTestId(target.landmark)).toBeVisible()
 }
+
+Then('an empty state is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('empty-state')).toBeVisible()
+})
+
+Then('a link to create a War is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('empty-state').getByRole('link', { name: 'Start a War' })).toBeVisible()
+})
+
+Then('the sort menu shows {string}', async ({ page }, label: string) => {
+  // Assert
+  await expect(sortMenu(page).locator('option:checked')).toHaveText(label)
+})
+
+Then('the search box is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('war-search-input')).toBeVisible()
+})
+
+Then('the heading {string} is shown', async ({ page }, name: string) => {
+  // Assert
+  await expect(page.getByRole('heading', { name })).toBeVisible()
+})
 
 Then('{page} is shown', async ({ page, world }, target: PageRef) => {
   // Assert

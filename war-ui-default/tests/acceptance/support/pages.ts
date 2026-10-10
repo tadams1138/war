@@ -1,5 +1,5 @@
 // Page locators and navigation shared by the acceptance specs.
-import type { Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 import { loginAsTestVoter, navigateAuthenticated } from './mocking'
 import type { Side } from './screens'
 
@@ -26,6 +26,24 @@ export const previousArrow = (page: Page, side: Side) => carousel(page, side).ge
 // Anything a voter could read or press that is named like `name`.
 export const controlNamed = (page: Page, name: RegExp) =>
   page.getByText(name).or(page.getByRole('button', { name })).or(page.getByRole('link', { name }))
+
+export const sortMenu = (page: Page) => page.getByTestId('war-sort-select')
+
+// The background colour of a real <button> in the page's theme, probed by
+// adding one: "styled as a themed button" means matching it, never plain
+// text's none.
+export async function themedButtonBackground(page: Page): Promise<string> {
+  const colour = await page.locator('main').evaluate((main) => {
+    const probe = main.appendChild(document.createElement('button'))
+    const background = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return background
+  })
+  expect(colour).not.toBe('rgba(0, 0, 0, 0)')
+  return colour
+}
+
+export const backgroundOf = (locator: Locator) => locator.evaluate((element) => getComputedStyle(element).backgroundColor)
 
 export function footer(page: Page) {
   return page.getByRole('contentinfo')

@@ -1,6 +1,6 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 10 of 17 feature files converted (81 of 281
+**Status as of 2026-10-10: in progress, paused. 11 of 17 feature files converted (97 of 281
 acceptance tests).** Nothing is half-done: every feature is either fully converted or
 untouched, and the whole suite passes.
 
@@ -24,8 +24,8 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode` | 81 | Steps executed by playwright-bdd |
-| Not converted | the 7 in the backlog | 200 | Scenario title must equal a Playwright test title |
+| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars` | 97 | Steps executed by playwright-bdd |
+| Not converted | the 6 in the backlog | 184 | Scenario title must equal a Playwright test title |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
 `npm run test:acceptance`.
@@ -105,7 +105,7 @@ Rules:
 | `Given an authenticated voter` | Boots the app with the queued mocks, opens Home, signs in |
 | `Given they are on {page}` / `When they open {page}` / `When a visitor opens {page}` | Boots if needed and navigates (client-side once signed in). "A visitor" means not signed in |
 | `Given a War themed {string}` / `Given another War themed {string}` | Queues the War's detail. Wars are numbered `war-1`, `war-2`, ...; "that War" is the latest given |
-| `Given the API lists these Wars:` (table: `title`, `status`, optional `share image`) | Queues `GET /wars` and each War's detail. Numbered like the other Wars, so "that War" is the last row. `world.listedWars` keeps them |
+| `Given the API lists these Wars:` (table: `title`, `status`, optional `category`, `contestants`, `share image`) | Queues `GET /wars` and each War's detail. Numbered like the other Wars, so "that War" is the last row. `world.listedWars` keeps them |
 | `Given the API accepts a share image upload` / `Then the share image is uploaded to that War` | Queues, and asserts, `POST` of that War's share image |
 | `Given a(nother) War` | Queues a default War's detail (numbering as above) |
 | `When they reload the page` | Reloads (drops an in-memory session) |
@@ -114,6 +114,9 @@ Rules:
 | `Given the {side} contestant is named {string}` / `... 's bio is {string}` / `... is very long` / `Given the {side} contestant has {int} image(s)` | Edit the latest matchup given, in place; give them after its matchup step and before the app boots. `{side}` is `left` or `right` |
 | `Given the voter's session has expired and cannot be refreshed` | Queues a `401` for every call about the next War (numbered like the other Wars) and a `401` for the refresh |
 | `Given the API accepts votes` | Queues a `201` for a vote on that War's matchup |
+| `When they choose {string} from the sort menu` / `Then the sort menu shows {string}` / `Then the search box is shown` | The Home and My Wars list controls |
+| `Then an empty state is shown` / `Then a link to create a War is shown` | The empty state, and its "Start a War" link |
+| `Then the heading {string} is shown` | A heading with that name is visible |
 | `Then the page renders in the {string} theme` | Asserts the `main` element's theme |
 | `When they vote for {string}` | Clicks that contestant's card |
 | `When they click the next-image arrow on the {side} contestant's card` / `Then the {side} contestant's card shows image {int}` | Pages a card with its arrow; asserts the active dot and a visible active image |
@@ -165,16 +168,15 @@ are the hand-written spec's line count on 2026-10-10.
 
 | Order | Feature | Scenarios | Spec lines | Notes |
 |---|---|---|---|---|
-| 1 | `browse-wars` | 16 | 305 | |
-| 2 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
-| 3 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
-| 4 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
-| 5 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
-| 6 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
-| 7 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
+| 1 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
+| 2 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
+| 3 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
+| 4 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
+| 5 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
+| 6 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
 
-Total remaining: 196 scenarios (200 tests, since the `navigation` loop runs five), about
-4,389 spec lines. The two converted features grew by about 27% (208 spec lines became 264
+Total remaining: 180 scenarios (184 tests, since the `navigation` loop runs five), about
+4,084 spec lines. The two converted features grew by about 27% (208 spec lines became 264
 lines of steps and helpers), so expect roughly 7,000 to 8,000 lines of steps. That estimate
 comes from two small features only.
 
