@@ -78,6 +78,11 @@ Given('the API lists these Wars:', async ({ world }, table: DataTable) => {
   )
 })
 
+Given('the API lists no Wars', async ({ world }) => {
+  // Arrange
+  world.queue(ok('GET', `${API}/wars`, { wars: [], next_cursor: null }))
+})
+
 Given('the API accepts a share image upload', async ({ world }) => {
   // Arrange
   world.queue(ok('POST', `${API}/wars/${world.warId}/share-image`, buildWarSummary({ id: world.warId, status: 'draft' })))
@@ -113,10 +118,19 @@ Then('the share image is uploaded to that War', async ({ page, world }) => {
   await waitForCallLog(page, (log) => log.some((entry) => entry.method === 'POST' && entry.url.endsWith(`/wars/${world.warId}/share-image`)))
 })
 
-Then('they are redirected to {page}', async ({ page, world }, target: PageRef) => {
-  // Assert
+async function expectOn(page: Page, world: World, target: PageRef): Promise<void> {
   await expect.poll(() => new URL(page.url()).pathname).toBe(target.path(world.warId))
   if (target.landmark) await expect(page.getByTestId(target.landmark)).toBeVisible()
+}
+
+Then('{page} is shown', async ({ page, world }, target: PageRef) => {
+  // Assert
+  await expectOn(page, world, target)
+})
+
+Then('they are redirected to {page}', async ({ page, world }, target: PageRef) => {
+  // Assert
+  await expectOn(page, world, target)
 })
 
 Then('they are redirected to the login page with returnTo {page}', async ({ page, world }, target: PageRef) => {

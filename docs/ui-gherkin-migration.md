@@ -1,6 +1,6 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 5 of 17 feature files converted (28 of 273
+**Status as of 2026-10-10: in progress, paused. 6 of 17 feature files converted (38 of 273
 acceptance tests).** Nothing is half-done: every feature is either fully converted or
 untouched, and the whole suite passes.
 
@@ -24,8 +24,8 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling` | 28 | Steps executed by playwright-bdd |
-| Not converted | the 12 in the backlog | 245 | Scenario title must equal a Playwright test title |
+| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars` | 38 | Steps executed by playwright-bdd |
+| Not converted | the 11 in the backlog | 235 | Scenario title must equal a Playwright test title |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
 `npm run test:acceptance`.
@@ -102,11 +102,12 @@ Rules:
 | `Given a War themed {string}` / `Given another War themed {string}` | Queues the War's detail. Wars are numbered `war-1`, `war-2`, ...; "that War" is the latest given |
 | `Given that War has a matchup to vote on` | Queues the join and next-matchup calls for that War |
 | `Given the API lists these Wars:` (table: `title`, `status`, optional `share image`) | Queues `GET /wars` and each War's detail. Numbered like the other Wars, so "that War" is the last row |
+| `Given the API lists no Wars` | Queues an empty `GET /wars` |
 | `Given the API accepts a share image upload` / `Then the share image is uploaded to that War` | Queues, and asserts, `POST` of that War's share image |
 | `Given a(nother) War` | Queues a default War's detail (numbering as above) |
 | `When they reload the page` | Reloads (drops an in-memory session) |
 | `Then the matchup is shown` | Asserts the matchup view is visible |
-| `Then they are redirected to {page}` | Asserts the path, and the page's landmark when it has one |
+| `Then {page} is shown` / `Then they are redirected to {page}` | Asserts the path, and the page's landmark when it has one |
 | `Then they are redirected to the login page with returnTo {page}` | Asserts `/login?returnTo=<path>` |
 
 ## Converting one feature
@@ -151,21 +152,20 @@ are the hand-written spec's line count on 2026-10-10.
 
 | Order | Feature | Scenarios | Spec lines | Notes |
 |---|---|---|---|---|
-| 1 | `my-wars` | 10 | 176 | |
-| 2 | `vote-mode-responsive` | 6 | 185 | Viewport-dependent |
-| 3 | `login-and-auth` | 9 | 190 | |
-| 4 | `contestant-images` | 9 | 194 | |
-| 5 | `vote-mode` | 11 | 267 | |
-| 6 | `browse-wars` | 16 | 305 | |
-| 7 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
-| 8 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
-| 9 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
-| 10 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
-| 11 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
-| 12 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
+| 1 | `vote-mode-responsive` | 6 | 185 | Viewport-dependent |
+| 2 | `login-and-auth` | 9 | 190 | |
+| 3 | `contestant-images` | 9 | 194 | |
+| 4 | `vote-mode` | 11 | 267 | |
+| 5 | `browse-wars` | 16 | 305 | |
+| 6 | `admin-dashboard` | 19 | 375 | Uses `support/adminFixtures.ts` |
+| 7 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
+| 8 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
+| 9 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
+| 10 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
+| 11 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
 
-Total remaining: 241 scenarios (245 tests, since the `navigation` loop runs five), about
-5,401 spec lines. The two converted features grew by about 27% (208 spec lines became 264
+Total remaining: 231 scenarios (235 tests, since the `navigation` loop runs five), about
+5,225 spec lines. The two converted features grew by about 27% (208 spec lines became 264
 lines of steps and helpers), so expect roughly 7,000 to 8,000 lines of steps. That estimate
 comes from two small features only.
 
