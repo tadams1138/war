@@ -1,5 +1,6 @@
 // Builders and recipes for the Admin Dashboard acceptance specs.
 import type { Page } from '@playwright/test'
+import type { HandlerRecipe } from '../../../src/mocks/scenarios'
 import { API, getCallLog } from './mocking'
 
 export function me(flags: { is_moderator?: boolean; is_admin?: boolean }) {
@@ -220,4 +221,48 @@ export function voterDetailSequence(id: string, ...bodies: unknown[]) {
 
 export function meCalls(page: Page) {
   return getCallLog(page).then((log) => log.filter((entry) => entry.url.endsWith('/auth/me')))
+}
+
+// --- Paged and filtered lists ---------------------------------------------
+
+export const cursorAfter = (pageNumber: number) => `cursor-${pageNumber}`
+
+// The items split into pages of `size`, each carrying the cursor of the next
+// (none on the last). An empty list is one empty page.
+export function pagesOf<T>(items: T[], size: number): { items: T[]; next_cursor: string | null }[] {
+  const count = Math.max(1, Math.ceil(items.length / size))
+  return Array.from({ length: count }, (_, index) => ({
+    items: items.slice(index * size, (index + 1) * size),
+    next_cursor: index + 1 < count ? cursorAfter(index + 1) : null,
+  }))
+}
+
+// A list endpoint (`key` names the array in its body) that answers its pages in
+// call order.
+export function pagedListRecipe<T>(path: string, key: string, items: T[], size = items.length): HandlerRecipe {
+  const responses = pagesOf(items, size || 1).map((page) => ({ status: 200, body: { [key]: page.items, next_cursor: page.next_cursor } }))
+  return { method: 'GET', path: `${API}${path}`, responses }
+}
+
+export interface ListFilters<T> {
+  // One predicate per value of the `status` query parameter.
+  statuses: Record<string, (item: T) => boolean>
+  // What a search matches against.
+  text: (item: T) => string
+}
+
+// The same endpoint filtered as the API filters it: one recipe per status, and
+// one per word a search could settle on, each answering the items that match.
+export function filteredListRecipes<T>(path: string, key: string, items: T[], filters: ListFilters<T>): HandlerRecipe[] {
+  const answering = (query: string, matches: (item: T) => boolean): HandlerRecipe => ({
+    method: 'GET',
+    path: `${API}${path}`,
+    query,
+    responses: [{ status: 200, body: { [key]: items.filter(matches), next_cursor: null } }],
+  })
+  const words = new Set(items.flatMap((item) => filters.text(item).toLowerCase().split(/\s+/)))
+  return [
+    ...Object.entries(filters.statuses).map(([status, matches]) => answering(`status=${status}`, matches)),
+    ...[...words].map((word) => answering(`q=${word}`, (item) => filters.text(item).toLowerCase().includes(word))),
+  ]
 }

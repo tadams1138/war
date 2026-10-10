@@ -1,6 +1,7 @@
 // Custom Cucumber parameter types shared by every feature. Imported by
 // fixtures.ts so they are registered before any step file is read.
 import { defineParameterType } from 'playwright-bdd'
+import { LISTS, type ListRef } from '../support/lists'
 import { PAGES, literalPage, type PageRef } from '../support/pageNames'
 import { PROVIDERS, type Provider } from '../support/providers'
 import { ROLES, type RoleFlags } from '../support/roles'
@@ -42,6 +43,13 @@ defineParameterType({
   name: 'role',
   regexp: new RegExp(Object.keys(ROLES).join('|')),
   transformer: (text: string): RoleFlags => ROLES[text],
+})
+
+// {list}: a Staff list or paged section by its name in LISTS ("the Wars list").
+defineParameterType({
+  name: 'list',
+  regexp: new RegExp(Object.keys(LISTS).join('|')),
+  transformer: (text: string): ListRef => LISTS[text]!,
 })
 
 // {state}: a switch's state, as whether it is enabled.

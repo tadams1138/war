@@ -1,6 +1,6 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: in progress, paused. 12 of 17 feature files converted (116 of 281
+**Status as of 2026-10-10: in progress, paused. 13 of 17 feature files converted (131 of 281
 acceptance tests).** Nothing is half-done: every feature is either fully converted or
 untouched, and the whole suite passes.
 
@@ -24,8 +24,8 @@ from the feature files and fails on any step that has no definition.
 
 | | Features | Acceptance tests | How they are bound |
 |---|---|---|---|
-| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard` | 116 | Steps executed by playwright-bdd |
-| Not converted | the 5 in the backlog | 165 | Scenario title must equal a Playwright test title |
+| Converted | `create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars` | 131 | Steps executed by playwright-bdd |
+| Not converted | the 4 in the backlog | 150 | Scenario title must equal a Playwright test title |
 
 Both kinds run in one `playwright test` invocation and CI needs no change: it calls
 `npm run test:acceptance`.
@@ -40,9 +40,10 @@ All paths are under `war-ui-default/`.
 | `playwright.config.ts` | Two projects. `bdd` generates tests from the features in `CONVERTED_FEATURES` using the steps in `tests/acceptance/steps/*.ts`. `specs` runs the hand-written `tests/acceptance/*.spec.ts` |
 | `tests/acceptance/steps/fixtures.ts` | The `test` object every step file imports, with the per-scenario `world` fixture |
 | `tests/acceptance/steps/shared.steps.ts` | Untagged steps whose text means the same in every feature |
+| `tests/acceptance/steps/shared-lists.steps.ts` | Untagged steps for the Staff lists, named with `{list}` (`support/lists.ts`) |
 | `tests/acceptance/steps/parameters.ts` | Custom parameter types (`{page}`), registered by `fixtures.ts` |
 | `tests/acceptance/steps/<feature>.steps.ts` | One feature's steps, scoped by that feature's tag |
-| `tests/acceptance/support/` | Helpers shared by steps and specs: `mocking.ts`, `recipes.ts`, `pages.ts`, `pageNames.ts`, `adminFixtures.ts`, `exportArchive.ts` |
+| `tests/acceptance/support/` | Helpers shared by steps and specs: `mocking.ts`, `recipes.ts`, `pages.ts`, `pageNames.ts`, `lists.ts`, `adminFixtures.ts`, `exportArchive.ts` |
 | `tests/bindings/featureBindings.ts` | The title check. Still enforced for every feature *not* in `CONVERTED_FEATURES`; for a converted feature it reports a leftover spec file |
 | `.features-gen/` | Generated tests. Ignored by git, ESLint and Vitest. Never edit |
 
@@ -127,6 +128,12 @@ Rules:
 | `Then the matchup is shown` | Asserts the matchup view is visible |
 | `Then {page} is shown` / `Then they are redirected to {page}` | Asserts the path, and the page's landmark when it has one. `that War's results page` is `that War's detail page`; `the Admin Dashboard` and `that War's Staff detail page` are the Staff pages |
 | `Then they are redirected to the login page with returnTo {page}` | Asserts `/login?returnTo=<path>` |
+| `Then a confirmation is shown` / `Then no confirmation is shown` / `Then the confirmation says {string}` / `When they confirm` / `When they cancel` | The alert dialog every dangerous action asks first (Kill switch, Remove War, ...) |
+| `Then the "<name>" button is shown` / `is hidden` | A button with that name is visible / absent |
+| `Then the message {string} is shown` | That exact text is visible (an error, usually) |
+| `When they select {string} in {list}` / `When they filter {list} by {string}` / `When they search {list} for {string}` | A Staff list row's link, its status filter (by label), its search box. `{list}` is a name in `support/lists.ts`: `the Wars list`, `the Voters list`, `the vote history`, `the Voter's Wars`, `the unaddressed reports queue`, `the moderation log` |
+| `Then {list} shows only {string}` / `Then {list} shows, in order:` (one name per row) | The rows' first links, exactly |
+| `Then {list} was last requested for the {string} filter` / `was searched exactly once, for {string}` / `Then the next page of {list} was requested from where the first page ended` | What the list asked the API for |
 
 ## Converting one feature
 
@@ -170,14 +177,13 @@ are the hand-written spec's line count on 2026-10-10.
 
 | Order | Feature | Scenarios | Spec lines | Notes |
 |---|---|---|---|---|
-| 1 | `admin-wars` | 15 | 395 | Uses `support/adminFixtures.ts` |
-| 2 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
-| 3 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts` |
-| 4 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
-| 5 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
+| 1 | `navigation` | 20 | 402 | One scenario is a loop over five routes (`test(\`...${x}\`)`); needs a Scenario Outline |
+| 2 | `admin-voters` | 27 | 713 | Uses `support/adminFixtures.ts`, `{list}` and the shared confirmation steps |
+| 3 | `edit-war` | 55 | 1,103 | Largest by scenarios; many dialogs |
+| 4 | `war-detail` | 44 | 1,131 | Largest by lines; many layout checks |
 
-Total remaining: 161 scenarios (165 tests, since the `navigation` loop runs five), about
-3,709 spec lines. The two converted features grew by about 27% (208 spec lines became 264
+Total remaining: 146 scenarios (150 tests, since the `navigation` loop runs five), about
+3,314 spec lines. The two converted features grew by about 27% (208 spec lines became 264
 lines of steps and helpers), so expect roughly 7,000 to 8,000 lines of steps. That estimate
 comes from two small features only.
 

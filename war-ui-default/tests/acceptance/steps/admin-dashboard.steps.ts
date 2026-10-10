@@ -14,6 +14,7 @@ import {
   logGet,
   meCalls,
   noVotes,
+  pagesOf,
   REMOVED_AT,
   type LogTarget,
 } from '../support/adminFixtures'
@@ -26,7 +27,6 @@ const { Given, When, Then } = createBdd(test, { tags: '@admin-dashboard' })
 const entries = (page: Page) => page.getByTestId('moderation-log-entry')
 const heading = (page: Page) => page.getByRole('heading', { name: 'Admin Dashboard' })
 const puts = (page: Page) => getCallLog(page).then((log) => log.filter((entry) => entry.method === 'PUT' && entry.url.endsWith('/kill-switch')))
-const cursorAfter = (pageNumber: number) => `cursor-${pageNumber}`
 
 // --- Arrange ---------------------------------------------------------------
 
@@ -72,12 +72,7 @@ Given('the moderation log (then )holds these entries, newest first:', async ({ w
 
 Given('the moderation log holds these entries, newest first, {int} per page:', async ({ world }, size: number, table: DataTable) => {
   // Arrange
-  const all = entriesFrom(world, table)
-  const pageCount = Math.ceil(all.length / size)
-  addLogPages(world, ...Array.from({ length: pageCount }, (_, index) => ({
-    entries: all.slice(index * size, (index + 1) * size),
-    next_cursor: index + 1 < pageCount ? cursorAfter(index + 1) : null,
-  })))
+  addLogPages(world, ...pagesOf(entriesFrom(world, table), size).map((page) => ({ entries: page.items, next_cursor: page.next_cursor })))
 })
 
 function logTargeting(world: World, target: LogTarget): void {
@@ -139,21 +134,6 @@ When('they choose to {word} the kill switch', async ({ page }, action: string) =
   await page.getByRole('button', { name: `${action[0]!.toUpperCase()}${action.slice(1)} kill switch` }).click()
 })
 
-When('they confirm', async ({ page }) => {
-  // Act
-  await page.getByTestId('kill-switch-confirm-submit').click()
-})
-
-When('they cancel', async ({ page }) => {
-  // Act
-  await page.getByTestId('kill-switch-confirm-cancel').click()
-})
-
-When('they select {string} in the moderation log entry', async ({ page }, name: string) => {
-  // Act
-  await entries(page).getByRole('link', { name, exact: true }).click()
-})
-
 When('they log out', async ({ page }) => {
   // Act
   await nav(page).getByTestId('nav-identity').click()
@@ -202,16 +182,6 @@ Then('the kill switch is (still )shown as {state}', async ({ page }, enabled: bo
   await expect(page.getByTestId('kill-switch-state')).toHaveText(enabled ? 'On' : 'Off')
 })
 
-Then('a confirmation is shown', async ({ page }) => {
-  // Assert
-  await expect(page.getByTestId('kill-switch-confirm')).toBeVisible()
-})
-
-Then('no confirmation is shown', async ({ page }) => {
-  // Assert
-  await expect(page.getByTestId('kill-switch-confirm')).toHaveCount(0)
-})
-
 Then('the API has not been asked to change the kill switch', async ({ page }) => {
   // Assert
   expect(await puts(page)).toHaveLength(0)
@@ -242,17 +212,6 @@ Then('the moderation log lists these entries, newest first:', async ({ page }, t
     for (const text of [row['action label'], row.by, row.target]) await expect(entry).toContainText(text)
     await expect(entry.locator('time')).toHaveAttribute('datetime', row.when)
   }
-})
-
-Then('the next page was requested from where the first page ended', async ({ page }) => {
-  // Assert
-  const calls = (await getCallLog(page)).filter((entry) => entry.url.includes('/moderation-log'))
-  expect(new URL(calls[calls.length - 1]!.url).searchParams.get('cursor')).toBe(cursorAfter(1))
-})
-
-Then('the {string} button is hidden', async ({ page }, name: string) => {
-  // Assert
-  await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0)
 })
 
 Then('a message says this account has been banned rather than that sign-in failed', async ({ page }) => {
