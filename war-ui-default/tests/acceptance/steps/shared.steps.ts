@@ -11,6 +11,7 @@ import { contestantFrom, warDetail } from '../support/editWar'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario, votesSubmitted, waitForCallLog } from '../support/mocking'
 import { contestantCard, dots, expectSignedOut, matchupCard, nav, nextArrow, sortMenu } from '../support/pages'
 import { createdWar, failWarCalls, ok, queueCreation, queueListedWars, reply, voteRecipe } from '../support/recipes'
+import type { CallRef } from '../support/calls'
 import type { PageRef } from '../support/pageNames'
 import type { RoleFlags } from '../support/roles'
 import type { Side } from '../support/screens'
@@ -252,10 +253,21 @@ Then('the message {string} is not shown', async ({ page }, message: string) => {
   await expect(page.getByText(message, { exact: true })).toHaveCount(0)
 })
 
-// Every error the app shows is an alert (a wait is a status, never an alert).
-Then('an error is shown', async ({ page }) => {
+// Every error the app shows is an alert (a wait is a status, never an alert),
+// and it shows where the failed thing was done.
+const errorShown = (page: Page, testId: string | undefined) => {
+  if (!testId) throw new Error('No error is registered for this (support/pageNames.ts, support/calls.ts)')
+  return page.getByRole('alert').and(page.getByTestId(testId))
+}
+
+Then('an error is shown on {page}', async ({ page }, target: PageRef) => {
   // Assert
-  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(errorShown(page, target.error)).toBeVisible()
+})
+
+Then('an error is shown for the request to {call}', async ({ page }, call: CallRef) => {
+  // Assert
+  await expect(errorShown(page, call.error)).toBeVisible()
 })
 
 Then('a wait is shown, using the supplied delay, not an error', async ({ page, world }) => {

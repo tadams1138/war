@@ -105,3 +105,10 @@ Then('{call} was/were requested {int} time(s)', async ({ page, world }, call: Ca
   // Assert
   await expect.poll(async () => (await callsTo(page, world, call)).length).toBe(count)
 })
+
+// A removal is a DELETE, or Staff's POST to remove.
+Then('nothing has been removed', async ({ page }) => {
+  // Assert
+  const removals = (await getCallLog(page)).filter((entry) => entry.method === 'DELETE' || (entry.method === 'POST' && entry.url.endsWith('/remove')))
+  expect(removals).toHaveLength(0)
+})

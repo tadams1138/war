@@ -11,15 +11,17 @@ export interface Ids {
 export interface PageRef {
   path: (ids: Ids) => string
   landmark?: string
+  // Test id of the one error the page shows when what it does on its own fails.
+  error?: string
 }
 
 export const PAGES: Record<string, PageRef> = {
   Home: { path: () => '/' },
   'the login page': { path: () => '/login' },
-  'the Start a War page': { path: () => '/wars/new' },
+  'the Start a War page': { path: () => '/wars/new', error: 'create-war-error' },
   'My Wars': { path: () => '/my-wars' },
   'the Admin Dashboard': { path: () => '/admin' },
-  'the Import page': { path: () => '/wars/import' },
+  'the Import page': { path: () => '/wars/import', error: 'import-war-error' },
   'the Privacy Policy page': { path: () => '/privacy' },
   'the Terms of Service page': { path: () => '/terms' },
   'the Data Deletion instructions page': { path: () => '/data-deletion' },

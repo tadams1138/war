@@ -82,7 +82,7 @@ Feature: Edit War
     And they are on that War's Edit page
     When they select "Ada" in the sections list
     And they select the "Remove contestant" button
-    Then an error is shown
+    Then an error is shown for the request to remove the contestant "Ada"
     And the sections list includes "Ada"
 
   Scenario: Removing a contestant with votes asks for confirmation, naming how many votes will be lost
@@ -97,7 +97,7 @@ Feature: Edit War
     And they select the "Remove contestant" button
     Then a confirmation is shown
     And the confirmation says "3 votes"
-    And the API has not been asked to remove the contestant "Ada"
+    And nothing has been removed
 
   Scenario: Confirming removal of a contestant with votes deletes it
     Given a published War
@@ -127,7 +127,7 @@ Feature: Edit War
     And they cancel
     Then no confirmation is shown
     And the sections list includes "Ada"
-    And the API has not been asked to remove the contestant "Ada"
+    And nothing has been removed
 
   Scenario: Adding a contestant adds it to the navigation and selects it
     Given a draft War
@@ -296,7 +296,7 @@ Feature: Edit War
     And they are on that War's Edit page
     When they select "Ada" in the sections list
     And they add an image
-    Then an error is shown
+    Then an error is shown for the request to add an image to the contestant "Ada"
 
   Scenario: Rate-limited image upload is shown as a wait, not an error
     Given a draft War
@@ -333,7 +333,7 @@ Feature: Edit War
     And they are on that War's Edit page
     When they select "Ada" in the sections list
     And they remove the first image
-    Then an error is shown
+    Then an error is shown for the request to remove the first image of the contestant "Ada"
     And the gallery shows the first image then the second
 
   Scenario: A failed image reorder shows an error
@@ -346,7 +346,7 @@ Feature: Edit War
     And they are on that War's Edit page
     When they select "Ada" in the sections list
     And they move up the second image
-    Then an error is shown
+    Then an error is shown for the request to move up the second image of the contestant "Ada"
 
   Scenario: Reordering images persists the new order
     Given a draft War
