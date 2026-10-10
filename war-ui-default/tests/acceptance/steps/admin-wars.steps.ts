@@ -52,7 +52,7 @@ Given('the API lists these Wars to Staff, {int} per page:', async ({ world }, si
 })
 
 // Joins the Wars list, as a War of its own.
-Given(/^a (published|removed) War(?: titled "([^"]*)")?$/, async ({ world }, state: string, title?: string) => {
+Given(/^the API lists a (published|removed) War(?: titled "([^"]*)")? to Staff$/, async ({ world }, state: string, title?: string) => {
   // Arrange
   const war = addStaffWar(world, { title: title ?? 'Alpha War', removed: state === 'removed' ? 'yes' : '' })
   const list = world.recipes.find((recipe) => recipe.path === `${API}/admin/wars` && !recipe.query)
