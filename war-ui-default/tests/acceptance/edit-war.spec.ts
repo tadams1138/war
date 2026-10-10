@@ -28,6 +28,29 @@ test('Metadata is shown by default', async ({ page }) => {
   await expect(page.getByTestId('edit-war-contestant')).toHaveCount(0)
 })
 
+test('Unsaved metadata edits survive switching to a contestant and back', async ({ page }) => {
+  // Arrange
+  const detail = buildWarDetail({
+    id: WAR_ID,
+    status: 'draft',
+    title: 'Saved Title',
+    category: 'Saved Category',
+    contestants: [buildContestant({ id: 'c-1', name: 'Ada' })],
+  })
+  await useScenario(page, [ok('GET', `${API}/wars/${WAR_ID}`, detail)])
+  await gotoEditPage(page, WAR_ID)
+  await page.getByTestId('edit-war-title-input').fill('Unsaved Title')
+  await page.getByTestId('edit-war-category-input').fill('Unsaved Category')
+
+  // Act
+  await selectContestant(page, 'Ada')
+  await page.getByTestId('edit-war-nav-metadata').click()
+
+  // Assert
+  await expect(page.getByTestId('edit-war-title-input')).toHaveValue('Unsaved Title')
+  await expect(page.getByTestId('edit-war-category-input')).toHaveValue('Unsaved Category')
+})
+
 test('Selecting a contestant shows only its editor', async ({ page }) => {
   // Arrange
   const detail = buildWarDetail({
@@ -42,7 +65,7 @@ test('Selecting a contestant shows only its editor', async ({ page }) => {
   await selectContestant(page, 'Ada')
 
   // Assert
-  await expect(page.getByTestId('edit-war-title-input')).toHaveCount(0)
+  await expect(page.getByTestId('edit-war-title-input')).toBeHidden()
   await expect(page.getByTestId('edit-war-contestant')).toHaveCount(1)
   await expect(page.getByTestId('edit-war-contestant').filter({ hasText: 'Ada' })).toBeVisible()
 
