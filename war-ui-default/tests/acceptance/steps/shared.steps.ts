@@ -5,7 +5,8 @@ import { expect, type Page } from '@playwright/test'
 import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
-import { API, getCallLog, loginAsTestVoter, navigateAuthenticated, useScenario, waitForCallLog } from '../support/mocking'
+import { API, loginAsTestVoter, navigateAuthenticated, useScenario, votesSubmitted, waitForCallLog } from '../support/mocking'
+import { contestantCard, dots, matchupCard, nextArrow } from '../support/pages'
 import { failWarCalls, ok, reply, voteRecipe } from '../support/recipes'
 import type { PageRef } from '../support/pageNames'
 import type { Side } from '../support/screens'
@@ -56,14 +57,23 @@ Given('a(nother) War themed {string}', async ({ world }, theme: string) => {
 Given('that War has a matchup to vote on', async ({ world }) => {
   // Arrange
   const response = buildMatchupResponse()
-  world.matchup = response.matchup
-  world.queue(reply('POST', `${API}/wars/${world.warId}/join`, 204), ok('GET', `${API}/wars/${world.warId}/matchups/next`, response))
+  world.matchupResponse = response
+  world.matchupCalls = [{ status: 200, body: response }]
+  world.queue(
+    reply('POST', `${API}/wars/${world.warId}/join`, 204),
+    { method: 'GET', path: `${API}/wars/${world.warId}/matchups/next`, responses: world.matchupCalls },
+  )
 })
 
 function contestant(world: World, side: Side) {
   if (!world.matchup) throw new Error('Give "that War has a matchup to vote on" first')
   return world.matchup[side]
 }
+
+Given('the {side} contestant is named {string}', async ({ world }, side: Side, name: string) => {
+  // Arrange
+  contestant(world, side).name = name
+})
 
 Given("the {side} contestant's bio is {string}", async ({ world }, side: Side, bio: string) => {
   // Arrange
@@ -136,6 +146,19 @@ When('a visitor opens {page}', async ({ page, world }, target: PageRef) => {
   await open(page, world, target)
 })
 
+When('they vote for {string}', async ({ page }, name: string) => {
+  // Act
+  await contestantCard(page, name).click()
+})
+
+// A real mouse click, not a keyboard press: pointerdown/pointerup on the arrow
+// button bubble to the carousel's own tap-to-vote gesture handlers before the
+// button's click handler ever runs, a materially different path from the keyboard.
+When("they click the next-image arrow on the {side} contestant's card", async ({ page }, side: Side) => {
+  // Act
+  await nextArrow(page, side).click()
+})
+
 When('they reload the page', async ({ page }) => {
   // Act
   await page.reload()
@@ -153,8 +176,32 @@ Then('the page renders in the {string} theme', async ({ page }, theme: string) =
 
 Then('no vote is submitted', async ({ page }) => {
   // Assert
-  const votes = (await getCallLog(page)).filter((entry) => entry.method === 'POST' && entry.url.includes('/vote'))
-  expect(votes).toHaveLength(0)
+  expect(await votesSubmitted(page)).toHaveLength(0)
+})
+
+Then("the {side} contestant's card shows image {int}", async ({ page }, side: Side, image: number) => {
+  // Assert
+  await expect(dots(page, side).nth(image - 1)).toHaveAttribute('data-active', 'true')
+  await expect(matchupCard(page, side).locator('.carousel-frame[data-active="true"]').getByTestId('carousel-image')).toBeVisible()
+})
+
+// Both cards of the pair, never just one.
+async function bothCardsHave(page: Page, attribute: string, value: string): Promise<void> {
+  const cards = page.getByTestId('contestant-card')
+  await expect(cards).toHaveCount(2)
+  for (const card of await cards.all()) await expect(card).toHaveAttribute(attribute, value, { timeout: 3000 })
+}
+
+Then('voting is disabled', async ({ page }) => {
+  // Assert
+  await bothCardsHave(page, 'aria-busy', 'true')
+  await bothCardsHave(page, 'aria-disabled', 'true')
+})
+
+Then('voting re-enables( once that delay has passed)', async ({ page }) => {
+  // Assert
+  await bothCardsHave(page, 'aria-busy', 'false')
+  await bothCardsHave(page, 'aria-disabled', 'false')
 })
 
 Then('the share image is uploaded to that War', async ({ page, world }) => {

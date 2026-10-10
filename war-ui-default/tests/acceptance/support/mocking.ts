@@ -74,3 +74,8 @@ export async function waitForCallLog(
   await expect.poll(async () => predicate(await getCallLog(page))).toBe(true)
   return getCallLog(page)
 }
+
+// The votes the page has submitted so far.
+export async function votesSubmitted(page: Page): Promise<MswCallLogEntry[]> {
+  return (await getCallLog(page)).filter((entry) => entry.method === 'POST' && entry.url.includes('/vote'))
+}

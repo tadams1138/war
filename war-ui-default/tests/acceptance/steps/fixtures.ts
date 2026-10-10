@@ -4,7 +4,7 @@
 // page.goto, see support/mocking.ts useScenario).
 import { test as base } from 'playwright-bdd'
 import type { NextMatchupResponse, WarSummary } from '../../../src/api/client'
-import type { HandlerRecipe } from '../../../src/mocks/scenarios'
+import type { HandlerRecipe, RecipeResponse } from '../../../src/mocks/scenarios'
 import './parameters'
 
 export class World {
@@ -16,9 +16,13 @@ export class World {
   // The id of the War in scope (the latest one given); "that War's ... page"
   // resolves against it. Wars are numbered war-1, war-2, ... in the order given.
   warId = ''
-  // The matchup "that War has a matchup to vote on" queued. Later Givens edit
-  // it in place: the queued call holds this same object until the app boots.
-  matchup: NextMatchupResponse['matchup'] | undefined
+  // The latest matchup given ("that War has a matchup to vote on", then each
+  // "a later matchup ..."). Later Givens edit it in place: the queued call
+  // holds this same object until the app boots.
+  matchupResponse: NextMatchupResponse | undefined
+  // The next-matchup call's responses, in call order: the matchups given, then
+  // possibly "none left". Shared with the queued recipe, so pushing queues more.
+  matchupCalls: RecipeResponse[] = []
   // The Wars "the API lists these Wars:" gave, in the order listed.
   listedWars: WarSummary[] = []
   // The share image preview's source just before it was generated again.
@@ -28,6 +32,10 @@ export class World {
   // Every URL the page requested, in order.
   readonly requestedUrls: string[] = []
   private warCount = 0
+
+  get matchup(): NextMatchupResponse['matchup'] | undefined {
+    return this.matchupResponse?.matchup
+  }
 
   nextWarId(): string {
     this.warCount += 1

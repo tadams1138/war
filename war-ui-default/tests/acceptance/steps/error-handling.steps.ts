@@ -1,18 +1,17 @@
 // Steps for features/error-handling.feature. Scoped with the feature's own tag
 // so no other feature can ever bind to (or collide with) this text.
-import { expect, type Page } from '@playwright/test'
+import { expect } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import type { RecipeResponse } from '../../../src/mocks/scenarios'
 import { test, type World } from './fixtures'
+import { contestantCard } from '../support/pages'
 import { failWarCalls, voteRecipe } from '../support/recipes'
 
-const { Given, When, Then } = createBdd(test, { tags: '@error-handling' })
+const { Given, Then } = createBdd(test, { tags: '@error-handling' })
 
 function answerVotes(world: World, response: RecipeResponse): void {
   world.queue(voteRecipe(world.warId, response))
 }
-
-const card = (page: Page, name: string) => page.getByTestId('contestant-card').filter({ hasText: name })
 
 Given('a War that does not exist', async ({ world }) => {
   // Arrange
@@ -59,11 +58,6 @@ Given('the API cannot be reached to cast a vote', async ({ world }) => {
   answerVotes(world, { status: 0, networkError: true })
 })
 
-When('they vote for {string}', async ({ page }, name: string) => {
-  // Act
-  await card(page, name).click()
-})
-
 Then('the message {string} is shown', async ({ page }, message: string) => {
   // Assert
   await expect(page.getByText(message, { exact: true })).toBeVisible()
@@ -71,20 +65,10 @@ Then('the message {string} is shown', async ({ page }, message: string) => {
 
 Then('the matchup still shows {string}', async ({ page }, name: string) => {
   // Assert
-  await expect(card(page, name)).toBeVisible()
+  await expect(contestantCard(page, name)).toBeVisible()
 })
 
 Then('the message is announced as a status, not an alert', async ({ page }) => {
   // Assert
   await expect(page.getByTestId('vote-error')).toHaveAttribute('role', 'status')
-})
-
-Then('voting is disabled', async ({ page }) => {
-  // Assert
-  await expect(page.getByTestId('contestant-card').first()).toHaveAttribute('aria-busy', 'true')
-})
-
-Then('voting re-enables once that delay has passed', async ({ page }) => {
-  // Assert
-  await expect(page.getByTestId('contestant-card').first()).toHaveAttribute('aria-busy', 'false', { timeout: 3000 })
 })
