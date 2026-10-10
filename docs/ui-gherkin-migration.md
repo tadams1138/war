@@ -1,10 +1,11 @@
 # UI Gherkin migration: from title-bound to executed steps
 
-**Status as of 2026-10-10: every feature file converted (290 acceptance tests).** Only the
-title-binding scaffolding is left to remove (see *Finishing the migration*).
-
-**To resume:** read this file, then convert the next feature in the [backlog](#backlog)
-following [Converting one feature](#converting-one-feature). Stop at any feature boundary.
+**Status: COMPLETE (2026-10-10).** Every feature file executes its steps (290 acceptance
+tests), the title-binding scaffolding (`tests/bindings/`, the `specs` Playwright project, the
+`CONVERTED_FEATURES` list) is gone, and the conventions, the rules and the shared vocabulary
+now live in `war-ui-default/tests/acceptance/README.md`. This file is a historical record of the
+migration and is kept only for review; the sections below describe the intermediate state and
+are no longer maintained.
 
 ## Why
 
@@ -212,15 +213,15 @@ corrects them as a side effect (rules 4 and 5).
 - **`features/pending/` must never run.** It is not in `CONVERTED_FEATURES`, so `bddgen` does
   not see it.
 
-## Finishing the migration
+## Finishing the migration (done)
 
-When `CONVERTED_FEATURES` lists every feature:
+When `CONVERTED_FEATURES` listed every feature:
 
 1. Point the `bdd` project at `features/*.feature` directly (the glob does not reach
    `features/pending/`) and delete the `specs` project from `playwright.config.ts`.
 2. Delete `tests/bindings/` (the title check, its tests, and `convertedFeatures.ts`).
 3. Update `CLAUDE.md`, `README.md`, `war-ui-default/README.md` and `PROGRESS.md`, then delete
-   this file.
+   this file (kept for review instead).
 
 ## Not verified
 
