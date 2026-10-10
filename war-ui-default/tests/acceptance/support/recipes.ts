@@ -41,3 +41,14 @@ export function queueListedWars(world: World, wars: Partial<WarSummary>[]): WarS
   )
   return listed
 }
+
+// What creating a War answers: the POST (one response per attempt, in order)
+// and the draft it creates, empty and untitled. "That War" becomes that draft.
+export const CREATED_WAR_ID = 'war-create-1'
+export const createdWar = () => buildWarSummary({ id: CREATED_WAR_ID, title: null, status: 'draft' })
+
+export function queueCreation(world: World, postResponses: RecipeResponse[]): void {
+  world.warId = CREATED_WAR_ID
+  const detail = buildWarDetail({ id: CREATED_WAR_ID, title: null, status: 'draft', contestants: [] })
+  world.queue({ method: 'POST', path: `${API}/wars`, responses: postResponses }, ok('GET', `${API}/wars/${CREATED_WAR_ID}`, detail))
+}

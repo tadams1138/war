@@ -3,14 +3,14 @@ import type { Page } from '@playwright/test'
 import type { HandlerRecipe } from '../../../src/mocks/scenarios'
 import { API, getCallLog } from './mocking'
 
-export function me(flags: { is_moderator?: boolean; is_admin?: boolean }) {
+export function me(flags: { is_moderator?: boolean; is_admin?: boolean }, displayName: string | null = 'Test Voter') {
   return {
     method: 'GET' as const,
     path: `${API}/auth/me`,
     responses: [
       {
         status: 200,
-        body: { voter: { id: 'voter-1', display_name: 'Test Voter', avatar_url: null, is_moderator: false, is_admin: false, ...flags } },
+        body: { voter: { id: 'voter-1', display_name: displayName, avatar_url: null, is_moderator: false, is_admin: false, ...flags } },
       },
     ],
   }

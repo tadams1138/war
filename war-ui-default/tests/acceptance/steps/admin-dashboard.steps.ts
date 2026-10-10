@@ -119,16 +119,6 @@ Given('the first Voter to sign in is the Moderator {string} and the next is the 
 
 // --- Act -------------------------------------------------------------------
 
-When('they open the account menu', async ({ page }) => {
-  // Act
-  await nav(page).getByTestId('nav-identity').click()
-})
-
-When('they select the {string} link in the account menu', async ({ page }, name: string) => {
-  // Act
-  await nav(page).getByRole('menuitem', { name, exact: true }).click()
-})
-
 When('they choose to {word} the kill switch', async ({ page }, action: string) => {
   // Act
   await page.getByRole('button', { name: `${action[0]!.toUpperCase()}${action.slice(1)} kill switch` }).click()
@@ -164,17 +154,6 @@ Then('the Admin Dashboard is shown beneath the navigation header', async ({ page
 Then('no Admin Dashboard is shown', async ({ page }) => {
   // Assert
   await expect(heading(page)).toHaveCount(0)
-})
-
-Then('the account menu offers the {string} link', async ({ page }, name: string) => {
-  // Assert
-  await expect(nav(page).getByRole('menuitem', { name, exact: true })).toBeVisible()
-})
-
-Then('the account menu offers no {string} link', async ({ page }, name: string) => {
-  // Assert
-  await expect(nav(page).getByRole('menu')).toBeVisible()
-  await expect(nav(page).getByRole('menuitem', { name, exact: true })).toHaveCount(0)
 })
 
 Then('the kill switch is (still )shown as {state}', async ({ page }, enabled: boolean) => {
@@ -236,11 +215,6 @@ Then('the entry names it as an untitled War and links to its Staff detail', asyn
   // Assert
   await expect(entries(page)).not.toContainText('a deleted War')
   await expect(entries(page).getByRole('link', { name: 'Untitled War' })).toHaveAttribute('href', `/admin/wars/${world.warId}`)
-})
-
-Then('the navigation shows the name {string}', async ({ page }, name: string) => {
-  // Assert
-  await expect(nav(page).getByTestId('nav-identity')).toHaveText(name)
 })
 
 Then("the current Voter's identity was requested {int} time(s)", async ({ page }, count: number) => {

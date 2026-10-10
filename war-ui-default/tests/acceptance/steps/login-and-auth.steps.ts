@@ -6,7 +6,6 @@ import { buildMatchupResponse, buildWarDetail } from '../../../src/mocks/fixture
 import { MOCK_ACCESS_TOKEN } from '../../../src/mocks/handlers'
 import { test, type World } from './fixtures'
 import { API, getCallLog, waitForCallLog } from '../support/mocking'
-import { nav } from '../support/pages'
 import { PROVIDERS, type Provider } from '../support/providers'
 import { ok } from '../support/recipes'
 
@@ -82,11 +81,6 @@ Then('no sign-in button is shown for Apple', async ({ page }) => {
 Then("the browser navigates to {provider}'s login endpoint", async ({ page }, provider: Provider) => {
   // Assert
   await expect(page).toHaveURL(new RegExp(`${API}/auth/${provider.id}/login`))
-})
-
-Then('they are signed in', async ({ page }) => {
-  // Assert
-  await expect(nav(page).getByTestId('nav-identity')).toBeVisible()
 })
 
 // The token lives in memory only (war-spec.md §10): a script-readable copy in

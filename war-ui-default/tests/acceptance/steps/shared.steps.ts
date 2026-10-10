@@ -8,8 +8,8 @@ import type { WarSummary } from '../../../src/api/client'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { me } from '../support/adminFixtures'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario, votesSubmitted, waitForCallLog } from '../support/mocking'
-import { contestantCard, dots, matchupCard, nav, nextArrow, sortMenu } from '../support/pages'
-import { failWarCalls, ok, queueListedWars, reply, voteRecipe } from '../support/recipes'
+import { contestantCard, dots, expectSignedOut, matchupCard, nav, nextArrow, sortMenu } from '../support/pages'
+import { createdWar, failWarCalls, ok, queueCreation, queueListedWars, reply, voteRecipe } from '../support/recipes'
 import type { PageRef } from '../support/pageNames'
 import type { RoleFlags } from '../support/roles'
 import type { Side } from '../support/screens'
@@ -124,6 +124,11 @@ Given('a {screen} screen', async ({ page }, size: { width: number; height: numbe
 Given('the API lists these Wars:', async ({ world }, table: DataTable) => {
   // Arrange
   queueListedWars(world, table.hashes().map(summaryFromRow))
+})
+
+Given('the API creates an empty draft War', async ({ world }) => {
+  // Arrange
+  queueCreation(world, [{ status: 201, body: createdWar() }])
 })
 
 Given('the API accepts a share image upload', async ({ world }) => {
@@ -266,8 +271,19 @@ async function expectOn(page: Page, world: World, target: PageRef): Promise<void
 
 Then('they are signed out', async ({ page }) => {
   // Assert
-  await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible()
-  await expect(nav(page).getByTestId('nav-identity')).toHaveCount(0)
+  await expectSignedOut(page)
+})
+
+Then('they are signed in', async ({ page }) => {
+  // Assert
+  await expect(nav(page).getByTestId('nav-identity')).toBeVisible()
+  await expect(nav(page).getByRole('link', { name: 'Log in' })).toHaveCount(0)
+})
+
+Then('no error message is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('vote-error')).toHaveCount(0)
+  await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
 Then('an empty state is shown', async ({ page }) => {

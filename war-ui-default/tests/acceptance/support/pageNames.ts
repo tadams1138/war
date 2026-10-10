@@ -14,6 +14,9 @@ export const PAGES: Record<string, PageRef> = {
   'My Wars': { path: () => '/my-wars' },
   'the Admin Dashboard': { path: () => '/admin' },
   'the Import page': { path: () => '/wars/import' },
+  'the Privacy Policy page': { path: () => '/privacy' },
+  'the Terms of Service page': { path: () => '/terms' },
+  'the Data Deletion instructions page': { path: () => '/data-deletion' },
   // Wars given by "a War ..." steps are numbered war-1, war-2, ... (see World.nextWarId)
   "the first War's detail page": { path: () => '/wars/war-1' },
   "the first War's Staff detail page": { path: () => '/admin/wars/war-1' },
@@ -21,6 +24,7 @@ export const PAGES: Record<string, PageRef> = {
   // War detail is also its results page (war-spec.md §10.4)
   "that War's Staff detail page": { path: (warId) => `/admin/wars/${warId}` },
   "that War's results page": { path: (warId) => `/wars/${warId}` },
+  "the first War's Edit page": { path: () => '/wars/war-1/edit', landmark: 'edit-war-title-input' },
   "that War's Edit page": { path: (warId) => `/wars/${warId}/edit`, landmark: 'edit-war-title-input' },
   "that War's vote page": { path: (warId) => `/wars/${warId}/vote` },
 }

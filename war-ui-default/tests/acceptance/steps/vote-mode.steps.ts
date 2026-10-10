@@ -110,8 +110,3 @@ Then('exactly one vote is submitted', async ({ page }) => {
   expect(await votesSubmitted(page)).toHaveLength(1)
 })
 
-Then('no error message is shown', async ({ page }) => {
-  // Assert
-  await expect(page.getByTestId('vote-error')).toHaveCount(0)
-  await expect(page.getByRole('alert')).toHaveCount(0)
-})
