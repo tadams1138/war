@@ -12,6 +12,8 @@ export const PAGES: Record<string, PageRef> = {
   'the login page': { path: () => '/login' },
   'the Start a War page': { path: () => '/wars/new' },
   'the Import page': { path: () => '/wars/import' },
+  // Wars given by "a War ..." steps are numbered war-1, war-2, ... (see World.nextWarId)
+  "the first War's detail page": { path: () => '/wars/war-1' },
   "that War's detail page": { path: (warId) => `/wars/${warId}` },
   "that War's Edit page": { path: (warId) => `/wars/${warId}/edit`, landmark: 'edit-war-title-input' },
   "that War's vote page": { path: (warId) => `/wars/${warId}/vote` },

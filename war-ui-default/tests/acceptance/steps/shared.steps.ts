@@ -4,10 +4,14 @@
 import { expect, type Page } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { test, type World } from './fixtures'
-import { loginAsTestVoter, navigateAuthenticated, useScenario } from '../support/mocking'
+import { buildMatchupResponse, buildWarDetail } from '../../../src/mocks/fixtures'
+import { API, loginAsTestVoter, navigateAuthenticated, useScenario } from '../support/mocking'
+import { ok, reply } from '../support/recipes'
 import type { PageRef } from '../support/pageNames'
 
 const { Given, When, Then } = createBdd(test)
+
+type WarTheme = NonNullable<Parameters<typeof buildWarDetail>[0]>['theme']
 
 async function boot(page: Page, world: World): Promise<void> {
   if (world.booted) return
@@ -32,6 +36,20 @@ Given('an authenticated voter', async ({ page, world }) => {
   world.signedIn = true
 })
 
+Given('a(nother) War themed {string}', async ({ world }, theme: string) => {
+  // Arrange
+  const id = world.nextWarId()
+  world.queue(ok('GET', `${API}/wars/${id}`, buildWarDetail({ id, theme: theme as WarTheme })))
+})
+
+Given('that War has a matchup to vote on', async ({ world }) => {
+  // Arrange
+  world.queue(
+    reply('POST', `${API}/wars/${world.warId}/join`, 204),
+    ok('GET', `${API}/wars/${world.warId}/matchups/next`, buildMatchupResponse()),
+  )
+})
+
 Given('they are on {page}', async ({ page, world }, target: PageRef) => {
   // Arrange
   await open(page, world, target)
@@ -45,6 +63,16 @@ When('they open {page}', async ({ page, world }, target: PageRef) => {
 When('a visitor opens {page}', async ({ page, world }, target: PageRef) => {
   // Act
   await open(page, world, target)
+})
+
+When('they reload the page', async ({ page }) => {
+  // Act
+  await page.reload()
+})
+
+Then('the matchup is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('matchup-view')).toBeVisible()
 })
 
 Then('they are redirected to {page}', async ({ page, world }, target: PageRef) => {

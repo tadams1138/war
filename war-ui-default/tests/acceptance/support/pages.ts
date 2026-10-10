@@ -6,6 +6,10 @@ export function nav(page: Page) {
   return page.getByRole('navigation', { name: 'Primary' })
 }
 
+export function themeSelect(page: Page) {
+  return nav(page).getByTestId('nav-theme-select')
+}
+
 export function footer(page: Page) {
   return page.getByRole('contentinfo')
 }
