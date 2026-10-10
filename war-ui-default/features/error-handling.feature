@@ -2,8 +2,7 @@
 Feature: Error Handling
 
   Scenario: Session expiry sends the voter to log in again
-    Given a War whose requests are answered with 401
-    And the session cannot be refreshed
+    Given the voter's session has expired and cannot be refreshed
     And an authenticated voter
     When they open that War's detail page
     Then the message "Please log in to continue" is shown
@@ -12,7 +11,7 @@ Feature: Error Handling
   Scenario: Voting is blocked with a closed-War message
     Given a War
     And that War has a matchup to vote on
-    And the API answers votes with 403 and reason "war_not_published"
+    And that War has closed
     And an authenticated voter
     And they are on that War's vote page
     When they vote for "Left Contestant"
@@ -23,19 +22,19 @@ Feature: Error Handling
   Scenario: Voting shows a join message as a defensive fallback
     Given a War
     And that War has a matchup to vote on
-    And the API answers votes with 403 and reason "not_joined"
+    And the voter's automatic join did not take effect
     And an authenticated voter
     And they are on that War's vote page
     When they vote for "Left Contestant"
     Then the message "Join this War to vote" is shown
 
   Scenario: A missing War shows a not-found message on its detail page
-    Given a War whose requests are answered with 404
+    Given a War that does not exist
     When a visitor opens that War's detail page
     Then the message "This War doesn't exist or has been removed" is shown
 
   Scenario: A missing War shows a not-found message on its vote page
-    Given a War whose requests are answered with 404
+    Given a War that does not exist
     And an authenticated voter
     When they open that War's vote page
     Then the message "This War doesn't exist or has been removed" is shown
@@ -43,7 +42,7 @@ Feature: Error Handling
   Scenario: Rate-limited voting is shown as a wait, not an error
     Given a War
     And that War has a matchup to vote on
-    And the API answers votes with 429 and Retry-After 1
+    And the API is rate limiting votes for 1 second
     And an authenticated voter
     And they are on that War's vote page
     When they vote for "Left Contestant"
@@ -55,7 +54,7 @@ Feature: Error Handling
   Scenario: An unexpected validation failure shows a generic retry message
     Given a War
     And that War has a matchup to vote on
-    And the API answers votes with 422
+    And the API rejects a vote as invalid
     And an authenticated voter
     And they are on that War's vote page
     When they vote for "Left Contestant"
@@ -64,7 +63,7 @@ Feature: Error Handling
   Scenario: A server error shows a generic retry message
     Given a War
     And that War has a matchup to vote on
-    And the API answers votes with 503
+    And the API fails a vote with a server error
     And an authenticated voter
     And they are on that War's vote page
     When they vote for "Left Contestant"
@@ -73,7 +72,7 @@ Feature: Error Handling
   Scenario: A network failure shows a connectivity message
     Given a War
     And that War has a matchup to vote on
-    And the API cannot be reached when voting
+    And the API cannot be reached to cast a vote
     And an authenticated voter
     And they are on that War's vote page
     When they vote for "Left Contestant"
