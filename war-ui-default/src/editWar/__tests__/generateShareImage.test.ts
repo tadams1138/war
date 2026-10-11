@@ -87,7 +87,7 @@ describe('generateShareImage', () => {
 
   it("uses each contestant's primary (display_order 0) image, not just the first array entry", async () => {
     // Arrange — the second array entry is the one declared display_order:
-    // 0, mirroring war-detail.spec.ts's own "primary image" regression
+    // 0, mirroring features/war-detail.feature's own "primary image" regression
     // test (ResultsTable had this exact bug once).
     const ctx = stubCanvas()
     const war = buildWarDetail({

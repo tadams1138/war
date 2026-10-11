@@ -2,63 +2,34 @@
 // no other feature can ever bind to (or collide with) this text.
 import { expect } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
-import { buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
-import { test, type World } from './fixtures'
-import { API, navigateAuthenticated, waitForCallLog } from '../support/mocking'
-import { ok } from '../support/recipes'
+import { test } from './fixtures'
+import { waitForCallLog } from '../support/mocking'
+import { CREATED_WAR_ID, createdWar, queueCreation } from '../support/recipes'
 
 const { Given, When, Then } = createBdd(test, { tags: '@create-war' })
 
-const WAR_ID = 'war-create-1'
-
-function creationRecipes(world: World, postResponses: { status: number; body: unknown; headers?: Record<string, string> }[]) {
-  world.warId = WAR_ID
-  const detail = buildWarDetail({ id: WAR_ID, title: null, status: 'draft', contestants: [] })
-  world.queue({ method: 'POST', path: `${API}/wars`, responses: postResponses }, ok('GET', `${API}/wars/${WAR_ID}`, detail))
-}
-
-const createdWar = () => buildWarSummary({ id: WAR_ID, title: null, status: 'draft' })
-
-Given('the API creates an empty draft War', async ({ world }) => {
-  // Arrange
-  creationRecipes(world, [{ status: 201, body: createdWar() }])
-})
+const RETRY_AFTER_SECONDS = 1
 
 Given('the API rate limits the first creation request for 1 second, then accepts the retry', async ({ world }) => {
   // Arrange
-  creationRecipes(world, [
-    { status: 429, body: { error: 'rate limited' }, headers: { 'Retry-After': '1' } },
+  world.retryAfterSeconds = RETRY_AFTER_SECONDS
+  queueCreation(world, [
+    { status: 429, body: { error: 'rate limited' }, headers: { 'Retry-After': String(RETRY_AFTER_SECONDS) } },
     { status: 201, body: createdWar() },
   ])
 })
 
 Given('the API rejects the first creation request, then accepts the retry', async ({ world }) => {
   // Arrange
-  creationRecipes(world, [
+  queueCreation(world, [
     { status: 500, body: { error: 'server error' } },
     { status: 201, body: createdWar() },
   ])
 })
 
-Given('no voter is authenticated', async () => {
-  // Arrange
-  // Nothing to set up: every scenario starts on a fresh browser context with
-  // no in-memory session, and nothing here boots the app.
-})
-
-When('they choose to create a War', async ({ page }) => {
-  // Act
-  await navigateAuthenticated(page, '/wars/new')
-})
-
 When('they use the retry control', async ({ page }) => {
   // Act
   await page.getByTestId('create-war-retry').click()
-})
-
-When('they navigate directly to {string}', async ({ page }, path: string) => {
-  // Act
-  await page.goto(path)
 })
 
 Then('an empty draft War is created via the API', async ({ page }) => {
@@ -68,35 +39,12 @@ Then('an empty draft War is created via the API', async ({ page }) => {
   expect(JSON.parse(createCall?.body || '{}')).toEqual({})
 })
 
-Then('a wait is shown, not an error', async ({ page }) => {
+Then('creation retries on its own once the supplied delay passes', async ({ page }) => {
   // Assert
-  const wait = page.getByTestId('create-war-wait')
-  await expect(wait).toContainText('Slow down a moment')
-  await expect(wait).toHaveAttribute('role', 'status')
-  await expect(page.getByTestId('create-war-error')).toHaveCount(0)
-})
-
-Then('creation retries on its own once the supplied delay passes', async ({ page, world }) => {
-  // Assert
-  await expect(page).toHaveURL(`/wars/${world.warId}/edit`, { timeout: 3000 })
-})
-
-Then('an error message is shown', async ({ page }) => {
-  // Assert
-  await expect(page.getByTestId('create-war-error')).toBeVisible()
+  await expect(page).toHaveURL(`/wars/${CREATED_WAR_ID}/edit`, { timeout: 3000 })
 })
 
 Then('a retry control is offered', async ({ page }) => {
   // Assert
   await expect(page.getByTestId('create-war-retry')).toBeVisible()
-})
-
-Then('they are redirected to {string}', async ({ page }, path: string) => {
-  // Assert
-  await expect.poll(() => new URL(page.url()).pathname).toBe(path)
-})
-
-Then('the returnTo query param is {string}', async ({ page }, path: string) => {
-  // Assert
-  await expect.poll(() => new URL(page.url()).searchParams.get('returnTo')).toBe(path)
 })

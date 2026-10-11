@@ -959,8 +959,9 @@ Needs no authentication for any published War (§6.4).
 
 Each row shows the contestant's media, bio, and a wins/appearances/win-share group, with the
 rank marked directly on the media ("—" for unranked) rather than in a column of its own. Media
-stays large at every width: stacked above the bio on a narrow or portrait viewport, beside it
-on a wide or landscape one, with the numbers always beneath the bio. On a wide viewport the
+is smaller than on the vote card but never shrinks to a thumbnail: stacked above the bio on a
+narrow or portrait viewport, beside it on a wide or landscape one, with the numbers always
+beneath the bio. On a wide viewport the
 list is capped in width and centered. A contestant with more than one image is browsable in
 place with the same page-through controls as the vote card (§10.3), overlaid on the image so
 a lone image and a browsable one occupy the same space. A contestant with no media (§6.1: media is optional)
@@ -1103,7 +1104,9 @@ for a routine one.
 requirement (at least two contestants) — a client-side mirror of a rule the API enforces
 regardless, so a creator sees why before attempting it rather than only after a rejected
 request. Unpublish requires nothing. Either action asks for confirmation first, naming what
-changes (who can now reach it, or who no longer can), and stays on the Edit page afterward. A
+changes (who can now reach it, or who no longer can). Confirming Publish takes the creator
+straight to the War's vote page, since voting is what publishing opens; Unpublish stays on the
+Edit page. A
 failure the client-side check didn't catch (a race, a network error) shows the API's own
 validation messages verbatim, never generic error copy — these are addressed to the creator,
 and only the creator ever reaches them.

@@ -13,7 +13,7 @@ Feature: Import a War
     Given an authenticated voter
     And they are on the Import page
     When they choose a file that is not a valid War export
-    Then an error is shown
+    Then an error is shown on the Import page
     And no War is created
 
   Scenario: Selecting a valid export file with a share image uploads it to the new draft
@@ -24,4 +24,4 @@ Feature: Import a War
     When they choose a valid War export file that includes a share image
     Then a new draft War is created from it
     And they are redirected to that War's Edit page
-    And the share image is uploaded to the new draft
+    And the share image is uploaded to that War
