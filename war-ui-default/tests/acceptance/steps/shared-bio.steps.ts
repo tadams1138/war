@@ -8,6 +8,10 @@ import type { BioRef } from '../support/bios'
 
 const { Then } = createBdd(test)
 
+// Anything that can execute or embed: scripts, images, event handlers, frames, plugins, styles, forms, javascript: links.
+const ACTIVE_CONTENT =
+  'script, img, iframe, object, embed, style, form, [onerror], [onload], [onclick], a[href^="javascript:" i]'
+
 const LISTS: Record<string, string> = { bulleted: 'ul li', numbered: 'ol li' }
 
 Then('{bio} says {string}', async ({ page }, bio: BioRef, text: string) => {
@@ -54,8 +58,8 @@ Then('{bio} separates its paragraphs with visible vertical space', async ({ page
   await expect.poll(() => paragraphs.first().evaluate((element) => parseFloat(getComputedStyle(element).marginBottom))).toBeGreaterThan(0)
 })
 
-Then('{bio} renders none of its markup as a script, an image or an event handler', async ({ page }, bio: BioRef) => {
+Then('{bio} renders as inert text', async ({ page }, bio: BioRef) => {
   // Assert
   await expect(bio(page)).toBeVisible()
-  await expect(bio(page).locator('script, img, [onerror]')).toHaveCount(0)
+  await expect(bio(page).locator(ACTIVE_CONTENT)).toHaveCount(0)
 })
