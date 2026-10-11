@@ -9,7 +9,8 @@ switch.
 
 **Live:** [war.tmad.dev](https://war.tmad.dev) (production) and
 [staging.war.tmad.dev](https://staging.war.tmad.dev) (staging). Signing in needs an account
-with one of the four providers. To click through the UI without any backend, run it in
+with Google, Microsoft or Twitter/X (the Facebook button is hidden until Meta business
+verification completes). To click through the UI without any backend, run it in
 [mock mode](#try-the-ui-with-no-backend).
 
 This is a single-author showcase repository, not an accepting-contributions project. The

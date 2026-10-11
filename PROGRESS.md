@@ -228,6 +228,9 @@ Every test labels its Arrange, Act and Assert phases.
   as Canvas paths, kept in sync with the CSS by hand.
 - **S3 integration test image.** `test/integration/s3ObjectStorage.test.ts` runs against an
   `adobe/s3mock` container because `minio/minio` refuses anonymous pulls.
+- **Facebook sign-in is hidden in the UI.** The login page offers Google, Microsoft and X only
+  until Meta business verification completes (see *Operational prerequisites*). The API still
+  serves Facebook sign-in; restoring the button is one line in `war-ui-default/src/pages/Login.tsx`.
 - **Best-effort storage cleanup.** After a delete, Remove or Ban, a storage failure is
   logged and leaves orphaned objects; the request still succeeds.
 
@@ -268,7 +271,6 @@ Every test labels its Arrange, Act and Assert phases.
 
 ## To do
 
-- Hide Facebook login feature until facebook business verification can be completed.
 - Disable Prev and Next buttons on war dashboard when there are no previous or next wars to
   display.
 
