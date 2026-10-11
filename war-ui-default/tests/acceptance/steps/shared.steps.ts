@@ -249,16 +249,25 @@ Then('no confirmation is shown', async ({ page }) => {
   await expect(confirmation(page)).toHaveCount(0)
 })
 
+// Enabled or disabled is what a voter sees, not only the attribute: a disabled
+// control is dimmed and shows no pointer, an enabled one is neither.
+const looks = (button: Locator) => button.evaluate((el) => {
+  const style = getComputedStyle(el)
+  return { dimmed: Number(style.opacity) < 1, pointer: style.cursor === 'pointer' }
+})
+
 const BUTTON_STATES: Record<string, (button: Locator) => Promise<void>> = {
   shown: (button) => expect(button).toBeVisible(),
   hidden: (button) => expect(button).toHaveCount(0),
   enabled: async (button) => {
     await expect(button).toBeVisible()
     await expect(button).toBeEnabled()
+    expect(await looks(button)).toEqual({ dimmed: false, pointer: true })
   },
   disabled: async (button) => {
     await expect(button).toBeVisible()
     await expect(button).toBeDisabled()
+    expect(await looks(button)).toEqual({ dimmed: true, pointer: false })
   },
 }
 
