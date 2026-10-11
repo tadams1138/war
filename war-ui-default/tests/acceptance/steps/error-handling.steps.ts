@@ -33,11 +33,6 @@ Given('that War has closed', async ({ world }) => {
   answerVotes(world, { status: 403, body: { error: 'error', reason: 'war_not_published' } })
 })
 
-Given("the voter's automatic join did not take effect", async ({ world }) => {
-  // Arrange
-  answerVotes(world, { status: 403, body: { error: 'error', reason: 'not_joined' } })
-})
-
 Given('the API is rate limiting votes for {int} second(s)', async ({ world }, seconds: number) => {
   // Arrange
   answerVotes(world, { status: 429, body: { error: 'error' }, headers: { 'Retry-After': String(seconds) } })
