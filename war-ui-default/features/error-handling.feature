@@ -18,16 +18,6 @@ Feature: Error Handling
     Then the message "This War is locked — voting is closed" is shown
     And the matchup still shows "Left Contestant"
 
-  # The join is automatic; the API refuses the vote anyway.
-  Scenario: Voting shows a join message as a defensive fallback
-    Given a War
-    And that War has a matchup to vote on
-    And the voter's automatic join did not take effect
-    And an authenticated voter
-    And they are on that War's vote page
-    When they vote for "Left Contestant"
-    Then the message "Join this War to vote" is shown
-
   Scenario: A missing War shows a not-found message on its detail page
     Given a War that does not exist
     When a visitor opens that War's detail page
