@@ -12,8 +12,7 @@ Feature: Vote Mode
     And two contestant cards are shown
     And the progress bar shows "0 of 10 matchups"
 
-  # The voter starts with no membership of the War: the mocked API holds none.
-  Scenario: Navigating to vote silently joins the War
+  Scenario: Opening a War's vote page joins the voter to it automatically
     Given that War has a matchup to vote on
     And an authenticated voter
     When they open that War's vote page
