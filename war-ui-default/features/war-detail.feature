@@ -340,7 +340,7 @@ Feature: War Detail
       | Ada  | hello<script>window.__pwned = true</script>world<img src=x onerror="window.__pwned = true"> |
     When a visitor opens that War's detail page
     Then no script runs
-    And the bio of "Ada" renders none of its markup as a script, an image or an event handler
+    And the bio of "Ada" renders as inert text
 
   Scenario: On a wide viewport, the results list is capped in width and centered
     Given a wide screen
