@@ -1,10 +1,12 @@
 @login-and-auth
 Feature: Login and Authentication
 
+  # Facebook sign-in is withheld until Meta business verification completes.
   Scenario: Voter selects an OAuth provider
     When a visitor opens the login page
     Then a sign-in button is shown for each supported provider
     But no sign-in button is shown for Apple
+    And no sign-in button is shown for Facebook
     When they select Google
     Then the browser navigates to Google's login endpoint
 

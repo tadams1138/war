@@ -73,9 +73,9 @@ Then('a sign-in button is shown for each supported provider', async ({ page }) =
   for (const provider of PROVIDERS) await expect(signInButton(page, provider)).toBeVisible()
 })
 
-Then('no sign-in button is shown for Apple', async ({ page }) => {
+Then('no sign-in button is shown for {word}', async ({ page }, label: string) => {
   // Assert
-  await expect(page.getByTestId('login-provider-apple')).toHaveCount(0)
+  await expect(page.getByTestId(`login-provider-${label.toLowerCase()}`)).toHaveCount(0)
 })
 
 Then("the browser navigates to {provider}'s login endpoint", async ({ page }, provider: Provider) => {
