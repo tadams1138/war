@@ -271,8 +271,7 @@ Every test labels its Arrange, Act and Assert phases.
 
 ## To do
 
-- Disable Prev and Next buttons on war dashboard when there are no previous or next wars to
-  display.
+- Nothing to do.
 
 ---
 

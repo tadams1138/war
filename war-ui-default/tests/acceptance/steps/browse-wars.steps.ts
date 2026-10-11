@@ -166,11 +166,6 @@ Then("the second page's Wars are shown", async ({ page }) => {
   await expect(card(page)).toContainText(titlesOnPage(2))
 })
 
-Then('the {string} button is disabled', async ({ page }, name: string) => {
-  // Assert
-  await expect(page.getByRole('button', { name, exact: true })).toBeDisabled()
-})
-
 Then('the page has the level-one heading {string} above the War cards', async ({ page }, name: string) => {
   // Assert
   const heading = page.getByRole('heading', { level: 1, name, exact: true })

@@ -114,7 +114,7 @@ Use these before writing new steps.
 | `Given the API accepts / refuses / rejects / fails / rate limits a request to {call}`, `Given the target of a request to {call} does not exist` | Queues the answer to a write. Accepting also queues how the changed record then reads |
 | `Then the API has been asked to {call}` (`with:` a table of `{field}` values) / `has not been asked to {call}` / `Then {call} was/were requested {int} time(s)` / `Then nothing has been removed` | Requests made, exactly once / never / counted / no `DELETE` or Staff remove at all |
 | `Then an error is shown on {page}` / `for the request to {call}` / `Then a wait is shown, using the supplied delay, not an error` / `Then no error message is shown` | An error is an alert in the place the failed thing was done (the `error` test id of the page or call); a wait is a status (spec section 10.5) |
-| `When they select the "<name>" button` or `link` / `Then the "<name>" button` or `link` `is shown` / `hidden` / `enabled` / `disabled` | A control by its label |
+| `When they select the "<name>" button` or `link` / `Then the "<name>" button` or `link` `is shown` / `hidden` / `enabled` / `disabled` | A control by its label. `enabled` / `disabled` also check it looks so: dimmed with no pointer when disabled |
 | `Then a confirmation is shown` / `no confirmation is shown` / `the confirmation says {string}` / `When they confirm` / `When they cancel` | The alert dialog every dangerous action asks first |
 | `Then the message {string} is shown` / `is not shown` / `Then the heading {string} is shown` | Exact visible text / a heading |
 | `Then {page} is shown` / `they are redirected to {page}` / `... to the login page with returnTo {page}` | Asserts the path and the page's landmark |
