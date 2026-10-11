@@ -24,6 +24,7 @@ Feature: Admin Dashboard
     Given an authenticated Admin
     When they open the Admin Dashboard
     Then the Admin Dashboard is shown beneath the navigation header
+    And no error message is shown
 
   Scenario Outline: The kill switch panel shows the current state
     Given the War-creation kill switch is off

@@ -30,7 +30,7 @@ type WarStatus = NonNullable<Parameters<typeof buildWarDetail>[0]>['status']
 async function boot(page: Page, world: World): Promise<void> {
   if (world.booted) return
   world.booted = true
-  await useScenario(page, world.recipes)
+  await useScenario(page, [...world.recipes, ...world.fallbacks])
 }
 
 function summaryFromRow(row: Record<string, string>): Partial<WarSummary> {
