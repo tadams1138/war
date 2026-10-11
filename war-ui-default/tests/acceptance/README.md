@@ -84,7 +84,7 @@ Add an entry to the registry, not a new step.
 | Type | Registry | Examples |
 |---|---|---|
 | `{page}` | `support/pageNames.ts` (path, landmark, `error` test id) | `Home`, `that War's Edit page`, `"/wars/new"` |
-| `{role}` | `support/roles.ts` | `voter`, `Staff member`, `Moderator`, `Admin` |
+| `{role}` | `support/roles.ts` | `voter`, `Moderator`, `Admin` |
 | `{screen}` | `support/screens.ts` | `phone`, `desktop`, `wide`, `narrow landscape`, `narrow portrait` |
 | `{side}`, `{card}` | `support/screens.ts`, `support/cards.ts` | `left`; `the left contestant's card`, `the result of "Ada"` |
 | `{bio}` | `support/bios.ts` | `the bio preview`, `the bio of "Ada"` |
