@@ -61,7 +61,7 @@ Rules:
 7. **API mocks come before the app boots.** A recipe may carry a `query` (`creator=me`) so it
    answers only requests with those parameters; the more specific recipe wins. A response with
    `echoRequest` answers with the JSON body the request carried; with `mergeRequest`, the record
-   merged with it. Given steps queue mock responses with `world.queue(...)`. The app boots on the
+   merged with it. Given steps queue mock responses with `world.queue(...)`; a feature's `Before` hook may add `world.fallbacks`, answers tried only after the queued ones (the Admin Dashboard's panels). The app boots on the
    first navigation (`a visitor opens {page}`, `they open {page}`, `they are on {page}`) or on
    `Given an authenticated voter`, which then signs in. `world.queue` throws after boot, so
    order the Givens accordingly. Access tokens live only in memory (spec section 10): a full page

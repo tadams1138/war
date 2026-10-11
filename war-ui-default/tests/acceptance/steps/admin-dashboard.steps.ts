@@ -12,7 +12,9 @@ import {
   killSwitchGet,
   logEntry,
   logGet,
+  queueGet,
   noVotes,
+  pagedListRecipe,
   pagesOf,
   REMOVED_AT,
   type LogTarget,
@@ -21,13 +23,19 @@ import { API, getCallLog, loginAsTestVoter, waitForCallLog } from '../support/mo
 import { nav } from '../support/pages'
 import { reply } from '../support/recipes'
 
-const { Given, When, Then } = createBdd(test, { tags: '@admin-dashboard' })
+const { Before, Given, When, Then } = createBdd(test, { tags: '@admin-dashboard' })
 
 const entries = (page: Page) => page.getByTestId('moderation-log-entry')
 const heading = (page: Page) => page.getByRole('heading', { name: 'Admin Dashboard' })
 const puts = (page: Page) => getCallLog(page).then((log) => log.filter((entry) => entry.method === 'PUT' && entry.url.endsWith('/kill-switch')))
 
 // --- Arrange ---------------------------------------------------------------
+
+// Every panel of the dashboard loads when it opens. Unless a Given says
+// otherwise, each has nothing to show, so none fails in the background.
+Before(async ({ world }) => {
+  world.fallbacks.push(killSwitchGet(false), logGet({ entries: [], next_cursor: null }), queueGet([]), pagedListRecipe('/admin/wars', 'wars', []), pagedListRecipe('/admin/voters', 'voters', []))
+})
 
 type LogPage = Parameters<typeof logGet>[0]
 

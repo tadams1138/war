@@ -10,6 +10,9 @@ import './parameters'
 
 export class World {
   readonly recipes: HandlerRecipe[] = []
+  // What the API answers when no Given has said otherwise (a feature's
+  // `Before` hook gives them); the recipes above are tried first.
+  readonly fallbacks: HandlerRecipe[] = []
   booted = false
   // Set by "an authenticated voter". Navigation then stays client-side: a
   // full page load would wipe the in-memory session.
