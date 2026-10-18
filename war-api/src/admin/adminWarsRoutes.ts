@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { bearerAuthRoute } from '../auth/plugin.js';
-import { requireModeratorOrAdmin } from '../auth/guards.js';
+import { requireModerator } from '../auth/guards.js';
 import { errorResponseSchema, sendNotFound } from '../shared/httpOutcomes.js';
 import { pagingProperties, sendInvalidCursor, type PagingQuery } from '../shared/paging.js';
 import type { AdminRouteDeps } from './adminRouteShared.js';
@@ -97,7 +97,7 @@ export function registerAdminWarsRoutes(app: FastifyInstance, deps: AdminRouteDe
           403: errorResponseSchema,
         },
       },
-      [requireModeratorOrAdmin],
+      [requireModerator],
     ),
     async (request, reply) => {
       const { status, q, limit, cursor } = request.query;
@@ -117,7 +117,7 @@ export function registerAdminWarsRoutes(app: FastifyInstance, deps: AdminRouteDe
         params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
         response: { 200: adminWarDetailSchema, 403: errorResponseSchema, 404: errorResponseSchema },
       },
-      [requireModeratorOrAdmin],
+      [requireModerator],
     ),
     async (request, reply) => {
       const war = await findAdminWar(db, request.params.id, new Date());

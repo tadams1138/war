@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeModerator, makeVoter } from '../setup/fixtures.js';
+import { makeAdmin, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { getMe } from '../setup/apiClient.js';
@@ -17,13 +17,19 @@ describeFeature(feature, ({ ScenarioOutline, BeforeEachScenario }) => {
     harness = await buildTestHarness();
   });
 
-  ScenarioOutline("GET /api/v1/auth/me reports the caller's Staff roles", ({ Given, When, Then, And }, variables) => {
+  async function makeCaller(kind: string) {
+    if (kind === 'Moderator') return makeModerator(harness.db, 'caller');
+    if (kind === 'Admin') return makeAdmin(harness.db, 'caller');
+    return makeVoter(harness.db, 'caller');
+  }
+
+  ScenarioOutline("GET /api/v1/auth/me reports the caller's roles", ({ Given, When, Then, And }, variables) => {
     let voterId: string;
     let response: request.Response;
 
     Given('a <caller>', async () => {
       // Arrange
-      const voter = variables.caller === 'Moderator' ? await makeModerator(harness.db, 'caller') : await makeVoter(harness.db, 'caller');
+      const voter = await makeCaller(variables.caller as string);
       voterId = voter.id;
     });
 

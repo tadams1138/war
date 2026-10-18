@@ -6,7 +6,7 @@ import type { AuthDependencies } from '../auth/authService.js';
 import {
   rejectWhileKillSwitchOn,
   rejectWhileSuspended,
-  requireModeratorOrAdmin,
+  requireModerator,
   suspendedResponseSchema,
   warCreationDisabledResponseSchema,
 } from '../auth/guards.js';
@@ -360,7 +360,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
 
   app.post<{ Params: { id: string } }>(
     '/wars/:id/remove',
-    bearerAuthRoute(auth, { response: { 204: {}, 403: errorResponseSchema, 404: errorResponseSchema } }, [requireModeratorOrAdmin]),
+    bearerAuthRoute(auth, { response: { 204: {}, 403: errorResponseSchema, 404: errorResponseSchema } }, [requireModerator]),
     async (request, reply) => {
       const outcome = await removeWar(db, deps.storage, request.log, request.voterId!, request.params.id);
       if (outcome.kind !== 'ok') {

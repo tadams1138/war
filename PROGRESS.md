@@ -32,11 +32,11 @@ required-reviewer approval. See `war-spec.md` section 12.
 - **Lazy expiry.** A War reads as closed once `ends_at` passes (`effectiveStatus`), and SQL
   filters agree via `hasEffectiveStatus`. `POST /internal/close-expired-wars`
   (`x-internal-token`, called by the scheduler in `war-infra`) converges the stored column
-  with one atomic UPDATE. An expired draft reads as closed only to its creator and Staff.
+  with one atomic UPDATE. An expired draft reads as closed only to its creator and Moderators.
 - **Visibility.** `public` Wars are listed; `unlisted` Wars are kept out of every list and
   are otherwise reached and used like public ones, rankings included. Drafts are invisible
   to everyone but their creator, identically to a missing War. Removed Wars are hidden from
-  everyone except Staff.
+  everyone except Moderators.
 - **War listing.** `GET /wars` with a caller's-own filter, `sort` (newest, oldest,
   expiring soonest, alphabetical), free-text `q` over title and creator name (trigram
   indexes), and opaque keyset cursors (`limit` 1-100, microsecond-precise cursor, invalid
@@ -53,21 +53,23 @@ required-reviewer approval. See `war-spec.md` section 12.
   client address, sign-in start 10/min and token refresh 30/min. Exceeding a limit replies
   429 with `Retry-After`. The address limits are off until `TRUST_PROXY_HOPS` is set (see
   *Known defects and limitations*). The edge adds a coarse auth throttle (see war-infra).
-- **Roles and moderation** (spec 3, 6.7, 8.5). Moderator/Admin are account-level flags,
-  granted only by an Admin, with a guard against an Admin removing their own role. Any
-  voter can report any War; Staff list reports per War, read the unaddressed queue and
+- **Roles and moderation** (spec 3, 6.7, 8.5). Moderator/Admin are independent account-level flags,
+  granted only by an Admin (Admin implies no moderation capability; an Admin may grant
+  themselves Moderator and revoke it again, but cannot remove their own Admin role). Any
+  voter can report any War; Moderators list reports per War, read the unaddressed queue and
   toggle a report's addressed state. Remove a War hides it and deletes its media while
   keeping the audit trail. Suspend blocks War creation. Ban purges the voter's Wars and
   votes, revokes their tokens and blocks sign-in immediately. The War-creation kill switch
-  is a single-row platform setting. Every Staff action writes an append-only moderation log
-  in the same transaction as the action; the log is keyset-paged and its `target_war_id`
+  is a single-row platform setting. Every moderation action and role change writes an append-only moderation log
+  entry in the same transaction as the action; a Moderator reads the moderation entries,
+  an Admin the role-change entries, a Voter holding both reads both; the log is keyset-paged and its `target_war_id`
   deliberately has no foreign key.
 - **Ban races closed with row locks.** Suspend/Ban lock the target voter `FOR UPDATE`; vote
   casting takes `FOR SHARE` on the voter; both lock the voter before contestant rows.
   `test/integration/voterRowLocking.test.ts` proves each interleaving with two real
   transactions.
-- **Staff read endpoints** under `/admin/` (Wars including removed, Voters, a Voter's Wars
-  and full vote history), keyset-paged, with effective status and report counts.
+- **Admin read endpoints** under `/admin/` (Wars including removed and a Voter's full vote
+  history: Moderator only; Voters list and one Voter with their Wars: Moderator or Admin), keyset-paged, with effective status and report counts.
   `npm --prefix war-api run explain-admin` seeds a throwaway Postgres and runs
   `EXPLAIN ANALYZE` over the exact repository SQL; it drove the admin and moderation-log
   indexes.

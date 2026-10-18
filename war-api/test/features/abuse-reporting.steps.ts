@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { UNKNOWN_ID, makeAdmin, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
+import { UNKNOWN_ID, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { asOrAnonymous } from '../setup/apiClient.js';
@@ -291,31 +291,6 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
       expect(response.body.wars).toHaveLength(1);
       expect(response.body.wars[0].war_id).toBe(unaddressedWarId);
       expect(response.body.wars[0].unaddressed_count).toBe(1);
-    });
-  });
-
-  Scenario('An Admin without the Moderator flag can also read the queue', ({ Given, When, Then }) => {
-    let adminId: string;
-    let response: request.Response;
-
-    Given('an Admin and a War with an unaddressed report', async () => {
-      // Arrange
-      const creator = await makeVoter(harness.db, 'creator');
-      const reporter = await makeVoter(harness.db, 'reporter');
-      const admin = await makeAdmin(harness.db, 'admin');
-      const war = await makeDraftWar(harness.db, creator.id);
-      await postReport(reporter.id, war.id, 'an issue');
-      adminId = admin.id;
-    });
-
-    When('the Admin GETs the unaddressed-reports queue', async () => {
-      // Act
-      response = await getQueue(adminId);
-    });
-
-    Then('the response status is 200', () => {
-      // Assert
-      expect(response.status).toBe(200);
     });
   });
 

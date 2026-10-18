@@ -6,7 +6,7 @@ import type { AuthDependencies } from '../auth/authService.js';
 import type { Voter } from '../auth/votersRepository.js';
 import type { ObjectStorage } from '../contestants/storage.js';
 import { errorResponseSchema, replyForOutcome } from '../shared/httpOutcomes.js';
-import { requireModeratorOrAdmin } from '../auth/guards.js';
+import { requireModerator } from '../auth/guards.js';
 import { changeBan, changeSuspension } from './voterModerationService.js';
 
 export interface VoterModerationRouteDeps {
@@ -41,7 +41,7 @@ export function registerVoterModerationRoutes(app: FastifyInstance, deps: VoterM
         body: { type: 'object', required: ['suspended'], properties: { suspended: { type: 'boolean' } } },
         response: { 200: voterModerationViewSchema, 403: errorResponseSchema, 404: errorResponseSchema },
       },
-      [requireModeratorOrAdmin],
+      [requireModerator],
     ),
     async (request, reply) => {
       const outcome = await changeSuspension(db, request.voterId!, request.params.id, request.body.suspended);
@@ -61,7 +61,7 @@ export function registerVoterModerationRoutes(app: FastifyInstance, deps: VoterM
         body: { type: 'object', required: ['banned'], properties: { banned: { type: 'boolean' } } },
         response: { 200: voterModerationViewSchema, 403: errorResponseSchema, 404: errorResponseSchema },
       },
-      [requireModeratorOrAdmin],
+      [requireModerator],
     ),
     async (request, reply) => {
       const outcome = await changeBan(db, deps.storage, request.log, request.voterId!, request.params.id, request.body.banned);

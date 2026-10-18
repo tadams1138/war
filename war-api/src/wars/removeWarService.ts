@@ -13,7 +13,7 @@ export type RemoveWarOutcome = MutationOutcome<void, NotFound>;
 
 /**
  * Removes a War (§6.7): hidden from everyone, rows kept for the audit
- * trail, media hard-deleted. Staff-only access is enforced by the route's
+ * trail, media hard-deleted. Moderator-only access is enforced by the route's
  * guard. The removal, the `contestant_media` deletion and the moderation log
  * entry commit together or not at all; the stored objects are deleted only
  * after that commit.
@@ -22,14 +22,14 @@ export async function removeWar(
   db: Kysely<Database>,
   storage: ObjectStorage,
   log: FastifyBaseLogger,
-  staffVoterId: string,
+  actorVoterId: string,
   warId: string,
 ): Promise<RemoveWarOutcome> {
   const prefixes = await db.transaction().execute(async (trx): Promise<string[] | undefined> => {
     if (!(await markWarRemoved(trx, warId))) return undefined;
     const contestantIds = (await listContestantsByWar(trx, warId)).map((contestant) => contestant.id);
     await deleteMediaForContestants(trx, contestantIds);
-    await logAction(trx, { action: 'remove_war', staffVoterId, targetWarId: warId });
+    await logAction(trx, { action: 'remove_war', actorVoterId, targetWarId: warId });
     return mediaPrefixes(warId, contestantIds);
   });
   if (!prefixes) return { kind: 'notFound' };

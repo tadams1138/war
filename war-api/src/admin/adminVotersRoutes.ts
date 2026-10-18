@@ -78,7 +78,7 @@ export function registerAdminVotersRoutes(app: FastifyInstance, deps: AdminRoute
         querystring: {
           type: 'object',
           properties: {
-            status: { type: 'string', enum: ['suspended', 'banned', 'staff'] },
+            status: { type: 'string', enum: ['suspended', 'banned', 'role'] },
             q: { type: 'string' },
             ...pagingProperties(),
           },
