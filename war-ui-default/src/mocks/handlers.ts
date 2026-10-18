@@ -21,6 +21,10 @@ const ONE_PIXEL_PNG = Uint8Array.from(
   (char) => char.charCodeAt(0),
 )
 
+// The access token the mocked sign-in (the refresh call after the OAuth
+// callback) issues; acceptance steps look for it in places it must never be.
+export const MOCK_ACCESS_TOKEN = 'mock-refreshed-token'
+
 export const handlers = [
   http.get('https://cdn.example.test/*', () => new HttpResponse(ONE_PIXEL_PNG, { headers: { 'Content-Type': 'image/png' } })),
 
@@ -45,7 +49,7 @@ export const handlers = [
 
   http.post('/api/v1/wars/:id/matchups/:matchupId/vote', () => HttpResponse.json({ vote_id: 'vote-1' }, { status: 201 })),
 
-  http.post('/api/v1/auth/refresh', () => HttpResponse.json({ token: 'mock-refreshed-token' })),
+  http.post('/api/v1/auth/refresh', () => HttpResponse.json({ token: MOCK_ACCESS_TOKEN })),
 
   http.delete('/api/v1/auth/session', () => new HttpResponse(null, { status: 204 })),
 

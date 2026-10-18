@@ -15,7 +15,7 @@ Run from the repository root with `npm --prefix war-ui-default <script>`.
 | `lint` | ESLint, including cyclomatic complexity (max 5) and the React hooks rules |
 | `typecheck` | `tsc --strict` over `src` and over tests and config files |
 | `test` | Vitest unit tests |
-| `test:acceptance` | Generates tests from the converted feature files (`bddgen`), then runs all Playwright acceptance tests (builds and serves the mock build) |
+| `test:acceptance` | Generates tests from the feature files (`bddgen`), then runs the Playwright acceptance tests (builds and serves the mock build) |
 | `generate:api` | Regenerate `src/api/generated/schema.d.ts` from `war-api`'s OpenAPI document |
 
 ## Mock mode
@@ -27,9 +27,7 @@ Run from the repository root with `npm --prefix war-ui-default <script>`.
 - `src/**` unit tests (Vitest): `api/client.ts` logic, pure helpers, hooks.
 - `features/*.feature`: Gherkin scenarios for user-visible behaviour; `features/pending/` holds scenarios with no binding yet.
 - Acceptance tests load the mock build and set up each scenario with data-driven MSW recipes (`tests/acceptance/support/mocking.ts`, `src/mocks/scenarios.ts`). Shared helpers live in `tests/acceptance/support/`.
-- Scenarios bind to tests in one of two ways while the suite is migrated to executed Gherkin steps (see [`../docs/ui-gherkin-migration.md`](../docs/ui-gherkin-migration.md)):
-  - **Converted features** (listed in `tests/bindings/convertedFeatures.ts`): playwright-bdd generates the tests from the feature file and runs the step definitions in `tests/acceptance/steps/`. A step with no definition fails the run.
-  - **Other features**: every scenario title in `features/<name>.feature` must equal the title of exactly one test in `tests/acceptance/<name>.spec.ts` (and vice versa); `tests/bindings/featureBindings.test.ts` fails `npm test` on any drift.
+- Every scenario in `features/*.feature` is executed step by step with playwright-bdd, using the step definitions in `tests/acceptance/steps/`. A step with no definition fails the run. The conventions, the shared vocabulary and the parameter-type registries are in [`tests/acceptance/README.md`](tests/acceptance/README.md).
 - Always run acceptance tests through `npm run test:acceptance`. Calling `playwright test` directly skips generation.
 
 ## Layout

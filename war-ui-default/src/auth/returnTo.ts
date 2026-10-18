@@ -4,7 +4,7 @@
 // agree on this (RequireAuth's redirect, AuthProvider's unauthorized
 // redirect, Login's persist-before-navigating-away, AuthCallback's
 // read-back).
-// login-and-auth.spec.ts asserts the exact URL this produces, including
+// features/login-and-auth.feature asserts the exact URL this produces, including
 // parameter order, so any change here is a change to a pinned contract.
 
 const RETURN_TO_STORAGE_KEY = 'war:returnTo'
