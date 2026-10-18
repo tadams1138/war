@@ -3,7 +3,8 @@ import { AuthProvider } from './auth/context'
 import { Footer } from './components/Footer'
 import { NavBar } from './components/NavBar'
 import { RequireAuth } from './router/RequireAuth'
-import { RequireStaff } from './router/RequireStaff'
+import { canModerate, isRoleHolder } from './auth/roles'
+import { RequireRole } from './router/RequireRole'
 import { ThemeProvider } from './theme/ThemeContext'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
@@ -78,25 +79,25 @@ export default function App() {
             <Route
               path="/admin"
               element={
-                <RequireStaff>
+                <RequireRole allow={isRoleHolder}>
                   <AdminDashboard />
-                </RequireStaff>
+                </RequireRole>
               }
             />
             <Route
               path="/admin/wars/:id"
               element={
-                <RequireStaff>
+                <RequireRole allow={canModerate}>
                   <AdminWarDetail />
-                </RequireStaff>
+                </RequireRole>
               }
             />
             <Route
               path="/admin/voters/:id"
               element={
-                <RequireStaff>
+                <RequireRole allow={isRoleHolder}>
                   <AdminVoterDetail />
-                </RequireStaff>
+                </RequireRole>
               }
             />
           </Routes>

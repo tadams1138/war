@@ -5,7 +5,7 @@ export type ApiErrorReason =
   | 'war-closed' // 403 — War is closed to voting
   | 'not-joined' // 403 — voter has not joined the War
   | 'forbidden' // 403 — the caller isn't the War's creator
-  | 'staff-only' // 403 — the endpoint is open to Staff (Moderator or Admin) only
+  | 'role-required' // 403 — the endpoint needs a role the caller lacks (Moderator or Admin)
   | 'not-found' // 404
   | 'conflict' // 409 — already voted; handled silently by the caller
   | 'rate-limited' // 429
@@ -46,7 +46,7 @@ const REASON_MESSAGES: Record<ApiErrorReason, (retryAfterSeconds?: number) => st
   'war-closed': () => 'This War is locked — voting is closed',
   'not-joined': () => 'Join this War to vote',
   forbidden: () => "This isn't your War",
-  'staff-only': () => 'Staff access is required',
+  'role-required': () => "You don't have permission to do that",
   'not-found': () => "This War doesn't exist or has been removed",
   conflict: () => '',
   'rate-limited': (retryAfterSeconds) => `Slow down a moment — try again in ${retryAfterSeconds ?? 0}s`,

@@ -1,4 +1,4 @@
-// The Staff Wars list (war-spec.md §6.7): every War of every status, including
+// The Moderator's Wars list (war-spec.md §6.7): every War of every status, including
 // removed ones, with a marker for each and a count of unaddressed reports.
 import { Link } from 'react-router-dom'
 import type { AdminWarItem } from '../../api/client'

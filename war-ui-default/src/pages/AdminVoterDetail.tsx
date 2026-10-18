@@ -1,10 +1,13 @@
-// A single Voter as Staff see it (war-spec.md §6.7): their roles and sanctions,
-// the Wars they created, and (below) their vote history. Reached from the
-// Admin Dashboard's Voters list and the moderation log.
+// A single Voter as a Moderator or an Admin sees it (war-spec.md §6.7): their
+// roles and sanctions and the Wars they created, and for a Moderator (below)
+// their vote history and links to their Wars. Reached from the Admin
+// Dashboard's Voters list and the moderation log.
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getAdminVoter, type AdminVoterDetail as AdminVoterDetailData, type VoterMe } from '../api/client'
 import { useAuth } from '../auth/context'
+import { canModerate } from '../auth/roles'
+import { useViewer } from '../auth/useViewer'
 import { VoterActions } from '../admin/voters/VoterActions'
 import { VoterBadges } from '../admin/voters/VoterBadges'
 import { VoterVotesSection } from '../admin/voters/VoterVotesSection'
@@ -18,11 +21,18 @@ export function AdminVoterDetail() {
   const { id } = useParams<{ id: string }>()
   const [theme, setTheme] = useTheme('home', 'arcade')
   usePublishTheme('home', theme, setTheme)
-  // Bumped after a Staff action so the detail is refetched from the API.
+  // Bumped after an action so the detail is refetched from the API. An action on the
+  // viewer's own roles also refetches their identity, which decides what the
+  // Admin Dashboard shows them.
   const [refreshToken, setRefreshToken] = useState(0)
   const voter = useAsyncResource(id ? () => getAdminVoter(id) : undefined, [id, refreshToken])
-  // The viewer decides which actions are offered; the page reads fine without it.
+  // The viewer's roles decide which actions are offered.
   const viewer = useViewer()
+  const { refreshMe } = useAuth()
+  const onChanged = () => {
+    setRefreshToken((token) => token + 1)
+    if (viewer?.id === id) refreshMe()
+  }
 
   return (
     <main data-theme={theme}>
@@ -31,19 +41,10 @@ export function AdminVoterDetail() {
       </p>
       <AsyncStatus state={voter} />
       {voter.status === 'loaded' && (
-        <VoterBody
-          voter={voter.value}
-          viewer={viewer}
-          onChanged={() => setRefreshToken((token) => token + 1)}
-        />
+        <VoterBody voter={voter.value} viewer={viewer} onChanged={onChanged} />
       )}
     </main>
   )
-}
-
-function useViewer(): VoterMe['voter'] | null {
-  const { me } = useAuth()
-  return me.status === 'loaded' ? me.value.voter : null
 }
 
 interface VoterBodyProps {
@@ -53,6 +54,7 @@ interface VoterBodyProps {
 }
 
 function VoterBody({ voter, viewer, onChanged }: VoterBodyProps) {
+  const moderates = viewer !== null && canModerate(viewer)
   return (
     <>
       <h1>{voter.display_name ?? 'Unnamed Voter'}</h1>
@@ -65,7 +67,7 @@ function VoterBody({ voter, viewer, onChanged }: VoterBodyProps) {
         <ul>
           {voter.wars.map((war) => (
             <li key={war.id} data-testid="admin-voter-war-row">
-              <Link to={`/admin/wars/${war.id}`}>{warTitle(war.title)}</Link>
+              {moderates ? <Link to={`/admin/wars/${war.id}`}>{warTitle(war.title)}</Link> : warTitle(war.title)}
               <span> · {war.status}</span>
               {war.removed_at && (
                 <span data-testid="admin-war-removed" className="badge">
@@ -77,7 +79,7 @@ function VoterBody({ voter, viewer, onChanged }: VoterBodyProps) {
           ))}
         </ul>
       </section>
-      <VoterVotesSection voterId={voter.id} />
+      {moderates && <VoterVotesSection voterId={voter.id} />}
     </>
   )
 }

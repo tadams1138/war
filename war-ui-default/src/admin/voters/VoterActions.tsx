@@ -1,5 +1,7 @@
-// The Staff actions available on a Voter's detail (war-spec.md §6.7).
+// The actions available on a Voter's detail (war-spec.md §3, §6.7): Suspend and
+// Ban to a Moderator, role controls to an Admin. Neither role implies the other.
 import { setVoterBan, setVoterRole, setVoterSuspension, type AdminVoterDetail, type VoterMe, type VoterRole } from '../../api/client'
+import { canAssignRoles, canModerate } from '../../auth/roles'
 import { VoterActionControl } from './VoterActionControl'
 
 interface VoterActionsProps {
@@ -11,32 +13,36 @@ interface ViewerProps extends VoterActionsProps {
   viewer: VoterMe['voter']
 }
 
-// The API refuses to Suspend or Ban the caller or any Staff member (a role
-// must be revoked first), and an Admin revoking their own Admin role; the UI
-// simply doesn't offer what it knows would be refused.
+// The API refuses to Suspend or Ban the caller or any role holder (a role must
+// be revoked first), and an Admin revoking their own Admin role; the UI simply
+// doesn't offer what it knows would be refused.
 function sanctionNote(voter: AdminVoterDetail, isSelf: boolean): string | null {
   if (isSelf) return 'You cannot suspend or ban your own account.'
   if (voter.is_moderator || voter.is_admin) {
-    return "A Staff member cannot be suspended or banned; their role must be revoked by an Admin first."
+    return "A role holder cannot be suspended or banned; their role must be revoked by an Admin first."
   }
   return null
 }
 
 export function VoterActions({ voter, viewer, onChanged }: ViewerProps) {
   const isSelf = viewer.id === voter.id
-  const note = sanctionNote(voter, isSelf)
   return (
     <div className="action-bar">
-      {note ? (
-        <p data-testid="voter-sanction-note">{note}</p>
-      ) : (
-        <>
-          <SuspendControl voter={voter} onChanged={onChanged} />
-          <BanControl voter={voter} onChanged={onChanged} />
-        </>
-      )}
-      {viewer.is_admin && <RoleControls voter={voter} isSelf={isSelf} onChanged={onChanged} />}
+      {canModerate(viewer) && <SanctionControls voter={voter} isSelf={isSelf} onChanged={onChanged} />}
+      {canAssignRoles(viewer) && <RoleControls voter={voter} isSelf={isSelf} onChanged={onChanged} />}
     </div>
+  )
+}
+
+// Moderator-only.
+function SanctionControls({ voter, isSelf, onChanged }: VoterActionsProps & { isSelf: boolean }) {
+  const note = sanctionNote(voter, isSelf)
+  if (note) return <p data-testid="voter-sanction-note">{note}</p>
+  return (
+    <>
+      <SuspendControl voter={voter} onChanged={onChanged} />
+      <BanControl voter={voter} onChanged={onChanged} />
+    </>
   )
 }
 

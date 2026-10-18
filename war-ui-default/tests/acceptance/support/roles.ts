@@ -10,4 +10,5 @@ export const ROLES: Record<string, RoleFlags> = {
   voter: {},
   Moderator: { is_moderator: true },
   Admin: { is_admin: true },
+  'Admin and Moderator': { is_moderator: true, is_admin: true },
 }

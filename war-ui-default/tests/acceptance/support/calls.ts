@@ -27,7 +27,7 @@ export interface CallDef extends RequestDef {
   // What the API answers when it accepts the request (200 with an empty body).
   accepted?: RecipeResponse | ((world: World, subject: string) => RecipeResponse)
   // A call that changes a record: how the API then reports it. The record is
-  // a Staff detail ('war', 'voter') or the War as its creator sees it.
+  // a detail the Admin Dashboard shows ('war', 'voter') or the War as its creator sees it.
   changes?: {
     record: 'war' | 'voter' | 'edited war'
     becomes: Record<string, unknown> | ((current: WarDetailResponse, subject: string) => Record<string, unknown>)
@@ -83,12 +83,13 @@ export const CALLS: Record<string, CallDef> = {
   'ban that Voter': put('/ban', { banned: true }, { banned: true, wars: [], war_count: 0 }),
   'unban that Voter': put('/ban', { banned: false }, { banned: false }),
   'grant that Voter the Moderator role': put('/roles/moderator', { granted: true }, { is_moderator: true }),
+  "revoke that Voter's Moderator role": put('/roles/moderator', { granted: false }, { is_moderator: false }),
   "revoke that Voter's Admin role": put('/roles/admin', { granted: false }, { is_admin: false }),
-  "that War's Staff detail": { method: 'GET', path: ({ warId }) => `/admin/wars/${warId}` },
+  "that War's moderation detail": { method: 'GET', path: ({ warId }) => `/admin/wars/${warId}` },
   "that War's reports": { method: 'GET', path: ({ warId }) => `/wars/${warId}/reports` },
   "that War's results": { method: 'GET', path: warPath('/rankings') },
   "the voter's progress in that War": { method: 'GET', path: warPath('/my-progress') },
-  "that Voter's Staff detail": { method: 'GET', path: ({ voterId }) => `/admin/voters/${voterId}` },
+  "that Voter's detail": { method: 'GET', path: ({ voterId }) => `/admin/voters/${voterId}` },
   "the current Voter's identity": { method: 'GET', path: () => '/auth/me' },
   // The answer to a save is the record as the request now has it.
   "save that War's details": { method: 'PATCH', path: warPath(), accepted: answers({}, true) },

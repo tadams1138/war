@@ -5,8 +5,8 @@ type BadgeFlags = Pick<AdminVoterItem, 'is_moderator' | 'is_admin' | 'suspended'
 
 function voterBadgeLabels(voter: BadgeFlags): string[] {
   const labels: string[] = []
-  if (voter.is_moderator) labels.push('Moderator')
   if (voter.is_admin) labels.push('Admin')
+  if (voter.is_moderator) labels.push('Moderator')
   if (voter.suspended) labels.push('Suspended')
   if (voter.banned) labels.push('Banned')
   return labels

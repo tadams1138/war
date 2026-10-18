@@ -8,7 +8,7 @@ import { test, type World } from './fixtures'
 import type { CallRef, RequestDef } from '../support/calls'
 import { bodyFrom } from '../support/fields'
 import { API, getCallLog, type MswCallLogEntry } from '../support/mocking'
-import { detailRecipe } from '../support/staffRecords'
+import { detailRecipe } from '../support/adminRecords'
 
 const { Given, Then } = createBdd(test)
 
@@ -106,7 +106,7 @@ Then('{call} was/were requested {int} time(s)', async ({ page, world }, call: Ca
   await expect.poll(async () => (await callsTo(page, world, call)).length).toBe(count)
 })
 
-// A removal is a DELETE, or Staff's POST to remove.
+// A removal is a DELETE, or a Moderator's POST to remove.
 Then('nothing has been removed', async ({ page }) => {
   // Assert
   const removals = (await getCallLog(page)).filter((entry) => entry.method === 'DELETE' || (entry.method === 'POST' && entry.url.endsWith('/remove')))
