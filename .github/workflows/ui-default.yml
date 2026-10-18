@@ -68,16 +68,56 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Unit tests
-        run: npm test
+      # Unit tests and acceptance tests run once each, in their coverage modes
+      # (report only -- no thresholds). Unit coverage is istanbul, so it merges
+      # with the acceptance coverage of the instrumented mock build.
+      - name: Unit tests with coverage
+        run: npm run test:coverage
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       # Acceptance tests run against MSW mocks, so they run on every PR without
       # needing a live API.
-      - name: Acceptance tests
-        run: npm run test:acceptance
+      - name: Acceptance tests with coverage
+        run: npm run test:acceptance:coverage
+
+      - name: Coverage report (unit, acceptance, merged)
+        if: always()
+        run: |
+          if [ -d .nyc-unit ] && [ -d .nyc_output ]; then
+            npm run coverage:report
+          else
+            echo "::warning::Unit or acceptance coverage data is missing; no coverage report."
+          fi
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo "### war-ui-default test coverage"
+            echo
+            echo "| Suite | Statements | Branches | Functions | Lines |"
+            echo "|---|---|---|---|---|"
+            for suite in unit acceptance merged; do
+              file="coverage/$suite/coverage-summary.json"
+              if [ -f "$file" ]; then
+                jq -r --arg suite "$suite" '.total | "| \($suite) | \(.statements.pct)% (\(.statements.covered)/\(.statements.total)) | \(.branches.pct)% (\(.branches.covered)/\(.branches.total)) | \(.functions.pct)% (\(.functions.covered)/\(.functions.total)) | \(.lines.pct)% (\(.lines.covered)/\(.lines.total)) |"' "$file"
+              else
+                echo "| $suite | n/a | n/a | n/a | n/a |"
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-default-coverage
+          # Resolved from the repository root, not the job's working-directory.
+          path: war-ui-default/coverage/
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Build
         run: npm run build

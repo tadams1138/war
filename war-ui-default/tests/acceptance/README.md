@@ -12,6 +12,25 @@ Vitest; never edit it). Always go through the npm script: `playwright test` alon
 generated tests. Scope a run with `-- -g "<scenario title>"` (generated titles carry the
 feature's tag, and `-g` still matches the title).
 
+## Coverage
+
+`npm --prefix war-ui-default run test:acceptance:coverage` runs the same suite with `COVERAGE=1`:
+`vite.config.ts` then instruments the mock build (istanbul, `src/**` minus `src/api/generated`,
+`src/mocks` and tests), and the `coverage` fixture in `steps/fixtures.ts` writes each test's
+`window.__coverage__` to `.nyc_output/` (one file per test, so workers never collide). Without
+`COVERAGE` nothing changes: the build is not instrumented and no file is written.
+
+- A coverage run never reuses a running preview server (`reuseExistingServer` is off for it),
+  so it cannot silently measure an uninstrumented build; stop whatever holds port 4173 first.
+- It leaves an instrumented `dist/`; `npm run build` replaces it.
+- `npm run test:coverage` (Vitest, istanbul) writes the unit data to `.nyc-unit/`, and
+  `npm run coverage:report` (nyc) then reports unit, acceptance and merged (unit plus acceptance)
+  into `coverage/{unit,acceptance,merged}/`. It is report-only: no thresholds.
+- The data is taken from the page when a test ends, so counters from a page the test navigated
+  away from (a full reload) are lost. The unit and acceptance instrumentations also differ
+  slightly (a few JSX `return` statements exist in only one), so the merge can understate
+  by a fraction of a point.
+
 ## Layout
 
 | Path (under `tests/acceptance/`) | Role |

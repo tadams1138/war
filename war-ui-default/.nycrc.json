@@ -1,0 +1,4 @@
+{
+  "reporter": ["text-summary", "html", "json-summary"],
+  "check-coverage": false
+}
