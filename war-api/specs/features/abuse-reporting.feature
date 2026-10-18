@@ -57,11 +57,6 @@ Feature: Abuse reporting
     Then the response status is 200
     And only the War with the unaddressed report is listed
 
-  Scenario: An Admin without the Moderator flag can also read the queue
-    Given an Admin and a War with an unaddressed report
-    When the Admin GETs the unaddressed-reports queue
-    Then the response status is 200
-
   Scenario: A plain Voter cannot read the queue
     Given a plain Voter
     When the plain Voter GETs the unaddressed-reports queue

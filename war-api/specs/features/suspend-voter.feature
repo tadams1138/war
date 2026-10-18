@@ -6,12 +6,12 @@ Feature: Suspend a Voter
     And the Voter POSTs a War
     Then the response is 403 suspended and no War exists
 
-  Scenario: Staff cannot suspend themselves
+  Scenario: A Moderator cannot suspend themselves
     Given a Moderator
     When the Moderator suspends themselves
     Then the response is 403 and the Moderator is not suspended and nothing is logged
 
-  Scenario: Staff cannot suspend other Staff
+  Scenario: A Moderator cannot suspend an Admin
     Given a Moderator and an Admin
     When the Moderator suspends the Admin
     Then the response is 403 and the Admin is not suspended and nothing is logged

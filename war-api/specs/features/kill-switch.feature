@@ -6,21 +6,21 @@ Feature: War-creation kill switch
     Then the response is 200 and the kill switch is off
 
   Scenario: A plain Voter cannot create a War while the kill switch is on
-    Given an Admin and a plain Voter
-    When the Admin enables the kill switch
+    Given a Moderator and a plain Voter
+    When the Moderator enables the kill switch
     And the plain Voter POSTs a War
     Then the response is 503 war_creation_disabled and no War exists
 
-  Scenario: Staff cannot create a War while the kill switch is on
-    Given an Admin
-    When the Admin enables the kill switch
-    And the Admin POSTs a War
+  Scenario: A Moderator cannot create a War while the kill switch is on
+    Given a Moderator
+    When the Moderator enables the kill switch
+    And the Moderator POSTs a War
     Then the response is 503 war_creation_disabled and no War exists
 
   Scenario: Disabling the kill switch restores War creation
-    Given an Admin and a plain Voter
-    When the Admin enables the kill switch
-    And the Admin disables the kill switch
+    Given a Moderator and a plain Voter
+    When the Moderator enables the kill switch
+    And the Moderator disables the kill switch
     And the plain Voter POSTs a War
     Then the response is 201 and one War exists
 
@@ -38,9 +38,9 @@ Feature: War-creation kill switch
     Then both of the plain Voter's responses are 403 and the kill switch is still on
 
   Scenario: Enabling the kill switch writes a moderation log entry
-    Given an Admin
-    When the Admin enables the kill switch
-    Then a moderation log entry records the Admin enabling the kill switch with no target
+    Given a Moderator
+    When the Moderator enables the kill switch
+    Then a moderation log entry records the Moderator enabling the kill switch with no target
 
   Scenario: Disabling the kill switch writes a moderation log entry
     Given a Moderator

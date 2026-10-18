@@ -9,7 +9,7 @@ import { deleteWarRow, markWarRemoved } from '../../src/wars/warsRepository.js';
 import { makeAdmin, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
-import { putRole } from '../setup/apiClient.js';
+import { putKillSwitch, putRole } from '../setup/apiClient.js';
 import { moderationLog } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/moderation-log.feature', import.meta.url)));
@@ -96,10 +96,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Staff read the moderation log newest first', ({ Given, And, When, Then }) => {
+  Scenario('An Admin reads the role-change entries newest first', ({ Given, When, Then }) => {
     let adminId: string;
     let targetId: string;
-    let moderatorId: string;
     let response: request.Response;
 
     Given('an Admin who granted and then revoked the moderator role on a Voter', async () => {
@@ -110,14 +109,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       await putRole(harness, adminId, targetId, 'moderator', false);
     });
 
-    And('a Moderator', async () => {
-      // Arrange
-      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
-    });
-
-    When('the Moderator GETs the moderation log', async () => {
+    When('the Admin GETs the moderation log', async () => {
       // Act
-      response = await getLog(moderatorId);
+      response = await getLog(adminId);
     });
 
     Then('the response lists the revoke before the grant, each naming the Admin, the Voter, and when', () => {
@@ -126,7 +120,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const entries = response.body.entries as Array<Record<string, unknown>>;
       expect(entries.map((entry) => entry.action)).toEqual(['revoke_role_moderator', 'grant_role_moderator']);
       for (const entry of entries) {
-        expect(entry.staff_voter_id).toBe(adminId);
+        expect(entry.actor_voter_id).toBe(adminId);
         expect(entry.target_voter_id).toBe(targetId);
         expect(entry.target_war_id).toBeNull();
         expect(Number.isNaN(Date.parse(entry.created_at as string))).toBe(false);
@@ -159,11 +153,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let seededIds: string[];
     let response: request.Response;
 
-    Given('an Admin and a Moderator, and 5 moderation log entries logged within the same millisecond', async () => {
+    Given('a Moderator, and 5 moderation log entries logged within the same millisecond', async () => {
       // Arrange
-      const adminId = (await makeAdmin(harness.db, 'admin')).id;
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
-      seededIds = await seedEntriesWithinOneMillisecond(adminId, 5);
+      seededIds = await seedEntriesWithinOneMillisecond(moderatorId, 5);
     });
 
     When('the Moderator GETs the moderation log with limit 2', async () => {
@@ -185,11 +178,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let seededIds: string[];
     let pages: request.Response[];
 
-    Given('an Admin and a Moderator, and 5 moderation log entries logged within the same millisecond', async () => {
+    Given('a Moderator, and 5 moderation log entries logged within the same millisecond', async () => {
       // Arrange
-      const adminId = (await makeAdmin(harness.db, 'admin')).id;
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
-      seededIds = await seedEntriesWithinOneMillisecond(adminId, 5);
+      seededIds = await seedEntriesWithinOneMillisecond(moderatorId, 5);
     });
 
     When('the Moderator pages through the moderation log with limit 2 following each next cursor', async () => {
@@ -252,26 +244,37 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Entries carry the names of the acting Staff member and the targets', ({ Given, And, When, Then }) => {
+  Scenario('Entries carry the names of the acting role holder and the targets', ({ Given, And, When, Then }) => {
+    let adminId: string;
     let moderatorId: string;
     let response: request.Response;
 
-    Given(
-      'an Admin named "admin" who granted the moderator role to a Voter named "target" and logged an action on a War titled "Doomed War"',
-      async () => {
-        // Arrange
-        const adminId = (await makeAdmin(harness.db, 'admin')).id;
-        const targetId = (await makeVoter(harness.db, 'target')).id;
-        const creatorId = (await makeVoter(harness.db, 'creator')).id;
-        const war = await makeDraftWar(harness.db, creatorId, { title: 'Doomed War' });
-        await putRole(harness, adminId, targetId, 'moderator', true);
-        await logAction(harness.db, { action: 'warn_war', staffVoterId: adminId, targetWarId: war.id });
-      },
-    );
-
-    And('a Moderator', async () => {
+    Given('an Admin named "admin" who granted the moderator role to a Voter named "target"', async () => {
       // Arrange
-      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const targetId = (await makeVoter(harness.db, 'target')).id;
+      await putRole(harness, adminId, targetId, 'moderator', true);
+    });
+
+    And('a Moderator named "mod" who logged an action on a War titled "Doomed War"', async () => {
+      // Arrange
+      moderatorId = (await makeModerator(harness.db, 'mod')).id;
+      const creatorId = (await makeVoter(harness.db, 'creator')).id;
+      const war = await makeDraftWar(harness.db, creatorId, { title: 'Doomed War' });
+      await logAction(harness.db, { action: 'warn_war', actorVoterId: moderatorId, targetWarId: war.id });
+    });
+
+    When('the Admin GETs the moderation log', async () => {
+      // Act
+      response = await getLog(adminId);
+    });
+
+    Then('the role entry names the Admin as the actor and the Voter as target, with a null War title', () => {
+      // Assert
+      const entry = entryWithAction(response, 'grant_role_moderator');
+      expect(entry.actor_name).toBe('admin');
+      expect(entry.target_voter_name).toBe('target');
+      expect(entry.target_war_title).toBeNull();
     });
 
     When('the Moderator GETs the moderation log', async () => {
@@ -279,39 +282,26 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       response = await getLog(moderatorId);
     });
 
-    Then('the role entry names the Admin as staff and the Voter as target, with a null War title', () => {
-      // Assert
-      const entry = entryWithAction(response, 'grant_role_moderator');
-      expect(entry.staff_name).toBe('admin');
-      expect(entry.target_voter_name).toBe('target');
-      expect(entry.target_war_title).toBeNull();
-    });
-
-    And('the War entry names the Admin as staff and the War by title, with a null Voter name', () => {
+    Then('the War entry names the Moderator as the actor and the War by title, with a null Voter name', () => {
       // Assert
       const entry = entryWithAction(response, 'warn_war');
-      expect(entry.staff_name).toBe('admin');
+      expect(entry.actor_name).toBe('mod');
       expect(entry.target_war_title).toBe('Doomed War');
       expect(entry.target_voter_name).toBeNull();
     });
   });
 
-  Scenario("A removed War's title is still shown", ({ Given, And, When, Then }) => {
+  Scenario("A removed War's title is still shown", ({ Given, When, Then }) => {
     let moderatorId: string;
     let response: request.Response;
 
-    Given('an Admin who removed a War titled "Removed War"', async () => {
+    Given('a Moderator who removed a War titled "Removed War"', async () => {
       // Arrange
-      const adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       const creatorId = (await makeVoter(harness.db, 'creator')).id;
       const war = await makeDraftWar(harness.db, creatorId, { title: 'Removed War' });
       await markWarRemoved(harness.db, war.id);
-      await logAction(harness.db, { action: 'remove_war', staffVoterId: adminId, targetWarId: war.id });
-    });
-
-    And('a Moderator', async () => {
-      // Arrange
-      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+      await logAction(harness.db, { action: 'remove_war', actorVoterId: moderatorId, targetWarId: war.id });
     });
 
     When('the Moderator GETs the moderation log', async () => {
@@ -330,18 +320,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     let warId: string;
     let response: request.Response;
 
-    Given('an Admin who logged an action on a War that was later hard-deleted', async () => {
-      // Arrange
-      const adminId = (await makeAdmin(harness.db, 'admin')).id;
-      const creatorId = (await makeVoter(harness.db, 'creator')).id;
-      warId = (await makeDraftWar(harness.db, creatorId, { title: 'Gone War' })).id;
-      await logAction(harness.db, { action: 'remove_war', staffVoterId: adminId, targetWarId: warId });
-      await deleteWarRow(harness.db, warId);
-    });
-
-    And('a Moderator', async () => {
+    Given('a Moderator who logged an action on a War that was later hard-deleted', async () => {
       // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+      const creatorId = (await makeVoter(harness.db, 'creator')).id;
+      warId = (await makeDraftWar(harness.db, creatorId, { title: 'Gone War' })).id;
+      await logAction(harness.db, { action: 'remove_war', actorVoterId: moderatorId, targetWarId: warId });
+      await deleteWarRow(harness.db, warId);
     });
 
     When('the Moderator GETs the moderation log', async () => {
@@ -362,21 +347,16 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A live War with no title is not flagged as deleted', ({ Given, And, When, Then }) => {
+  Scenario('A live War with no title is not flagged as deleted', ({ Given, When, Then }) => {
     let moderatorId: string;
     let response: request.Response;
 
-    Given('an Admin who logged an action on a live War with no title', async () => {
-      // Arrange
-      const adminId = (await makeAdmin(harness.db, 'admin')).id;
-      const creatorId = (await makeVoter(harness.db, 'creator')).id;
-      const war = await makeDraftWar(harness.db, creatorId, { title: null });
-      await logAction(harness.db, { action: 'warn_war', staffVoterId: adminId, targetWarId: war.id });
-    });
-
-    And('a Moderator', async () => {
+    Given('a Moderator who logged an action on a live War with no title', async () => {
       // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+      const creatorId = (await makeVoter(harness.db, 'creator')).id;
+      const war = await makeDraftWar(harness.db, creatorId, { title: null });
+      await logAction(harness.db, { action: 'warn_war', actorVoterId: moderatorId, targetWarId: war.id });
     });
 
     When('the Moderator GETs the moderation log', async () => {
@@ -392,20 +372,14 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('An entry with no War target is not flagged as deleted', ({ Given, And, When, Then }) => {
+  Scenario('An entry with no War target is not flagged as deleted', ({ Given, When, Then }) => {
     let moderatorId: string;
     let response: request.Response;
 
-    Given('an Admin who granted the moderator role to a Voter', async () => {
-      // Arrange
-      const adminId = (await makeAdmin(harness.db, 'admin')).id;
-      const targetId = (await makeVoter(harness.db, 'target')).id;
-      await putRole(harness, adminId, targetId, 'moderator', true);
-    });
-
-    And('a Moderator', async () => {
+    Given('a Moderator who enabled the kill switch', async () => {
       // Arrange
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+      await putKillSwitch(harness, moderatorId, { enabled: true });
     });
 
     When('the Moderator GETs the moderation log', async () => {
@@ -415,9 +389,65 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Then('the entry is not flagged as targeting a deleted War', () => {
       // Assert
-      expect(entryWithAction(response, 'grant_role_moderator').target_war_deleted).toBe(false);
+      expect(entryWithAction(response, 'enable_war_creation_kill_switch').target_war_deleted).toBe(false);
     });
   });
+
+  Scenario('A Voter who is not a Moderator sees no moderation entries', ({ Given, When, Then }) => {
+    let adminId: string;
+    let response: request.Response;
+
+    Given('an Admin who granted the moderator role to a Voter, and a Moderator who removed a War', async () => {
+      // Arrange
+      ({ adminId } = await seedRoleGrantAndWarRemoval());
+    });
+
+    When('the Admin GETs the moderation log', async () => {
+      // Act
+      response = await getLog(adminId);
+    });
+
+    Then('the response lists the role grant and no moderation entry', () => {
+      // Assert
+      expect(entryActions(response)).toEqual(['grant_role_moderator']);
+    });
+  });
+
+  Scenario('A Voter who is not an Admin sees no role-change entries', ({ Given, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('an Admin who granted the moderator role to a Voter, and a Moderator who removed a War', async () => {
+      // Arrange
+      ({ moderatorId } = await seedRoleGrantAndWarRemoval());
+    });
+
+    When('the Moderator GETs the moderation log', async () => {
+      // Act
+      response = await getLog(moderatorId);
+    });
+
+    Then('the response lists the War removal and no role-change entry', () => {
+      // Assert
+      expect(entryActions(response)).toEqual(['remove_war']);
+    });
+  });
+
+  function entryActions(response: request.Response): string[] {
+    expect(response.status).toBe(200);
+    return (response.body.entries as Array<{ action: string }>).map((entry) => entry.action);
+  }
+
+  async function seedRoleGrantAndWarRemoval(): Promise<{ adminId: string; moderatorId: string }> {
+    const adminId = (await makeAdmin(harness.db, 'admin')).id;
+    const targetId = (await makeVoter(harness.db, 'target')).id;
+    await putRole(harness, adminId, targetId, 'moderator', true);
+    const moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    const creatorId = (await makeVoter(harness.db, 'creator')).id;
+    const war = await makeDraftWar(harness.db, creatorId);
+    await logAction(harness.db, { action: 'remove_war', actorVoterId: moderatorId, targetWarId: war.id });
+    return { adminId, moderatorId };
+  }
 
   function entryWithAction(response: request.Response, action: string): Record<string, unknown> {
     expect(response.status).toBe(200);
@@ -427,13 +457,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   }
 
   /** Inserts `count` entries whose created_at differ only in microseconds; returns their ids newest first. */
-  async function seedEntriesWithinOneMillisecond(staffId: string, count: number): Promise<string[]> {
+  async function seedEntriesWithinOneMillisecond(actorId: string, count: number): Promise<string[]> {
     const ids: string[] = [];
     for (let i = 1; i <= count; i += 1) {
       const id = newId();
       const micros = String(i * 100).padStart(6, '0');
       await sql`insert into moderation_log (id, action, staff_voter_id, created_at)
-        values (${id}::uuid, 'grant_role_moderator', ${staffId}::uuid, ${`2026-01-01T00:00:00.${micros}Z`}::timestamptz)`.execute(harness.db);
+        values (${id}::uuid, 'enable_war_creation_kill_switch', ${actorId}::uuid, ${`2026-01-01T00:00:00.${micros}Z`}::timestamptz)`.execute(harness.db);
       ids.push(id);
     }
     return ids.reverse();

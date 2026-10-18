@@ -5,7 +5,7 @@ import { setKillSwitch } from './killSwitchRepository.js';
 
 /**
  * Turns the War-creation kill switch on or off (§6.7). Caller permission
- * (Moderator or Admin) is enforced by `requireModeratorOrAdmin`, not here. The
+ * (Moderator) is enforced by `requireModerator`, not here. The
  * state change and its moderation log entry commit together or not at all.
  */
 export async function changeKillSwitch(db: Kysely<Database>, callerVoterId: string, enabled: boolean): Promise<boolean> {
@@ -13,7 +13,7 @@ export async function changeKillSwitch(db: Kysely<Database>, callerVoterId: stri
     await setKillSwitch(trx, enabled);
     await logAction(trx, {
       action: `${enabled ? 'enable' : 'disable'}_war_creation_kill_switch`,
-      staffVoterId: callerVoterId,
+      actorVoterId: callerVoterId,
     });
   });
   return enabled;

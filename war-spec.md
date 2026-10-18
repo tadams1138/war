@@ -67,13 +67,15 @@ to it.
 | **Anonymous Visitor** | Browse and view rankings of public Wars; cannot vote |
 | **Voter** | Authenticated; may join Wars, cast votes, view rankings, file abuse reports (§8.5) |
 | **War Creator** | A Voter who created a specific War; manages it through its lifecycle |
-| **Moderator** | An account-level role, granted by an Admin; every Administration capability (§6.7) and abuse-report review (§8.5) except granting or revoking roles |
-| **Admin** | An account-level role, granted by another Admin; every Moderator capability plus granting and revoking Moderator and Admin on any Voter (§6.7) |
+| **Moderator** | An account-level role, granted by an Admin; holds the moderation capabilities: abuse-report review (§8.5), removing Wars, suspending and banning Voters, the War-creation kill switch, the moderation views of Wars and Voters, and the moderation entries of the moderation log (§6.7) |
+| **Admin** | An account-level role, granted by another Admin; responsible for role assignment only: granting and revoking Moderator and Admin on any Voter, with the role-change entries of the moderation log (§6.7). Implies no Moderator capability |
 
 "War Creator" is a relationship to a particular War, not an account type. A Voter becomes
 one by creating a War. **Moderator and Admin are account-level roles**, independent of any
-particular War, and stack freely with War Creator — a Voter can hold either or both while
-also creating Wars of their own. Holding Moderator does not, on its own, exempt a Voter's
+particular War and of each other: neither includes the other. They stack freely with each
+other and with War Creator — a Voter can hold either or both while
+also creating Wars of their own. An Admin who wants the moderation capabilities grants
+themselves Moderator. Holding Moderator does not, on its own, exempt a Voter's
 own Wars from being reported by others; report visibility follows the Moderator role, not
 War ownership.
 
@@ -109,14 +111,14 @@ freely reversed by unpublishing (§6.1). Closing ends voting for good; rankings 
 **Effective status.** An end date is enforced *lazily, on every read and write*. A War is
 treated as closed the instant its end date passes, regardless of its stored status. A vote
 cast one second later is rejected, and the War reports itself as closed. Every list and
-filter agrees, Staff views included. A War past its end date is listed under closed and never
+filter agrees, moderation views included. A War past its end date is listed under closed and never
 under published, whether or not its stored status has caught up. A scheduled task converges
 the stored value, but correctness never depends on that task having run. A missed run
 degrades query efficiency and reporting freshness only. The task is safe to run repeatedly
 and concurrently. Each expired War is closed exactly once.
 
 Expiry never publishes anything. A draft whose end date passes reads as closed to its creator
-and to Staff. It stays invisible to everyone else, and it never appears in any public list.
+and to Moderators. It stays invisible to everyone else, and it never appears in any public list.
 
 ### 4.2 Contestant
 
@@ -448,9 +450,12 @@ because effective status (§4.1) already treats those Wars as closed.
 
 ### 6.7 Administration
 
-**Moderator** and **Admin** (together, **Staff** below) are account-level roles (§3).
-Granting or revoking either on a Voter is an Admin-only operation; every other caller,
-Moderator included, is refused as forbidden. There is no self-service path to either role.
+**Moderator** and **Admin** are independent account-level roles (§3). **Admin is for role
+assignment only; Moderator is for moderation only.** Granting or revoking either on a Voter is
+an Admin-only operation; every other caller, Moderator included, is refused as forbidden.
+A Voter cannot grant themselves a role, with one exception: an Admin may grant themselves
+Moderator, keeping Admin, and may revoke their own Moderator role. A **role holder** below is a Voter
+holding either role.
 
 **The first Admin on a fresh deployment is created by a seed script**, run once at deploy
 time against a designated Voter id — not through any API endpoint, since no Admin yet
@@ -458,36 +463,37 @@ exists to call one. Every Admin after that is granted by an existing
 Admin; a first Moderator needs no bootstrap at all, since any Admin can grant that role the
 moment one exists.
 
-**An Admin should not remove their own Admin role** — not by revoking it outright, and not
-by demoting it to Moderator. Only another Admin should be able to do either. Self-removal
+**An Admin should not remove their own Admin role.** Only another Admin should be able to.
+Self-removal
 risks leaving a deployment with no Admin at all, recoverable only by repeating the manual
 bootstrap step above — a failure mode worth making structurally impossible rather than
 merely discouraged, the same reasoning §8.1 gives for why a mirrored matchup pairing cannot
 exist at all.
 
-**Visibility.** Staff may view every War regardless of status — draft, unlisted, or
+**Visibility.** A Moderator may view every War regardless of status — draft, unlisted, or
 closed — and every Voter, including a Voter's own complete vote history (§8.3's audit
-trail, otherwise kept for future tooling, surfaced here to a human instead). This is the
-only way visibility scoping (§6.1's default scoping, and "a War not currently published is
-invisible to everyone but its creator") is ever bypassed.
+trail, otherwise kept for future tooling, surfaced here to a human instead). An Admin who is
+not a Moderator may view every Voter and one Voter with all their Wars, to manage roles, and
+nothing else. This is the only way visibility scoping (§6.1's default scoping, and "a War not
+currently published is invisible to everyone but its creator") is ever bypassed.
 
-That bypass lives only in Staff's own read-only views, never on the ordinary routes. A
-Moderator browsing the public site sees exactly what any Voter sees. Being Staff never lets
-someone vote in, join, or edit a War they otherwise couldn't. Staff's views also include
-removed Wars, which no ordinary route ever shows. These views cover:
-- every War, filterable by status (including "removed") and by text matching its title or
-  creator's name, with each War's count of unaddressed reports
-- one War in full, removed or not, with its contestants and their standings
-- every Voter, filterable to the suspended, the banned, or Staff, with how many Wars each
-  created
-- one Voter with all their Wars
-- one Voter's complete vote history, newest first: every matchup they decided, in whatever
-  War, removed ones included
+That bypass lives only in these read-only views, never on the ordinary routes. A
+Moderator browsing the public site sees exactly what any Voter sees. Holding either role never
+lets someone vote in, join, or edit a War they otherwise couldn't. The views also include
+removed Wars, which no ordinary route ever shows. They cover:
+- Moderator only: every War, filterable by status (including "removed") and by text matching
+  its title or creator's name, with each War's count of unaddressed reports
+- Moderator only: one War in full, removed or not, with its contestants and their standings
+- Moderator or Admin: every Voter, filterable to the suspended, the banned, or role holders,
+  with how many Wars each created
+- Moderator or Admin: one Voter with all their Wars
+- Moderator only: one Voter's complete vote history, newest first: every matchup they
+  decided, in whatever War, removed ones included
 
 Every list is paged (§6). Reading never changes anything and writes
 nothing to the moderation log. No view exposes how a Voter signs in.
 
-**Remove a War** takes down a War Staff have moderated for cause. It is deliberately not
+**Remove a War** takes down a War a Moderator has moderated for cause. It is deliberately not
 the same operation as a creator's own **Delete** (§6.1): Remove soft-deletes the War —
 marked removed and hidden from everyone, including its own creator, but its row and its
 votes persist — while hard-deleting its media outright. That means every stored copy of
@@ -498,12 +504,12 @@ the reason for the removal, is actually reclaimed.
 
 A removed War behaves as if it doesn't exist, everywhere. It can't be viewed, listed,
 voted on, edited, published, reported, or deleted, not even by its own creator. A creator's
-Delete can't erase what the moderation preserved. Removing is Staff only; everyone else
-is refused as forbidden. Removing a War that doesn't exist or is already removed reports not found. The removal and its moderation log entry happen together. Media is reclaimed only
+Delete can't erase what the moderation preserved. Removing is Moderator only; everyone else,
+Admins who are not Moderators included, is refused as forbidden. Removing a War that doesn't exist or is already removed reports not found. The removal and its moderation log entry happen together. Media is reclaimed only
 after the removal commits. If reclaiming fails, the War stays removed: an orphaned file costs
 storage, not correctness.
 
-**Suspend** and **Ban** are two severities of Staff acting against a Voter, not one:
+**Suspend** and **Ban** are two severities of a Moderator acting against a Voter, not one:
 
 | Action | Effect | Reversible |
 |---|---|---|
@@ -515,37 +521,37 @@ intentional exception to §8.1's immutability, scoped to exactly this one modera
 because the alternative (an abusive Voter's votes standing forever) is worse than the
 exception.
 
-Suspend and Ban are open to any Staff member. Everyone else is refused as forbidden. Neither can target
-the caller or any Staff member: a Moderator or Admin must first have their role revoked by an
-Admin. A Suspended Voter's creation attempt is refused as forbidden, naming the
+Suspend and Ban are Moderator only; everyone else, Admins who are not Moderators included, is
+refused as forbidden. Neither can target the caller or any role holder: the role must first be
+revoked by an Admin. A Suspended Voter's creation attempt is refused as forbidden, naming the
 suspension. While the kill switch is on, its response wins instead. A Ban takes effect at
 once: any session the Voter already holds stops working on their very next request, not when
 it would have expired. No vote the Voter is casting at that moment survives the Ban, and a
-role granted concurrently is never missed: if the target became Staff first, the action is
-refused as for any Staff target. A Ban's data deletion and its moderation log entry happen together.
+role granted concurrently is never missed: if the target became a role holder first, the action is
+refused as for any role holder. A Ban's data deletion and its moderation log entry happen together.
 Reclaiming the deleted Wars' media follows afterwards, best effort, as with Remove a War.
 Reports the banned Voter filed survive. Unban restores sign-in only.
 
 **A global War-creation kill switch** rejects every War-creation request, from every Voter
-including Staff, while enabled. No exceptions and no special-casing — an emergency stop is
+including role holders, while enabled. No exceptions and no special-casing — an emergency stop is
 only trustworthy if it actually stops everything. Nothing else is affected: existing Wars
-keep running, voting continues, and disabling the switch requires the same Staff capability
-as enabling it. Any Staff member, Moderator or Admin, may read or set the switch. Everyone else
-is refused as forbidden. A refused creation attempt is reported as service unavailable, names War
+keep running, voting continues, and disabling the switch requires the same Moderator capability
+as enabling it. Any Moderator may read or set the switch. Everyone else, Admins who are not
+Moderators included, is refused as forbidden. A refused creation attempt is reported as service unavailable, names War
 creation as disabled, and counts against no rate limit. The switch is off until first set.
 Its state is shared by every running API instance and survives restarts.
 
-**An append-only moderation log** records every Staff action — Remove a War,
-Suspend/unsuspend, Ban/unban, an Admin granting or revoking a role, toggling the kill
-switch — with which Staff member, the target, and when. Never edited or deleted, mirroring
-votes' own immutability (§8.1), and for the same reason: several Staff may exist, and each
+**An append-only moderation log** records every moderation action — Remove a War,
+Suspend/unsuspend, Ban/unban, toggling the kill switch — and every role grant or revoke by an
+Admin, with which role holder, the target, and when. Never edited or deleted, mirroring
+votes' own immutability (§8.1), and for the same reason: several role holders may exist, and each
 must be individually accountable for what they did. An action and its log entry stand or
 fall together. If the entry can't be recorded, the action doesn't happen, and a refused
-action records nothing. Any Staff member can read the whole log, newest first. Everyone else
-is refused as forbidden. The log is read a page at a time (§6); paging never skips or repeats an
+action records nothing. A Moderator can read the moderation entries, newest first, and an Admin the role-change
+entries (grants and revokes), newest first; a Voter holding both reads both. Everyone else is refused as forbidden. The log is read a page at a time (§6); paging never skips or repeats an
 entry, even when several entries share a timestamp.
 Entries outlive their targets: deleting a War never removes or blocks on its log entries.
-Each entry, as read, names the acting Staff member and the target by their current display
+Each entry, as read, names the acting role holder and the target by their current display
 name or title. A removed War still shows its title. A War since deleted outright shows no
 title, but its entry remains.
 
@@ -690,21 +696,21 @@ War; reports are never deduplicated or merged.
 side effect of its War being deleted (§6.1). Short of that, each is independent —
 addressing one leaves every other report on that War, or on any other War, untouched.
 
-**Visibility is Moderator/Admin only.** A War's creator is never shown that their War was
-reported, by whom, or why — reports are invisible to everyone except Moderator and Admin,
+**Visibility is Moderator only.** A War's creator is never shown that their War was
+reported, by whom, or why — reports are invisible to everyone except Moderators,
 with no exception for the War's own creator. No notification is sent to anyone when a
 report is filed, consistent with the platform carrying no push notifications (§2).
 
-**Moderator/Admin capabilities**, refused as forbidden for anyone else:
+**Moderator capabilities**, refused as forbidden for anyone else, Admins who are not Moderators included:
 
 - **List reports for a War** — every report against a given War id, newest first, each
   with its reporter, explanation, filed-at time, and addressed state.
 - **List Wars with unaddressed reports** — every War carrying at least one report not yet
   addressed, each with its unaddressed-report count. This is the moderation
-  queue: it is how a Moderator or Admin finds what still needs attention without checking
+  queue: it is how a Moderator finds what still needs attention without checking
   every War.
 - **Set a report's addressed state** — toggles one report's addressed state in either
-  direction, so a Moderator or Admin can reopen a report addressed in error.
+  direction, so a Moderator can reopen a report addressed in error.
 
 ---
 
@@ -812,7 +818,7 @@ against, so those tests exercise real shapes rather than believed ones.
 | Start a War | Creates an empty draft War and forwards to its Edit page | Yes |
 | Edit War | Metadata, contestants and media, Publish/Unpublish, Clear Votes, and Delete, for any War the voter created, any status | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
-| Admin Dashboard | Every War and Voter, moderation actions, the moderation log (§6.7); Staff only | Yes |
+| Admin Dashboard | Every War and Voter, moderation actions, role assignment, the moderation log (§6.7); Moderator or Admin, each seeing only its own panels | Yes |
 | Sign in | Provider selection | No |
 | Auth callback | Exchanges the refresh cookie for a token, then returns the voter where they were going | No |
 
@@ -822,20 +828,25 @@ redirects to sign-in carrying the intended destination, and returns there afterw
 authenticated visit to the Admin Dashboard by neither a Moderator nor an Admin redirects
 Home instead — unlike a private War (§6.1), whether this route exists at all isn't
 sensitive, so there is no need for a not-found-shaped response here. A way into the Admin
-Dashboard appears in the navigation only for Staff. Turning the War-creation kill switch on
+Dashboard appears in the navigation only for a Moderator or an Admin. The dashboard shows each
+role only its own panels: a Moderator the Wars, the unaddressed reports queue, the Voters, the
+kill switch and the moderation log's moderation entries; an Admin who is not a Moderator the
+Voters and the moderation log's role-change entries. A Voter holding both sees every panel. Turning the War-creation kill switch on
 from the dashboard asks for confirmation first, since it stops all creation. Turning it off
 needs none. A banned Voter who tries to sign in is told plainly that the account is banned,
 not shown a generic failure.
 
-From the dashboard, Staff open any War or Voter in a detail view of its own. Each detail view
+From the dashboard, a Moderator opens any War or Voter, and an Admin any Voter, in a detail view of its own. Each detail view
 has a stable address, so lists, the reports queue, and the moderation log can link to it.
 - **Wars:** Remove a War, Suspend, and Ban each ask for confirmation. Ban's confirmation
   states plainly that it permanently deletes everything the Voter created and every vote they
   cast.
-- **Reports:** Staff mark a War's reports addressed or unaddressed from its detail view.
-- **Role controls** appear only to Admins. Revoking the Admin role asks for confirmation.
+- **Reports:** Moderators mark a War's reports addressed or unaddressed from its detail view.
+- **Role controls** appear only to Admins, on any Voter's detail view, their own included.
+  Revoking the Admin role asks for confirmation.
+- **Moderation controls** (Suspend, Ban) appear only to Moderators.
 - **Hidden controls:** the dashboard never offers an action the rules forbid. A Voter's own
-  detail view has no Suspend, Ban, or revoke-Admin control, and a Staff member's detail view
+  detail view has no Suspend, Ban, or revoke-Admin control, and a role holder's detail view
   has no Suspend or Ban control.
 
 **Every route renders beneath a persistent navigation header**, rendered once by a shell
@@ -858,7 +869,7 @@ partial or transitional state.
   offering an action that only ends in a redirect is friction the header exists to remove.
 - **Authenticated:** the brand mark, plus a single identity control (the voter's avatar and
   name) that opens a menu holding My Wars, Start a War, Import a War, the Admin Dashboard
-  (Staff only), and a sign-out control, always together — Home is not repeated in this menu, since the brand mark already covers it for
+  (Moderators and Admins only), and a sign-out control, always together — Home is not repeated in this menu, since the brand mark already covers it for
   every visitor. The control is closed by default, so the persistent header stays small
   regardless of how many destinations it holds. The open menu renders on an opaque or
   sufficiently translucent surface of its own, never the bare page behind it — a themed page
