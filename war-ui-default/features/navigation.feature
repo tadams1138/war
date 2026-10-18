@@ -82,12 +82,12 @@ Feature: Navigation
     And the identity menu links "Start a War" to the Start a War page
 
     Examples:
-      | page                       |
-      | Home                       |
-      | My Wars                    |
-      | the first War's Edit page  |
-      | that War's detail page     |
-      | that War's vote page       |
+      | page                      |
+      | Home                      |
+      | My Wars                   |
+      | the first War's Edit page |
+      | that War's detail page    |
+      | that War's vote page      |
 
   Scenario: Selecting an item in the identity menu navigates there and closes the menu
     Given the API creates an empty draft War

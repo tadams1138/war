@@ -22,10 +22,10 @@ Feature: Contestant Images
     Then no vote is submitted
 
     Examples:
-      | swipe                                                                                    |
-      | swipe the left contestant's card beyond the swipe threshold                              |
+      | swipe                                                                                   |
+      | swipe the left contestant's card beyond the swipe threshold                             |
       | begin swiping the left contestant's card and release it back over its starting position |
-      | begin swiping the left contestant's card and the browser cancels the swipe               |
+      | begin swiping the left contestant's card and the browser cancels the swipe              |
 
   Scenario: Tapping votes
     Given the left contestant has 3 images
@@ -83,6 +83,6 @@ Feature: Contestant Images
     And the left contestant's images 3 to 10 have not been requested
 
     Examples:
-      | action                                                     |
+      | action                                                      |
       | swipe the left contestant's card beyond the swipe threshold |
       | click the next-image arrow on the left contestant's card    |

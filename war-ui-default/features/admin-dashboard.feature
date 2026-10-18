@@ -30,7 +30,7 @@ Feature: Admin Dashboard
     When they select "Admin Dashboard" from the identity menu
     Then the Admin Dashboard is shown beneath the navigation header
     And the moderation log lists these entries, newest first:
-      | action label           | by           | target | when                 |
+      | action label           | by         | target | when                 |
       | Granted Moderator role | Alex Actor | v-1    | 2026-10-02T12:00:00Z |
     And the Voters list was requested 1 time
     And no error message is shown
@@ -90,10 +90,10 @@ Feature: Admin Dashboard
       | ban_voter        | voter-banned |               | 2026-10-03T12:00:00Z |
       | remove_war       |              | Removed Title | 2026-10-02T12:00:00Z |
       | brand_new_action |              |               | 2026-10-01T12:00:00Z |
-    And an authenticated Admin
+    And an authenticated Moderator
     When they open the Admin Dashboard
     Then the moderation log lists these entries, newest first:
-      | action label     | by           | target        | when                 |
+      | action label     | by         | target        | when                 |
       | Banned a Voter   | Alex Actor | voter-banned  | 2026-10-03T12:00:00Z |
       | Removed a War    | Alex Actor | Removed Title | 2026-10-02T12:00:00Z |
       | brand_new_action | Alex Actor | No target     | 2026-10-01T12:00:00Z |
@@ -108,9 +108,9 @@ Feature: Admin Dashboard
     Then the moderation log lists 1 entry
     When they select the "Load more" button
     Then the moderation log lists these entries, newest first:
-      | action label    | by           | target | when                 |
-      | Banned a Voter  | Alex Actor | v-2    | 2026-10-02T12:00:00Z |
-      | Unbanned a Voter | Alex Actor | v-1   | 2026-10-01T12:00:00Z |
+      | action label     | by         | target | when                 |
+      | Banned a Voter   | Alex Actor | v-2    | 2026-10-02T12:00:00Z |
+      | Unbanned a Voter | Alex Actor | v-1    | 2026-10-01T12:00:00Z |
     And the next page of the moderation log was requested from where the first page ended
     And the "Load more" button is hidden
 
@@ -130,7 +130,7 @@ Feature: Admin Dashboard
     When they choose to enable the kill switch
     And they confirm
     Then the moderation log lists these entries, newest first:
-      | action label                         | by           | target    | when                 |
+      | action label                         | by         | target    | when                 |
       | Enabled the War-creation kill switch | Alex Actor | No target | 2026-10-02T12:00:00Z |
       | Banned a Voter                       | Alex Actor | v-1       | 2026-10-01T12:00:00Z |
 
