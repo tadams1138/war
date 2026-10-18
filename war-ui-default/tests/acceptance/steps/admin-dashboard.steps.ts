@@ -118,9 +118,9 @@ Given('a moderation log entry targets the Voter {string}', async ({ world }, nam
 const identity = (name: string, flags: object) => ({ status: 200, body: { voter: { id: name, display_name: name, avatar_url: null, is_moderator: false, is_admin: false, ...flags } } })
 
 // Each sign-in fetches the identity again; they are answered in order.
-Given('the first Voter to sign in is the Moderator {string} and the next is the Voter {string}', async ({ world }, staff: string, plain: string) => {
+Given('the first Voter to sign in is the Moderator {string} and the next is the Voter {string}', async ({ world }, moderator: string, plain: string) => {
   // Arrange
-  const recipe: HandlerRecipe = { method: 'GET', path: `${API}/auth/me`, responses: [identity(staff, { is_moderator: true }), identity(plain, {})] }
+  const recipe: HandlerRecipe = { method: 'GET', path: `${API}/auth/me`, responses: [identity(moderator, { is_moderator: true }), identity(plain, {})] }
   world.queue(recipe)
 })
 
