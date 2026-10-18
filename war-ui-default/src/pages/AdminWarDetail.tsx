@@ -1,4 +1,4 @@
-// A single War as Staff see it (war-spec.md §6.7, §8.5): standings, reports and
+// A single War as a Moderator sees it (war-spec.md §6.7, §8.5): standings, reports and
 // the Remove action. Reached from the Admin Dashboard's lists.
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -15,7 +15,7 @@ export function AdminWarDetail() {
   const { id } = useParams<{ id: string }>()
   const [theme, setTheme] = useTheme('home', 'arcade')
   usePublishTheme('home', theme, setTheme)
-  // Bumped after a Staff action so the detail is refetched from the API.
+  // Bumped after a moderation action so the detail is refetched from the API.
   const [refreshToken, setRefreshToken] = useState(0)
   const war = useAsyncResource(id ? () => getAdminWar(id) : undefined, [id, refreshToken])
 

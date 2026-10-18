@@ -1,11 +1,13 @@
 // The current Voter's GET /auth/me result, fetched once per sign-in and
-// shared by everything that needs it (the NavBar's IdentityMenu, the Staff
-// gate, the Staff Voter detail) through the auth context.
+// shared by everything that needs it (the NavBar's IdentityMenu, the role
+// gate, the Voter detail) through the auth context.
 //
 // Each result is stamped with the session it was fetched for. A new sign-in
 // (even as another Voter, with no sign-out in between) or a sign-out changes
 // the session, so a result from an earlier one is never served -- consumers
-// see 'loading' until the new fetch settles.
+// see 'loading' until the new fetch settles. A refresh (after the Voter's own
+// roles change) is not a new session: the previous result stays until the new
+// one settles.
 import { useEffect, useState } from 'react'
 import { getMe, type VoterMe } from '../api/client'
 import { toUserMessage } from '../api/errors'
@@ -15,7 +17,7 @@ type Settled = { session: number; state: Exclude<AsyncResourceState<VoterMe>, { 
 
 const LOADING: AsyncResourceState<VoterMe> = { status: 'loading' }
 
-export function useVoterMe(isAuthenticated: boolean, session: number): AsyncResourceState<VoterMe> {
+export function useVoterMe(isAuthenticated: boolean, session: number, refreshes: number): AsyncResourceState<VoterMe> {
   const [settled, setSettled] = useState<Settled | null>(null)
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export function useVoterMe(isAuthenticated: boolean, session: number): AsyncReso
     return () => {
       cancelled = true
     }
-  }, [isAuthenticated, session])
+  }, [isAuthenticated, session, refreshes])
 
   if (!isAuthenticated || settled === null || settled.session !== session) return LOADING
   return settled.state

@@ -122,12 +122,19 @@ required-reviewer approval. See `war-spec.md` section 12.
   (cookie, never synced), a persistent nav with an identity menu (keyboard navigable), a
   brand mark and favicon set, footer, native `<dialog>` confirmation modals, and a
   consistent action bar and danger styling.
-- **Admin Dashboard** at `/admin`, gated by `RequireStaff`: kill switch, unaddressed-reports
-  queue, Wars list (status filter, search, removed marker), Voters list, moderation log with
-  links to the Wars and Voters involved. Staff War detail (`/admin/wars/:id`: standings,
-  reports with mark-addressed, Remove War) and Staff Voter detail (`/admin/voters/:id`:
-  Wars, vote history, Suspend, Ban, role grant/revoke for Admins only). Destructive actions
-  confirm first. Signing in as a banned voter shows a ban message.
+- **Admin Dashboard** at `/admin`, gated by `RequireRole` (a Moderator, an Admin or both; neither
+  is redirected Home). Each role sees its own panels. Moderator: kill switch, unaddressed-reports
+  queue, Wars list (status filter, search, removed marker), Voters list, moderation log (the
+  moderation entries) with links to the Wars and Voters involved, War moderation page
+  (`/admin/wars/:id`: standings, reports with mark-addressed, Remove War; Moderator only, an
+  Admin who is not a Moderator is redirected Home). Admin: Voters list (filter Suspended,
+  Banned, Role holders) and moderation log (the role-change entries). Voter detail
+  (`/admin/voters/:id`, either role): Wars and badges for both; for a Moderator also the vote
+  history, links to the Wars and Suspend/Ban (never against a role holder or oneself); for an
+  Admin the role controls only (Grant/Revoke Moderator and Admin, an Admin never sees Revoke
+  Admin on themselves). A change to the viewer's own roles refetches their identity, so the
+  dashboard reflects it at once. Destructive actions confirm first. Signing in as a banned
+  voter shows a ban message.
 - **API client.** `api/client.ts` is built on one request/json/query core: 401 refresh and
   retry, error mapping, 429 classified as rate-limited with `retryAfterSeconds`. Types are
   generated from the API's OpenAPI document.
@@ -190,7 +197,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | about 200 unit tests (21 files), 331 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
+| war-ui-default | about 220 unit tests (24 files), 291 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Pending scenarios (no binding, nothing runs):

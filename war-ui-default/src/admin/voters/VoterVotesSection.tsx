@@ -1,4 +1,4 @@
-// A Voter's vote history as Staff see it (war-spec.md §6.7): each vote's War,
+// A Voter's vote history as a Moderator sees it (war-spec.md §6.7): each vote's War,
 // winner, loser and cast time, newest first.
 import { Link } from 'react-router-dom'
 import { warTitle } from '../../utils/warTitle'

@@ -1,12 +1,12 @@
 // The authenticated half of NavBar (war-spec.md §10.2): one avatar+name
 // control that opens a menu of My Wars, Start a War, Import a War, Admin
-// Dashboard (Staff) and Log out. Follows the ARIA menu pattern: focus moves
+// Dashboard (Moderators and Admins) and Log out. Follows the ARIA menu pattern: focus moves
 // into the menu on open, arrow keys/Home/End move between items, and Escape
 // closes it and returns focus to the trigger.
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/context'
-import { isStaff } from '../auth/staff'
+import { isRoleHolder } from '../auth/roles'
 import { resolveVoterIdentity } from './voterIdentity'
 
 function nextItemIndex(key: string, current: number, count: number): number | null {
@@ -91,7 +91,7 @@ export function IdentityMenu() {
           <NavLink role="menuitem" to="/wars/import" onClick={closeThen()}>
             Import a War
           </NavLink>
-          {identityState.status === 'loaded' && isStaff(identityState.value) && (
+          {identityState.status === 'loaded' && isRoleHolder(identityState.value.voter) && (
             <NavLink role="menuitem" to="/admin" onClick={closeThen()}>
               Admin Dashboard
             </NavLink>

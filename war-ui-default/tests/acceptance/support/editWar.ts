@@ -5,7 +5,7 @@
 import type { ContestantDetail, MediaItem, WarDetailResponse } from '../../../src/api/client'
 import { buildContestant, buildMediaItem } from '../../../src/mocks/fixtures'
 import type { World } from '../steps/fixtures'
-import { recipeFor } from './staffRecords'
+import { recipeFor } from './adminRecords'
 
 export const contestantIdOf = (warId: string, name: string) => `${warId}-${name.toLowerCase().replace(/\W+/g, '-')}`
 export const imageIdOf = (contestantId: string, position: number) => `${contestantId}-image-${position}`

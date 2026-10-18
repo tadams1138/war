@@ -103,15 +103,15 @@ Given('a moderation log entry targets a live War that has no title', async ({ wo
   logTargeting(world, { war: world.nextWarId() })
 })
 
-// The Voter and the acting Staff member each have a detail page to land on.
+// The Voter and the acting Moderator or Admin each have a detail page to land on.
 Given('a moderation log entry targets the Voter {string}', async ({ world }, name: string) => {
   // Arrange
   addLogPages(world, { entries: [logEntry('entry-1', 'ban_voter', '2026-10-02T12:00:00Z', { voter: 'v-1', voterName: name })], next_cursor: null })
   world.queue(
     adminVoterGet('v-1', adminVoterDetail('v-1', { display_name: name })),
     noVotes('v-1'),
-    adminVoterGet('staff-voter-1', adminVoterDetail('staff-voter-1', { display_name: 'Stella Staff', is_moderator: true })),
-    noVotes('staff-voter-1'),
+    adminVoterGet('actor-voter-1', adminVoterDetail('actor-voter-1', { display_name: 'Alex Actor', is_moderator: true })),
+    noVotes('actor-voter-1'),
   )
 })
 
@@ -218,7 +218,7 @@ Then('the entry says a deleted War was targeted, with its id and no link', async
   await expect(entries(page).locator(`a[href="/admin/wars/${world.warId}"]`)).toHaveCount(0)
 })
 
-Then('the entry names it as an untitled War and links to its Staff detail', async ({ page, world }) => {
+Then('the entry names it as an untitled War and links to its moderation page', async ({ page, world }) => {
   // Assert
   await expect(entries(page)).not.toContainText('a deleted War')
   await expect(entries(page).getByRole('link', { name: 'Untitled War' })).toHaveAttribute('href', `/admin/wars/${world.warId}`)

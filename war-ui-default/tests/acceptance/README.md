@@ -18,9 +18,9 @@ feature's tag, and `-g` still matches the title).
 |---|---|
 | `steps/fixtures.ts` | The `test` object every step file imports, with the per-scenario `world` fixture |
 | `steps/parameters.ts` | The custom parameter types, registered by `fixtures.ts` (below) |
-| `steps/shared*.steps.ts` | Untagged steps whose text means the same in every feature: `shared.steps.ts` (general), `shared-nav` (identity menu and name), `shared-calls` (API calls, `{call}`), `shared-lists` (Staff lists, `{list}`), `shared-bio` (rendered bios, `{bio}`), `shared-layout` (where controls sit and how they look) |
+| `steps/shared*.steps.ts` | Untagged steps whose text means the same in every feature: `shared.steps.ts` (general), `shared-nav` (identity menu and name), `shared-calls` (API calls, `{call}`), `shared-lists` (Admin Dashboard lists, `{list}`), `shared-bio` (rendered bios, `{bio}`), `shared-layout` (where controls sit and how they look) |
 | `steps/<feature>.steps.ts` | One feature's steps, scoped by that feature's tag |
-| `support/` | Helpers and the registries behind the parameter types: `pageNames`, `calls`, `lists`, `fields`, `cards`, `bios`, `roles`, `screens`, `providers`; and `mocking`, `recipes`, `pages`, `editWar`, `results`, `staffRecords`, `adminFixtures`, `exportArchive` |
+| `support/` | Helpers and the registries behind the parameter types: `pageNames`, `calls`, `lists`, `fields`, `cards`, `bios`, `roles`, `screens`, `providers`; and `mocking`, `recipes`, `pages`, `editWar`, `results`, `adminRecords`, `adminFixtures`, `exportArchive` |
 
 ## Conventions
 
@@ -84,7 +84,7 @@ Add an entry to the registry, not a new step.
 | Type | Registry | Examples |
 |---|---|---|
 | `{page}` | `support/pageNames.ts` (path, landmark, `error` test id) | `Home`, `that War's Edit page`, `"/wars/new"` |
-| `{role}` | `support/roles.ts` | `voter`, `Moderator`, `Admin` |
+| `{role}` | `support/roles.ts` | `voter`, `Moderator`, `Admin`, `Admin and Moderator` |
 | `{screen}` | `support/screens.ts` | `phone`, `desktop`, `wide`, `narrow landscape`, `narrow portrait` |
 | `{side}`, `{card}` | `support/screens.ts`, `support/cards.ts` | `left`; `the left contestant's card`, `the result of "Ada"` |
 | `{bio}` | `support/bios.ts` | `the bio preview`, `the bio of "Ada"` |
@@ -100,7 +100,7 @@ Use these before writing new steps.
 
 | Step | Does |
 |---|---|
-| `Given an authenticated {role}` | Boots the app with the queued mocks, opens Home, signs in. The Staff roles queue the matching `GET /auth/me` |
+| `Given an authenticated {role}` | Boots the app with the queued mocks, opens Home, signs in. The roles queue the matching `GET /auth/me`; if the signed-in voter's own detail (`voter-1`) was given, `/auth/me` then reads as that detail does after each change |
 | `Given they are on {page}` / `When they open {page}` / `When a visitor opens {page}` | Boots if needed and navigates (client-side once signed in). "A visitor" means not signed in |
 | `Given a(nother) War` / `Given a(nother) {status} War` / `Given a(nother) War themed {string}` | Queues a War's detail as its creator sees it. Wars are numbered `war-1`, `war-2`, ...; "that War" is the latest given |
 | `Given the voter created that War` | The viewer owns that War |
@@ -112,7 +112,7 @@ Use these before writing new steps.
 | `Given the voter's session has expired and cannot be refreshed` / `Given the API accepts votes` | Queued answers |
 | `Given a {screen} screen` | Sets the viewport |
 | `Given the API accepts / refuses / rejects / fails / rate limits a request to {call}`, `Given the target of a request to {call} does not exist` | Queues the answer to a write. Accepting also queues how the changed record then reads |
-| `Then the API has been asked to {call}` (`with:` a table of `{field}` values) / `has not been asked to {call}` / `Then {call} was/were requested {int} time(s)` / `Then nothing has been removed` | Requests made, exactly once / never / counted / no `DELETE` or Staff remove at all |
+| `Then the API has been asked to {call}` (`with:` a table of `{field}` values) / `has not been asked to {call}` / `Then {call} was/were requested {int} time(s)` / `Then nothing has been removed` | Requests made, exactly once / never / counted / no `DELETE` or Moderator remove at all |
 | `Then an error is shown on {page}` / `for the request to {call}` / `Then a wait is shown, using the supplied delay, not an error` / `Then no error message is shown` | An error is an alert in the place the failed thing was done (the `error` test id of the page or call); a wait is a status (spec section 10.5) |
 | `When they select the "<name>" button` or `link` / `Then the "<name>" button` or `link` `is shown` / `hidden` / `enabled` / `disabled` | A control by its label. `enabled` / `disabled` also check it looks so: dimmed with no pointer when disabled |
 | `Then a confirmation is shown` / `no confirmation is shown` / `the confirmation says {string}` / `When they confirm` / `When they cancel` | The alert dialog every dangerous action asks first |
@@ -123,7 +123,7 @@ Use these before writing new steps.
 | `Then {bio} says / shows ... / links {string} to {string} / separates its paragraphs ...` | A rendered bio |
 | `Then A, B and C sit in one horizontal row, in that order` / `share consistent button styling` / `X is visually set apart from A and B` / `the "X" button` or `link` `is above A and B` / `is centered on the page` / `is larger than an ordinary button` | Where controls sit and how they look, by label |
 | `Then a zip of that War's definition downloads` | Export |
-| `When they select {string} in {list}` / `filter {list} by {string}` / `search {list} for {string}` / `Then {list} shows only / shows, in order:` / `was last requested for ...` | Staff lists |
+| `When they select {string} in {list}` / `filter {list} by {string}` / `search {list} for {string}` / `Then {list} shows only / shows, in order:` / `was last requested for ...` | Admin Dashboard lists. A filter option asks for the status of its lower-cased label unless the list's `statuses` says otherwise (`Role holders` asks for `role`) |
 | `When they open the identity menu` / `select {string} from the identity menu` / `Then the identity menu links ...` / `the navigation shows the name {string}` / `they are signed out` / `signed in` | The header |
 | `When they choose {string} from the sort menu` / `Then the sort menu shows {string}` / `the search box is shown` / `an empty state is shown` / `a link to create a War is shown` / `the page renders in the {string} theme` | Lists and themes |
 

@@ -8,7 +8,7 @@ import type { RecipeResponse } from '../../../src/mocks/scenarios'
 import type { World } from '../steps/fixtures'
 import { contestantNamed, warDetail } from './editWar'
 import { API } from './mocking'
-import { recipeFor } from './staffRecords'
+import { recipeFor } from './adminRecords'
 
 // One row per contestant: its "name", and optionally its "rank" (blank: unranked),
 // "wins" and "appearances".

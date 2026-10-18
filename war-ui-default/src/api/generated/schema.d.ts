@@ -2103,14 +2103,14 @@ export interface paths {
                                 id: string;
                                 action: string;
                                 /** Format: uuid */
-                                staff_voter_id: string;
+                                actor_voter_id: string;
                                 /** Format: uuid */
                                 target_war_id: null | string;
                                 /** Format: uuid */
                                 target_voter_id: null | string;
                                 /** Format: date-time */
                                 created_at: string;
-                                staff_name: null | string;
+                                actor_name: null | string;
                                 target_voter_name: null | string;
                                 target_war_title: null | string;
                                 target_war_deleted: boolean;
@@ -2525,7 +2525,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    status?: "suspended" | "banned" | "staff";
+                    status?: "suspended" | "banned" | "role";
                     q?: string;
                     limit?: number;
                     cursor?: string;
