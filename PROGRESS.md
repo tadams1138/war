@@ -200,6 +200,19 @@ required-reviewer approval. See `war-spec.md` section 12.
 | war-ui-default | about 220 unit tests (24 files), 291 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
+Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: istanbul via
+`test:coverage` + `test:acceptance:coverage`, then `coverage:report`; report only, no thresholds):
+
+| Suite | Statements | Branches | Functions | Lines |
+|---|---|---|---|---|
+| war-api (unit + integration + acceptance; `s3ObjectStorage` file not run, no Docker) | 90.06% | 83.05% | 93.81% | 91.58% |
+| war-ui-default, unit (218 tests) | 35.69% | 26.55% | 33.07% | 37.72% |
+| war-ui-default, acceptance (291 scenarios) | 89.31% | 80.46% | 93.75% | 92.28% |
+| war-ui-default, merged (unit and acceptance) | 91.85% | 83.54% | 96.95% | 94.12% |
+
+CI publishes the same tables in each pipeline's job summary and uploads the HTML reports as
+`api-coverage` and `ui-default-coverage` artifacts (14 days).
+
 Pending scenarios (no binding, nothing runs):
 
 - `war-api/specs/features/pending/media-mode.feature`: 8 video-mode scenarios.
