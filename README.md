@@ -9,7 +9,8 @@ switch.
 
 **Live:** [war.tmad.dev](https://war.tmad.dev) (production) and
 [staging.war.tmad.dev](https://staging.war.tmad.dev) (staging). Signing in needs an account
-with one of the four providers. To click through the UI without any backend, run it in
+with Google, Microsoft or Twitter/X (the Facebook button is hidden until Meta business
+verification completes). To click through the UI without any backend, run it in
 [mock mode](#try-the-ui-with-no-backend).
 
 This is a single-author showcase repository, not an accepting-contributions project. The
@@ -68,11 +69,9 @@ Things a reviewer may want to look at:
 
 - **Executable Gherkin bound to tests.** Behaviour lives in `.feature` files next to the code
   (`war-api/specs/features/`, `war-ui-default/features/`). API scenarios are bound with
-  `@amiceli/vitest-cucumber`, which executes every step. The UI is moving to the same model
-  with playwright-bdd: converted features execute their steps, and the rest are still bound by
-  title (each scenario title must equal exactly one Playwright test title;
-  `war-ui-default/tests/bindings/featureBindings.test.ts` fails the unit run on drift).
-  [`docs/ui-gherkin-migration.md`](docs/ui-gherkin-migration.md) tracks the migration.
+  `@amiceli/vitest-cucumber`, which executes every step; UI scenarios are executed the same way
+  with playwright-bdd, so a step with no definition fails the run
+  ([conventions](war-ui-default/tests/acceptance/README.md)).
 - **Typed client with a CI contract check.** The API's OpenAPI document is generated from its
   route definitions; the UI's request/response types are generated from it and committed.
   The [OpenAPI Contract workflow](.github/workflows/openapi-contract.yml) regenerates them on
@@ -204,7 +203,7 @@ npm --prefix war-infra/tools/concurrency-groups test
 | Project | Feature files | Bound by |
 |---|---|---|
 | API | `war-api/specs/features/` | `war-api/test/features/*.steps.ts` |
-| Default UI | `war-ui-default/features/` | `war-ui-default/tests/acceptance/steps/*.steps.ts` for converted features; `tests/acceptance/*.spec.ts`, by title, for the rest |
+| Default UI | `war-ui-default/features/` | `war-ui-default/tests/acceptance/steps/*.steps.ts` |
 | Infrastructure | `war-infra/specs/features/` | not bound: `war-infra` has no scenario runner |
 
 Each `features/` directory has a `pending/` subdirectory for scenarios with no binding yet.

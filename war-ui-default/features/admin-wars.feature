@@ -1,91 +1,254 @@
+@admin-wars
 Feature: Admin Dashboard Wars
 
-  Scenario: The Wars list shows Wars of every status with removed and report markers
-    Given Wars of every status exist, one removed and one with unaddressed reports
-    When a Staff member opens the Admin Dashboard
-    Then each War is listed with its title, status, and creator
-    And the removed War is marked Removed
-    And the War with unaddressed reports shows a report count badge
-    And an untitled War shows a placeholder title
+  Scenario Outline: The Wars list shows Wars of every status with removed and report markers
+    # A War with no title is untitled.
+    Given the API lists these Wars to Staff:
+      | title         | status    | creator       | unaddressed reports | removed |
+      | Draft War     | draft     | Casey Creator | 0                   |         |
+      | Published War | published | Pat Poster    | 3                   |         |
+      | Closed War    | closed    | Casey Creator | 0                   |         |
+      | Gone War      | published | Casey Creator | 0                   | yes     |
+      |               | draft     | Casey Creator | 0                   |         |
+    And an authenticated <staff>
+    When they open the Admin Dashboard
+    Then the Wars list shows these Wars, in order:
+      | title         | status    | creator       | report badge | marker  |
+      | Draft War     | draft     | Casey Creator |              |         |
+      | Published War | published | Pat Poster    | 3            |         |
+      | Closed War    | closed    | Casey Creator |              |         |
+      | Gone War      | published | Casey Creator |              | Removed |
+      | Untitled War  | draft     | Casey Creator |              |         |
 
-  Scenario: Filtering the Wars list by status
-    Given the Wars list is shown
-    When a Staff member picks the Removed status filter
-    Then the list is requested with that status and shows the matching Wars
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
 
-  Scenario: Searching the Wars list is debounced
-    Given the Wars list is shown
-    When a Staff member types a search term
-    Then one request carrying the settled term is made and the matching Wars are shown
+  Scenario Outline: Filtering the Wars list by status
+    Given the API lists these Wars to Staff:
+      | title     | removed |
+      | Alpha War |         |
+      | Beta War  | yes     |
+    And an authenticated <staff>
+    And they are on the Admin Dashboard
+    When they filter the Wars list by "Removed"
+    Then the Wars list shows only "Beta War"
+    And the Wars list was last requested for the "Removed" filter
 
-  Scenario: Load more appends the next page of Wars
-    Given the Wars list has a further page
-    When a Staff member chooses Load more in the Wars list
-    Then the next page is requested with its cursor and appended
-    And Load more is hidden once there is no next cursor
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
 
-  Scenario: Opening a War shows its Staff detail with contestants and reports
-    Given a published War with contestants and reports
-    When a Staff member selects it in the Wars list
-    Then they are taken to the War's Staff detail at "/admin/wars/:id"
+  Scenario Outline: Searching the Wars list is debounced
+    Given the API lists these Wars to Staff:
+      | title     |
+      | Alpha War |
+      | Beta War  |
+    And an authenticated <staff>
+    And they are on the Admin Dashboard
+    When they search the Wars list for "beta"
+    Then the Wars list shows only "Beta War"
+    And the Wars list was searched exactly once, for "beta"
+
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
+
+  Scenario Outline: Load more appends the next page of Wars
+    Given the API lists these Wars to Staff, 1 per page:
+      | title     |
+      | Alpha War |
+      | Beta War  |
+    And an authenticated <staff>
+    And they are on the Admin Dashboard
+    Then the Wars list shows only "Alpha War"
+    When they select the "Load more" button
+    Then the Wars list shows, in order:
+      | Alpha War |
+      | Beta War  |
+    And the next page of the Wars list was requested from where the first page ended
+    And the "Load more" button is hidden
+
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
+
+  Scenario Outline: Opening a War shows its Staff detail with contestants and reports
+    Given the API lists a published War titled "Alpha War" to Staff
+    And that War has these contestants:
+      | name   | wins | appearances |
+      | Rocky  | 7    | 10          |
+      | Apollo | 3    | 10          |
+    And that War has these reports:
+      | explanation     | state       |
+      | Spam in the bio | unaddressed |
+      | Offensive image | addressed   |
+    And an authenticated <staff>
+    And they are on the Admin Dashboard
+    When they select "Alpha War" in the Wars list
+    Then that War's Staff detail page is shown
+    And the heading "Alpha War" is shown
     And its contestants are shown with their standings
     And its reports are shown with their explanation and addressed state
 
-  Scenario: Marking a report addressed and unaddressed
-    Given a War with an unaddressed report
-    When a Staff member marks the report addressed
-    Then the report is patched as addressed and shown as addressed
-    When they mark it unaddressed
-    Then the report is patched as unaddressed and shown as unaddressed
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
 
-  Scenario: A failed report update shows an error and leaves the report unchanged
-    Given a War with an unaddressed report and updating it will fail
-    When a Staff member marks the report addressed
-    Then an error is shown and the report is still unaddressed
+  Scenario Outline: Marking a report addressed and unaddressed
+    Given the API lists a published War to Staff
+    And that War has an unaddressed report
+    And the API accepts changes to that War's reports
+    And an authenticated <staff>
+    And they are on that War's Staff detail page
+    When they select the "Mark addressed" button
+    Then the API has been asked to mark the report addressed
+    And the report is shown as addressed
+    When they select the "Mark unaddressed" button
+    Then the API has been asked to mark the report unaddressed
+    And the report is shown as unaddressed
 
-  Scenario: Marking a report addressed when the report is gone says it no longer exists
-    Given a War with an unaddressed report that no longer exists on the server
-    When a Staff member marks the report addressed
-    Then they are told the report doesn't exist, not that a War is missing
-    And the report is still shown unaddressed
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
 
-  Scenario: Removing a War requires confirmation
-    Given a published War's Staff detail
-    When a Staff member chooses Remove War
-    Then an in-page confirmation explains the War is hidden and its media permanently deleted, and nothing is sent yet
+  Scenario Outline: A failed report update shows an error and leaves the report unchanged
+    Given the API lists a published War to Staff
+    And that War has an unaddressed report
+    And changing that War's reports fails with a server error
+    And an authenticated <staff>
+    And they are on that War's Staff detail page
+    When they select the "Mark addressed" button
+    Then the message "Server error — please try again shortly" is shown
+    And the report is shown as unaddressed
+
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
+
+  Scenario Outline: Marking a report addressed when the report is gone says it no longer exists
+    Given the API lists a published War to Staff
+    And that War has an unaddressed report
+    And changing that War's reports finds no such report
+    And an authenticated <staff>
+    And they are on that War's Staff detail page
+    When they select the "Mark addressed" button
+    Then the message "This report doesn't exist" is shown
+    And the report is shown as unaddressed
+
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
+
+  Scenario Outline: Removing a War requires confirmation
+    Given the API lists a published War to Staff
+    And the API accepts a request to remove that War
+    And an authenticated <staff>
+    And they are on that War's Staff detail page
+    When they select the "Remove War" button
+    Then a confirmation is shown
+    And the confirmation says "hides it from everyone and permanently deletes its media"
+    And the API has not been asked to remove that War
     When they confirm
-    Then the removal is requested, the detail is refetched and shows the War as Removed
-    And the Remove War action is gone
+    Then the API has been asked to remove that War
+    And that War's Staff detail was requested 2 times
+    And the War is shown as Removed
+    And no confirmation is shown
+    And the "Remove War" button is hidden
 
-  Scenario: Cancelling the removal confirmation does nothing
-    Given a published War's Staff detail
-    When a Staff member chooses Remove War and cancels
-    Then no removal is requested and the War is unchanged
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
 
-  Scenario: A failed removal shows an error
-    Given a published War's Staff detail and removing it will fail
-    When a Staff member chooses Remove War and confirms
-    Then an error is shown and the War is not shown as removed
+  Scenario Outline: Cancelling the removal confirmation does nothing
+    Given the API lists a published War to Staff
+    And the API accepts a request to remove that War
+    And an authenticated <staff>
+    And they are on that War's Staff detail page
+    When they select the "Remove War" button
+    And they cancel
+    Then no confirmation is shown
+    And the API has not been asked to remove that War
+    And the War is not shown as Removed
+    And the "Remove War" button is shown
 
-  Scenario: A removed War's detail offers no Remove action and requests no reports
-    Given a removed War
-    When a Staff member opens its Staff detail
-    Then it is shown as Removed with no Remove War action
-    And its reports were not requested
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
 
-  Scenario: The unaddressed reports queue lists Wars and opens their detail
-    Given Wars with unaddressed reports are waiting
-    When a Staff member opens the Admin Dashboard
-    Then each is listed with its title and unaddressed count
-    When they select one
-    Then that War's Staff detail is shown
+  Scenario Outline: A failed removal shows an error
+    Given the API lists a published War to Staff
+    And the target of a request to remove that War does not exist
+    And an authenticated <staff>
+    And they are on that War's Staff detail page
+    When they select the "Remove War" button
+    And they confirm
+    Then the message "This War doesn't exist or has been removed" is shown
+    And the War is not shown as Removed
 
-  Scenario: The unaddressed reports queue shows an empty state
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
+
+  Scenario Outline: A removed War's detail offers no Remove action and requests no reports
+    Given the API lists a removed War to Staff
+    And an authenticated <staff>
+    When they open that War's Staff detail page
+    Then the War is shown as Removed
+    And its contestants are shown with their standings
+    And the "Remove War" button is hidden
+    And that War's reports were requested 0 times
+
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
+
+  Scenario Outline: The unaddressed reports queue lists Wars and opens their detail
+    Given the API lists these Wars to Staff:
+      | title     | unaddressed reports |
+      | Alpha War | 4                   |
+      |           | 1                   |
+    And an authenticated <staff>
+    When they open the Admin Dashboard
+    Then the unaddressed reports queue lists:
+      | title        | unaddressed reports |
+      | Alpha War    | 4                   |
+      | Untitled War | 1                   |
+    When they select "Alpha War" in the unaddressed reports queue
+    Then the first War's Staff detail page is shown
+    And the heading "Alpha War" is shown
+
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
+
+  Scenario Outline: The unaddressed reports queue shows an empty state
     Given no reports are waiting
-    When a Staff member opens the Admin Dashboard
-    Then the queue says nothing is waiting
+    And an authenticated <staff>
+    When they open the Admin Dashboard
+    Then the unaddressed reports queue says nothing is waiting
+
+    Examples:
+      | staff     |
+      | Moderator |
+      | Admin     |
 
   Scenario: A plain Voter cannot reach a War's Staff detail
-    Given an authenticated voter who is neither a Moderator nor an Admin
-    When they navigate to "/admin/wars/w-1"
-    Then they are redirected to "/"
+    Given the API lists a published War to Staff
+    And an authenticated voter
+    When they open that War's Staff detail page
+    Then they are redirected to Home
+    And no Staff detail is shown

@@ -582,7 +582,7 @@ describe('uploadContestantImages', () => {
     // back out server-side (a Node/jsdom interop gap, not a client.ts
     // concern); the request's own Content-Type is enough to prove each call
     // really is a multipart upload, and Playwright's real-browser
-    // create-war.spec.ts exercises the file content end to end.
+    // features/edit-war.feature exercises the upload end to end.
     const contentTypes: (string | null)[] = []
     let callIndex = 0
     server.use(

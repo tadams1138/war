@@ -51,6 +51,15 @@
   cursor: pointer;
 }
 
+/* A disabled control has to look it (Prev/Next at the end of a War list,
+   Publish before a War is ready): every theme's button keeps its colors, so
+   without this a disabled one reads as clickable. Carousel arrows keep
+   their own fainter disabled look (layout.css). */
+[data-theme] button:disabled:not(.carousel-arrow) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* A confirmation dialog's surface (Modal.tsx) -- the same theme-surface
    treatment `.bio-content` already gets below, so a modal reads as "the
    same app" rather than introducing a new visual language. Native <dialog>

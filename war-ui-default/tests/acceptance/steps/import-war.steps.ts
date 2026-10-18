@@ -4,7 +4,7 @@ import { expect } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildContestant, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { test } from './fixtures'
-import { API, getCallLog, navigateAuthenticated, waitForCallLog } from '../support/mocking'
+import { API, getCallLog, waitForCallLog, type MswCallLogEntry } from '../support/mocking'
 import { ok, reply } from '../support/recipes'
 import { validWarJson, zipBuffer } from '../support/exportArchive'
 
@@ -14,8 +14,10 @@ const WAR_ID = 'war-imported'
 const importedWar = () => buildWarSummary({ id: WAR_ID, status: 'draft', title: 'Miss Universe 2026' })
 const importedContestant = () => buildContestant({ id: 'c-imported', name: 'Ada' })
 
-function isCreateWar(entry: { method: string; url: string }): boolean {
-  return entry.method === 'POST' && entry.url.endsWith('/wars')
+const exported = JSON.parse(validWarJson()) as { title: string; category: string; contestants: { name: string }[] }
+
+function posted(log: MswCallLogEntry[], urlEnd: string): unknown[] {
+  return log.filter((entry) => entry.method === 'POST' && entry.url.endsWith(urlEnd)).map((entry) => JSON.parse(entry.body || '{}'))
 }
 
 Given('the API accepts an imported War', async ({ world }) => {
@@ -28,16 +30,6 @@ Given('the API accepts an imported War', async ({ world }) => {
     reply('POST', `${API}/wars/${WAR_ID}/contestants/c-imported/images`, 201, { id: 'image-1', display_order: 0 }),
     ok('GET', `${API}/wars/${WAR_ID}`, detail),
   )
-})
-
-Given('the API accepts a share image upload', async ({ world }) => {
-  // Arrange
-  world.queue(ok('POST', `${API}/wars/${WAR_ID}/share-image`, importedWar()))
-})
-
-Given('they are on the Import page', async ({ page }) => {
-  // Arrange
-  await navigateAuthenticated(page, '/wars/import')
 })
 
 When('they choose a valid War export file', async ({ page }) => {
@@ -64,18 +56,9 @@ When('they choose a valid War export file that includes a share image', async ({
 
 Then('a new draft War is created from it', async ({ page }) => {
   // Assert
-  await waitForCallLog(page, (log) => log.some(isCreateWar))
-})
-
-Then('the share image is uploaded to the new draft', async ({ page }) => {
-  // Assert
-  const log = await waitForCallLog(page, (entries) => entries.some((entry) => entry.url.includes('/share-image')))
-  expect(log.some((entry) => entry.method === 'POST' && entry.url.includes(`/wars/${WAR_ID}/share-image`))).toBe(true)
-})
-
-Then('an error is shown', async ({ page }) => {
-  // Assert
-  await expect(page.getByTestId('import-war-error')).toBeVisible()
+  const log = await waitForCallLog(page, (calls) => posted(calls, `/wars/${WAR_ID}/contestants`).length > 0)
+  expect(posted(log, '/wars')).toEqual([expect.objectContaining({ title: exported.title, category: exported.category })])
+  expect(posted(log, `/wars/${WAR_ID}/contestants`)).toEqual([expect.objectContaining({ name: exported.contestants[0]!.name })])
 })
 
 Then('no War is created', async ({ page }) => {

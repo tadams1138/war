@@ -33,7 +33,7 @@ Red-Green-Refactor cycle:
 
 Guidance by test type in `war-ui-default`:
 
-- **Acceptance tests** (Playwright): preferred for user-facing behaviour — page loads, navigation, voting interactions, error states. How a scenario binds to a test depends on the feature; see *Specs* below
+- **Acceptance tests** (Playwright): preferred for user-facing behaviour — page loads, navigation, voting interactions, error states. A scenario is a Gherkin scenario in `war-ui-default/features/` whose steps are executed (conventions in `war-ui-default/tests/acceptance/README.md`)
 - **Unit tests** (Vitest): use for `war-ui-default/src/api/client.ts` logic (401 retry, error mapping) and any pure functions; not for React components that only render API data
 
 ## Build and test
@@ -129,12 +129,8 @@ custom UI (war-spec.md §11) is its own separate repository, not a directory her
 keeps its own Gherkin — `.github/workflows/ui-custom.yml` is the reusable pipeline each one
 calls.
 
-**The UI's Gherkin is mid-migration** from title-bound scenarios to executed steps
-(playwright-bdd). `docs/ui-gherkin-migration.md` holds the status, the conventions, the
-per-feature procedure and the backlog. Read it before adding or changing a UI scenario, and
-when asked to continue the migration. Until it is finished:
-
-- A feature listed in `war-ui-default/tests/bindings/convertedFeatures.ts` has step
-  definitions in `war-ui-default/tests/acceptance/steps/`. Every step is executed.
-- Any other feature needs a Playwright test in `war-ui-default/tests/acceptance/<feature>.spec.ts`
-  whose title equals the scenario title. `npm --prefix war-ui-default test` fails on a mismatch.
+**The UI's Gherkin is executed.** Every scenario in `war-ui-default/features/*.feature` runs
+step by step through playwright-bdd; a step with no definition fails the run. Read
+`war-ui-default/tests/acceptance/README.md` before adding or changing a UI scenario: it holds
+the conventions (tags, step scoping, the rules), the shared vocabulary and the parameter-type
+registries. Reuse a shared step or add a registry entry before writing a new step.

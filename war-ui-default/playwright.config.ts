@@ -1,25 +1,18 @@
 import { defineConfig } from '@playwright/test'
 import { defineBddProject } from 'playwright-bdd'
-import { CONVERTED_FEATURES } from './tests/bindings/convertedFeatures'
 
 export default defineConfig({
   projects: [
     {
-      // Features executed step by step (tests/acceptance/steps). Listed
-      // explicitly: the other features/*.feature are still title-bound to
-      // hand-written specs, and features/pending/ must never run. `bddgen`
+      // Every feature is executed step by step (tests/acceptance/steps). `bddgen`
       // (run by `npm run test:acceptance`) generates the tests into
-      // .features-gen/.
+      // .features-gen/. The glob stops at features/: features/pending/ holds
+      // scenarios with no steps yet and must never run.
       ...defineBddProject({
         name: 'bdd',
-        features: CONVERTED_FEATURES.map((name) => `features/${name}.feature`),
+        features: 'features/*.feature',
         steps: ['tests/acceptance/steps/*.ts'],
       }),
-    },
-    {
-      name: 'specs',
-      testDir: './tests/acceptance',
-      testMatch: '*.spec.ts',
     },
   ],
   webServer: {

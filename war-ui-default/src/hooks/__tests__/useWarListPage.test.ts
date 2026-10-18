@@ -3,7 +3,7 @@
 // browser, per CLAUDE.md's guidance ("Unit tests ... for client.ts logic
 // and pure functions"). Page-level wiring (the sort <select>, the search
 // <input>, the Prev/Next buttons) is covered by the Playwright acceptance
-// suite instead (browse-wars.spec.ts, my-wars.spec.ts).
+// suite instead (features/browse-wars.feature, features/my-wars.feature).
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as client from '../../api/client'

@@ -188,7 +188,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | about 200 unit tests (22 files), 272 acceptance tests | 7 tests (`create-war`, `import-war`) execute their Gherkin steps through playwright-bdd. The other 265 are bound by title to a Playwright test, enforced by `tests/bindings`. See *In progress* |
+| war-ui-default | about 200 unit tests (21 files), 331 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Pending scenarios (no binding, nothing runs):
@@ -228,6 +228,9 @@ Every test labels its Arrange, Act and Assert phases.
   as Canvas paths, kept in sync with the CSS by hand.
 - **S3 integration test image.** `test/integration/s3ObjectStorage.test.ts` runs against an
   `adobe/s3mock` container because `minio/minio` refuses anonymous pulls.
+- **Facebook sign-in is hidden in the UI.** The login page offers Google, Microsoft and X only
+  until Meta business verification completes (see *Operational prerequisites*). The API still
+  serves Facebook sign-in; restoring the button is one line in `war-ui-default/src/pages/Login.tsx`.
 - **Best-effort storage cleanup.** After a delete, Remove or Ban, a storage failure is
   logged and leaves orphaned objects; the request still succeeds.
 
@@ -262,18 +265,13 @@ Every test labels its Arrange, Act and Assert phases.
 
 ## In progress
 
-- **UI Gherkin migration: title-bound scenarios to executed steps (playwright-bdd).** Paused
-  after 2 of 17 feature files. Both styles run side by side and the suite passes.
-  `docs/ui-gherkin-migration.md` has the status, conventions, per-feature procedure and the
-  ordered backlog of the remaining 15 features. Next: `theme-switching`.
+- Nothing in progress.
 
 ---
 
 ## To do
 
-- Hide Facebook login feature until facebook business verification can be completed.
-- Disable Prev and Next buttons on war dashboard when there are no previous or next wars to
-  display.
+- Nothing to do.
 
 ---
 
