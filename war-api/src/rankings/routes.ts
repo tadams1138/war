@@ -29,7 +29,9 @@ export function registerRankingsRoutes(app: FastifyInstance, deps: RankingsRoute
       preHandler: optionalAuth(deps.auth),
     },
     async (request, reply) => {
-      const outcome = await getRankings(db, request.params.id, request.voterId ?? null, new Date(), deps.publicBaseUrl);
+      const outcome = await getRankings(db, request.params.id, request.voterId ?? null, new Date(), deps.publicBaseUrl, {
+        isModerator: request.voter?.isModerator === true,
+      });
       return sendRankingsOutcome(reply, outcome);
     },
   );

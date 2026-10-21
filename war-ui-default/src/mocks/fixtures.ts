@@ -68,9 +68,11 @@ export function buildWarDetail(overrides: Partial<WarDetailResponse> = {}): WarD
     // when the caller didn't pass one explicitly — overrides still wins
     // if it did (a test verifying a mismatch, say).
     ...buildWarSummary({ contestant_count: contestants.length, ...overrides }),
+    is_owner: false,
+    can_manage: false,
+    removed_at: null,
+    ...overrides,
     contestants,
-    is_owner: overrides.is_owner ?? false,
-    can_manage: overrides.can_manage ?? false,
   }
 }
 
