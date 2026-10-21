@@ -68,3 +68,9 @@ terraform.rc
 
 # Vite dependency pre-bundle cache
 .vite/
+
+# Coverage output (war-ui-default test:coverage, test:acceptance:coverage, coverage:report)
+.nyc_output/
+.nyc-unit/
+.nyc-merged/
+.nyc-acceptance-mapped/

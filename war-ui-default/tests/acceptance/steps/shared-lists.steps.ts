@@ -1,4 +1,4 @@
-// Steps for the Staff lists (support/lists.ts), identical in every feature
+// Steps for the Admin Dashboard lists (support/lists.ts), identical in every feature
 // that shows one. The list is named with the {list} parameter type.
 import { expect, type Page } from '@playwright/test'
 import { createBdd, type DataTable } from 'playwright-bdd'
@@ -41,11 +41,11 @@ Then('{list} shows, in order:', async ({ page }, list: ListRef, table: DataTable
   await expectNames(page, list, table.raw().flat())
 })
 
-// The filter chosen by its label asks for the status of that name; All asks for none.
+// The filter chosen by its label asks for the status of that name (see ListRef.statuses); All asks for none.
 Then('{list} was last requested for the {string} filter', async ({ page }, list: ListRef, label: string) => {
   // Assert
   const calls = await callsTo(page, list)
-  expect(searchParam(calls[calls.length - 1]!, 'status')).toBe(label === 'All' ? null : label.toLowerCase())
+  expect(searchParam(calls[calls.length - 1]!, 'status')).toBe(label === 'All' ? null : (list.statuses?.[label] ?? label.toLowerCase()))
 })
 
 // Typing settles before it asks: one request, for the whole term.

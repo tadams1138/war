@@ -1,4 +1,4 @@
-// A War's abuse reports (war-spec.md §8.5), shown to Staff on the War's detail,
+// A War's abuse reports (war-spec.md §8.5), shown to a Moderator on the War's detail,
 // each with a control to mark it addressed or unaddressed.
 import { useState } from 'react'
 import { getWarReports, setReportAddressed, type WarReport } from '../../api/client'

@@ -2,6 +2,9 @@
 // per-scenario state steps share: Given steps queue API recipes, and the
 // first navigation boots the app with them (recipes must be seeded before
 // page.goto, see support/mocking.ts useScenario).
+import { randomUUID } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import type { Download } from '@playwright/test'
 import { test as base } from 'playwright-bdd'
 import type { NextMatchupResponse, WarSummary } from '../../../src/api/client'
@@ -68,7 +71,24 @@ export class World {
   }
 }
 
-export const test = base.extend<{ world: World }>({
+// Acceptance coverage (COVERAGE=1, see vite.config.ts): the instrumented build
+// keeps its counters in window.__coverage__. Each test writes its own file
+// (unique name, so parallel workers never collide) for `nyc` to merge.
+const COVERAGE_DIR = '.nyc_output'
+
+export const test = base.extend<{ world: World; coverage: void }>({
+  coverage: [
+    async ({ page }, use, testInfo) => {
+      await use()
+      if (process.env.COVERAGE !== '1') return
+      const data = await page.evaluate(() => (window as { __coverage__?: unknown }).__coverage__).catch(() => undefined)
+      if (!data) return
+      const root = testInfo.config.configFile ? dirname(testInfo.config.configFile) : process.cwd()
+      await mkdir(join(root, COVERAGE_DIR), { recursive: true })
+      await writeFile(join(root, COVERAGE_DIR, `acceptance-${randomUUID()}.json`), JSON.stringify(data))
+    },
+    { auto: true },
+  ],
   world: async ({ page }, use) => {
     const world = new World()
     page.on('request', (request) => world.requestedUrls.push(request.url()))

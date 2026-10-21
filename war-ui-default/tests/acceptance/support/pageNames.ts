@@ -27,13 +27,13 @@ export const PAGES: Record<string, PageRef> = {
   'the Data Deletion instructions page': { path: () => '/data-deletion' },
   // Wars given by "a War ..." steps are numbered war-1, war-2, ... (see World.nextWarId)
   "the first War's detail page": { path: () => '/wars/war-1' },
-  "the first War's Staff detail page": { path: () => '/admin/wars/war-1' },
+  "the first War's moderation page": { path: () => '/admin/wars/war-1' },
   "that War's detail page": { path: ({ warId }) => `/wars/${warId}` },
   // War detail is also its results page (war-spec.md §10.4)
-  "that Voter's Staff detail page": { path: ({ voterId }) => `/admin/voters/${voterId}` },
+  "that Voter's detail page": { path: ({ voterId }) => `/admin/voters/${voterId}` },
   // The signed-in voter is voter-1 (see World.nextVoterId)
-  'their own Staff detail page': { path: () => '/admin/voters/voter-1' },
-  "that War's Staff detail page": { path: ({ warId }) => `/admin/wars/${warId}` },
+  'their own detail page': { path: () => '/admin/voters/voter-1' },
+  "that War's moderation page": { path: ({ warId }) => `/admin/wars/${warId}` },
   "that War's results page": { path: ({ warId }) => `/wars/${warId}` },
   "the first War's Edit page": { path: () => '/wars/war-1/edit', landmark: 'edit-war-title-input' },
   "that War's Edit page": { path: ({ warId }) => `/wars/${warId}/edit`, landmark: 'edit-war-title-input' },

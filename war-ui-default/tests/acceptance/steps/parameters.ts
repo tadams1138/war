@@ -55,7 +55,7 @@ defineParameterType({
   transformer: (text: string): RoleFlags => ROLES[text],
 })
 
-// {list}: a Staff list or paged section by its name in LISTS ("the Wars list").
+// {list}: an Admin Dashboard list or paged section by its name in LISTS ("the Wars list").
 defineParameterType({
   name: 'list',
   regexp: new RegExp(Object.keys(LISTS).join('|')),

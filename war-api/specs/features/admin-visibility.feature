@@ -48,6 +48,13 @@ Feature: Admin visibility
     When the Moderator GETs the admin Wars with cursor "not-a-cursor"
     Then the response is 400
 
+  Scenario: An Admin lists the Voters and views one with their Wars
+    Given a Voter "alice" who created 2 Wars, one of them removed
+    And an Admin
+    When the Admin GETs the admin Voters
+    And the Admin GETs alice from the admin endpoint
+    Then both responses are 200 and alice has a War count of 2 and both Wars listed
+
   Scenario Outline: A plain Voter cannot use the admin endpoints
     Given a plain Voter
     When that Voter GETs <path>
@@ -109,7 +116,7 @@ Feature: Admin visibility
       | status    | names            |
       | suspended | bob              |
       | banned    | carol            |
-      | staff     | moderator, dave  |
+      | role      | moderator, dave  |
 
   Scenario Outline: A Moderator searches the Voters by display name
     Given Voters named alice and 100%pure

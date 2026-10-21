@@ -48,7 +48,7 @@ function EnableConfirmDialog({ killSwitch }: { killSwitch: UseKillSwitchResult }
       onConfirm={killSwitch.confirm}
       onCancel={killSwitch.cancel}
     >
-      <p>Enabling the kill switch stops every Voter, including Staff, from creating Wars. Do you want to continue?</p>
+      <p>Enabling the kill switch stops every Voter, including Moderators and Admins, from creating Wars. Do you want to continue?</p>
     </ConfirmDialog>
   )
 }

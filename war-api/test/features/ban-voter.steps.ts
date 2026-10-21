@@ -8,7 +8,7 @@ import { recomputeContestantCounters } from '../../src/contestants/contestantsRe
 import { markWarRemoved } from '../../src/wars/warsRepository.js';
 import { beginLogin, postRefresh, profileFor, signInAs } from '../setup/authFlow.js';
 import { extractCookieValue } from '../setup/cookies.js';
-import { UNKNOWN_ID, joinWarAsVoter, makeAdmin, makeDraftWar, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
+import { UNKNOWN_ID, joinWarAsVoter, makeDraftWar, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as } from '../setup/apiClient.js';
@@ -28,20 +28,20 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     return as(harness, callerId).put(`/api/v1/voters/${targetId}/ban`, { banned });
   }
 
-  Scenario('An Admin bans a Voter and the ban is logged', ({ Given, When, Then }) => {
-    let adminId: string;
+  Scenario('A Moderator bans a Voter and the ban is logged', ({ Given, When, Then }) => {
+    let moderatorId: string;
     let voterId: string;
     let response: request.Response;
 
-    Given('an Admin and a plain Voter', async () => {
+    Given('a Moderator and a plain Voter', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
     });
 
-    When('the Admin bans the Voter', async () => {
+    When('the Moderator bans the Voter', async () => {
       // Act
-      response = await putBan(adminId, voterId, true);
+      response = await putBan(moderatorId, voterId, true);
     });
 
     Then('the response is 200 with the Voter banned and a ban_voter log entry names the Admin and the Voter', async () => {
@@ -51,26 +51,26 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const rows = await moderationLog(harness.db);
       expect(rows).toHaveLength(1);
       expect(rows[0]?.action).toBe('ban_voter');
-      expect(rows[0]?.staff_voter_id).toBe(adminId);
+      expect(rows[0]?.staff_voter_id).toBe(moderatorId);
       expect(rows[0]?.target_voter_id).toBe(voterId);
     });
   });
 
   Scenario("A banned Voter's existing access token stops working immediately", ({ Given, When, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let voterJwt: string;
 
-    Given('an Admin and a plain Voter with a valid access token', async () => {
+    Given('a Moderator and a plain Voter with a valid access token', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
       voterJwt = await harness.jwtFor(voterId);
     });
 
-    When('the Admin bans the Voter', async () => {
+    When('the Moderator bans the Voter', async () => {
       // Act
-      await putBan(adminId, voterId, true);
+      await putBan(moderatorId, voterId, true);
     });
 
     Then("the Voter's token gets 401 on an authenticated route and is anonymous on an optional-auth route", async () => {
@@ -85,19 +85,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('A banned Voter cannot refresh', ({ Given, When, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let refreshTokenValue: string;
 
-    Given('an Admin and a Voter who signed in', async () => {
+    Given('a Moderator and a Voter who signed in', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       ({ voterId, refreshTokenValue } = await signInAs(harness, profileFor('signed-in-voter')));
     });
 
-    When('the Admin bans the Voter', async () => {
+    When('the Moderator bans the Voter', async () => {
       // Act
-      await putBan(adminId, voterId, true);
+      await putBan(moderatorId, voterId, true);
     });
 
     Then("refreshing with the Voter's refresh token gets 401", async () => {
@@ -115,19 +115,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   }
 
   Scenario('A banned Voter cannot sign in', ({ Given, When, And, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let callbackResponse: request.Response;
 
-    Given('an Admin and a Voter who signed in', async () => {
+    Given('a Moderator and a Voter who signed in', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       ({ voterId } = await signInAs(harness, profileFor('returning-voter')));
     });
 
-    When('the Admin bans the Voter', async () => {
+    When('the Moderator bans the Voter', async () => {
       // Act
-      await putBan(adminId, voterId, true);
+      await putBan(moderatorId, voterId, true);
     });
 
     And('the Voter completes the OAuth callback again', async () => {
@@ -168,13 +168,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   }
 
   Scenario('Banning deletes every War the Voter created', ({ Given, And, When, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let publishedWarId: string;
 
-    Given("an Admin and a Voter who created a draft, a published and a removed War, each with contestants and images", async () => {
+    Given("a Moderator and a Voter who created a draft, a published and a removed War, each with contestants and images", async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
       await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2, { withImages: true });
       const published = await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2, { withImages: true });
@@ -190,9 +190,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       await castVote(publishedWarId, otherId);
     });
 
-    When('the Admin bans the Voter', async () => {
+    When('the Moderator bans the Voter', async () => {
       // Act
-      await putBan(adminId, voterId, true);
+      await putBan(moderatorId, voterId, true);
     });
 
     Then('none of those Wars or their contestants, matchups, votes and media rows remain', async () => {
@@ -211,15 +211,15 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario("Banning removes the Voter's votes and memberships elsewhere and leaves other data untouched", ({ Given, When, Then, And }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let otherVoterId: string;
     let warId: string;
     let contestantIds: string[];
 
-    Given("an Admin, a Voter, and another Voter's published War in which both Voters voted differently", async () => {
+    Given("a Moderator, a Voter, and another Voter's published War in which both Voters voted differently", async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
       otherVoterId = (await makeVoter(harness.db, 'other')).id;
       const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, otherVoterId, 2, { withImages: true });
@@ -237,9 +237,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       await recomputeContestantCounters(harness.db, warId);
     });
 
-    When('the Admin bans the Voter', async () => {
+    When('the Moderator bans the Voter', async () => {
       // Act
-      await putBan(adminId, voterId, true);
+      await putBan(moderatorId, voterId, true);
     });
 
     Then("the Voter's votes and memberships are gone and the counters reflect only the remaining vote", async () => {
@@ -266,15 +266,15 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('The vote service rejects a banned Voter even when a membership remains',({ Given, And, When, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let warId: string;
     let matchup: { id: string; contestant_a_id: string };
     let outcome: CastVoteOutcome;
 
-    Given('an Admin and a Voter who joined a published War', async () => {
+    Given('a Moderator and a Voter who joined a published War', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
       const creatorId = (await makeVoter(harness.db, 'creator')).id;
       const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
@@ -283,9 +283,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       matchup = await harness.db.selectFrom('matchups').select(['id', 'contestant_a_id']).where('war_id', '=', warId).executeTakeFirstOrThrow();
     });
 
-    And("the Admin bans the Voter and the Voter's membership is restored", async () => {
+    And("the Moderator bans the Voter and the Voter's membership is restored", async () => {
       // Arrange
-      expect((await putBan(adminId, voterId, true)).status).toBe(200);
+      expect((await putBan(moderatorId, voterId, true)).status).toBe(200);
       // The ban purged the membership; restore it so only the ban can reject the vote.
       await joinWarAsVoter(harness.db, warId, voterId);
     });
@@ -303,19 +303,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('Banning revokes every refresh-token family of the Voter',({ Given, When, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
 
-    Given('an Admin and a Voter who signed in twice', async () => {
+    Given('a Moderator and a Voter who signed in twice', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       ({ voterId } = await signInAs(harness, profileFor('two-sessions')));
       await signInAs(harness, profileFor('two-sessions'));
     });
 
-    When('the Admin bans the Voter', async () => {
+    When('the Moderator bans the Voter', async () => {
       // Act
-      await putBan(adminId, voterId, true);
+      await putBan(moderatorId, voterId, true);
     });
 
     Then('every refresh token of the Voter is revoked', async () => {
@@ -326,12 +326,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  async function makeBannedVoterWithDeletedWar(): Promise<{ adminId: string; voterId: string }> {
-    const adminId = (await makeAdmin(harness.db, 'admin')).id;
+  async function makeBannedVoterWithDeletedWar(): Promise<{ moderatorId: string; voterId: string }> {
+    const moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     const voterId = (await makeVoter(harness.db, 'banned-voter')).id;
     await makeDraftWar(harness.db, voterId);
-    await putBan(adminId, voterId, true);
-    return { adminId, voterId };
+    await putBan(moderatorId, voterId, true);
+    return { moderatorId, voterId };
   }
 
   async function nothingChangedAndNothingLogged(targetId: string, response: request.Response): Promise<void> {
@@ -343,18 +343,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   }
 
   Scenario('Unbanning restores sign-in but not the deleted data', ({ Given, When, And, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let callbackResponse: request.Response;
 
-    Given('an Admin and a banned Voter whose War was deleted', async () => {
+    Given('a Moderator and a banned Voter whose War was deleted', async () => {
       // Arrange
-      ({ adminId, voterId } = await makeBannedVoterWithDeletedWar());
+      ({ moderatorId, voterId } = await makeBannedVoterWithDeletedWar());
     });
 
-    When('the Admin unbans the Voter', async () => {
+    When('the Moderator unbans the Voter', async () => {
       // Act
-      await putBan(adminId, voterId, false);
+      await putBan(moderatorId, voterId, false);
     });
 
     And('the Voter completes the OAuth callback again', async () => {
@@ -372,18 +372,18 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('Banning an already-banned Voter is idempotent', ({ Given, When, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let response: request.Response;
 
-    Given('an Admin and a banned Voter whose War was deleted', async () => {
+    Given('a Moderator and a banned Voter whose War was deleted', async () => {
       // Arrange
-      ({ adminId, voterId } = await makeBannedVoterWithDeletedWar());
+      ({ moderatorId, voterId } = await makeBannedVoterWithDeletedWar());
     });
 
-    When('the Admin bans the Voter', async () => {
+    When('the Moderator bans the Voter', async () => {
       // Act
-      response = await putBan(adminId, voterId, true);
+      response = await putBan(moderatorId, voterId, true);
     });
 
     Then('the response is 200 with the Voter banned and the log holds two ban_voter entries', async () => {
@@ -417,42 +417,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Staff cannot ban themselves', ({ Given, When, Then }) => {
-    let adminId: string;
-    let response: request.Response;
-
-    Given('an Admin who owns a War', async () => {
-      // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
-      await makeDraftWar(harness.db, adminId);
-    });
-
-    When('the Admin bans themselves', async () => {
-      // Act
-      response = await putBan(adminId, adminId, true);
-    });
-
-    Then('the response is 403 and nothing changed and nothing is logged', async () => {
-      // Assert
-      await nothingChangedAndNothingLogged(adminId, response);
-    });
-  });
-
-  Scenario('Staff cannot ban other Staff', ({ Given, When, Then }) => {
-    let adminId: string;
+  Scenario('A Moderator cannot ban themselves', ({ Given, When, Then }) => {
     let moderatorId: string;
     let response: request.Response;
 
-    Given('an Admin and a Moderator who owns a War', async () => {
+    Given('a Moderator who owns a War', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       await makeDraftWar(harness.db, moderatorId);
     });
 
-    When('the Admin bans the Moderator', async () => {
+    When('the Moderator bans themselves', async () => {
       // Act
-      response = await putBan(adminId, moderatorId, true);
+      response = await putBan(moderatorId, moderatorId, true);
     });
 
     Then('the response is 403 and nothing changed and nothing is logged', async () => {
@@ -461,18 +438,41 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Banning an unknown Voter 404s', ({ Given, When, Then }) => {
-    let adminId: string;
+  Scenario('A Moderator cannot ban another Moderator', ({ Given, When, Then }) => {
+    let firstModeratorId: string;
+    let secondModeratorId: string;
     let response: request.Response;
 
-    Given('an Admin', async () => {
+    Given('two Moderators, the second owning a War', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      firstModeratorId = (await makeModerator(harness.db, 'first')).id;
+      secondModeratorId = (await makeModerator(harness.db, 'second')).id;
+      await makeDraftWar(harness.db, secondModeratorId);
     });
 
-    When('the Admin bans an unknown Voter id', async () => {
+    When('the first Moderator bans the second', async () => {
       // Act
-      response = await putBan(adminId, UNKNOWN_ID, true);
+      response = await putBan(firstModeratorId, secondModeratorId, true);
+    });
+
+    Then('the response is 403 and nothing changed and nothing is logged', async () => {
+      // Assert
+      await nothingChangedAndNothingLogged(secondModeratorId, response);
+    });
+  });
+
+  Scenario('Banning an unknown Voter 404s', ({ Given, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('a Moderator', async () => {
+      // Arrange
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    });
+
+    When('the Moderator bans an unknown Voter id', async () => {
+      // Act
+      response = await putBan(moderatorId, UNKNOWN_ID, true);
     });
 
     Then('the response is 404 and nothing is logged', async () => {
@@ -483,13 +483,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('A storage failure after the commit does not fail the ban', ({ Given, When, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let response: request.Response;
 
-    Given('an Admin and a Voter who owns a War with images and the object store is failing', async () => {
+    Given('a Moderator and a Voter who owns a War with images and the object store is failing', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
       await makeDraftWarWithContestants(harness.db, harness.storage, voterId, 2, { withImages: true });
       harness.storage.deletePrefix = async () => {
@@ -497,9 +497,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       };
     });
 
-    When('the Admin bans the Voter', async () => {
+    When('the Moderator bans the Voter', async () => {
       // Act
-      response = await putBan(adminId, voterId, true);
+      response = await putBan(moderatorId, voterId, true);
     });
 
     Then('the response is 200 and the War rows are deleted and the Voter is banned', async () => {

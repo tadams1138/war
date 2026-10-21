@@ -9,11 +9,12 @@ export type GrantRoleOutcome = MutationOutcome<Voter, NotFound | Forbidden>;
 /**
  * Grants or revokes `role` on `targetVoterId` (§6.7). Caller-permission
  * (Admin-only) is enforced by `requireAdmin`, not here. The one exception an
- * Admin-only guard can't express is self-removal -- an Admin revoking their
- * own Admin role, which `requireAdmin` happily allows since the caller is an
- * Admin -- so that check lives here instead, where `callerVoterId` is available.
+ * Admin-only guard can't express is self-removal of the Admin role, which
+ * `requireAdmin` happily allows since the caller is an Admin -- so that check
+ * lives here instead, where `callerVoterId` is available. An Admin may grant
+ * themselves Moderator and revoke their own Moderator role.
  * The role change and its moderation log entry commit together or not at all,
- * so no Staff action goes unrecorded.
+ * so no role change goes unrecorded.
  */
 export async function grantRole(
   db: Kysely<Database>,
@@ -30,7 +31,7 @@ export async function grantRole(
     if (!voter) return { kind: 'notFound' };
     await logAction(trx, {
       action: `${granted ? 'grant' : 'revoke'}_role_${role}`,
-      staffVoterId: callerVoterId,
+      actorVoterId: callerVoterId,
       targetVoterId,
     });
     return { kind: 'ok', value: voter };

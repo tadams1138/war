@@ -42,7 +42,7 @@ Feature: War Detail
   Scenario: A contestant's formatted bio renders inline with their result
     Given a published War
     And that War has contestants:
-      | name | bio                                                                                      |
+      | name | bio                                                                                       |
       | Ada  | A **brilliant** mathematician.\n\n- Loves *logic*\n- [Her work](https://example.test/ada) |
     When a visitor opens that War's detail page
     Then the bio of "Ada" shows "brilliant" in bold
@@ -328,7 +328,7 @@ Feature: War Detail
   Scenario: Paragraphs in a bio separated by a blank line render with visible vertical space
     Given a published War
     And that War has contestants:
-      | name | bio                                |
+      | name | bio                                   |
       | Ada  | First paragraph.\n\nSecond paragraph. |
     When a visitor opens that War's detail page
     Then the bio of "Ada" separates its paragraphs with visible vertical space
@@ -336,7 +336,7 @@ Feature: War Detail
   Scenario: An adversarial bio never executes and never renders as raw HTML
     Given a published War
     And that War has contestants:
-      | name | bio                                                                                          |
+      | name | bio                                                                                         |
       | Ada  | hello<script>window.__pwned = true</script>world<img src=x onerror="window.__pwned = true"> |
     When a visitor opens that War's detail page
     Then no script runs
@@ -407,7 +407,7 @@ Feature: War Detail
   Scenario: A long bio renders in full, with no truncation control
     Given a published War
     And that War has contestants:
-      | name | bio                                                                                                                                                                  |
+      | name | bio                                                                                                                                                                                  |
       | Ada  | Luke Skywalker leads a mission to rescue his friend Han Solo from the clutches of Jabba the Hutt, while the Emperor prepares to crush the Rebellion with a more powerful Death Star. |
     When a visitor opens that War's detail page
     Then the bio of "Ada" says "Death Star"

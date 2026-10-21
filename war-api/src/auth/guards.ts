@@ -19,10 +19,13 @@ function guard(denies: (request: FastifyRequest) => boolean | Promise<boolean>, 
 
 const FORBIDDEN = { error: 'forbidden' };
 
-/** Admin-only (§6.7). */
+/** Admin-only: granting and revoking roles (§6.7). Admin implies no Moderator capability. */
 export const requireAdmin = guard((request) => !request.voter?.isAdmin, 403, FORBIDDEN);
 
-/** Moderator-or-Admin only (§8.5). */
+/** Moderator-only: the moderation capabilities (§6.7, §8.5). Admin does not imply it. */
+export const requireModerator = guard((request) => !request.voter?.isModerator, 403, FORBIDDEN);
+
+/** Moderator-or-Admin: the Voters views (§6.7 "Visibility") and the moderation log, whose content is then filtered by role. */
 export const requireModeratorOrAdmin = guard((request) => !request.voter?.isModerator && !request.voter?.isAdmin, 403, FORBIDDEN);
 
 /** The 403 body/schema `POST /wars` sends while the caller is suspended. */
@@ -42,7 +45,7 @@ export const warCreationDisabledResponseSchema = {
   properties: { error: { type: 'string', enum: ['war_creation_disabled'] } },
 };
 
-/** Refuses every caller, Staff included, with 503 while the kill switch is on. */
+/** Refuses every caller, role holders included, with 503 while the kill switch is on. */
 export function rejectWhileKillSwitchOn(db: Kysely<Database>): PreHandler {
   return guard(() => isKillSwitchEnabled(db), 503, { error: 'war_creation_disabled' });
 }

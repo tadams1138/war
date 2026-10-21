@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { bearerAuthRoute } from '../auth/plugin.js';
-import { requireModeratorOrAdmin } from '../auth/guards.js';
+import { requireModerator } from '../auth/guards.js';
 import { errorResponseSchema, sendNotFound } from '../shared/httpOutcomes.js';
 import { pagingProperties, sendInvalidCursor, type PagingQuery } from '../shared/paging.js';
 import type { AdminRouteDeps } from './adminRouteShared.js';
@@ -55,7 +55,7 @@ export function registerAdminVotesRoutes(app: FastifyInstance, deps: AdminRouteD
           404: errorResponseSchema,
         },
       },
-      [requireModeratorOrAdmin],
+      [requireModerator],
     ),
     async (request, reply) => {
       const { limit, cursor } = request.query;

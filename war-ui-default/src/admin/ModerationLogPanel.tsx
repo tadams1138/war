@@ -1,7 +1,7 @@
 // The append-only moderation log (war-spec.md §6.7), newest first. Entries carry
-// the names of the acting Staff member, the target Voter and the target War's
+// the names of the acting Moderator or Admin, the target Voter and the target War's
 // title alongside the ids, so the panel shows names without a lookup per id.
-// A name links to that Voter's / War's Staff detail. A Voter with no name falls
+// A name links to that Voter's / War's detail. A Voter with no name falls
 // back to its id. A War the API flags as deleted outright (its detail would 404)
 // shows as such with its id and no link; an untitled live War still links.
 import type { ReactNode } from 'react'
@@ -42,7 +42,7 @@ export function ModerationLogPanel({ refreshToken }: { refreshToken: number }) {
             {log.entries.map((entry) => (
               <li key={entry.id} data-testid="moderation-log-entry">
                 <strong>{actionLabel(entry.action)}</strong>
-                <span> by {voterLink(entry.staff_voter_id, entry.staff_name)}</span>
+                <span> by {voterLink(entry.actor_voter_id, entry.actor_name)}</span>
                 <span> · {targetOf(entry)}</span>
                 <span> · </span>
                 <time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString()}</time>

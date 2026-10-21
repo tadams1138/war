@@ -15,15 +15,15 @@ export interface ModerationLogRouteDeps {
 
 const moderationLogEntryViewSchema = {
   type: 'object',
-  required: ['id', 'action', 'staff_voter_id', 'target_war_id', 'target_voter_id', 'created_at', 'staff_name', 'target_voter_name', 'target_war_title', 'target_war_deleted'],
+  required: ['id', 'action', 'actor_voter_id', 'target_war_id', 'target_voter_id', 'created_at', 'actor_name', 'target_voter_name', 'target_war_title', 'target_war_deleted'],
   properties: {
     id: { type: 'string', format: 'uuid' },
     action: { type: 'string' },
-    staff_voter_id: { type: 'string', format: 'uuid' },
+    actor_voter_id: { type: 'string', format: 'uuid' },
     target_war_id: { type: ['string', 'null'], format: 'uuid' },
     target_voter_id: { type: ['string', 'null'], format: 'uuid' },
     created_at: { type: 'string', format: 'date-time' },
-    staff_name: { type: ['string', 'null'] },
+    actor_name: { type: ['string', 'null'] },
     target_voter_name: { type: ['string', 'null'] },
     target_war_title: { type: ['string', 'null'] },
     target_war_deleted: { type: 'boolean' },
@@ -34,11 +34,11 @@ function presentEntry(entry: ModerationLogEntry) {
   return {
     id: entry.id,
     action: entry.action,
-    staff_voter_id: entry.staffVoterId,
+    actor_voter_id: entry.actorVoterId,
     target_war_id: entry.targetWarId,
     target_voter_id: entry.targetVoterId,
     created_at: entry.createdAt.toISOString(),
-    staff_name: entry.staffName,
+    actor_name: entry.actorName,
     target_voter_name: entry.targetVoterName,
     target_war_title: entry.targetWarTitle,
     target_war_deleted: entry.targetWarDeleted,
@@ -70,7 +70,9 @@ export function registerModerationLogRoutes(app: FastifyInstance, deps: Moderati
       [requireModeratorOrAdmin],
     ),
     async (request, reply) => {
-      const outcome = await listModerationLog(db, request.query);
+      const { voter } = request;
+      const visibility = { moderation: voter?.isModerator === true, roleChange: voter?.isAdmin === true };
+      const outcome = await listModerationLog(db, { ...request.query, visibility });
       if (outcome.kind === 'invalidCursor') {
         return sendInvalidCursor(reply);
       }

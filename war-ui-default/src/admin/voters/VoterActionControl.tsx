@@ -1,4 +1,4 @@
-// One Staff action button on a Voter, with its in-page confirmation (when it
+// One moderation or role action button on a Voter, with its in-page confirmation (when it
 // has one) and its failure message.
 import type { ReactNode } from 'react'
 import { ConfirmDialog } from '../../components/ConfirmDialog'

@@ -1,6 +1,6 @@
 // The lists Gherkin steps name with the {list} parameter type
-// (steps/parameters.ts): the Staff lists on the Admin Dashboard and the
-// Staff views' paged sections. A row's name is the text of its first link.
+// (steps/parameters.ts): the lists on the Admin Dashboard and the
+// detail pages' paged sections. A row's name is the text of its first link.
 // Add a list here, not a new step.
 import type { Locator, Page } from '@playwright/test'
 import { getCallLog, type MswCallLogEntry } from './mocking'
@@ -13,11 +13,13 @@ export interface ListRef {
   // Test ids of the status filter and the search box, for lists that have them.
   statusFilter?: string
   search?: string
+  // The status a filter option asks for when it is not the option's label in lower case.
+  statuses?: Record<string, string>
 }
 
 export const LISTS: Record<string, ListRef> = {
   'the Wars list': { rows: 'admin-war-row', endpoint: /\/admin\/wars(\?|$)/, statusFilter: 'admin-war-status-filter', search: 'admin-war-search' },
-  'the Voters list': { rows: 'admin-voter-row', endpoint: /\/admin\/voters(\?|$)/, statusFilter: 'admin-voter-status-filter', search: 'admin-voter-search' },
+  'the Voters list': { rows: 'admin-voter-row', endpoint: /\/admin\/voters(\?|$)/, statusFilter: 'admin-voter-status-filter', search: 'admin-voter-search', statuses: { 'Role holders': 'role' } },
   'the vote history': { rows: 'admin-vote-row', endpoint: /\/admin\/voters\/[^/]+\/votes/ },
   "the Voter's Wars": { rows: 'admin-voter-war-row', endpoint: /\/admin\/voters\/[^/?]+$/ },
   'the unaddressed reports queue': { rows: 'unaddressed-queue-entry', endpoint: /\/reports\/unaddressed/ },

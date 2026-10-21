@@ -32,11 +32,11 @@ required-reviewer approval. See `war-spec.md` section 12.
 - **Lazy expiry.** A War reads as closed once `ends_at` passes (`effectiveStatus`), and SQL
   filters agree via `hasEffectiveStatus`. `POST /internal/close-expired-wars`
   (`x-internal-token`, called by the scheduler in `war-infra`) converges the stored column
-  with one atomic UPDATE. An expired draft reads as closed only to its creator and Staff.
+  with one atomic UPDATE. An expired draft reads as closed only to its creator and Moderators.
 - **Visibility.** `public` Wars are listed; `unlisted` Wars are kept out of every list and
   are otherwise reached and used like public ones, rankings included. Drafts are invisible
   to everyone but their creator, identically to a missing War. Removed Wars are hidden from
-  everyone except Staff.
+  everyone except Moderators.
 - **War listing.** `GET /wars` with a caller's-own filter, `sort` (newest, oldest,
   expiring soonest, alphabetical), free-text `q` over title and creator name (trigram
   indexes), and opaque keyset cursors (`limit` 1-100, microsecond-precise cursor, invalid
@@ -53,21 +53,23 @@ required-reviewer approval. See `war-spec.md` section 12.
   client address, sign-in start 10/min and token refresh 30/min. Exceeding a limit replies
   429 with `Retry-After`. The address limits are off until `TRUST_PROXY_HOPS` is set (see
   *Known defects and limitations*). The edge adds a coarse auth throttle (see war-infra).
-- **Roles and moderation** (spec 3, 6.7, 8.5). Moderator/Admin are account-level flags,
-  granted only by an Admin, with a guard against an Admin removing their own role. Any
-  voter can report any War; Staff list reports per War, read the unaddressed queue and
+- **Roles and moderation** (spec 3, 6.7, 8.5). Moderator/Admin are independent account-level flags,
+  granted only by an Admin (Admin implies no moderation capability; an Admin may grant
+  themselves Moderator and revoke it again, but cannot remove their own Admin role). Any
+  voter can report any War; Moderators list reports per War, read the unaddressed queue and
   toggle a report's addressed state. Remove a War hides it and deletes its media while
   keeping the audit trail. Suspend blocks War creation. Ban purges the voter's Wars and
   votes, revokes their tokens and blocks sign-in immediately. The War-creation kill switch
-  is a single-row platform setting. Every Staff action writes an append-only moderation log
-  in the same transaction as the action; the log is keyset-paged and its `target_war_id`
+  is a single-row platform setting. Every moderation action and role change writes an append-only moderation log
+  entry in the same transaction as the action; a Moderator reads the moderation entries,
+  an Admin the role-change entries, a Voter holding both reads both; the log is keyset-paged and its `target_war_id`
   deliberately has no foreign key.
 - **Ban races closed with row locks.** Suspend/Ban lock the target voter `FOR UPDATE`; vote
   casting takes `FOR SHARE` on the voter; both lock the voter before contestant rows.
   `test/integration/voterRowLocking.test.ts` proves each interleaving with two real
   transactions.
-- **Staff read endpoints** under `/admin/` (Wars including removed, Voters, a Voter's Wars
-  and full vote history), keyset-paged, with effective status and report counts.
+- **Admin read endpoints** under `/admin/` (Wars including removed and a Voter's full vote
+  history: Moderator only; Voters list and one Voter with their Wars: Moderator or Admin), keyset-paged, with effective status and report counts.
   `npm --prefix war-api run explain-admin` seeds a throwaway Postgres and runs
   `EXPLAIN ANALYZE` over the exact repository SQL; it drove the admin and moderation-log
   indexes.
@@ -120,12 +122,19 @@ required-reviewer approval. See `war-spec.md` section 12.
   (cookie, never synced), a persistent nav with an identity menu (keyboard navigable), a
   brand mark and favicon set, footer, native `<dialog>` confirmation modals, and a
   consistent action bar and danger styling.
-- **Admin Dashboard** at `/admin`, gated by `RequireStaff`: kill switch, unaddressed-reports
-  queue, Wars list (status filter, search, removed marker), Voters list, moderation log with
-  links to the Wars and Voters involved. Staff War detail (`/admin/wars/:id`: standings,
-  reports with mark-addressed, Remove War) and Staff Voter detail (`/admin/voters/:id`:
-  Wars, vote history, Suspend, Ban, role grant/revoke for Admins only). Destructive actions
-  confirm first. Signing in as a banned voter shows a ban message.
+- **Admin Dashboard** at `/admin`, gated by `RequireRole` (a Moderator, an Admin or both; neither
+  is redirected Home). Each role sees its own panels. Moderator: kill switch, unaddressed-reports
+  queue, Wars list (status filter, search, removed marker), Voters list, moderation log (the
+  moderation entries) with links to the Wars and Voters involved, War moderation page
+  (`/admin/wars/:id`: standings, reports with mark-addressed, Remove War; Moderator only, an
+  Admin who is not a Moderator is redirected Home). Admin: Voters list (filter Suspended,
+  Banned, Role holders) and moderation log (the role-change entries). Voter detail
+  (`/admin/voters/:id`, either role): Wars and badges for both; for a Moderator also the vote
+  history, links to the Wars and Suspend/Ban (never against a role holder or oneself); for an
+  Admin the role controls only (Grant/Revoke Moderator and Admin, an Admin never sees Revoke
+  Admin on themselves). A change to the viewer's own roles refetches their identity, so the
+  dashboard reflects it at once. Destructive actions confirm first. Signing in as a banned
+  voter shows a ban message.
 - **API client.** `api/client.ts` is built on one request/json/query core: 401 refresh and
   retry, error mapping, 429 classified as rate-limited with `retryAfterSeconds`. Types are
   generated from the API's OpenAPI document.
@@ -188,8 +197,21 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | about 200 unit tests (21 files), 331 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
+| war-ui-default | about 220 unit tests (24 files), 291 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
+
+Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: istanbul via
+`test:coverage` + `test:acceptance:coverage`, then `coverage:report`; CI fails below the thresholds: war-api 88/80/90/89, war-ui-default merged 90/95/93 for statements/functions/lines plus acceptance branches 79 — a merged branch figure is not meaningful, since the unit and acceptance instrumenters place branch locations differently):
+
+| Suite | Statements | Branches | Functions | Lines |
+|---|---|---|---|---|
+| war-api (unit + integration + acceptance; `s3ObjectStorage` file not run, no Docker) | 90.06% | 83.05% | 93.81% | 91.58% |
+| war-ui-default, unit (218 tests) | 35.69% | 26.55% | 33.07% | 37.72% |
+| war-ui-default, acceptance (291 scenarios) | 89.31% | 80.46% | 93.75% | 92.28% |
+| war-ui-default, merged (unit and acceptance) | 91.85% | n/a (see above) | 96.95% | 94.12% |
+
+CI publishes the same tables in each pipeline's job summary and uploads the HTML reports as
+`api-coverage` and `ui-default-coverage` artifacts (14 days).
 
 Pending scenarios (no binding, nothing runs):
 

@@ -17,6 +17,8 @@ interface AuthContextValue {
   isAuthenticated: boolean
   // GET /auth/me for the signed-in Voter, fetched once per sign-in.
   me: AsyncResourceState<VoterMe>
+  // Fetches GET /auth/me again, e.g. after the Voter's own roles changed.
+  refreshMe: () => void
   login: (token: string) => void
   logout: () => void
 }
@@ -33,7 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // even when no logout came between (a different Voter, or a re-login).
   const [session, setSession] = useState(0)
   const navigate = useNavigate()
-  const me = useVoterMe(isAuthenticated, session)
+  const [refreshes, setRefreshes] = useState(0)
+  const me = useVoterMe(isAuthenticated, session, refreshes)
+  const refreshMe = useCallback(() => setRefreshes((current) => current + 1), [])
 
   const login = useCallback((token: string) => {
     setToken(token)
@@ -67,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useAuthTestHooks(login, navigate)
 
-  const value = useMemo(() => ({ isAuthenticated, me, login, logout }), [isAuthenticated, me, login, logout])
+  const value = useMemo(() => ({ isAuthenticated, me, refreshMe, login, logout }), [isAuthenticated, me, refreshMe, login, logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

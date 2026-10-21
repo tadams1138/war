@@ -475,6 +475,46 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
   });
 
+  Scenario('An Admin lists the Voters and views one with their Wars', ({ Given, And, When, Then }) => {
+    let aliceId: string;
+    let adminId: string;
+    let listResponse: request.Response;
+    let detailResponse: request.Response;
+
+    Given('a Voter "alice" who created 2 Wars, one of them removed', async () => {
+      // Arrange
+      aliceId = (await makeVoter(harness.db, 'alice')).id;
+      await makeDraftWar(harness.db, aliceId, { title: 'Kept' });
+      const removed = await makeDraftWar(harness.db, aliceId, { title: 'Gone' });
+      await setWarColumns(removed.id, { status: 'published', removed: true });
+    });
+
+    And('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    When('the Admin GETs the admin Voters', async () => {
+      // Act
+      listResponse = await getAs(adminId, '/admin/voters');
+    });
+
+    And('the Admin GETs alice from the admin endpoint', async () => {
+      // Act
+      detailResponse = await getAs(adminId, `/admin/voters/${aliceId}`);
+    });
+
+    Then('both responses are 200 and alice has a War count of 2 and both Wars listed', () => {
+      // Assert
+      expect(listResponse.status).toBe(200);
+      expect(detailResponse.status).toBe(200);
+      const listed = (listResponse.body.voters as Item[]).find((voter) => voter.id === aliceId);
+      expect(listed).toMatchObject({ display_name: 'alice', war_count: 2 });
+      expect(detailResponse.body).toMatchObject({ id: aliceId, war_count: 2 });
+      expect(detailResponse.body.wars).toHaveLength(2);
+    });
+  });
+
   ScenarioOutline('A Moderator filters the Voters by status', ({ Given, And, When, Then }, variables) => {
     let moderatorId: string;
     let response: request.Response;

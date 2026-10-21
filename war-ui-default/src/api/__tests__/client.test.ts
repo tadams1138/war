@@ -1045,7 +1045,7 @@ describe('providerLoginUrl', () => {
 })
 
 describe('the kill switch endpoints', () => {
-  it('getKillSwitch classifies a 403 as staff-only', async () => {
+  it('getKillSwitch classifies a 403 as role-required', async () => {
     // Arrange
     server.use(http.get(`${BASE}/kill-switch`, () => HttpResponse.json({ error: 'forbidden' }, { status: 403 })))
 
@@ -1053,7 +1053,7 @@ describe('the kill switch endpoints', () => {
     const result = getKillSwitch()
 
     // Assert
-    await expect(result).rejects.toMatchObject({ reason: 'staff-only', status: 403 })
+    await expect(result).rejects.toMatchObject({ reason: 'role-required', status: 403 })
   })
 
   it('setKillSwitch PUTs { enabled } and returns the new state', async () => {
@@ -1075,8 +1075,8 @@ describe('the kill switch endpoints', () => {
   })
 })
 
-describe('the Staff Voter endpoints', () => {
-  it('getAdminVoters serializes only the defined params and classifies a 403 as staff-only', async () => {
+describe('the Admin Dashboard Voter endpoints', () => {
+  it('getAdminVoters serializes only the defined params and classifies a 403 as role-required', async () => {
     // Arrange
     let search = ''
     server.use(
@@ -1090,7 +1090,7 @@ describe('the Staff Voter endpoints', () => {
     const result = getAdminVoters({ status: 'banned', q: 'ann' })
 
     // Assert
-    await expect(result).rejects.toMatchObject({ reason: 'staff-only', status: 403 })
+    await expect(result).rejects.toMatchObject({ reason: 'role-required', status: 403 })
     expect(search).toBe('?status=banned&q=ann')
   })
 
@@ -1132,7 +1132,7 @@ describe('the Staff Voter endpoints', () => {
     ['setVoterSuspension', '/voters/v-1/suspension', { suspended: true }, () => setVoterSuspension('v-1', true)],
     ['setVoterBan', '/voters/v-1/ban', { banned: false }, () => setVoterBan('v-1', false)],
     ['setVoterRole', '/voters/v-1/roles/admin', { granted: true }, () => setVoterRole('v-1', 'admin', true)],
-  ])('%s PUTs its body and classifies a 403 as staff-only', async (_name, path, body, call) => {
+  ])('%s PUTs its body and classifies a 403 as role-required', async (_name, path, body, call) => {
     // Arrange
     let received: unknown
     server.use(
@@ -1146,7 +1146,7 @@ describe('the Staff Voter endpoints', () => {
     const result = call()
 
     // Assert
-    await expect(result).rejects.toMatchObject({ reason: 'staff-only', status: 403 })
+    await expect(result).rejects.toMatchObject({ reason: 'role-required', status: 403 })
     expect(received).toEqual(body)
   })
 
