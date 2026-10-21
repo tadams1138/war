@@ -332,7 +332,7 @@ unpublished.
 that has never been published: its detail, rankings, and vote pages report it as not found
 (§10.5) to anyone else, the same response an actually-missing War produces, never a distinct
 "this exists but is private" signal that would confirm its existence to someone it isn't meant
-for. The creator can always reach it, in any state, and so can an Admin (below); a Moderator's view of it is the read-only moderation view (§6.7).
+for. The creator can always reach it, in any state, and so can an Admin (below); a Moderator can open it on its War page, as any other War (§6.7).
 
 **Unlisted Wars are reached by link, not by browsing.** Once published, anyone may view one
 and read its rankings, signed in or not; any signed-in voter may join and vote, exactly as in
@@ -495,11 +495,13 @@ over it (§6.1), but not the moderation views of Wars. These two are the only wa
 scoping (§6.1's default scoping, and "a War not currently published is invisible to everyone
 but its creator and Admins") is ever bypassed.
 
-A Moderator's bypass lives only in the read-only views below, never on the ordinary routes: a
-Moderator browsing the public site sees exactly what any Voter sees. Holding a role never lets
+A Moderator can open any War on its ordinary War page and see its rankings there, whatever its
+status or visibility, drafts and unlisted Wars of other Voters and removed Wars included; a
+removed War is shown to them marked as removed, and to no one else at all. Holding a role never lets
 someone vote in or join a War they otherwise couldn't; only an Admin's owner powers (§6.1) let
-someone other than a War's creator edit it. The views also include
-removed Wars, which no ordinary route ever shows. They cover:
+someone other than a War's creator edit it, so a Moderator opening a War gains no owner powers
+over it, and no one can edit a removed War. Beyond the War page, the read-only moderation views
+below cover:
 - Moderator only: every War, filterable by status (including "removed") and by text matching
   its title or creator's name, with each War's count of unaddressed reports
 - Moderator only: one War in full, removed or not, with its contestants and their standings
@@ -521,8 +523,9 @@ and its rendered copy). Keeping the War and its votes intact under the hood pres
 audit trail (§8.3) for whatever the moderation was investigating. Only the media, typically
 the reason for the removal, is actually reclaimed.
 
-A removed War behaves as if it doesn't exist, everywhere. It can't be viewed, listed,
-voted on, edited, published, reported, or deleted, not even by its own creator or an Admin. A creator's
+A removed War behaves as if it doesn't exist, everywhere, except to Moderators, who can still
+open it, marked as removed. It can't be listed, voted on, edited, published, reported, or deleted, and
+no one else can view it, not even its own creator or an Admin. A creator's
 Delete can't erase what the moderation preserved. Removing is Moderator only; everyone else,
 Admins who are not Moderators included, is refused as forbidden. Removing a War that doesn't exist or is already removed reports not found. The removal and its moderation log entry happen together. Media is reclaimed only
 after the removal commits. If reclaiming fails, the War stays removed: an orphaned file costs
@@ -857,12 +860,12 @@ from the dashboard asks for confirmation first, since it stops all creation. Tur
 needs none. A banned Voter who tries to sign in is told plainly that the account is banned,
 not shown a generic failure.
 
-From the dashboard, a Moderator opens any War or Voter, and an Admin any Voter, in a detail view of its own. Each detail view
+From the dashboard, a Moderator opens any War, on the War's own page, or any Voter, and an Admin any Voter, in a detail view of its own. Each detail view
 has a stable address, so lists, the reports queue, and the moderation log can link to it.
-- **Wars:** Remove a War, Suspend, and Ban each ask for confirmation. Ban's confirmation
+- **Wars:** The War page shows a Moderator the War's reports and the Remove control. Remove a War, Suspend, and Ban each ask for confirmation. Ban's confirmation
   states plainly that it permanently deletes everything the Voter created and every vote they
   cast.
-- **Reports:** Moderators mark a War's reports addressed or unaddressed from its detail view.
+- **Reports:** Moderators mark a War's reports addressed or unaddressed from the War's page.
 - **Role controls** appear only to Admins, on any Voter's detail view, their own included.
   Revoking the Admin role asks for confirmation.
 - **Moderation controls** (Suspend, Ban) appear only to Moderators.

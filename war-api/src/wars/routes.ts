@@ -193,7 +193,8 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     { schema: { response: { 200: warDetailResponseSchema, 404: errorResponseSchema } }, preHandler: optionalAuth(auth) },
     async (request, reply) => {
       const isAdmin = request.voter?.isAdmin === true;
-      const war = await findVisibleWar(db, request.params.id, request.voterId, isAdmin);
+      const isModerator = request.voter?.isModerator === true;
+      const war = await findVisibleWar(db, request.params.id, request.voterId, { isAdmin, isModerator });
       if (!war) {
         return sendNotFound(reply);
       }

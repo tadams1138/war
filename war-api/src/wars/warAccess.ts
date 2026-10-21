@@ -3,12 +3,18 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { logAction } from '../moderation/moderationLogRepository.js';
 import type { OwnerAction } from '../moderation/ownerActions.js';
-import { findWarById, type War } from './warsRepository.js';
+import { findWarById, findWarIncludingRemoved, type War } from './warsRepository.js';
 
 /** Who is acting: the roles that widen what they may do to a War (§3, §6.1). */
 export interface Caller {
   voterId: string;
   isAdmin: boolean;
+}
+
+/** The roles that widen what a viewer may see of a War (§3, §6.1, §6.7). */
+export interface ViewerRoles {
+  isAdmin?: boolean;
+  isModerator?: boolean;
 }
 
 /** The authenticated caller of a `bearerAuthRoute` handler. */
@@ -18,9 +24,9 @@ export function callerOf(request: FastifyRequest): Caller {
 
 export type OwnedWarOutcome = { kind: 'ok'; war: War; caller: Caller } | { kind: 'notFound' } | { kind: 'forbidden' };
 
-/** Whether `caller` may manage `war` (§6.1): its creator, or any Admin. */
+/** Whether `caller` may manage `war` (§6.1): its creator, or any Admin. A removed War is editable by no one (§6.7). */
 export function canManageWar(war: War, caller: { voterId?: string | null; isAdmin?: boolean }): boolean {
-  return caller.isAdmin === true || (caller.voterId != null && war.creatorId === caller.voterId);
+  return war.removedAt === null && (caller.isAdmin === true || (caller.voterId != null && war.creatorId === caller.voterId));
 }
 
 /**
@@ -48,14 +54,22 @@ export async function recordOwnerAction(db: Kysely<Database>, guard: { war: War;
  * Whether the viewer may see this War at all (§6.1): a draft is invisible to everyone but its creator and Admins, and
  * routes report it as not found, never as "exists but private". A closed War stays visible.
  * Judged on the stored status, not the effective one: a draft whose end date passes reads as closed,
- * but it was never published, so expiry must not make it public.
+ * but it was never published, so expiry must not make it public. A Moderator sees every War (§6.7).
  */
-export function isWarVisibleTo(war: War, voterId: string | undefined | null, isAdmin = false): boolean {
-  return war.status !== 'draft' || canManageWar(war, { voterId, isAdmin });
+export function isWarVisibleTo(war: War, voterId: string | undefined | null, roles: ViewerRoles = {}): boolean {
+  return roles.isModerator === true || war.status !== 'draft' || canManageWar(war, { voterId, isAdmin: roles.isAdmin });
 }
 
-/** The War, or `undefined` when it does not exist or the viewer may not see it. */
-export async function findVisibleWar(db: Kysely<Database>, warId: string, voterId: string | undefined | null, isAdmin = false): Promise<War | undefined> {
-  const war = await findWarById(db, warId);
-  return war && isWarVisibleTo(war, voterId, isAdmin) ? war : undefined;
+/**
+ * The War, or `undefined` when it does not exist or the viewer may not see it. Only a Moderator can load a removed
+ * War (§6.7); for everyone else it does not exist.
+ */
+export async function findVisibleWar(
+  db: Kysely<Database>,
+  warId: string,
+  voterId: string | undefined | null,
+  roles: ViewerRoles = {},
+): Promise<War | undefined> {
+  const war = roles.isModerator === true ? await findWarIncludingRemoved(db, warId) : await findWarById(db, warId);
+  return war && isWarVisibleTo(war, voterId, roles) ? war : undefined;
 }

@@ -15,6 +15,7 @@ function makeWar(overrides: Partial<War> = {}): War {
     endsAt: null,
     shareImageKey: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
+    removedAt: null,
     ...overrides,
   };
 }

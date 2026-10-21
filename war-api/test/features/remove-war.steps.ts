@@ -20,7 +20,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     harness = await buildTestHarness();
   });
 
-  Scenario('A Moderator removes a published War and it becomes not found for everyone', ({ Given, When, Then }) => {
+  Scenario('A Moderator removes a published War and it becomes not found to everyone but Moderators', ({ Given, When, Then, And }) => {
     let creatorId: string;
     let voterId: string;
     let moderatorId: string;
@@ -41,12 +41,20 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       response = await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
     });
 
-    Then('the response is 204 and the War is 404 for its creator, the plain Voter and the Moderator', async () => {
+    Then('the response is 204 and the War is 404 for its creator and the plain Voter', async () => {
       // Assert
       expect(response.status).toBe(204);
-      for (const viewer of [creatorId, voterId, moderatorId]) {
+      for (const viewer of [creatorId, voterId]) {
         expect((await as(harness, viewer).get(`/api/v1/wars/${warId}`)).status).toBe(404);
       }
+    });
+
+    And('the Moderator still GETs the War, with its removal time and can_manage false', async () => {
+      // Assert
+      const moderatorView = await as(harness, moderatorId).get(`/api/v1/wars/${warId}`);
+      expect(moderatorView.status).toBe(200);
+      expect(moderatorView.body.can_manage).toBe(false);
+      expect(Number.isNaN(Date.parse(moderatorView.body.removed_at))).toBe(false);
     });
   });
 
@@ -354,7 +362,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(response.status).toBe(204);
       const row = await harness.db.selectFrom('wars').select('removed_at').where('id', '=', warId).executeTakeFirstOrThrow();
       expect(row.removed_at).not.toBeNull();
-      expect((await as(harness, moderatorId).get(`/api/v1/wars/${warId}`)).status).toBe(404);
+      const moderatorView = await as(harness, moderatorId).get(`/api/v1/wars/${warId}`);
+      expect(moderatorView.status).toBe(200);
+      expect(moderatorView.body.removed_at).not.toBeNull();
     });
   });
 

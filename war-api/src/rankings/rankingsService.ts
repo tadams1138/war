@@ -5,7 +5,7 @@ import { listMediaByContestants } from '../contestants/contestantMediaRepository
 import { presentMedia } from '../contestants/mediaPresenter.js';
 import { contestantViewSchema, type ContestantView } from '../contestants/contestantPresenter.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
-import { findVisibleWar } from '../wars/warAccess.js';
+import { findVisibleWar, type ViewerRoles } from '../wars/warAccess.js';
 import { THEMES } from '../wars/theme.js';
 import { rankContestants } from './scoring.js';
 
@@ -60,9 +60,10 @@ export async function getRankings(
   viewerId: string | null,
   now: Date,
   publicBaseUrl: string,
+  roles: ViewerRoles = {},
 ): Promise<RankingsOutcome> {
   // A draft is invisible to anyone but its creator (§6.1): reported as not found, like a missing War.
-  const war = await findVisibleWar(db, warId, viewerId);
+  const war = await findVisibleWar(db, warId, viewerId, roles);
   if (!war) {
     return { kind: 'notFound' };
   }
