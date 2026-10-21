@@ -77,8 +77,15 @@ Given('the target of a request to {call} does not exist', async ({ world }, call
   answer(world, call, { status: 404, body: { error: 'not found' } })
 })
 
+// The call log records a request at once and attaches its body when the
+// body's clone resolves (src/main.tsx), so wait for the body as well.
 async function expectAskedOnce(page: Page, world: World, call: CallRef, request: RequestDef, body?: Record<string, unknown>): Promise<void> {
-  await expect.poll(async () => (await callsTo(page, world, call, request)).length).toBe(1)
+  const needsBody = Boolean(request.body || body)
+  const askedOnce = async () => {
+    const calls = await callsTo(page, world, call, request)
+    return calls.length === 1 && (!needsBody || calls[0]!.body !== undefined)
+  }
+  await expect.poll(askedOnce).toBe(true)
   const carried = (await callsTo(page, world, call, request))[0]!.body
   if (request.body) expect(JSON.parse(carried!)).toEqual(request.body)
   if (body) expect(JSON.parse(carried!)).toMatchObject(body)

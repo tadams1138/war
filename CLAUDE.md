@@ -70,7 +70,7 @@ Postgres when it is unset.
 - acceptance test (scoped): `npm --prefix war-ui-default run test:acceptance -- -g "<name>"`
 - acceptance test with coverage (instruments the mock build, into `.nyc_output/`): `npm --prefix war-ui-default run test:acceptance:coverage`
 - coverage report (unit, acceptance and merged, in `war-ui-default/coverage/{unit,acceptance,merged}/`; run both coverage commands first): `npm --prefix war-ui-default run coverage:report`
-- coverage thresholds (merged report; fails below the thresholds in `package.json`): `npm --prefix war-ui-default run coverage:check`
+- coverage thresholds (merged statements/functions/lines, and acceptance branches: unit and acceptance use different instrumenters whose branch locations don't line up, so a merged branch figure is meaningless; fails below the thresholds in `package.json`): `npm --prefix war-ui-default run coverage:check`
 - build: `npm --prefix war-ui-default run build`
 
 `test:acceptance` runs `bddgen` and then Playwright. Always go through the npm script:
