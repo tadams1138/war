@@ -55,14 +55,24 @@ required-reviewer approval. See `war-spec.md` section 12.
   *Known defects and limitations*). The edge adds a coarse auth throttle (see war-infra).
 - **Roles and moderation** (spec 3, 6.7, 8.5). Moderator/Admin are independent account-level flags,
   granted only by an Admin (Admin implies no moderation capability; an Admin may grant
-  themselves Moderator and revoke it again, but cannot remove their own Admin role). Any
+  themselves Moderator and revoke it again, but cannot remove their own Admin role). An Admin
+  also holds a War creator's powers over every War (spec 3, 6.1): edit details and share image,
+  manage contestants and images, publish, unpublish, clear votes, delete, export, and open any
+  War including a draft or unlisted one. Moderators get none of this and Admins get no moderation
+  powers; a Moderator-removed War stays out of reach of everyone. `GET /wars/:id` reports
+  `can_manage` (creator or Admin) beside `is_owner` (creator only). Each such request an Admin makes
+  on a War they did not create writes one owner-action log entry (`edit_war`, `set_share_image`,
+  `add_contestant`, `edit_contestant`, `remove_contestant`, `add_image`, `reorder_images`,
+  `remove_image`, `publish_war`, `unpublish_war`, `clear_votes`, `export_war`, `delete_war`), after the
+  action succeeds and not in its transaction; export is client-side, so the UI reports it through
+  `POST /wars/:id/export` (204). Any
   voter can report any War; Moderators list reports per War, read the unaddressed queue and
   toggle a report's addressed state. Remove a War hides it and deletes its media while
   keeping the audit trail. Suspend blocks War creation. Ban purges the voter's Wars and
   votes, revokes their tokens and blocks sign-in immediately. The War-creation kill switch
   is a single-row platform setting. Every moderation action and role change writes an append-only moderation log
   entry in the same transaction as the action; a Moderator reads the moderation entries,
-  an Admin the role-change entries, a Voter holding both reads both; the log is keyset-paged and its `target_war_id`
+  an Admin the role-change and owner-action entries, a Voter holding both reads both; the log is keyset-paged and its `target_war_id`
   deliberately has no foreign key.
 - **Ban races closed with row locks.** Suspend/Ban lock the target voter `FOR UPDATE`; vote
   casting takes `FOR SHARE` on the voter; both lock the voter before contestant rows.

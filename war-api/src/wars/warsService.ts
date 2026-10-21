@@ -9,7 +9,7 @@ import { nonEmptyStringError, validateIfPresent } from '../shared/bodyValidation
 import type { MutationOutcome, NotFound, NotPublished, ValidationError } from '../shared/outcomes.js';
 import { effectiveStatus } from './effectiveStatus.js';
 import { processShareImage } from './shareImageProcessing.js';
-import { loadOwnedWar } from './warAccess.js';
+import { loadOwnedWar, recordOwnerAction, type Caller } from './warAccess.js';
 import { deleteMediaObjects, mediaPrefixes } from './warMediaStorage.js';
 import { isWarTheme } from './theme.js';
 import {
@@ -139,8 +139,8 @@ function resolvePatchEndsAt(raw: string | null | undefined): { value?: Date | nu
   return parseEndsAt(raw);
 }
 
-export async function patchWar(db: Kysely<Database>, warId: string, voterId: string, input: PatchWarInput): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
+export async function patchWar(db: Kysely<Database>, warId: string, caller: Caller, input: PatchWarInput): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, warId, caller);
   if (guard.kind !== 'ok') return guard;
 
   const title = validateIfPresent(input.title, titleError);
@@ -162,6 +162,7 @@ export async function patchWar(db: Kysely<Database>, warId: string, voterId: str
   };
 
   const updated = await updateWar(db, warId, patch);
+  await recordOwnerAction(db, guard, 'edit_war');
   return { kind: 'ok', value: updated };
 }
 
@@ -175,9 +176,9 @@ export async function deleteWar(
   storage: ObjectStorage,
   log: FastifyBaseLogger,
   warId: string,
-  voterId: string,
+  caller: Caller,
 ): Promise<MutationOutcome<void>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
+  const guard = await loadOwnedWar(db, warId, caller);
   if (guard.kind !== 'ok') return guard;
 
   const prefixes = await db.transaction().execute(async (trx) => {
@@ -186,6 +187,7 @@ export async function deleteWar(
     return mediaPrefixes(warId, contestantIds);
   });
   await deleteMediaObjects(storage, log, prefixes, { warId });
+  await recordOwnerAction(db, guard, 'delete_war');
   return { kind: 'ok', value: undefined };
 }
 
@@ -196,8 +198,8 @@ export async function deleteWar(
  * draft → published requires at least 2 contestants. Republishing never re-checks the count, since nothing
  * revokes visibility retroactively once a published War drops below 2 contestants.
  */
-export async function publishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
+export async function publishWar(db: Kysely<Database>, warId: string, caller: Caller, now: Date): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, warId, caller);
   if (guard.kind !== 'ok') return guard;
   const { war } = guard;
 
@@ -206,6 +208,7 @@ export async function publishWar(db: Kysely<Database>, warId: string, voterId: s
     return { kind: 'validationError', errors: ['a closed War cannot be published'] };
   }
   if (status === 'published') {
+    await recordOwnerAction(db, guard, 'publish_war');
     return { kind: 'ok', value: war };
   }
 
@@ -215,12 +218,13 @@ export async function publishWar(db: Kysely<Database>, warId: string, voterId: s
   }
 
   const published = await setWarStatus(db, warId, 'published');
+  await recordOwnerAction(db, guard, 'publish_war');
   return { kind: 'ok', value: published };
 }
 
 /** published → draft requires nothing and touches no matchup, vote or contestant; draft → draft is idempotent. */
-export async function unpublishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
+export async function unpublishWar(db: Kysely<Database>, warId: string, caller: Caller, now: Date): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, warId, caller);
   if (guard.kind !== 'ok') return guard;
   const { war } = guard;
 
@@ -229,16 +233,18 @@ export async function unpublishWar(db: Kysely<Database>, warId: string, voterId:
     return { kind: 'validationError', errors: ['a closed War cannot be unpublished'] };
   }
   if (status === 'draft') {
+    await recordOwnerAction(db, guard, 'unpublish_war');
     return { kind: 'ok', value: war };
   }
 
   const unpublished = await setWarStatus(db, warId, 'draft');
+  await recordOwnerAction(db, guard, 'unpublish_war');
   return { kind: 'ok', value: unpublished };
 }
 
 export interface SetShareImageInput {
   warId: string;
-  voterId: string;
+  caller: Caller;
   buffer: Buffer;
   mimeType: string;
   originalExt: string;
@@ -249,7 +255,7 @@ export interface SetShareImageInput {
  * second upload overwrites the object in place and the War's own row is the only record of "has one".
  */
 export async function setShareImage(db: Kysely<Database>, storage: ObjectStorage, input: SetShareImageInput): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, input.warId, input.voterId);
+  const guard = await loadOwnedWar(db, input.warId, input.caller);
   if (guard.kind !== 'ok') return guard;
 
   const validation = validateImageUpload({ mimeType: input.mimeType, sizeBytes: input.buffer.length });
@@ -263,6 +269,7 @@ export async function setShareImage(db: Kysely<Database>, storage: ObjectStorage
   await storage.putPrivate(`originals/share-images/${input.warId}.${input.originalExt}`, input.buffer, input.mimeType);
 
   const updated = await setWarShareImageKey(db, input.warId, key);
+  await recordOwnerAction(db, guard, 'set_share_image');
   return { kind: 'ok', value: updated };
 }
 
@@ -280,14 +287,26 @@ export async function joinWar(db: Kysely<Database>, warId: string, voterId: stri
  * any status, creator-only, a deliberate hard delete. Membership rows are untouched. One transaction, so a failure
  * between the delete and the recompute never leaves counters inconsistent with an emptied `votes` table.
  */
-export async function clearVotes(db: Kysely<Database>, warId: string, voterId: string): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
+export async function clearVotes(db: Kysely<Database>, warId: string, caller: Caller): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, warId, caller);
   if (guard.kind !== 'ok') return guard;
 
   await db.transaction().execute(async (trx) => {
     await deleteVotesForWar(trx, warId);
     await recomputeContestantCounters(trx, warId);
   });
+  await recordOwnerAction(db, guard, 'clear_votes');
 
   return { kind: 'ok', value: guard.war };
+}
+
+/**
+ * Export is assembled by the client from the War's own detail (§10.4); this records that one happened, so an Admin's
+ * export of a War they did not create reaches the moderation log (§6.7). Creator or Admin only; writes nothing for the creator.
+ */
+export async function recordWarExport(db: Kysely<Database>, warId: string, caller: Caller): Promise<MutationOutcome<void>> {
+  const guard = await loadOwnedWar(db, warId, caller);
+  if (guard.kind !== 'ok') return guard;
+  await recordOwnerAction(db, guard, 'export_war');
+  return { kind: 'ok', value: undefined };
 }

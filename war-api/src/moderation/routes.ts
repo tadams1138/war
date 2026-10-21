@@ -71,7 +71,8 @@ export function registerModerationLogRoutes(app: FastifyInstance, deps: Moderati
     ),
     async (request, reply) => {
       const { voter } = request;
-      const visibility = { moderation: voter?.isModerator === true, roleChange: voter?.isAdmin === true };
+      const isAdmin = voter?.isAdmin === true;
+      const visibility = { moderation: voter?.isModerator === true, roleChange: isAdmin, ownerAction: isAdmin };
       const outcome = await listModerationLog(db, { ...request.query, visibility });
       if (outcome.kind === 'invalidCursor') {
         return sendInvalidCursor(reply);

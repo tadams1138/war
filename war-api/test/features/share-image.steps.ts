@@ -4,7 +4,7 @@ import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import type { War } from '../../src/wars/warsRepository.js';
-import { giveContestantAnImage, makeContestant, makeDraftWar, makeVoter, publishWarForTest } from '../setup/fixtures.js';
+import { giveContestantAnImage, makeAdmin, makeContestant, makeDraftWar, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as } from '../setup/apiClient.js';
@@ -170,7 +170,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Only the creator may set a War\'s share image', ({ Given, When, Then }) => {
+  Scenario("A plain Voter cannot set another voter's War's share image", ({ Given, When, Then }) => {
     let war: War;
     let response: request.Response;
 
@@ -179,7 +179,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       war = await makeDraftWar(harness.db, creatorId);
     });
 
-    When('a voter who is not its creator uploads a share image', async () => {
+    When('a plain Voter uploads a share image', async () => {
       // Act
       const other = await makeVoter(harness.db, 'other');
       response = await uploadShareImage(war.id, other.id, await jpeg(1200, 630));
@@ -188,6 +188,27 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the response status is 403', () => {
       // Assert
       expect(response.status).toBe(403);
+    });
+  });
+
+  Scenario("An Admin can set another voter's War's share image", ({ Given, When, Then }) => {
+    let war: War;
+    let response: request.Response;
+
+    Given('a draft War owned by another voter', async () => {
+      // Arrange
+      war = await makeDraftWar(harness.db, creatorId);
+    });
+
+    When('an Admin uploads a share image', async () => {
+      // Act
+      const admin = await makeAdmin(harness.db, 'admin');
+      response = await uploadShareImage(war.id, admin.id, await jpeg(1200, 630));
+    });
+
+    Then('the response status is 200', () => {
+      // Assert
+      expect(response.status).toBe(200);
     });
   });
 

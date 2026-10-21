@@ -119,7 +119,7 @@ export async function makeDraftWarWithContestants(
 
 /** Publishes a War as its creator. Throws if publishing is rejected. */
 export async function publishWarForTest(db: Kysely<Database>, war: War): Promise<War> {
-  const outcome = await publishWar(db, war.id, war.creatorId!, new Date());
+  const outcome = await publishWar(db, war.id, { voterId: war.creatorId!, isAdmin: false }, new Date());
   if (outcome.kind !== 'ok') {
     throw new Error(`failed to publish War in test fixture: ${outcome.kind}`);
   }

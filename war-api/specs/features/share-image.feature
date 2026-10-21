@@ -27,9 +27,9 @@ Feature: Share Image
     When the creator submits the share image upload with no file
     Then the response status is 422
 
-  Scenario: Only the creator may set a War's share image
+  Scenario: A plain Voter cannot set another voter's War's share image
     Given a draft War owned by another voter
-    When a voter who is not its creator uploads a share image
+    When a plain Voter uploads a share image
     Then the response status is 403
 
   Scenario: A published War's share image can still be changed
@@ -41,3 +41,8 @@ Feature: Share Image
     Given a draft War with no share image
     When any endpoint returns that War
     Then its share_image_url is null
+
+  Scenario: An Admin can set another voter's War's share image
+    Given a draft War owned by another voter
+    When an Admin uploads a share image
+    Then the response status is 200
