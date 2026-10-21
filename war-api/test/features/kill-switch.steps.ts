@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { makeAdmin, makeModerator, makeVoter } from '../setup/fixtures.js';
+import { makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { getKillSwitch, postWar, putKillSwitch } from '../setup/apiClient.js';
@@ -40,19 +40,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('A plain Voter cannot create a War while the kill switch is on', ({ Given, When, And, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let response: request.Response;
 
-    Given('an Admin and a plain Voter', async () => {
+    Given('a Moderator and a plain Voter', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
     });
 
-    When('the Admin enables the kill switch', async () => {
+    When('the Moderator enables the kill switch', async () => {
       // Act
-      await putKillSwitch(harness, adminId, { enabled: true });
+      await putKillSwitch(harness, moderatorId, { enabled: true });
     });
 
     And('the plain Voter POSTs a War', async () => {
@@ -68,23 +68,23 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Staff cannot create a War while the kill switch is on', ({ Given, When, And, Then }) => {
-    let adminId: string;
+  Scenario('A Moderator cannot create a War while the kill switch is on', ({ Given, When, And, Then }) => {
+    let moderatorId: string;
     let response: request.Response;
 
-    Given('an Admin', async () => {
+    Given('a Moderator', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
-    When('the Admin enables the kill switch', async () => {
+    When('the Moderator enables the kill switch', async () => {
       // Act
-      await putKillSwitch(harness, adminId, { enabled: true });
+      await putKillSwitch(harness, moderatorId, { enabled: true });
     });
 
-    And('the Admin POSTs a War', async () => {
+    And('the Moderator POSTs a War', async () => {
       // Act
-      response = await postWar(harness, adminId);
+      response = await postWar(harness, moderatorId);
     });
 
     Then('the response is 503 war_creation_disabled and no War exists', async () => {
@@ -96,24 +96,24 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('Disabling the kill switch restores War creation', ({ Given, When, And, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
     let voterId: string;
     let response: request.Response;
 
-    Given('an Admin and a plain Voter', async () => {
+    Given('a Moderator and a plain Voter', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
       voterId = (await makeVoter(harness.db, 'voter')).id;
     });
 
-    When('the Admin enables the kill switch', async () => {
+    When('the Moderator enables the kill switch', async () => {
       // Act
-      await putKillSwitch(harness, adminId, { enabled: true });
+      await putKillSwitch(harness, moderatorId, { enabled: true });
     });
 
-    And('the Admin disables the kill switch', async () => {
+    And('the Moderator disables the kill switch', async () => {
       // Act
-      await putKillSwitch(harness, adminId, { enabled: false });
+      await putKillSwitch(harness, moderatorId, { enabled: false });
     });
 
     And('the plain Voter POSTs a War', async () => {
@@ -193,24 +193,24 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('Enabling the kill switch writes a moderation log entry', ({ Given, When, Then }) => {
-    let adminId: string;
+    let moderatorId: string;
 
-    Given('an Admin', async () => {
+    Given('a Moderator', async () => {
       // Arrange
-      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
-    When('the Admin enables the kill switch', async () => {
+    When('the Moderator enables the kill switch', async () => {
       // Act
-      await putKillSwitch(harness, adminId, { enabled: true });
+      await putKillSwitch(harness, moderatorId, { enabled: true });
     });
 
-    Then('a moderation log entry records the Admin enabling the kill switch with no target', async () => {
+    Then('a moderation log entry records the Moderator enabling the kill switch with no target', async () => {
       // Assert
       const rows = await moderationLog(harness.db);
       expect(rows).toHaveLength(1);
       expect(rows[0]?.action).toBe('enable_war_creation_kill_switch');
-      expect(rows[0]?.staff_voter_id).toBe(adminId);
+      expect(rows[0]?.staff_voter_id).toBe(moderatorId);
       expect(rows[0]?.target_voter_id).toBeNull();
       expect(rows[0]?.target_war_id).toBeNull();
     });

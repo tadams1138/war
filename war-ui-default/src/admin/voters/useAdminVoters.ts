@@ -1,4 +1,4 @@
-// Cursor-paged Staff Voter list (war-spec.md §6.7), refetched from the first
+// Cursor-paged Voters list (war-spec.md §6.7), refetched from the first
 // page whenever the status filter or (debounced) search text changes.
 import { useState } from 'react'
 import { getAdminVoters, type AdminVoterItem, type GetAdminVotersParams } from '../../api/client'

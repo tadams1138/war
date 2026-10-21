@@ -36,8 +36,8 @@ export function logEntry(id: string, action: string, createdAt: string, target: 
   return {
     id,
     action,
-    staff_voter_id: 'staff-voter-1',
-    staff_name: 'Stella Staff',
+    actor_voter_id: 'actor-voter-1',
+    actor_name: 'Alex Actor',
     ...nulls(target),
     created_at: createdAt,
   }

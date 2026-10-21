@@ -150,8 +150,8 @@ function constantClassifier(reason: ApiErrorReason): Classify403 {
 const classifyDefault403 = constantClassifier('war-closed')
 // Edit routes are never status-gated: a 403 means the caller isn't the creator.
 const classifyEditForbidden = constantClassifier('forbidden')
-// Every Staff-only endpoint's 403 means the caller isn't Staff.
-const classifyStaffForbidden = constantClassifier('staff-only')
+// Every role-gated endpoint's 403 means the caller lacks the role it needs.
+const classifyRoleForbidden = constantClassifier('role-required')
 
 // castVote's 403 carries a typed `reason` discriminator. The Record makes a
 // regenerated schema with a new enum member a compile error here, rather
@@ -365,53 +365,53 @@ export function providerLoginUrl(provider: string): string {
   return `${API_BASE_URL}/auth/${provider}/login`
 }
 
-// --- Staff-only endpoints (the Admin Dashboard, war-spec.md §6.7) --------------
+// --- Role-gated endpoints (the Admin Dashboard, war-spec.md §6.7) --------------
 
 export function getKillSwitch(): Promise<KillSwitchState> {
-  return json('/kill-switch', {}, classifyStaffForbidden)
+  return json('/kill-switch', {}, classifyRoleForbidden)
 }
 
 export function setKillSwitch(enabled: boolean): Promise<KillSwitchState> {
-  return json('/kill-switch', jsonInit('PUT', { enabled }), classifyStaffForbidden)
+  return json('/kill-switch', jsonInit('PUT', { enabled }), classifyRoleForbidden)
 }
 
 export function getModerationLog(params: GetModerationLogParams = {}): Promise<ModerationLogPage> {
-  return json(`/moderation-log${queryString(params)}`, {}, classifyStaffForbidden)
+  return json(`/moderation-log${queryString(params)}`, {}, classifyRoleForbidden)
 }
 
 export function getAdminWars(params: GetAdminWarsParams = {}): Promise<AdminWarsPage> {
-  return json(`/admin/wars${queryString(params)}`, {}, classifyStaffForbidden)
+  return json(`/admin/wars${queryString(params)}`, {}, classifyRoleForbidden)
 }
 
 export function getAdminWar(warId: string): Promise<AdminWarDetail> {
-  return json(`/admin/wars/${warId}`, {}, classifyStaffForbidden)
+  return json(`/admin/wars/${warId}`, {}, classifyRoleForbidden)
 }
 
 export async function getWarReports(warId: string): Promise<WarReport[]> {
-  return (await json<{ reports: WarReport[] }>(`/wars/${warId}/reports`, {}, classifyStaffForbidden)).reports
+  return (await json<{ reports: WarReport[] }>(`/wars/${warId}/reports`, {}, classifyRoleForbidden)).reports
 }
 
 export async function removeWar(warId: string): Promise<void> {
-  await request(`/wars/${warId}/remove`, { method: 'POST' }, classifyStaffForbidden)
+  await request(`/wars/${warId}/remove`, { method: 'POST' }, classifyRoleForbidden)
 }
 
 export async function getUnaddressedReports(): Promise<UnaddressedReportsWar[]> {
-  return (await json<{ wars: UnaddressedReportsWar[] }>('/reports/unaddressed', {}, classifyStaffForbidden)).wars
+  return (await json<{ wars: UnaddressedReportsWar[] }>('/reports/unaddressed', {}, classifyRoleForbidden)).wars
 }
 
 export function getAdminVoters(params: GetAdminVotersParams = {}): Promise<AdminVotersPage> {
-  return json(`/admin/voters${queryString(params)}`, {}, classifyStaffForbidden)
+  return json(`/admin/voters${queryString(params)}`, {}, classifyRoleForbidden)
 }
 
 // The shared not-found copy names a War; other entities need their own.
 const VOTER_NOT_FOUND_MESSAGE = "This Voter doesn't exist"
 const REPORT_NOT_FOUND_MESSAGE = "This report doesn't exist"
 
-// Staff endpoints addressing one entity: a 404 means that entity is missing.
+// Role-gated endpoints addressing one entity: a 404 means that entity is missing.
 async function requestEntity(path: string, init: RequestInit, notFoundMessage: string): Promise<Response> {
   const response = await apiFetch(path, init)
   if (response.status === 404) throw new ApiError('not-found', 404, notFoundMessage)
-  return ensureOk(response, classifyStaffForbidden)
+  return ensureOk(response, classifyRoleForbidden)
 }
 
 async function voterJson<T>(path: string, init: RequestInit = {}): Promise<T> {

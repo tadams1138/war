@@ -1,7 +1,13 @@
 import { defineConfig } from '@playwright/test'
 import { defineBddProject } from 'playwright-bdd'
 
+// `npm run test:acceptance:coverage` sets COVERAGE=1: the mock build is
+// instrumented (vite.config.ts) and steps/fixtures.ts writes each test's
+// window.__coverage__ into .nyc_output/.
+const coverage = process.env.COVERAGE === '1'
+
 export default defineConfig({
+  globalSetup: coverage ? './tests/acceptance/coverageSetup.ts' : undefined,
   projects: [
     {
       // Every feature is executed step by step (tests/acceptance/steps). `bddgen`
@@ -21,7 +27,10 @@ export default defineConfig({
     // against, never a live API.
     command: 'npm run build:mock && npm run preview -- --port 4173',
     port: 4173,
-    reuseExistingServer: !process.env.CI,
+    // Never reuse a server during a coverage run: it could be an
+    // uninstrumented build (the run then fails on the busy port instead of
+    // silently reporting no coverage).
+    reuseExistingServer: !process.env.CI && !coverage,
   },
   use: {
     baseURL: 'http://localhost:4173',

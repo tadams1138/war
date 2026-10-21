@@ -1,5 +1,5 @@
-// The unaddressed-reports queue (war-spec.md §8.5): Wars with reports no Staff
-// member has dealt with yet; each opens that War's Staff detail.
+// The unaddressed-reports queue (war-spec.md §8.5): Wars with reports no Moderator
+// has dealt with yet; each opens that War's moderation page.
 import { Link } from 'react-router-dom'
 import { getUnaddressedReports, type UnaddressedReportsWar } from '../../api/client'
 import { useAsyncResource } from '../../hooks/useAsyncResource'

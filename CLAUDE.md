@@ -52,6 +52,7 @@ changing directory, so every command below works verbatim from the root.
 - migrate (test DB): `npm --prefix war-api run migrate`
 - test (unit + integration + acceptance): `npm --prefix war-api test`
 - test (scoped): `npm --prefix war-api test -- -t "<name>"`
+- test with coverage (v8; report in `war-api/coverage/`, summary on stdout; fails below the thresholds in `war-api/vitest.config.ts`): `npm --prefix war-api run test:coverage`
 
 Integration and acceptance tests connect via `DATABASE_URL` when set (as CI's
 `postgres:16-alpine` service provides) and fall back to a local Testcontainers
@@ -64,8 +65,12 @@ Postgres when it is unset.
 - typecheck: `npm --prefix war-ui-default run typecheck`
 - unit test: `npm --prefix war-ui-default test`
 - unit test (scoped): `npm --prefix war-ui-default test -- -t "<name>"`
+- unit test with coverage (istanbul, into `.nyc-unit/`): `npm --prefix war-ui-default run test:coverage`
 - acceptance test: `npm --prefix war-ui-default run test:acceptance`
 - acceptance test (scoped): `npm --prefix war-ui-default run test:acceptance -- -g "<name>"`
+- acceptance test with coverage (instruments the mock build, into `.nyc_output/`): `npm --prefix war-ui-default run test:acceptance:coverage`
+- coverage report (unit, acceptance and merged, in `war-ui-default/coverage/{unit,acceptance,merged}/`; run both coverage commands first): `npm --prefix war-ui-default run coverage:report`
+- coverage thresholds (merged statements/functions/lines, and acceptance branches: unit and acceptance use different instrumenters whose branch locations don't line up, so a merged branch figure is meaningless; fails below the thresholds in `package.json`): `npm --prefix war-ui-default run coverage:check`
 - build: `npm --prefix war-ui-default run build`
 
 `test:acceptance` runs `bddgen` and then Playwright. Always go through the npm script:

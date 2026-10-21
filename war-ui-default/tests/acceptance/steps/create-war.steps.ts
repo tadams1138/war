@@ -34,9 +34,9 @@ When('they use the retry control', async ({ page }) => {
 
 Then('an empty draft War is created via the API', async ({ page }) => {
   // Assert
-  const calls = await waitForCallLog(page, (log) => log.some((call) => call.method === 'POST' && call.url.endsWith('/wars')))
-  const createCall = calls.find((call) => call.method === 'POST' && call.url.endsWith('/wars'))
-  expect(JSON.parse(createCall?.body || '{}')).toEqual({})
+  const isCreate = (call: { method: string; url: string }) => call.method === 'POST' && call.url.endsWith('/wars')
+  const calls = await waitForCallLog(page, (log) => log.some((call) => isCreate(call) && call.body !== undefined))
+  expect(JSON.parse(calls.find(isCreate)!.body!)).toEqual({})
 })
 
 Then('creation retries on its own once the supplied delay passes', async ({ page }) => {

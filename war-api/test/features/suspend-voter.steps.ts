@@ -56,7 +56,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     return row.suspended_at !== null;
   }
 
-  Scenario('Staff cannot suspend themselves', ({ Given, When, Then }) => {
+  Scenario('A Moderator cannot suspend themselves', ({ Given, When, Then }) => {
     let moderatorId: string;
     let response: request.Response;
 
@@ -78,7 +78,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Staff cannot suspend other Staff', ({ Given, When, Then }) => {
+  Scenario('A Moderator cannot suspend an Admin', ({ Given, When, Then }) => {
     let moderatorId: string;
     let adminId: string;
     let response: request.Response;

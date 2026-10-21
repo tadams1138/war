@@ -5,11 +5,12 @@ import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { UNKNOWN_ID, makeAdmin, makeModerator, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
-import { putRole } from '../setup/apiClient.js';
+import { as, putRole } from '../setup/apiClient.js';
+import { setVoterRole } from '../../src/auth/votersRepository.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/role-grants.feature', import.meta.url)));
 
-describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => {
+describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   let harness: TestHarness;
 
   BeforeEachScenario(async () => {
@@ -75,22 +76,22 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
   });
 
-  ScenarioOutline('A caller who is not an Admin cannot grant any role', ({ Given, When, Then }, variables) => {
+  Scenario('A Voter who is not an Admin cannot grant a role', ({ Given, When, Then }) => {
     let callerId: string;
     let targetId: string;
     let response: request.Response;
 
-    Given('a <caller> and a target Voter', async () => {
+    Given('a plain Voter and a target Voter', async () => {
       // Arrange
-      const caller = variables.caller === 'Moderator' ? await makeModerator(harness.db, 'caller') : await makeVoter(harness.db, 'caller');
+      const caller = await makeVoter(harness.db, 'caller');
       const target = await makeVoter(harness.db, 'target');
       callerId = caller.id;
       targetId = target.id;
     });
 
-    When('the <caller> grants the <role> role to the target Voter', async () => {
+    When('the plain Voter grants the moderator role to the target Voter', async () => {
       // Act
-      response = await putRole(harness, callerId, targetId, variables.role as string, true);
+      response = await putRole(harness, callerId, targetId, 'moderator', true);
     });
 
     Then('the response status is 403', () => {
@@ -173,6 +174,67 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     And('the second Admin no longer has the admin role', () => {
       // Assert
       expect(response.body.is_admin).toBe(false);
+    });
+  });
+
+  Scenario('An Admin grants themselves Moderator, keeps Admin and can then use a Moderator feature', ({ Given, When, Then, And }) => {
+    let adminId: string;
+    let response: request.Response;
+
+    Given('an Admin', async () => {
+      // Arrange
+      const admin = await makeAdmin(harness.db, 'admin');
+      adminId = admin.id;
+    });
+
+    When('the Admin grants the moderator role to themselves', async () => {
+      // Act
+      response = await putRole(harness, adminId, adminId, 'moderator', true);
+    });
+
+    Then('the response status is 200', () => {
+      // Assert
+      expect(response.status).toBe(200);
+    });
+
+    And('the Admin has both the admin and moderator roles', () => {
+      // Assert
+      expect(response.body.is_admin).toBe(true);
+      expect(response.body.is_moderator).toBe(true);
+    });
+
+    And('the Admin can GET the unaddressed-reports queue', async () => {
+      // Assert
+      const queue = await as(harness, adminId).get('/api/v1/reports/unaddressed');
+      expect(queue.status).toBe(200);
+    });
+  });
+
+  Scenario('An Admin revokes their own Moderator role', ({ Given, When, Then, And }) => {
+    let adminId: string;
+    let response: request.Response;
+
+    Given('an Admin who also has the moderator role', async () => {
+      // Arrange
+      const admin = await makeAdmin(harness.db, 'admin');
+      await setVoterRole(harness.db, admin.id, 'moderator', true);
+      adminId = admin.id;
+    });
+
+    When('the Admin revokes the moderator role from themselves', async () => {
+      // Act
+      response = await putRole(harness, adminId, adminId, 'moderator', false);
+    });
+
+    Then('the response status is 200', () => {
+      // Assert
+      expect(response.status).toBe(200);
+    });
+
+    And('the Admin no longer has the moderator role but still has the admin role', () => {
+      // Assert
+      expect(response.body.is_moderator).toBe(false);
+      expect(response.body.is_admin).toBe(true);
     });
   });
 });

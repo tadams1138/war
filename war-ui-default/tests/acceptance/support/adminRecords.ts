@@ -1,4 +1,4 @@
-// The Wars and Voters as Staff see them, queued for the Admin Dashboard
+// The Wars and Voters as the Admin Dashboard shows them, queued for the Admin Dashboard
 // scenarios. A record given is numbered like every other War or Voter (war-1,
 // ...; voter-2, ...; "that War" and "that Voter" are the latest), and later
 // Givens edit what was queued in place, so give them before the app boots.
@@ -7,7 +7,7 @@ import type { World } from '../steps/fixtures'
 import { adminWar, adminWarDetail, adminWarDetailGet, REMOVED_AT, reportsGet } from './adminFixtures'
 import { API } from './mocking'
 
-export type StaffWar = ReturnType<typeof adminWar>
+export type AdminWarRecord = ReturnType<typeof adminWar>
 
 export function recipeFor(world: World, path: string): HandlerRecipe {
   const recipe = world.recipes.find((candidate) => candidate.path === `${API}${path}` && !candidate.query)
@@ -15,7 +15,7 @@ export function recipeFor(world: World, path: string): HandlerRecipe {
   return recipe
 }
 
-// The API's detail of the War or Voter in scope: for Staff, or (an "edited
+// The API's detail of the War or Voter in scope: for the Admin Dashboard, or (an "edited
 // war") the War as its creator sees it.
 export function detailRecipe(world: World, record: 'war' | 'voter' | 'edited war'): HandlerRecipe {
   const paths = { war: `/admin/wars/${world.warId}`, voter: `/admin/voters/${world.voterId}`, 'edited war': `/wars/${world.warId}` }
@@ -37,9 +37,9 @@ export function warFrom(row: Record<string, string>) {
   }
 }
 
-// Queues the War's Staff detail (with the default contestants) and its reports
+// Queues the War's moderation detail (with the default contestants) and its reports
 // (none yet); listing it is up to the caller.
-export function addStaffWar(world: World, row: Record<string, string>): StaffWar {
+export function addAdminWar(world: World, row: Record<string, string>): AdminWarRecord {
   const id = world.nextWarId()
   const overrides = warFrom(row)
   world.queue(adminWarDetailGet(id, adminWarDetail(id, overrides)), reportsGet(id, []))

@@ -120,8 +120,36 @@ jobs:
       - name: Apply migrations to test database
         run: npm run migrate
 
-      - name: Test (unit + integration)
-        run: npm test
+      # One run: the tests and the coverage report together (v8 coverage,
+      # report only -- no thresholds). The report is still written when a test
+      # file fails, and the two steps below run either way.
+      - name: Test with coverage (unit + integration)
+        run: npm run test:coverage
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            {
+              echo "### war-api test coverage"
+              echo
+              echo "| Statements | Branches | Functions | Lines |"
+              echo "|---|---|---|---|"
+              jq -r '.total | "| \(.statements.pct)% (\(.statements.covered)/\(.statements.total)) | \(.branches.pct)% (\(.branches.covered)/\(.branches.total)) | \(.functions.pct)% (\(.functions.covered)/\(.functions.total)) | \(.lines.pct)% (\(.lines.covered)/\(.lines.total)) |"' coverage/coverage-summary.json
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No coverage report was written." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          # Resolved from the repository root, not the job's working-directory.
+          path: war-api/coverage/
+          retention-days: 14
+          if-no-files-found: ignore
 
   build:
     name: Build image

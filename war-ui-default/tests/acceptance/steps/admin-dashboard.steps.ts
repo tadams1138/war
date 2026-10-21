@@ -103,24 +103,24 @@ Given('a moderation log entry targets a live War that has no title', async ({ wo
   logTargeting(world, { war: world.nextWarId() })
 })
 
-// The Voter and the acting Staff member each have a detail page to land on.
+// The Voter and the acting Moderator or Admin each have a detail page to land on.
 Given('a moderation log entry targets the Voter {string}', async ({ world }, name: string) => {
   // Arrange
   addLogPages(world, { entries: [logEntry('entry-1', 'ban_voter', '2026-10-02T12:00:00Z', { voter: 'v-1', voterName: name })], next_cursor: null })
   world.queue(
     adminVoterGet('v-1', adminVoterDetail('v-1', { display_name: name })),
     noVotes('v-1'),
-    adminVoterGet('staff-voter-1', adminVoterDetail('staff-voter-1', { display_name: 'Stella Staff', is_moderator: true })),
-    noVotes('staff-voter-1'),
+    adminVoterGet('actor-voter-1', adminVoterDetail('actor-voter-1', { display_name: 'Alex Actor', is_moderator: true })),
+    noVotes('actor-voter-1'),
   )
 })
 
 const identity = (name: string, flags: object) => ({ status: 200, body: { voter: { id: name, display_name: name, avatar_url: null, is_moderator: false, is_admin: false, ...flags } } })
 
 // Each sign-in fetches the identity again; they are answered in order.
-Given('the first Voter to sign in is the Moderator {string} and the next is the Voter {string}', async ({ world }, staff: string, plain: string) => {
+Given('the first Voter to sign in is the Moderator {string} and the next is the Voter {string}', async ({ world }, moderator: string, plain: string) => {
   // Arrange
-  const recipe: HandlerRecipe = { method: 'GET', path: `${API}/auth/me`, responses: [identity(staff, { is_moderator: true }), identity(plain, {})] }
+  const recipe: HandlerRecipe = { method: 'GET', path: `${API}/auth/me`, responses: [identity(moderator, { is_moderator: true }), identity(plain, {})] }
   world.queue(recipe)
 })
 
@@ -175,8 +175,8 @@ Then('the API has not been asked to change the kill switch', async ({ page }) =>
 
 Then('the API has been asked to turn the kill switch {state}', async ({ page }, enabled: boolean) => {
   // Assert
-  const log = await waitForCallLog(page, (calls) => calls.some((entry) => entry.method === 'PUT'))
-  expect(JSON.parse(log.find((entry) => entry.method === 'PUT')?.body ?? '{}')).toEqual({ enabled })
+  const log = await waitForCallLog(page, (calls) => calls.some((entry) => entry.method === 'PUT' && entry.body !== undefined))
+  expect(JSON.parse(log.find((entry) => entry.method === 'PUT')!.body!)).toEqual({ enabled })
 })
 
 Then('the kill switch shows the error {string}', async ({ page }, message: string) => {
@@ -218,7 +218,7 @@ Then('the entry says a deleted War was targeted, with its id and no link', async
   await expect(entries(page).locator(`a[href="/admin/wars/${world.warId}"]`)).toHaveCount(0)
 })
 
-Then('the entry names it as an untitled War and links to its Staff detail', async ({ page, world }) => {
+Then('the entry names it as an untitled War and links to its moderation page', async ({ page, world }) => {
   // Assert
   await expect(entries(page)).not.toContainText('a deleted War')
   await expect(entries(page).getByRole('link', { name: 'Untitled War' })).toHaveAttribute('href', `/admin/wars/${world.warId}`)

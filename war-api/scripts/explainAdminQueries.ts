@@ -1,6 +1,6 @@
 /**
  * Seeds a realistic data volume into a throwaway Testcontainers Postgres and runs
- * `EXPLAIN (ANALYZE, BUFFERS)` over every Staff read query (admin Wars, admin Voters,
+ * `EXPLAIN (ANALYZE, BUFFERS)` over every admin read query (admin Wars, admin Voters,
  * a Voter's votes, the moderation log).
  *
  * The SQL is captured from the real repository functions through Kysely's `log` hook, so it is
@@ -149,12 +149,15 @@ async function explainAll(label: string, pool: pg.Pool, cases: Case[], showPlans
 type Paged = { kind: string; nextCursor?: string | null };
 const cursorOf = (outcome: Paged): string | undefined => (outcome.kind === 'ok' ? (outcome.nextCursor ?? undefined) : undefined);
 
+/** The widest reader: a Voter holding both roles sees every entry. */
+const EVERYTHING = { moderation: true, roleChange: true };
+
 async function buildCases(db: Kysely<Database>): Promise<Case[]> {
   const heavy = await sql<{ id: string }>`select voter_id as id from votes group by voter_id order by count(*) desc limit 1`.execute(db);
   const voterId = heavy.rows[0]!.id;
   const wc = cursorOf(await listAdminWars(db, { now: new Date(), limit: 10_000 }));
   const vc = cursorOf(await listAdminVoters(db, { limit: 10_000 }));
-  const lc = cursorOf(await listModerationLog(db, { limit: 10_000 }));
+  const lc = cursorOf(await listModerationLog(db, { limit: 10_000, visibility: EVERYTHING }));
   const vvc = cursorOf(await listAdminVotes(db, voterId, { limit: 5 }));
   return [
     { name: 'wars: no filter', run: (d) => listAdminWars(d, { now: new Date(), limit: PAGE }) },
@@ -170,15 +173,15 @@ async function buildCases(db: Kysely<Database>): Promise<Case[]> {
     { name: 'voters: no filter', run: (d) => listAdminVoters(d, { limit: PAGE }) },
     { name: 'voters: status=suspended', run: (d) => listAdminVoters(d, { limit: PAGE, status: 'suspended' }) },
     { name: 'voters: status=banned', run: (d) => listAdminVoters(d, { limit: PAGE, status: 'banned' }) },
-    { name: 'voters: status=staff', run: (d) => listAdminVoters(d, { limit: PAGE, status: 'staff' }) },
+    { name: 'voters: status=role', run: (d) => listAdminVoters(d, { limit: PAGE, status: 'role' }) },
     { name: 'voters: q', run: (d) => listAdminVoters(d, { limit: PAGE, q: 'jordan smith' }) },
     { name: 'voters: q (rare)', run: (d) => listAdminVoters(d, { limit: PAGE, q: '19999' }) },
     { name: 'voters: cursor (deep)', run: (d) => listAdminVoters(d, { limit: PAGE, cursor: vc }) },
     { name: 'voter detail (war_count)', run: (d) => findAdminVoter(d, voterId, new Date()) },
     { name: 'voter votes: first page', run: (d) => listAdminVotes(d, voterId, { limit: PAGE }) },
     { name: 'voter votes: cursor', run: (d) => listAdminVotes(d, voterId, { limit: PAGE, cursor: vvc }) },
-    { name: 'moderation log: first page', run: (d) => listModerationLog(d, { limit: PAGE }) },
-    { name: 'moderation log: cursor (deep)', run: (d) => listModerationLog(d, { limit: PAGE, cursor: lc }) },
+    { name: 'moderation log: first page', run: (d) => listModerationLog(d, { limit: PAGE, visibility: EVERYTHING }) },
+    { name: 'moderation log: cursor (deep)', run: (d) => listModerationLog(d, { limit: PAGE, cursor: lc, visibility: EVERYTHING }) },
   ];
 }
 

@@ -2,8 +2,8 @@
 // no other feature can ever bind to (or collide with) this text.
 //
 // A Voter given here is numbered voter-2, voter-3, ... ("that Voter" is the
-// latest; voter-1 is the signed-in voter). It is queued with its Staff detail
-// and an empty vote history, and listed to Staff only by the list steps. Later
+// latest; voter-1 is the signed-in voter). It is queued with its detail
+// and an empty vote history, and listed to Admins and Moderators only by the list steps. Later
 // Givens edit what was queued in place, so give them before the app boots.
 import { expect } from '@playwright/test'
 import { createBdd, type DataTable } from 'playwright-bdd'
@@ -20,11 +20,11 @@ import {
   pagedResponses,
 } from '../support/adminFixtures'
 import { expectTextOrNone } from '../support/pages'
-import { addStaffWar, recipeFor } from '../support/staffRecords'
+import { addAdminWar, recipeFor } from '../support/adminRecords'
 
 const { Given, Then } = createBdd(test, { tags: '@admin-voters' })
 
-type StaffVoter = ReturnType<typeof adminVoter>
+type AdminVoterRecord = ReturnType<typeof adminVoter>
 type VoterDetail = ReturnType<typeof adminVoterDetail>
 type Flags = Record<string, boolean>
 
@@ -48,7 +48,7 @@ const KINDS: Record<string, Flags> = {
 const detailOf = (world: World) => recipeFor(world, `/admin/voters/${world.voterId}`).responses[0]!.body as VoterDetail
 const votesOf = (world: World) => recipeFor(world, `/admin/voters/${world.voterId}/votes`)
 
-function addVoter(world: World, id: string, overrides: Record<string, unknown>): StaffVoter {
+function addVoter(world: World, id: string, overrides: Record<string, unknown>): AdminVoterRecord {
   world.queue(adminVoterGet(id, adminVoterDetail(id, { ...overrides, wars: [] })), noVotes(id))
   return adminVoter(id, overrides)
 }
@@ -57,15 +57,15 @@ function voterFrom(row: Record<string, string>) {
   return { display_name: row.name, war_count: Number(row['war count'] || 0), ...BADGE_FLAGS[row.badge ?? ''] }
 }
 
-// The API filters as the Staff list is filtered: by sanction or role, and by the
+// The API filters as the Voters list is filtered: by sanction or role, and by the
 // words of a name.
 const FILTERS = {
   statuses: {
-    suspended: (voter: StaffVoter) => voter.suspended,
-    banned: (voter: StaffVoter) => voter.banned,
-    staff: (voter: StaffVoter) => voter.is_moderator || voter.is_admin,
+    suspended: (voter: AdminVoterRecord) => voter.suspended,
+    banned: (voter: AdminVoterRecord) => voter.banned,
+    role: (voter: AdminVoterRecord) => voter.is_moderator || voter.is_admin,
   },
-  text: (voter: StaffVoter) => voter.display_name,
+  text: (voter: AdminVoterRecord) => voter.display_name,
 }
 
 function queueListed(world: World, table: DataTable, pageSize?: number): void {
@@ -73,12 +73,12 @@ function queueListed(world: World, table: DataTable, pageSize?: number): void {
   world.queue(pagedListRecipe('/admin/voters', 'voters', voters, pageSize), ...filteredListRecipes('/admin/voters', 'voters', voters, FILTERS))
 }
 
-Given('the API lists these Voters to Staff:', async ({ world }, table: DataTable) => {
+Given('the API lists these Voters to Admins and Moderators:', async ({ world }, table: DataTable) => {
   // Arrange
   queueListed(world, table)
 })
 
-Given('the API lists these Voters to Staff, {int} per page:', async ({ world }, size: number, table: DataTable) => {
+Given('the API lists these Voters to Admins and Moderators, {int} per page:', async ({ world }, size: number, table: DataTable) => {
   // Arrange
   queueListed(world, table, size)
 })
@@ -88,10 +88,12 @@ Given(/^(?:a|an|another) (plain Voter|suspended Voter|banned Voter|Moderator|Adm
   addVoter(world, world.nextVoterId(), KINDS[kind]!)
 })
 
-// The detail of the voter who signs in, who Staff can look at like any other.
-Given('the signed-in voter is an Admin', async ({ world }) => {
+// The detail of the voter who signs in, who an Admin or Moderator can look at
+// like any other. "That Voter" is then the signed-in voter.
+Given(/^the signed-in voter is an (Admin(?: and a Moderator)?)$/, async ({ world }, roles: string) => {
   // Arrange
-  addVoter(world, 'voter-1', { display_name: 'Test Voter', ...KINDS.Admin })
+  world.voterId = 'voter-1'
+  addVoter(world, 'voter-1', { display_name: 'Test Voter', ...KINDS.Admin, is_moderator: roles.includes('Moderator') })
 })
 
 Given('no Voter exists with the requested id', async ({ world }) => {
@@ -101,7 +103,7 @@ Given('no Voter exists with the requested id', async ({ world }) => {
 
 Given('that Voter created these Wars:', async ({ world }, table: DataTable) => {
   // Arrange
-  const wars = table.hashes().map((row) => addStaffWar(world, row))
+  const wars = table.hashes().map((row) => addAdminWar(world, row))
   Object.assign(detailOf(world), {
     wars: wars.map(({ id, title, status, removed_at }) => ({ id, title, status, removed_at })),
     war_count: wars.length,
@@ -110,7 +112,7 @@ Given('that Voter created these Wars:', async ({ world }, table: DataTable) => {
 
 function giveVotes(world: World, table: DataTable, pageSize?: number): void {
   const votes = table.hashes().map((row, index) => {
-    const war = addStaffWar(world, { title: row.War! })
+    const war = addAdminWar(world, { title: row.War! })
     const cast = row.cast ? { cast_at: row.cast } : {}
     return adminVoteItem(`vote-${index + 1}`, { war_id: war.id, war_title: war.title, winner_name: row.winner, loser_name: row.loser, ...cast })
   })
@@ -141,7 +143,7 @@ Then('the Voters list shows these Voters, in order:', async ({ page }, table: Da
   }
 })
 
-const BADGE_ORDER = ['Moderator', 'Admin', 'Suspended', 'Banned']
+const BADGE_ORDER = ['Admin', 'Moderator', 'Suspended', 'Banned']
 const badgesOf = (voter: Record<string, unknown>) => BADGE_ORDER.filter((badge) => Object.keys(BADGE_FLAGS[badge]!).every((flag) => voter[flag]))
 
 Then("the Voter's badges and every War they created are shown, the removed one marked Removed", async ({ page, world }) => {

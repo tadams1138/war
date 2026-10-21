@@ -7,6 +7,7 @@ import { strFromU8, unzipSync } from 'fflate'
 import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
 import type { WarSummary } from '../../../src/api/client'
+import type { HandlerRecipe, RecipeResponse } from '../../../src/mocks/scenarios'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { me } from '../support/adminFixtures'
 import { contestantFrom, warDetail } from '../support/editWar'
@@ -54,11 +55,25 @@ async function open(page: Page, world: World, target: PageRef): Promise<void> {
   await page.goto(path)
 }
 
+// The identity first reads as the role; when the signed-in voter's own detail
+// was given (voter-1), it then reads as that detail does after each change.
+function identityRecipe(world: World, role: RoleFlags): HandlerRecipe {
+  const recipe = me(role)
+  const own = world.recipes.find((candidate) => candidate.path === `${API}/admin/voters/voter-1`)
+  const flagsOf = ({ body }: RecipeResponse) => {
+    const { is_moderator, is_admin } = body as RoleFlags
+    return me({ is_moderator, is_admin }).responses[0]!
+  }
+  const changes = (own?.responses.slice(1) ?? []).map(flagsOf)
+  recipe.responses.push(...changes)
+  return recipe
+}
+
 // A plain voter is what the baseline GET /auth/me already answers; the others
 // have their flags queued.
 Given('an authenticated {role}', async ({ page, world }, role: RoleFlags) => {
   // Arrange
-  if (role.is_moderator || role.is_admin) world.queue(me(role))
+  if (role.is_moderator || role.is_admin) world.queue(identityRecipe(world, role))
   await boot(page, world)
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -397,9 +412,9 @@ Then('no error message is shown', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
-// What both Staff detail pages (a War's, a Voter's) have: the way back to the
+// What both detail pages (a War's moderation page, a Voter's) have: the way back to the
 // dashboard, and their records' rows.
-Then('no Staff detail is shown', async ({ page }) => {
+Then('no detail page is shown', async ({ page }) => {
   // Assert
   await expect(page.getByRole('link', { name: 'Back to Admin Dashboard' })).toHaveCount(0)
   await expect(page.getByTestId('admin-contestant-row')).toHaveCount(0)

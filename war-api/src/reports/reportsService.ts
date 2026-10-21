@@ -69,7 +69,7 @@ export async function fileReport(db: Kysely<Database>, input: FileReportInput): 
 
 export type ListReportsOutcome = MutationOutcome<Report[], NotFound>;
 
-/** Every report against `warId`, newest first (§8.5). 404s if the War itself doesn't exist; caller permission (Moderator/Admin) is enforced by `requireModeratorOrAdmin`, not here. */
+/** Every report against `warId`, newest first (§8.5). 404s if the War itself doesn't exist; caller permission (Moderator) is enforced by `requireModerator`, not here. */
 export async function listReportsForWar(db: Kysely<Database>, warId: string): Promise<ListReportsOutcome> {
   const war = await findWarById(db, warId);
   if (!war) return { kind: 'notFound' };
@@ -106,7 +106,7 @@ export async function unaddressedQueue(db: Kysely<Database>): Promise<Unaddresse
 
 export type SetAddressedOutcome = MutationOutcome<Report, NotFound>;
 
-/** Toggles one report's addressed flag (§8.5). Caller permission (Moderator/Admin) is enforced by `requireModeratorOrAdmin`, not here. */
+/** Toggles one report's addressed flag (§8.5). Caller permission (Moderator) is enforced by `requireModerator`, not here. */
 export async function setAddressed(db: Kysely<Database>, reportId: string, addressed: boolean): Promise<SetAddressedOutcome> {
   const report = await setReportAddressed(db, reportId, addressed);
   return report ? { kind: 'ok', value: report } : { kind: 'notFound' };

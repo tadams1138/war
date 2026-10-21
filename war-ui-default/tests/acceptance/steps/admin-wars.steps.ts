@@ -1,38 +1,38 @@
 // Steps for features/admin-wars.feature. Scoped with the feature's own tag so
 // no other feature can ever bind to (or collide with) this text.
 //
-// A War given here is a Staff-visible War, numbered like every other War
-// (war-1, war-2, ...; "that War" is the latest). It is queued with its Staff
-// detail and its (empty) reports, and listed to Staff. Later Givens edit what
-// was queued in place, so give them before the app boots.
+// A War given here is a War the Moderators see, numbered like every other War
+// (war-1, war-2, ...; "that War" is the latest). It is queued with its
+// detail and its (empty) reports, and listed to Moderators. Later Givens edit
+// what was queued in place, so give them before the app boots.
 import { expect } from '@playwright/test'
 import { createBdd, type DataTable } from 'playwright-bdd'
 import { test, type World } from './fixtures'
 import { adminWarDetail, filteredListRecipes, pagedListRecipe, queueGet, report, reportPatch } from '../support/adminFixtures'
 import { API, getCallLog } from '../support/mocking'
 import { expectTextOrNone } from '../support/pages'
-import { addStaffWar, detailRecipe, recipeFor, type StaffWar } from '../support/staffRecords'
+import { addAdminWar, detailRecipe, recipeFor, type AdminWarRecord } from '../support/adminRecords'
 
 const { Given, Then } = createBdd(test, { tags: '@admin-wars' })
 
-type StaffWarDetail = ReturnType<typeof adminWarDetail>
+type AdminWarDetailRecord = ReturnType<typeof adminWarDetail>
 type WarReport = ReturnType<typeof report>
 
 // --- Arrange ---------------------------------------------------------------
 
-const detailOf = (world: World) => detailRecipe(world, 'war').responses[0]!.body as StaffWarDetail
+const detailOf = (world: World) => detailRecipe(world, 'war').responses[0]!.body as AdminWarDetailRecord
 const reportsOf = (world: World) => (recipeFor(world, `/wars/${world.warId}/reports`).responses[0]!.body as { reports: WarReport[] }).reports
 
-// The API filters as the Staff list is filtered: by status (a removed War only
+// The API filters as the Wars list is filtered: by status (a removed War only
 // under "removed") and by the words of a title or a creator's name.
-const hasStatus = (status: string) => (war: StaffWar) => war.removed_at === null && war.status === status
+const hasStatus = (status: string) => (war: AdminWarRecord) => war.removed_at === null && war.status === status
 const FILTERS = {
-  statuses: { draft: hasStatus('draft'), published: hasStatus('published'), closed: hasStatus('closed'), removed: (war: StaffWar) => war.removed_at !== null },
-  text: (war: StaffWar) => `${war.title ?? ''} ${war.creator_name}`,
+  statuses: { draft: hasStatus('draft'), published: hasStatus('published'), closed: hasStatus('closed'), removed: (war: AdminWarRecord) => war.removed_at !== null },
+  text: (war: AdminWarRecord) => `${war.title ?? ''} ${war.creator_name}`,
 }
 
 // The queue holds the listed Wars that have unaddressed reports.
-function queueListed(world: World, wars: StaffWar[], pageSize = wars.length): void {
+function queueListed(world: World, wars: AdminWarRecord[], pageSize = wars.length): void {
   const waiting = wars.filter((war) => war.unaddressed_report_count > 0)
   world.queue(
     pagedListRecipe('/admin/wars', 'wars', wars, pageSize),
@@ -41,22 +41,22 @@ function queueListed(world: World, wars: StaffWar[], pageSize = wars.length): vo
   )
 }
 
-Given('the API lists these Wars to Staff:', async ({ world }, table: DataTable) => {
+Given('the API lists these Wars to Moderators:', async ({ world }, table: DataTable) => {
   // Arrange
-  queueListed(world, table.hashes().map((row) => addStaffWar(world, row)))
+  queueListed(world, table.hashes().map((row) => addAdminWar(world, row)))
 })
 
-Given('the API lists these Wars to Staff, {int} per page:', async ({ world }, size: number, table: DataTable) => {
+Given('the API lists these Wars to Moderators, {int} per page:', async ({ world }, size: number, table: DataTable) => {
   // Arrange
-  queueListed(world, table.hashes().map((row) => addStaffWar(world, row)), size)
+  queueListed(world, table.hashes().map((row) => addAdminWar(world, row)), size)
 })
 
 // Joins the Wars list, as a War of its own.
-Given(/^the API lists a (published|removed) War(?: titled "([^"]*)")? to Staff$/, async ({ world }, state: string, title?: string) => {
+Given(/^the API lists a (published|removed) War(?: titled "([^"]*)")? to Moderators$/, async ({ world }, state: string, title?: string) => {
   // Arrange
-  const war = addStaffWar(world, { title: title ?? 'Alpha War', removed: state === 'removed' ? 'yes' : '' })
+  const war = addAdminWar(world, { title: title ?? 'Alpha War', removed: state === 'removed' ? 'yes' : '' })
   const list = world.recipes.find((recipe) => recipe.path === `${API}/admin/wars` && !recipe.query)
-  if (list) (list.responses[0]!.body as { wars: StaffWar[] }).wars.push(war)
+  if (list) (list.responses[0]!.body as { wars: AdminWarRecord[] }).wars.push(war)
   else world.queue(pagedListRecipe('/admin/wars', 'wars', [war]))
 })
 

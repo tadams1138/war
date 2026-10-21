@@ -22,16 +22,34 @@ describe('moderationLogRepository (war-spec.md §6.7)', () => {
     // Act
     await logAction(harness.db, {
       action: 'warn_war',
-      staffVoterId: staff.id,
+      actorVoterId: staff.id,
       targetWarId: war.id,
     });
     await deleteWarRow(harness.db, war.id);
 
     // Assert
-    const outcome = await listModerationLog(harness.db, { limit: 10 });
+    const outcome = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: true, roleChange: true } });
     expect(outcome.kind).toBe('ok');
     const entries = outcome.kind === 'ok' ? outcome.entries : [];
     expect(entries).toHaveLength(1);
     expect(entries[0]?.targetWarId).toBe(war.id);
+  });
+
+  it('shows a reader holding both roles the moderation and the role-change entries', async () => {
+    // Arrange
+    const actor = await makeVoter(harness.db, 'actor');
+    await logAction(harness.db, { action: 'grant_role_moderator', actorVoterId: actor.id, targetVoterId: actor.id });
+    await logAction(harness.db, { action: 'ban_voter', actorVoterId: actor.id, targetVoterId: actor.id });
+
+    // Act
+    const both = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: true, roleChange: true } });
+    const moderationOnly = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: true, roleChange: false } });
+    const roleChangeOnly = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: false, roleChange: true } });
+
+    // Assert
+    const actions = (outcome: typeof both) => (outcome.kind === 'ok' ? outcome.entries.map((entry) => entry.action) : []);
+    expect(actions(both)).toEqual(['ban_voter', 'grant_role_moderator']);
+    expect(actions(moderationOnly)).toEqual(['ban_voter']);
+    expect(actions(roleChangeOnly)).toEqual(['grant_role_moderator']);
   });
 });

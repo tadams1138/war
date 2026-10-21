@@ -56,7 +56,8 @@ When('they choose a valid War export file that includes a share image', async ({
 
 Then('a new draft War is created from it', async ({ page }) => {
   // Assert
-  const log = await waitForCallLog(page, (calls) => posted(calls, `/wars/${WAR_ID}/contestants`).length > 0)
+  const bodiesIn = (calls: MswCallLogEntry[]) => calls.filter((entry) => entry.method === 'POST').every((entry) => entry.body !== undefined)
+  const log = await waitForCallLog(page, (calls) => posted(calls, `/wars/${WAR_ID}/contestants`).length > 0 && bodiesIn(calls))
   expect(posted(log, '/wars')).toEqual([expect.objectContaining({ title: exported.title, category: exported.category })])
   expect(posted(log, `/wars/${WAR_ID}/contestants`)).toEqual([expect.objectContaining({ name: exported.contestants[0]!.name })])
 })

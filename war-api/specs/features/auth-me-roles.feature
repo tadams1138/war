@@ -1,6 +1,6 @@
 Feature: The signed-in Voter's roles
 
-  Scenario Outline: GET /api/v1/auth/me reports the caller's Staff roles
+  Scenario Outline: GET /api/v1/auth/me reports the caller's roles
     Given a <caller>
     When they call GET /api/v1/auth/me
     Then the response status is 200
@@ -9,4 +9,5 @@ Feature: The signed-in Voter's roles
     Examples:
       | caller      | moderator | admin |
       | Moderator   | true      | false |
+      | Admin       | false     | true  |
       | plain Voter | false     | false |

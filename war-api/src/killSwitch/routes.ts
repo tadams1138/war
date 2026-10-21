@@ -4,7 +4,7 @@ import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { errorResponseSchema } from '../shared/httpOutcomes.js';
-import { requireModeratorOrAdmin } from '../auth/guards.js';
+import { requireModerator } from '../auth/guards.js';
 import { isKillSwitchEnabled } from './killSwitchRepository.js';
 import { changeKillSwitch } from './killSwitchService.js';
 
@@ -24,7 +24,7 @@ export function registerKillSwitchRoutes(app: FastifyInstance, deps: KillSwitchR
 
   app.get(
     '/kill-switch',
-    bearerAuthRoute(auth, { response: { 200: killSwitchViewSchema, 403: errorResponseSchema } }, [requireModeratorOrAdmin]),
+    bearerAuthRoute(auth, { response: { 200: killSwitchViewSchema, 403: errorResponseSchema } }, [requireModerator]),
     async (_request, reply) => reply.send({ enabled: await isKillSwitchEnabled(db) }),
   );
 
@@ -36,7 +36,7 @@ export function registerKillSwitchRoutes(app: FastifyInstance, deps: KillSwitchR
         body: { type: 'object', required: ['enabled'], properties: { enabled: { type: 'boolean' } } },
         response: { 200: killSwitchViewSchema, 403: errorResponseSchema },
       },
-      [requireModeratorOrAdmin],
+      [requireModerator],
     ),
     async (request, reply) => reply.send({ enabled: await changeKillSwitch(db, request.voterId!, request.body.enabled) }),
   );

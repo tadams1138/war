@@ -23,7 +23,7 @@ export type ListAdminVotersOutcome = { kind: 'ok'; voters: AdminVoter[]; nextCur
 export interface ListAdminVotersOptions {
   limit: number;
   cursor?: string;
-  /** `suspended`, `banned`, or `staff` (a Moderator or an Admin). */
+  /** `suspended`, `banned`, or `role` (holds the Moderator or the Admin role). */
   status?: string;
   /** Case-insensitive substring of the display name. */
   q?: string;
@@ -69,7 +69,7 @@ type AdminVotersQuery = ReturnType<typeof baseAdminVotersQuery>;
 const STATUS_FILTERS: Record<string, (query: AdminVotersQuery) => AdminVotersQuery> = {
   suspended: (query) => query.where('voters.suspended_at', 'is not', null),
   banned: (query) => query.where('voters.banned_at', 'is not', null),
-  staff: (query) => query.where((eb) => eb.or([eb('voters.is_moderator', '=', true), eb('voters.is_admin', '=', true)])),
+  role: (query) => query.where((eb) => eb.or([eb('voters.is_moderator', '=', true), eb('voters.is_admin', '=', true)])),
 };
 
 function applyStatus(query: AdminVotersQuery, status: string | undefined): AdminVotersQuery {
