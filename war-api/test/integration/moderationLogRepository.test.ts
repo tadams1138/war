@@ -28,7 +28,7 @@ describe('moderationLogRepository (war-spec.md §6.7)', () => {
     await deleteWarRow(harness.db, war.id);
 
     // Assert
-    const outcome = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: true, roleChange: true } });
+    const outcome = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: true, roleChange: true, ownerAction: true } });
     expect(outcome.kind).toBe('ok');
     const entries = outcome.kind === 'ok' ? outcome.entries : [];
     expect(entries).toHaveLength(1);
@@ -42,9 +42,9 @@ describe('moderationLogRepository (war-spec.md §6.7)', () => {
     await logAction(harness.db, { action: 'ban_voter', actorVoterId: actor.id, targetVoterId: actor.id });
 
     // Act
-    const both = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: true, roleChange: true } });
-    const moderationOnly = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: true, roleChange: false } });
-    const roleChangeOnly = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: false, roleChange: true } });
+    const both = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: true, roleChange: true, ownerAction: true } });
+    const moderationOnly = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: true, roleChange: false, ownerAction: false } });
+    const roleChangeOnly = await listModerationLog(harness.db, { limit: 10, visibility: { moderation: false, roleChange: true, ownerAction: true } });
 
     // Assert
     const actions = (outcome: typeof both) => (outcome.kind === 'ok' ? outcome.entries.map((entry) => entry.action) : []);

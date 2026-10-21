@@ -66,9 +66,9 @@ to it.
 |---|---|
 | **Anonymous Visitor** | Browse and view rankings of public Wars; cannot vote |
 | **Voter** | Authenticated; may join Wars, cast votes, view rankings, file abuse reports (§8.5) |
-| **War Creator** | A Voter who created a specific War; manages it through its lifecycle |
+| **War Creator** | A Voter who created a specific War; manages it through its lifecycle. An Admin has the same powers over every War (below) |
 | **Moderator** | An account-level role, granted by an Admin; holds the moderation capabilities: abuse-report review (§8.5), removing Wars, suspending and banning Voters, the War-creation kill switch, the moderation views of Wars and Voters, and the moderation entries of the moderation log (§6.7) |
-| **Admin** | An account-level role, granted by another Admin; responsible for role assignment only: granting and revoking Moderator and Admin on any Voter, with the role-change entries of the moderation log (§6.7). Implies no Moderator capability |
+| **Admin** | An account-level role, granted by another Admin; responsible for role assignment — granting and revoking Moderator and Admin on any Voter, with the role-change entries of the moderation log (§6.7) — and holding a War Creator's powers over every War, whoever created it (§6.1), with the owner-action entries of the moderation log. Implies no Moderator capability |
 
 "War Creator" is a relationship to a particular War, not an account type. A Voter becomes
 one by creating a War. **Moderator and Admin are account-level roles**, independent of any
@@ -78,6 +78,11 @@ also creating Wars of their own. An Admin who wants the moderation capabilities 
 themselves Moderator. Holding Moderator does not, on its own, exempt a Voter's
 own Wars from being reported by others; report visibility follows the Moderator role, not
 War ownership.
+
+An Admin's War Creator powers are not moderation: an Admin who is not a Moderator can edit,
+publish, unpublish, clear the votes of, export and delete any War, but cannot suspend, ban,
+remove or review reports. A Moderator who is not an Admin gets none of the War Creator powers
+over Wars they did not create.
 
 A Voter may act through any client interchangeably — the default UI or a custom UI. Each is
 a different route to the same identity, and the API is the sole authority over what that
@@ -103,9 +108,9 @@ A named voting campaign, owned by its creator.
 | Theme | `arcade`, `fight_card`, or `scrapbook` (below); set by the creator, overridable per voter |
 | Share image | Optional; a single 1200×630 image shown on the War's card and used as its link-preview thumbnail when shared outside the platform. Distinct from contestant media — one fixed-size image per War, not a set of responsive variants. |
 
-A War is created as a draft. All configuration is editable in any status, by its creator,
-always (§6.1). Its matchups exist as soon as it has contestants to generate them from — they
-are not tied to publishing. Publishing makes the War reachable by anyone but its creator and is
+A War is created as a draft. All configuration is editable in any status, by its creator
+(or any Admin), always (§6.1). Its matchups exist as soon as it has contestants to generate them from — they
+are not tied to publishing. Publishing makes the War reachable by anyone but its creator (and any Admin) and is
 freely reversed by unpublishing (§6.1). Closing ends voting for good; rankings remain readable.
 
 **Effective status.** An end date is enforced *lazily, on every read and write*. A War is
@@ -117,8 +122,8 @@ the stored value, but correctness never depends on that task having run. A misse
 degrades query efficiency and reporting freshness only. The task is safe to run repeatedly
 and concurrently. Each expired War is closed exactly once.
 
-Expiry never publishes anything. A draft whose end date passes reads as closed to its creator
-and to Moderators. It stays invisible to everyone else, and it never appears in any public list.
+Expiry never publishes anything. A draft whose end date passes reads as closed to its creator,
+to Admins and to Moderators. It stays invisible to everyone else, and it never appears in any public list.
 
 ### 4.2 Contestant
 
@@ -313,7 +318,7 @@ This requires authentication and is the only thing that widens visibility.
 mode, theme, and end date are all optional, with defaults (public, image mode, `arcade`). The
 War is created as a draft owned by the authenticated voter and can be filled in afterward.
 
-**Publishing is visibility, not a one-time step.** Only the creator may toggle it — **Publish**
+**Publishing is visibility, not a one-time step.** Only the creator, or an Admin, may toggle it — **Publish**
 and **Unpublish** are the two directions of one reversible switch, at any time — `draft` and
 `published` are reversible states, not a one-way gate. Publishing requires at least two
 contestants; unpublishing requires nothing and does not touch any matchup, vote, or contestant.
@@ -323,11 +328,11 @@ terminal state, reached only by its end date passing (§4.1, "Effective status")
 reversible toggle affects it, and nothing reverses it: a closed War can be neither published nor
 unpublished.
 
-**A War not currently published is invisible to everyone but its creator**, exactly like a War
+**A War not currently published is invisible to everyone but its creator and Admins**, exactly like a War
 that has never been published: its detail, rankings, and vote pages report it as not found
 (§10.5) to anyone else, the same response an actually-missing War produces, never a distinct
 "this exists but is private" signal that would confirm its existence to someone it isn't meant
-for. The creator can always reach it, in any state.
+for. The creator can always reach it, in any state, and so can an Admin (below); a Moderator's view of it is the read-only moderation view (§6.7).
 
 **Unlisted Wars are reached by link, not by browsing.** Once published, anyone may view one
 and read its rankings, signed in or not; any signed-in voter may join and vote, exactly as in
@@ -346,14 +351,25 @@ votes as part of removing it — scoped to that contestant's own matchups only, 
 War — and, like every destructive action on this page, asks for confirmation first, naming
 what will be lost.
 
+**An Admin may do to any War everything its creator can**, in every status — draft,
+unlisted, published and closed: edit its details (title, category, visibility, theme, end
+date, share image), add, edit, remove and reorder its contestants and their images, publish,
+unpublish, clear its votes, delete and export it. For this an Admin can open and read someone
+else's draft or unlisted War, which no one else can. This power attaches to the Admin role
+alone: a Moderator has none of it, and holding any role never lets someone vote in, or join, a
+War they otherwise couldn't. A War removed by a Moderator (§6.7) stays out of reach of
+everyone, an Admin included. Each such action an Admin takes on a War they did not create is
+recorded in the moderation log (§6.7); on their own War, an Admin is simply its creator and
+nothing is recorded.
+
 **Deletion** removes a War, its contestants, its media, its votes, and any reports filed
 against it, entirely, in any status. Media means every stored file too, not just the record of
 it, and the same holds when a creator removes a single contestant or image. Files are
 reclaimed after the deletion itself succeeds. A failure there leaves an orphaned file, never a
-half-deleted War. Only the creator may delete, and confirmation is always
+half-deleted War. Only the creator, or an Admin, may delete, and confirmation is always
 required first — this app's standard guard on anything that cannot be undone (§10.4).
 
-**Clear Votes**, reachable by the creator from the Edit page in any status, deletes every vote
+**Clear Votes**, reachable by the creator (or an Admin) from the Edit page in any status, deletes every vote
 cast in the War and resets every contestant's win and appearance counters to zero — the same
 starting point as before anyone voted. Membership records are untouched: joining already
 happens silently on every vote-page visit, so nothing about re-voting changes whether or not a
@@ -363,7 +379,7 @@ deliberate reset of their own War.
 
 ### 6.2 Contestants and media
 
-Contestants may be added, updated and removed at any time, by its creator only, in any status
+Contestants may be added, updated and removed at any time, by its creator or an Admin only, in any status
 (§6.1) — adding and updating are always unconditional; removing a contestant with votes on its
 matchups clears those votes as part of removing it (§6.1).
 
@@ -451,7 +467,7 @@ because effective status (§4.1) already treats those Wars as closed.
 ### 6.7 Administration
 
 **Moderator** and **Admin** are independent account-level roles (§3). **Admin is for role
-assignment only; Moderator is for moderation only.** Granting or revoking either on a Voter is
+assignment and owner-level control of Wars; Moderator is for moderation only.** Granting or revoking either on a Voter is
 an Admin-only operation; every other caller, Moderator included, is refused as forbidden.
 A Voter cannot grant themselves a role, with one exception: an Admin may grant themselves
 Moderator, keeping Admin, and may revoke their own Moderator role. A **role holder** below is a Voter
@@ -474,12 +490,15 @@ exist at all.
 closed — and every Voter, including a Voter's own complete vote history (§8.3's audit
 trail, otherwise kept for future tooling, surfaced here to a human instead). An Admin who is
 not a Moderator may view every Voter and one Voter with all their Wars, to manage roles, and
-nothing else. This is the only way visibility scoping (§6.1's default scoping, and "a War not
-currently published is invisible to everyone but its creator") is ever bypassed.
+may open any War, in any status, through the ordinary War routes to exercise a creator's powers
+over it (§6.1), but not the moderation views of Wars. These two are the only ways visibility
+scoping (§6.1's default scoping, and "a War not currently published is invisible to everyone
+but its creator and Admins") is ever bypassed.
 
-That bypass lives only in these read-only views, never on the ordinary routes. A
-Moderator browsing the public site sees exactly what any Voter sees. Holding either role never
-lets someone vote in, join, or edit a War they otherwise couldn't. The views also include
+A Moderator's bypass lives only in the read-only views below, never on the ordinary routes: a
+Moderator browsing the public site sees exactly what any Voter sees. Holding a role never lets
+someone vote in or join a War they otherwise couldn't; only an Admin's owner powers (§6.1) let
+someone other than a War's creator edit it. The views also include
 removed Wars, which no ordinary route ever shows. They cover:
 - Moderator only: every War, filterable by status (including "removed") and by text matching
   its title or creator's name, with each War's count of unaddressed reports
@@ -503,7 +522,7 @@ audit trail (§8.3) for whatever the moderation was investigating. Only the medi
 the reason for the removal, is actually reclaimed.
 
 A removed War behaves as if it doesn't exist, everywhere. It can't be viewed, listed,
-voted on, edited, published, reported, or deleted, not even by its own creator. A creator's
+voted on, edited, published, reported, or deleted, not even by its own creator or an Admin. A creator's
 Delete can't erase what the moderation preserved. Removing is Moderator only; everyone else,
 Admins who are not Moderators included, is refused as forbidden. Removing a War that doesn't exist or is already removed reports not found. The removal and its moderation log entry happen together. Media is reclaimed only
 after the removal commits. If reclaiming fails, the War stays removed: an orphaned file costs
@@ -542,13 +561,15 @@ creation as disabled, and counts against no rate limit. The switch is off until 
 Its state is shared by every running API instance and survives restarts.
 
 **An append-only moderation log** records every moderation action — Remove a War,
-Suspend/unsuspend, Ban/unban, toggling the kill switch — and every role grant or revoke by an
-Admin, with which role holder, the target, and when. Never edited or deleted, mirroring
+Suspend/unsuspend, Ban/unban, toggling the kill switch — every role grant or revoke by an
+Admin, and every owner-level action (§6.1) an Admin takes on a War they did not create, naming
+the War, with which role holder, the target, and when. Never edited or deleted, mirroring
 votes' own immutability (§8.1), and for the same reason: several role holders may exist, and each
 must be individually accountable for what they did. An action and its log entry stand or
 fall together. If the entry can't be recorded, the action doesn't happen, and a refused
 action records nothing. A Moderator can read the moderation entries, newest first, and an Admin the role-change
-entries (grants and revokes), newest first; a Voter holding both reads both. Everyone else is refused as forbidden. The log is read a page at a time (§6); paging never skips or repeats an
+entries (grants and revokes) and the owner-action entries, newest first; a Voter holding both
+reads all of them. Everyone else is refused as forbidden. The log is read a page at a time (§6); paging never skips or repeats an
 entry, even when several entries share a timestamp.
 Entries outlive their targets: deleting a War never removes or blocks on its log entries.
 Each entry, as read, names the acting role holder and the target by their current display
@@ -816,7 +837,7 @@ against, so those tests exercise real shapes rather than believed ones.
 | War detail | Overview and results — one merged, rank-ordered list, not a gallery plus a separate leaderboard; any published War, listed or unlisted | No |
 | Vote | Binary matchup voting | Yes |
 | Start a War | Creates an empty draft War and forwards to its Edit page | Yes |
-| Edit War | Metadata, contestants and media, Publish/Unpublish, Clear Votes, and Delete, for any War the voter created, any status | Yes |
+| Edit War | Metadata, contestants and media, Publish/Unpublish, Clear Votes, and Delete, for any War the voter created, or any War at all for an Admin, any status | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
 | Admin Dashboard | Every War and Voter, moderation actions, role assignment, the moderation log (§6.7); Moderator or Admin, each seeing only its own panels | Yes |
 | Sign in | Provider selection | No |
@@ -831,7 +852,7 @@ sensitive, so there is no need for a not-found-shaped response here. A way into 
 Dashboard appears in the navigation only for a Moderator or an Admin. The dashboard shows each
 role only its own panels: a Moderator the Wars, the unaddressed reports queue, the Voters, the
 kill switch and the moderation log's moderation entries; an Admin who is not a Moderator the
-Voters and the moderation log's role-change entries. A Voter holding both sees every panel. Turning the War-creation kill switch on
+Voters and the moderation log's role-change and owner-action entries. The Admin Dashboard does not list Wars for an Admin who is not a Moderator. A Voter holding both sees every panel. Turning the War-creation kill switch on
 from the dashboard asks for confirmation first, since it stops all creation. Turning it off
 needs none. A banned Voter who tries to sign in is told plainly that the account is banned,
 not shown a generic failure.
@@ -986,7 +1007,8 @@ Results poll while the War is published. **A failed poll does not clear already-
 on its own. This does not apply to the *initial* load, where there is no last-good data to
 fall back on and the standard error state applies.
 
-**The results page carries its own entry points, each conditional.** Its creator sees an
+**The results page carries its own entry points, each conditional.** Its creator, and any Admin
+on any War, sees an
 **Edit** entry point there too, in any status — editing is never status-gated (§6.1) — offered
 a second time from the page a creator is more likely to already be on, alongside the same
 **Delete** affordance the Edit page itself carries (below). A large, centered **Vote** call to
@@ -994,12 +1016,12 @@ action, set apart from the ordinary Edit/Delete/Export row rather than one item 
 appears for a published War whenever there's a reason to tap it: an anonymous visitor (tapping
 it sends them to sign in and back, the same as Home's own Vote link), or an
 authenticated voter who hasn't yet cast every vote — returning them to where they left off.
-Neither the Edit nor Delete affordance appears for a War that isn't the viewer's own; Vote
+Neither the Edit nor Delete affordance appears for a War that isn't the viewer's own, unless the viewer is an Admin; Vote
 additionally requires the War to be published, and disappears once an authenticated voter has
 cast every vote. In its place, at the top of the page, that voter sees a one-line notice —
 "You've voted on every matchup — thank you!" — confirming there's nothing left to do here.
 
-**Export**, available to a War's creator on both its results page and its edit page regardless
+**Export**, available to a War's creator (and any Admin) on both its results page and its edit page regardless
 of status, downloads a personal backup of the War's definition — title, category, visibility,
 theme, and each contestant's name, bio, and images — as a single file the creator can keep. It
 carries no votes, rankings, or win counts; it exists to let a creator recreate a War, not to
@@ -1080,11 +1102,11 @@ the per-contestant cap), **Publish/Unpublish**, **Clear Votes**, and **Delete**.
 fixed order to walk, and none of it is gated by status — a War the creator finished voting on
 is exactly as editable as one they just created. Unsaved changes to the War's own details are
 kept while the creator moves between those details and the War's contestants on the page. They
-are discarded only when the creator leaves the page without saving. It is reachable only from its own My Wars
-card, not from the public War detail page, and only for its creator: opened any other way, a
-non-owner sees whatever the War itself would show them (§6.1) — not found for a War that isn't
-published, a plain "this isn't your War" for one that is, never a form they could try to
-submit.
+are discarded only when the creator leaves the page without saving. It is reachable from the creator's own My Wars
+card or War detail page, and for an Admin from any War's detail page, and only for those: opened
+any other way, anyone else sees whatever the War itself would show them (§6.1) — not found for a
+War that isn't published, a plain "this isn't your War" for one that is, never a form they could
+try to submit. An Admin's Edit page offers everything the creator's does.
 
 **The share image** is set one of two ways, both reachable from the same metadata form: upload
 a file directly, or generate one from the draft's own contestants — two of them chosen at

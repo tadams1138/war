@@ -49,3 +49,8 @@ Feature: Remove a War
     Given a published War, a Moderator and storage that fails to delete
     When the Moderator removes the War
     Then the response is 204 and the War stays removed
+
+  Scenario: An Admin cannot delete, edit or publish a removed War
+    Given a removed published War and an Admin
+    When the Admin DELETEs, PATCHes and publishes the War
+    Then all three responses are 404 and the War, its contestants, matchups and votes still exist

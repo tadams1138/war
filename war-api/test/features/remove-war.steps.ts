@@ -4,7 +4,7 @@ import request from 'supertest';
 import { expect, vi } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { setWarShareImageKey } from '../../src/wars/warsRepository.js';
-import { makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
+import { makeAdmin, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as } from '../setup/apiClient.js';
@@ -81,6 +81,54 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
         await as(harness, creatorId).delete(`/api/v1/wars/${warId}`),
         await as(harness, creatorId).patch(`/api/v1/wars/${warId}`, { title: 'Edited' }),
         await as(harness, creatorId).post(`/api/v1/wars/${warId}/publish`),
+      ];
+    });
+
+    Then('all three responses are 404 and the War, its contestants, matchups and votes still exist', async () => {
+      // Assert
+      expect(responses.map((r) => r.status)).toEqual([404, 404, 404]);
+      const count = async (table: 'wars' | 'contestants' | 'matchups' | 'votes') =>
+        (await harness.db.selectFrom(table).selectAll().execute()).length;
+      expect(await count('wars')).toBe(1);
+      expect(await count('contestants')).toBe(2);
+      expect(await count('matchups')).toBe(1);
+      expect(await count('votes')).toBe(1);
+    });
+  });
+
+  Scenario('An Admin cannot delete, edit or publish a removed War', ({ Given, When, Then }) => {
+    let creatorId: string;
+    let adminId: string;
+    let warId: string;
+    let responses: request.Response[];
+
+    Given('a removed published War and an Admin', async () => {
+      // Arrange
+      creatorId = (await makeVoter(harness.db, 'creator')).id;
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+      const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, creatorId, 2);
+      warId = (await publishWarForTest(harness.db, war)).id;
+      const matchup = await harness.db.selectFrom('matchups').selectAll().where('war_id', '=', warId).executeTakeFirstOrThrow();
+      await harness.db
+        .insertInto('votes')
+        .values({
+          id: newId(),
+          matchup_id: matchup.id,
+          voter_id: creatorId,
+          winner_id: contestants[0]!.id,
+          presented_left_id: contestants[0]!.id,
+        })
+        .execute();
+      await as(harness, moderatorId).post(`/api/v1/wars/${warId}/remove`);
+    });
+
+    When('the Admin DELETEs, PATCHes and publishes the War', async () => {
+      // Act
+      responses = [
+        await as(harness, adminId).delete(`/api/v1/wars/${warId}`),
+        await as(harness, adminId).patch(`/api/v1/wars/${warId}`, { title: 'Edited' }),
+        await as(harness, adminId).post(`/api/v1/wars/${warId}/publish`),
       ];
     });
 

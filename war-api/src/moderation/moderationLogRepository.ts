@@ -1,6 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { newId } from '../db/uuid.js';
+import { OWNER_ACTIONS } from './ownerActions.js';
 import { createdAtText, fetchKeysetPage, type InvalidCursor } from '../shared/keysetCursor.js';
 
 export interface ModerationLogEntry {
@@ -35,17 +36,23 @@ function toEntry(row: ModerationLogRow): ModerationLogEntry {
   };
 }
 
-/** Which entries a reader may see: moderation actions (Moderator), role changes (Admin), or both. */
+/** Which entries a reader may see: moderation actions (Moderator), role changes and an Admin's owner actions (Admin), or both. */
 export interface ModerationLogVisibility {
   moderation: boolean;
   roleChange: boolean;
+  ownerAction: boolean;
 }
 
 const ROLE_CHANGE_ACTION = sql<boolean>`moderation_log.action ~ '^(grant|revoke)_role_'`;
+const OWNER_ACTION = sql<boolean>`moderation_log.action in (${sql.join(OWNER_ACTIONS)})`;
 
 function visibilityFilter(visibility: ModerationLogVisibility) {
-  if (visibility.moderation && visibility.roleChange) return sql<boolean>`true`;
-  return visibility.roleChange ? ROLE_CHANGE_ACTION : sql<boolean>`not (${ROLE_CHANGE_ACTION})`;
+  const kinds = [
+    visibility.roleChange ? ROLE_CHANGE_ACTION : null,
+    visibility.ownerAction ? OWNER_ACTION : null,
+    visibility.moderation ? sql<boolean>`not (${ROLE_CHANGE_ACTION} or ${OWNER_ACTION})` : null,
+  ].filter((kind) => kind !== null);
+  return kinds.length === 0 ? sql<boolean>`false` : sql<boolean>`(${sql.join(kinds, sql` or `)})`;
 }
 
 export type ListModerationLogOutcome = { kind: 'ok'; entries: ModerationLogEntry[]; nextCursor: string | null } | InvalidCursor;
@@ -72,7 +79,7 @@ function moderationLogQuery(db: Kysely<Database>, visibility: ModerationLogVisib
 
 type ModerationLogRow = Awaited<ReturnType<ReturnType<typeof moderationLogQuery>['execute']>>[number];
 
-/** One page of logged moderation and role-change actions, newest first (§6.7); `nextCursor` is set only when a further entry exists. */
+/** One page of logged moderation, role-change and owner actions, newest first (§6.7); `nextCursor` is set only when a further entry exists. */
 export async function listModerationLog(
   db: Kysely<Database>,
   options: { limit: number; cursor?: string; visibility: ModerationLogVisibility },

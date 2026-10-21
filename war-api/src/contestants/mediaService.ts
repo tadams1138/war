@@ -1,9 +1,9 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
-import { loadOwnedWar } from '../wars/warAccess.js';
+import { loadOwnedWar, recordOwnerAction, type Caller, type OwnedWarOutcome } from '../wars/warAccess.js';
 import { deleteMediaObjects, imageMediaPrefixes } from '../wars/warMediaStorage.js';
-import type { Forbidden, MutationOutcome, NotFound } from '../shared/outcomes.js';
+import type { MutationOutcome } from '../shared/outcomes.js';
 import { findContestantById } from './contestantsRepository.js';
 import { deleteMedia, findMediaById, setDisplayOrder, type ContestantMedia } from './contestantMediaRepository.js';
 import { MAX_IMAGES_PER_CONTESTANT, uploadContestantImage } from './imageUploadService.js';
@@ -14,21 +14,21 @@ async function guardOwnedContestant(
   db: Kysely<Database>,
   warId: string,
   contestantId: string,
-  voterId: string,
-): Promise<{ kind: 'ok' } | NotFound | Forbidden> {
-  const warGuard = await loadOwnedWar(db, warId, voterId);
+  caller: Caller,
+): Promise<OwnedWarOutcome> {
+  const warGuard = await loadOwnedWar(db, warId, caller);
   if (warGuard.kind !== 'ok') return warGuard;
 
   const contestant = await findContestantById(db, contestantId);
   if (!contestant || contestant.warId !== warId) return { kind: 'notFound' };
 
-  return { kind: 'ok' };
+  return warGuard;
 }
 
 export interface AddImageInput {
   warId: string;
   contestantId: string;
-  voterId: string;
+  caller: Caller;
   buffer: Buffer;
   mimeType: string;
   originalExt: string;
@@ -37,7 +37,7 @@ export interface AddImageInput {
 export type AddImageOutcome = MutationOutcome<ContestantMedia>;
 
 export async function addContestantImage(db: Kysely<Database>, storage: ObjectStorage, input: AddImageInput): Promise<AddImageOutcome> {
-  const guard = await guardOwnedContestant(db, input.warId, input.contestantId, input.voterId);
+  const guard = await guardOwnedContestant(db, input.warId, input.contestantId, input.caller);
   if (guard.kind !== 'ok') return guard;
 
   const outcome = await uploadContestantImage(db, storage, {
@@ -53,6 +53,7 @@ export async function addContestantImage(db: Kysely<Database>, storage: ObjectSt
   if (outcome.kind === 'invalidUpload') {
     return { kind: 'validationError', errors: ['invalid image upload'] };
   }
+  await recordOwnerAction(db, guard, 'add_image');
   return outcome;
 }
 
@@ -61,16 +62,17 @@ export async function reorderContestantMedia(
   warId: string,
   contestantId: string,
   mediaId: string,
-  voterId: string,
+  caller: Caller,
   displayOrder: number,
 ): Promise<MutationOutcome<void>> {
-  const guard = await guardOwnedContestant(db, warId, contestantId, voterId);
+  const guard = await guardOwnedContestant(db, warId, contestantId, caller);
   if (guard.kind !== 'ok') return guard;
 
   const media = await findMediaById(db, mediaId);
   if (!media || media.contestantId !== contestantId) return { kind: 'notFound' };
 
   await setDisplayOrder(db, mediaId, displayOrder);
+  await recordOwnerAction(db, guard, 'reorder_images');
   return { kind: 'ok', value: undefined };
 }
 
@@ -82,9 +84,9 @@ export async function removeContestantMedia(
   warId: string,
   contestantId: string,
   mediaId: string,
-  voterId: string,
+  caller: Caller,
 ): Promise<MutationOutcome<void>> {
-  const guard = await guardOwnedContestant(db, warId, contestantId, voterId);
+  const guard = await guardOwnedContestant(db, warId, contestantId, caller);
   if (guard.kind !== 'ok') return guard;
 
   const media = await findMediaById(db, mediaId);
@@ -92,5 +94,6 @@ export async function removeContestantMedia(
 
   await deleteMedia(db, mediaId);
   await deleteMediaObjects(storage, log, imageMediaPrefixes(contestantId, media.storageKey), { warId, contestantId, mediaId });
+  await recordOwnerAction(db, guard, 'remove_image');
   return { kind: 'ok', value: undefined };
 }

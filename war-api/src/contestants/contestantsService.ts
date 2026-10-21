@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
-import { loadOwnedWar } from '../wars/warAccess.js';
+import { loadOwnedWar, recordOwnerAction, type Caller } from '../wars/warAccess.js';
 import { contestantMediaPrefixes, deleteMediaObjects } from '../wars/warMediaStorage.js';
 import type { ObjectStorage } from './storage.js';
 import { nonEmptyStringError } from '../shared/bodyValidation.js';
@@ -24,7 +24,7 @@ import {
 
 export interface CreateContestantInput {
   warId: string;
-  voterId: string;
+  caller: Caller;
   name: string;
   bio?: string | null;
 }
@@ -45,7 +45,7 @@ async function findContestantInWar(db: Kysely<Database>, warId: string, contesta
 }
 
 export async function addContestant(db: Kysely<Database>, input: CreateContestantInput): Promise<MutationOutcome<Contestant>> {
-  const guard = await loadOwnedWar(db, input.warId, input.voterId);
+  const guard = await loadOwnedWar(db, input.warId, input.caller);
   if (guard.kind !== 'ok') return guard;
 
   const nameError = invalidNameOutcome(input.name);
@@ -64,6 +64,7 @@ export async function addContestant(db: Kysely<Database>, input: CreateContestan
     contestant.id,
     existing.map((c) => c.id),
   );
+  await recordOwnerAction(db, guard, 'add_contestant');
   return { kind: 'ok', value: contestant };
 }
 
@@ -76,10 +77,10 @@ export async function patchContestant(
   db: Kysely<Database>,
   warId: string,
   contestantId: string,
-  voterId: string,
+  caller: Caller,
   input: PatchContestantInput,
 ): Promise<MutationOutcome<Contestant>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
+  const guard = await loadOwnedWar(db, warId, caller);
   if (guard.kind !== 'ok') return guard;
 
   const contestant = await findContestantInWar(db, warId, contestantId);
@@ -92,6 +93,7 @@ export async function patchContestant(
     name: input.name,
     bio: input.bio,
   });
+  await recordOwnerAction(db, guard, 'edit_contestant');
   return { kind: 'ok', value: updated };
 }
 
@@ -106,9 +108,9 @@ export async function removeContestant(
   log: FastifyBaseLogger,
   warId: string,
   contestantId: string,
-  voterId: string,
+  caller: Caller,
 ): Promise<MutationOutcome<void>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
+  const guard = await loadOwnedWar(db, warId, caller);
   if (guard.kind !== 'ok') return guard;
 
   const contestant = await findContestantInWar(db, warId, contestantId);
@@ -126,5 +128,6 @@ export async function removeContestant(
     }
   });
   await deleteMediaObjects(storage, log, contestantMediaPrefixes([contestantId]), { warId, contestantId });
+  await recordOwnerAction(db, guard, 'remove_contestant');
   return { kind: 'ok', value: undefined };
 }

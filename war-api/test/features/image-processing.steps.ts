@@ -4,7 +4,7 @@ import sharp from 'sharp';
 import request from 'supertest';
 import { expect } from 'vitest';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
-import { giveContestantAnImage, makeContestant, makeDraftWar, makeVoter } from '../setup/fixtures.js';
+import { giveContestantAnImage, makeAdmin, makeContestant, makeDraftWar, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as, uploadImage } from '../setup/apiClient.js';
@@ -217,6 +217,35 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then("only the second image's variants and original remain in storage", () => {
       // Assert
       expect(allKeys().sort()).toEqual([
+        `contestants/${contestantId}/${secondImageId}-400.webp`,
+        `originals/${contestantId}/${secondImageId}.jpg`,
+      ]);
+    });
+  });
+
+  Scenario("An Admin can delete an image of a contestant in another Voter's War", ({ Given, When, Then }) => {
+    let firstMediaId: string;
+    let secondImageId: string;
+
+    Given('a contestant with two uploaded images in a War created by Voter A', async () => {
+      // Arrange
+      await upload(await smallJpeg(500, 400));
+      await upload(await smallJpeg(500, 400));
+      const rows = await harness.db.selectFrom('contestant_media').selectAll().orderBy('display_order').execute();
+      firstMediaId = rows[0]!.id;
+      secondImageId = rows[1]!.storage_key!.split('/').pop()!;
+    });
+
+    When('an Admin deletes the first image', async () => {
+      // Act
+      const admin = await makeAdmin(harness.db, 'admin');
+      const response = await as(harness, admin.id).delete(`/api/v1/wars/${warId}/contestants/${contestantId}/media/${firstMediaId}`);
+      expect(response.status).toBe(204);
+    });
+
+    Then("only the second image's variants and original remain in storage", () => {
+      // Assert
+      expect(storedObjectKeys(harness.storage).sort()).toEqual([
         `contestants/${contestantId}/${secondImageId}-400.webp`,
         `originals/${contestantId}/${secondImageId}.jpg`,
       ]);
