@@ -30,6 +30,12 @@ export function contestantFrom(warId: string, row: Record<string, string>): Cont
 
 export const warDetail = (world: World): WarDetailResponse => recipeFor(world, `/wars/${world.warId}`).responses[0]!.body as WarDetailResponse
 
+// The API tells an Admin they can manage any War, not only the ones they created.
+export function letAdminManageEveryWar(world: World): void {
+  const details = world.recipes.filter((recipe) => recipe.method === 'GET' && /\/v1\/wars\/war-\d+$/.test(recipe.path))
+  for (const recipe of details) Object.assign(recipe.responses[0]!.body as WarDetailResponse, { can_manage: true })
+}
+
 export function contestantNamed(war: WarDetailResponse, name: string): ContestantDetail {
   const found = war.contestants.find((contestant) => contestant.name === name)
   if (!found) throw new Error(`Give the contestant "${name}" first`)

@@ -326,6 +326,12 @@ export async function deleteContestantMedia(warId: string, contestantId: string,
   await request(`/wars/${warId}/contestants/${contestantId}/media/${mediaId}`, { method: 'DELETE' }, classifyEditForbidden)
 }
 
+// Tells the API an export is starting so it can log an Admin's export of a
+// War they did not create (spec section 10.4). The zip itself is built here.
+export async function recordWarExport(warId: string): Promise<void> {
+  await request(`/wars/${warId}/export`, { method: 'POST' })
+}
+
 export function publishWar(warId: string): Promise<WarSummary> {
   return json(`/wars/${warId}/publish`, { method: 'POST' })
 }

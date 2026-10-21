@@ -70,6 +70,7 @@ export function buildWarDetail(overrides: Partial<WarDetailResponse> = {}): WarD
     ...buildWarSummary({ contestant_count: contestants.length, ...overrides }),
     contestants,
     is_owner: overrides.is_owner ?? false,
+    can_manage: overrides.can_manage ?? false,
   }
 }
 

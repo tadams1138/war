@@ -125,7 +125,8 @@ required-reviewer approval. See `war-spec.md` section 12.
   contestants in the browser; nothing is uploaded until Save.
 - **Export and import.** A War exports to a zip (`war.json` plus media, share image
   included) built client-side; import validates the whole file before sending anything,
-  then recreates the War through the ordinary endpoints. No dedicated backend endpoint.
+  then recreates the War through the ordinary endpoints. Starting an export also tells the API
+  (`POST /wars/:id/export`, which only logs it); a failure there never blocks the download.
 - **Lists.** Home and My Wars share one hook: sort, debounced search, Prev/Next over
   cursor-paged results with an in-memory page cache, ten Wars per page.
 - **Themes and chrome.** Three visual themes with a per-device, per-War voter override
@@ -138,10 +139,12 @@ required-reviewer approval. See `war-spec.md` section 12.
   moderation entries) with links to the Wars and Voters involved, War moderation page
   (`/admin/wars/:id`: standings, reports with mark-addressed, Remove War; Moderator only, an
   Admin who is not a Moderator is redirected Home). Admin: Voters list (filter Suspended,
-  Banned, Role holders) and moderation log (the role-change entries). Voter detail
+  Banned, Role holders) and moderation log (the role-change entries and the owner-level actions an
+  Admin took on Wars they did not create, each with a readable label). Voter detail
   (`/admin/voters/:id`, either role): Wars and badges for both; for a Moderator also the vote
-  history, links to the Wars and Suspend/Ban (never against a role holder or oneself); for an
-  Admin the role controls only (Grant/Revoke Moderator and Admin, an Admin never sees Revoke
+  history, links to the Wars' moderation pages and Suspend/Ban (never against a role holder or oneself); for an
+  Admin the role controls only, and each of the Voter's Wars links to its public detail page for a
+  viewer who is not a Moderator (how an Admin finds another Voter's draft or unlisted War) (Grant/Revoke Moderator and Admin, an Admin never sees Revoke
   Admin on themselves). A change to the viewer's own roles refetches their identity, so the
   dashboard reflects it at once. Destructive actions confirm first. Signing in as a banned
   voter shows a ban message.
@@ -207,7 +210,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | about 220 unit tests (24 files), 291 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
+| war-ui-default | 234 unit tests (25 files), 297 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: istanbul via
@@ -216,9 +219,9 @@ Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: ist
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
 | war-api (unit + integration + acceptance; `s3ObjectStorage` file not run, no Docker) | 90.06% | 83.05% | 93.81% | 91.58% |
-| war-ui-default, unit (218 tests) | 35.69% | 26.55% | 33.07% | 37.72% |
-| war-ui-default, acceptance (291 scenarios) | 89.31% | 80.46% | 93.75% | 92.28% |
-| war-ui-default, merged (unit and acceptance) | 91.85% | n/a (see above) | 96.95% | 94.12% |
+| war-ui-default, unit (234 tests) | 36.24% | 26.66% | 33.73% | 38.25% |
+| war-ui-default, acceptance (297 scenarios) | 89.44% | 80.89% | 93.76% | 92.35% |
+| war-ui-default, merged (unit and acceptance) | 91.97% | n/a (see above) | 97.11% | 94.19% |
 
 CI publishes the same tables in each pipeline's job summary and uploads the HTML reports as
 `api-coverage` and `ui-default-coverage` artifacts (14 days).

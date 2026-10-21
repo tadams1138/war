@@ -139,7 +139,7 @@ function useVoteProgress(warId: string, status: string): VoteProgress | 'anonymo
 }
 
 // Edit and Delete are never status-gated (spec §6.1) -- shown to the
-// creator regardless of the War's current status.
+// creator, or an Admin, regardless of the War's current status.
 function OwnerActions({ warId, onDeleteClick }: { warId: string; onDeleteClick: () => void }) {
   return (
     <>
@@ -158,8 +158,8 @@ function ResultsActions({ war }: { war: WarDetailResponse }) {
   return (
     <>
       <div className="action-bar">
-        {war.is_owner && <OwnerActions warId={war.id} onDeleteClick={deleteFlow.open} />}
-        <ExportButton show={war.is_owner} testId="war-detail-export-button" onClick={exportFlow.trigger} />
+        {war.can_manage && <OwnerActions warId={war.id} onDeleteClick={deleteFlow.open} />}
+        <ExportButton show={war.can_manage} testId="war-detail-export-button" onClick={exportFlow.trigger} />
       </div>
       <ErrorMessage message={deleteFlow.error} />
       <ErrorMessage message={exportFlow.error} />

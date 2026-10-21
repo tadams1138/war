@@ -90,6 +90,16 @@ Feature: Admin Dashboard Voters
     Then the first War's moderation page is shown
     And the heading "Alpha War" is shown
 
+  Scenario: An Admin opens one of a Voter's Wars from the Voter's detail page
+    Given a plain Voter
+    And that Voter created these Wars:
+      | title     | status |
+      | Draft War | draft  |
+    And an authenticated Admin
+    And they are on that Voter's detail page
+    When they select "Draft War" in the Voter's Wars
+    Then the first War's detail page is shown
+
   Scenario: A Voter's vote history shows the winner and loser of each vote
     # A vote in a War with no title shows an untitled War.
     Given a plain Voter
