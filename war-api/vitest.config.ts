@@ -18,6 +18,8 @@ export default defineConfig({
       reportsDirectory: 'coverage',
       // Write the report even when a test file fails (CI still reports the failure).
       reportOnFailure: true,
+      // A drop below these fails the run (set from the coverage measured on 2026-10-18).
+      thresholds: { statements: 88, branches: 80, functions: 90, lines: 89 },
     },
   },
 });
