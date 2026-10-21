@@ -57,103 +57,13 @@ Feature: Admin Dashboard Wars
     And the next page of the Wars list was requested from where the first page ended
     And the "Load more" button is hidden
 
-  Scenario: Opening a War shows its moderation page with contestants and reports
+  Scenario: Opening a War from the Wars list shows its detail page
     Given the API lists a published War titled "Alpha War" to Moderators
-    And that War has these contestants:
-      | name   | wins | appearances |
-      | Rocky  | 7    | 10          |
-      | Apollo | 3    | 10          |
-    And that War has these reports:
-      | explanation     | state       |
-      | Spam in the bio | unaddressed |
-      | Offensive image | addressed   |
     And an authenticated Moderator
     And they are on the Admin Dashboard
     When they select "Alpha War" in the Wars list
-    Then that War's moderation page is shown
+    Then that War's detail page is shown
     And the heading "Alpha War" is shown
-    And its contestants are shown with their standings
-    And its reports are shown with their explanation and addressed state
-
-  Scenario: Marking a report addressed and unaddressed
-    Given the API lists a published War to Moderators
-    And that War has an unaddressed report
-    And the API accepts changes to that War's reports
-    And an authenticated Moderator
-    And they are on that War's moderation page
-    When they select the "Mark addressed" button
-    Then the API has been asked to mark the report addressed
-    And the report is shown as addressed
-    When they select the "Mark unaddressed" button
-    Then the API has been asked to mark the report unaddressed
-    And the report is shown as unaddressed
-
-  Scenario: A failed report update shows an error and leaves the report unchanged
-    Given the API lists a published War to Moderators
-    And that War has an unaddressed report
-    And changing that War's reports fails with a server error
-    And an authenticated Moderator
-    And they are on that War's moderation page
-    When they select the "Mark addressed" button
-    Then the message "Server error — please try again shortly" is shown
-    And the report is shown as unaddressed
-
-  Scenario: Marking a report addressed when the report is gone says it no longer exists
-    Given the API lists a published War to Moderators
-    And that War has an unaddressed report
-    And changing that War's reports finds no such report
-    And an authenticated Moderator
-    And they are on that War's moderation page
-    When they select the "Mark addressed" button
-    Then the message "This report doesn't exist" is shown
-    And the report is shown as unaddressed
-
-  Scenario: Removing a War requires confirmation
-    Given the API lists a published War to Moderators
-    And the API accepts a request to remove that War
-    And an authenticated Moderator
-    And they are on that War's moderation page
-    When they select the "Remove War" button
-    Then a confirmation is shown
-    And the confirmation says "hides it from everyone and permanently deletes its media"
-    And the API has not been asked to remove that War
-    When they confirm
-    Then the API has been asked to remove that War
-    And that War's moderation detail was requested 2 times
-    And the War is shown as Removed
-    And no confirmation is shown
-    And the "Remove War" button is hidden
-
-  Scenario: Cancelling the removal confirmation does nothing
-    Given the API lists a published War to Moderators
-    And the API accepts a request to remove that War
-    And an authenticated Moderator
-    And they are on that War's moderation page
-    When they select the "Remove War" button
-    And they cancel
-    Then no confirmation is shown
-    And the API has not been asked to remove that War
-    And the War is not shown as Removed
-    And the "Remove War" button is shown
-
-  Scenario: A failed removal shows an error
-    Given the API lists a published War to Moderators
-    And the target of a request to remove that War does not exist
-    And an authenticated Moderator
-    And they are on that War's moderation page
-    When they select the "Remove War" button
-    And they confirm
-    Then the message "This War doesn't exist or has been removed" is shown
-    And the War is not shown as Removed
-
-  Scenario: A removed War's detail offers no Remove action and requests no reports
-    Given the API lists a removed War to Moderators
-    And an authenticated Moderator
-    When they open that War's moderation page
-    Then the War is shown as Removed
-    And its contestants are shown with their standings
-    And the "Remove War" button is hidden
-    And that War's reports were requested 0 times
 
   Scenario: The unaddressed reports queue lists Wars and opens their detail
     Given the API lists these Wars to Moderators:
@@ -167,7 +77,7 @@ Feature: Admin Dashboard Wars
       | Alpha War    | 4                   |
       | Untitled War | 1                   |
     When they select "Alpha War" in the unaddressed reports queue
-    Then the first War's moderation page is shown
+    Then the first War's detail page is shown
     And the heading "Alpha War" is shown
 
   Scenario: The unaddressed reports queue shows an empty state
@@ -175,10 +85,3 @@ Feature: Admin Dashboard Wars
     And an authenticated Moderator
     When they open the Admin Dashboard
     Then the unaddressed reports queue says nothing is waiting
-
-  Scenario: A plain Voter cannot reach a War's moderation page
-    Given the API lists a published War to Moderators
-    And an authenticated voter
-    When they open that War's moderation page
-    Then they are redirected to Home
-    And no detail page is shown

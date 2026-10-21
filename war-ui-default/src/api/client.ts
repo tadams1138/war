@@ -55,7 +55,6 @@ export type GetModerationLogParams = NonNullable<paths['/moderation-log']['get']
 export type AdminWarsPage = paths['/admin/wars']['get']['responses'][200]['content']['application/json']
 export type AdminWarItem = AdminWarsPage['wars'][number]
 export type GetAdminWarsParams = NonNullable<paths['/admin/wars']['get']['parameters']['query']>
-export type AdminWarDetail = paths['/admin/wars/{id}']['get']['responses'][200]['content']['application/json']
 export type WarReport =
   paths['/wars/{id}/reports']['get']['responses'][200]['content']['application/json']['reports'][number]
 export type UnaddressedReportsWar =
@@ -387,10 +386,6 @@ export function getModerationLog(params: GetModerationLogParams = {}): Promise<M
 
 export function getAdminWars(params: GetAdminWarsParams = {}): Promise<AdminWarsPage> {
   return json(`/admin/wars${queryString(params)}`, {}, classifyRoleForbidden)
-}
-
-export function getAdminWar(warId: string): Promise<AdminWarDetail> {
-  return json(`/admin/wars/${warId}`, {}, classifyRoleForbidden)
 }
 
 export async function getWarReports(warId: string): Promise<WarReport[]> {

@@ -62,22 +62,6 @@ export function adminWar(id: string, overrides: Record<string, unknown> = {}) {
   }
 }
 
-export function adminWarDetail(id: string, overrides: Record<string, unknown> = {}) {
-  return {
-    ...adminWar(id),
-    contestants: [
-      { id: 'c-1', name: 'Rocky', win_count: 7, appearance_count: 10 },
-      { id: 'c-2', name: 'Apollo', win_count: 3, appearance_count: 10 },
-    ],
-    report_count: 2,
-    ...overrides,
-  }
-}
-
-export function adminWarDetailGet(id: string, body: unknown, status = 200) {
-  return { method: 'GET' as const, path: `${API}/admin/wars/${id}`, responses: [{ status, body }] }
-}
-
 export function report(id: string, warId: string, overrides: Record<string, unknown> = {}) {
   return {
     id,

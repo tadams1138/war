@@ -27,9 +27,9 @@ export interface CallDef extends RequestDef {
   // What the API answers when it accepts the request (200 with an empty body).
   accepted?: RecipeResponse | ((world: World, subject: string) => RecipeResponse)
   // A call that changes a record: how the API then reports it. The record is
-  // a detail the Admin Dashboard shows ('war', 'voter') or the War as its creator sees it.
+  // a detail the Admin Dashboard shows ('voter') or the War as its viewer sees it.
   changes?: {
-    record: 'war' | 'voter' | 'edited war'
+    record: 'voter' | 'edited war'
     becomes: Record<string, unknown> | ((current: WarDetailResponse, subject: string) => Record<string, unknown>)
   }
 }
@@ -75,7 +75,7 @@ export const CALLS: Record<string, CallDef> = {
     method: 'POST',
     path: ({ warId }) => `/wars/${warId}/remove`,
     accepted: { status: 204 },
-    changes: { record: 'war', becomes: { removed_at: REMOVED_AT } },
+    changes: { record: 'edited war', becomes: { removed_at: REMOVED_AT } },
   },
   'suspend that Voter': put('/suspension', { suspended: true }, { suspended: true }),
   'unsuspend that Voter': put('/suspension', { suspended: false }, { suspended: false }),
@@ -85,7 +85,6 @@ export const CALLS: Record<string, CallDef> = {
   'grant that Voter the Moderator role': put('/roles/moderator', { granted: true }, { is_moderator: true }),
   "revoke that Voter's Moderator role": put('/roles/moderator', { granted: false }, { is_moderator: false }),
   "revoke that Voter's Admin role": put('/roles/admin', { granted: false }, { is_admin: false }),
-  "that War's moderation detail": { method: 'GET', path: ({ warId }) => `/admin/wars/${warId}` },
   "that War's reports": { method: 'GET', path: ({ warId }) => `/wars/${warId}/reports` },
   "that War's results": { method: 'GET', path: warPath('/rankings') },
   "the voter's progress in that War": { method: 'GET', path: warPath('/my-progress') },

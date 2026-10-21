@@ -413,12 +413,10 @@ Then('no error message is shown', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
-// What both detail pages (a War's moderation page, a Voter's) have: the way back to the
-// dashboard, and their records' rows.
+// What the Voter's detail page has: the way back to the dashboard, and its rows.
 Then('no detail page is shown', async ({ page }) => {
   // Assert
   await expect(page.getByRole('link', { name: 'Back to Admin Dashboard' })).toHaveCount(0)
-  await expect(page.getByTestId('admin-contestant-row')).toHaveCount(0)
   await expect(page.getByTestId('admin-voter-war-row')).toHaveCount(0)
 })
 

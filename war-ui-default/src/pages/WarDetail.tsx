@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getToken } from '../api/authState'
+import { ModeratorSection } from '../admin/wars/ModeratorSection'
 import { getMyProgress, getWar, type ContestantDetail, type VoteProgress, type WarDetailResponse } from '../api/client'
 import { DeleteButton } from '../components/DeleteButton'
 import { DeleteWarConfirmDialog } from '../components/DeleteWarConfirmDialog'
@@ -33,18 +34,29 @@ function initialTheme(state: AsyncResourceState<WarDetailResponse>): Theme {
   return state.status === 'loaded' ? state.value.theme : 'arcade'
 }
 
+function isRemoved(state: AsyncResourceState<WarDetailResponse>): boolean {
+  return state.status === 'loaded' && state.value.removed_at !== null
+}
+
+// '' before the War has loaded never matches 'published', so useVoteProgress
+// no-ops until there's a real War to ask my-progress about.
+function statusOf(state: AsyncResourceState<WarDetailResponse>): string {
+  return state.status === 'loaded' ? state.value.status : ''
+}
+
 export function WarDetail() {
   const { id } = useParams<{ id: string }>()
   const safeId = orEmpty(id)
-  const state = useAsyncResource(loadWar(id), [id])
-  const rankingsState = useRankings(id)
+  // Bumped after a moderation action so the War is refetched from the API.
+  const [refreshToken, setRefreshToken] = useState(0)
+  const state = useAsyncResource(loadWar(id), [id, refreshToken])
+  // A removed War can no longer change, so its results are not polled.
+  const rankingsState = useRankings(id, !isRemoved(state))
   const [theme, setTheme] = useTheme(safeId, initialTheme(state))
   usePublishTheme(safeId, theme, setTheme)
   // Called unconditionally, ahead of the loading/error returns below (rules
-  // of hooks) -- '' as a status before the War has loaded never matches
-  // 'published', so the hook itself no-ops until there's a real War to ask
-  // my-progress about.
-  const progress = useVoteProgress(safeId, state.status === 'loaded' ? state.value.status : '')
+  // of hooks).
+  const progress = useVoteProgress(safeId, statusOf(state))
 
   if (state.status !== 'loaded') return <AsyncStatus state={state} />
 
@@ -52,13 +64,35 @@ export function WarDetail() {
   return (
     <main data-theme={theme}>
       <CompletionNotice progress={progress} />
-      <h1>{warTitle(war.title)}</h1>
-      {war.category && <p>{war.category}</p>}
+      <WarHeading war={war} />
       <VoteCallout war={war} progress={progress} />
       <ResultsActions war={war} />
       <ResultsSection state={rankingsState} contestants={war.contestants} />
+      <ModeratorSection war={war} onChanged={() => setRefreshToken((token) => token + 1)} />
     </main>
   )
+}
+
+function WarHeading({ war }: { war: WarDetailResponse }) {
+  return (
+    <>
+      <h1>{warTitle(war.title)}</h1>
+      {war.category && <p>{war.category}</p>}
+      {war.removed_at !== null && <RemovedMarker />}
+    </>
+  )
+}
+
+function RemovedMarker() {
+  return (
+    <p data-testid="admin-war-removed" className="badge">
+      Removed
+    </p>
+  )
+}
+
+function isOpenForVoting(war: WarDetailResponse): boolean {
+  return war.status === 'published' && war.removed_at === null
 }
 
 // A big, centered call to action at the top of the page, not one action
@@ -71,7 +105,7 @@ export function WarDetail() {
 // voter sees it only while they still have unvoted matchups.
 function VoteCallout({ war, progress }: { war: WarDetailResponse; progress: VoteProgress | 'anonymous' | null }) {
   const voted = asVoteProgress(progress)
-  const showVote = war.status === 'published' && (progress === 'anonymous' || (voted !== null && voted.voted < voted.total))
+  const showVote = isOpenForVoting(war) && (progress === 'anonymous' || (voted !== null && voted.voted < voted.total))
   if (!showVote) return null
   return (
     <div className="vote-callout">

@@ -3,7 +3,7 @@ import { AuthProvider } from './auth/context'
 import { Footer } from './components/Footer'
 import { NavBar } from './components/NavBar'
 import { RequireAuth } from './router/RequireAuth'
-import { canModerate, isRoleHolder } from './auth/roles'
+import { isRoleHolder } from './auth/roles'
 import { RequireRole } from './router/RequireRole'
 import { ThemeProvider } from './theme/ThemeContext'
 import { Home } from './pages/Home'
@@ -16,7 +16,6 @@ import { EditWar } from './pages/EditWar'
 import { ImportWar } from './pages/ImportWar'
 import { MyWars } from './pages/MyWars'
 import { AdminDashboard } from './pages/AdminDashboard'
-import { AdminWarDetail } from './pages/AdminWarDetail'
 import { AdminVoterDetail } from './pages/AdminVoterDetail'
 import { PrivacyPolicy } from './pages/PrivacyPolicy'
 import { TermsOfService } from './pages/TermsOfService'
@@ -81,14 +80,6 @@ export default function App() {
               element={
                 <RequireRole allow={isRoleHolder}>
                   <AdminDashboard />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/admin/wars/:id"
-              element={
-                <RequireRole allow={canModerate}>
-                  <AdminWarDetail />
                 </RequireRole>
               }
             />

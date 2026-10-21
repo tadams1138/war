@@ -2,13 +2,12 @@
 // tag so no other feature can ever bind to (or collide with) this text.
 import { expect, type Page } from '@playwright/test'
 import { createBdd, type DataTable } from 'playwright-bdd'
+import { buildWarDetail } from '../../../src/mocks/fixtures'
 import type { HandlerRecipe } from '../../../src/mocks/scenarios'
 import { test, type World } from './fixtures'
 import {
   adminVoterDetail,
   adminVoterGet,
-  adminWarDetail,
-  adminWarDetailGet,
   killSwitchGet,
   logEntry,
   logGet,
@@ -21,7 +20,7 @@ import {
 } from '../support/adminFixtures'
 import { API, getCallLog, loginAsTestVoter, waitForCallLog } from '../support/mocking'
 import { nav } from '../support/pages'
-import { reply } from '../support/recipes'
+import { ok, reply } from '../support/recipes'
 
 const { Before, Given, When, Then } = createBdd(test, { tags: '@admin-dashboard' })
 
@@ -90,7 +89,7 @@ Given('a moderation log entry targets a War titled {string}', async ({ world }, 
   // Arrange
   const id = world.nextWarId()
   logTargeting(world, { war: id, warTitle: title })
-  world.queue(adminWarDetailGet(id, adminWarDetail(id, { title, removed_at: REMOVED_AT })))
+  world.queue(ok('GET', `${API}/wars/${id}`, buildWarDetail({ id, title, removed_at: REMOVED_AT, can_manage: false })))
 })
 
 Given('a moderation log entry targets a War that no longer exists', async ({ world }) => {
@@ -215,11 +214,11 @@ Then('the entry says a deleted War was targeted, with its id and no link', async
   // Assert
   await expect(entries(page)).toContainText(['a deleted War'])
   await expect(entries(page)).toContainText([world.warId])
-  await expect(entries(page).locator(`a[href="/admin/wars/${world.warId}"]`)).toHaveCount(0)
+  await expect(entries(page).locator(`a[href="/wars/${world.warId}"]`)).toHaveCount(0)
 })
 
-Then('the entry names it as an untitled War and links to its moderation page', async ({ page, world }) => {
+Then('the entry names it as an untitled War and links to its detail page', async ({ page, world }) => {
   // Assert
   await expect(entries(page)).not.toContainText('a deleted War')
-  await expect(entries(page).getByRole('link', { name: 'Untitled War' })).toHaveAttribute('href', `/admin/wars/${world.warId}`)
+  await expect(entries(page).getByRole('link', { name: 'Untitled War' })).toHaveAttribute('href', `/wars/${world.warId}`)
 })

@@ -1,5 +1,5 @@
 // The unaddressed-reports queue (war-spec.md §8.5): Wars with reports no Moderator
-// has dealt with yet; each opens that War's moderation page.
+// has dealt with yet; each opens that War's detail page.
 import { Link } from 'react-router-dom'
 import { getUnaddressedReports, type UnaddressedReportsWar } from '../../api/client'
 import { useAsyncResource } from '../../hooks/useAsyncResource'
@@ -24,7 +24,7 @@ function QueueEntries({ wars }: { wars: UnaddressedReportsWar[] }) {
     <ul className="unaddressed-queue">
       {wars.map((entry) => (
         <li key={entry.war_id} data-testid="unaddressed-queue-entry">
-          <Link to={`/admin/wars/${entry.war_id}`}>{warTitle(entry.title)}</Link>
+          <Link to={`/wars/${entry.war_id}`}>{warTitle(entry.title)}</Link>
           <span className="badge" title="Unaddressed reports">
             {entry.unaddressed_count}
           </span>

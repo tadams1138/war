@@ -1,10 +1,12 @@
 // War detail's results-section state machine (war-spec.md §10.4 "results
 // poll while the War is published"): fetches the leaderboard, then polls
 // every 30 seconds while the War's `status` (war-spec.md's effective_status)
-// is "published", stopping the moment it isn't.
+// is "published", stopping the moment it isn't. `polling: false` (a removed
+// War, which can no longer change) stops the polling at once.
 import { useEffect, useState } from 'react'
 import { getRankings, type RankingsResponse } from '../api/client'
 import { toUserMessage } from '../api/errors'
+import { useLatest } from '../hooks/useLatest'
 
 const POLL_INTERVAL_MS = 30_000
 
@@ -13,8 +15,9 @@ export type RankingsState =
   | { status: 'loaded'; rankings: RankingsResponse }
   | { status: 'error'; message: string }
 
-export function useRankings(warId: string | undefined): RankingsState {
+export function useRankings(warId: string | undefined, polling = true): RankingsState {
   const [state, setState] = useState<RankingsState>({ status: 'loading' })
+  const pollingNow = useLatest(polling)
 
   useEffect(() => {
     if (!warId) return
@@ -29,6 +32,7 @@ export function useRankings(warId: string | undefined): RankingsState {
     let timer: number | undefined
 
     function schedulePoll(id: string) {
+      if (!pollingNow.current) return
       timer = window.setTimeout(() => void load(id, true), POLL_INTERVAL_MS)
     }
 
@@ -63,7 +67,7 @@ export function useRankings(warId: string | undefined): RankingsState {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [warId])
+  }, [warId, pollingNow])
 
   return state
 }
