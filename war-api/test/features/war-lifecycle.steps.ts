@@ -1140,6 +1140,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     let warId: string;
     let adminId: string;
     let detail: request.Response;
+    let rankings: request.Response;
     let patch: request.Response;
 
     Given('a War in "draft" status created by Voter A with visibility "unlisted"', async () => {
@@ -1161,6 +1162,16 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     Then('the detail response status is 200', () => {
       // Assert
       expect(detail.status).toBe(200);
+    });
+
+    When("the Admin GETs the War's rankings", async () => {
+      // Act
+      rankings = await as(harness, adminId).get(`/api/v1/wars/${warId}/rankings`);
+    });
+
+    Then('the rankings response status is 200', () => {
+      // Assert
+      expect(rankings.status).toBe(200);
     });
 
     When('the Admin PATCHes the title', async () => {

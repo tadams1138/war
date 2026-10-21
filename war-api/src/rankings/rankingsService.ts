@@ -50,7 +50,7 @@ export const rankingsResponseSchema = {
 };
 
 export type RankingsOutcome =
-  | { kind: 'ok'; view: RankingsView }
+  | { kind: 'ok'; view: RankingsView; shareable: boolean }
   | { kind: 'notFound' };
 
 /** Assembles a War's rankings response (§6.4). `viewerId` is `null` for an anonymous request. */
@@ -98,5 +98,7 @@ export async function getRankings(
       updated_at: now.toISOString(),
       rankings,
     },
+    // Judged on the stored status: only a published (or since-closed), non-removed War is visible to everyone.
+    shareable: war.status !== 'draft' && war.removedAt === null,
   };
 }

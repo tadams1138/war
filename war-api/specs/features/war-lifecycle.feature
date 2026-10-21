@@ -201,6 +201,8 @@ Feature: War Lifecycle
     And an Admin
     When the Admin GETs the War's detail
     Then the detail response status is 200
+    When the Admin GETs the War's rankings
+    Then the rankings response status is 200
     When the Admin PATCHes the title
     Then the PATCH response status is 200
 
