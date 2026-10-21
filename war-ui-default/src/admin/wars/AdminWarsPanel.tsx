@@ -70,7 +70,7 @@ export function AdminWarsPanel() {
 function AdminWarRow({ war }: { war: AdminWarItem }) {
   return (
     <li data-testid="admin-war-row">
-      <Link to={`/admin/wars/${war.id}`}>
+      <Link to={`/wars/${war.id}`}>
         <strong>{warTitle(war.title)}</strong>
       </Link>
       <span> · {war.status}</span>
