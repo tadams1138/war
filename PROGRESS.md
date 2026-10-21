@@ -201,7 +201,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: istanbul via
-`test:coverage` + `test:acceptance:coverage`, then `coverage:report`; report only, no thresholds):
+`test:coverage` + `test:acceptance:coverage`, then `coverage:report`; CI fails below the thresholds: war-api 88/80/90/89, war-ui-default merged 90/82/95/93 for statements/branches/functions/lines):
 
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|

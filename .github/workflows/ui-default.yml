@@ -119,6 +119,11 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+      # Fails the job when merged (unit + acceptance) coverage drops below the
+      # thresholds in package.json's coverage:check.
+      - name: Coverage thresholds
+        run: npm run coverage:check
+
       - name: Build
         run: npm run build
 
