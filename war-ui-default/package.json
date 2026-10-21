@@ -18,8 +18,8 @@
     "test:coverage": "vitest run --coverage",
     "test:acceptance": "bddgen && playwright test",
     "test:acceptance:coverage": "cross-env COVERAGE=1 npm run test:acceptance",
-    "coverage:report": "nyc report --temp-dir .nyc-unit --report-dir coverage/unit && nyc report --temp-dir .nyc_output --report-dir coverage/acceptance && nyc merge .nyc-unit .nyc-merged/unit.json && nyc merge .nyc_output .nyc-merged/acceptance.json && nyc report --temp-dir .nyc-merged --report-dir coverage/merged",
-    "coverage:check": "nyc check-coverage --temp-dir .nyc-merged --statements 90 --branches 82 --functions 95 --lines 93",
+    "coverage:report": "nyc report --temp-dir .nyc-unit --report-dir coverage/unit && nyc report --temp-dir .nyc_output --report-dir coverage/acceptance && nyc report --temp-dir .nyc_output --reporter json --report-dir .nyc-acceptance-mapped && nyc merge .nyc-unit .nyc-merged/unit.json && nyc merge .nyc-acceptance-mapped .nyc-merged/acceptance.json && nyc report --temp-dir .nyc-merged --report-dir coverage/merged",
+    "coverage:check": "nyc check-coverage --temp-dir .nyc-merged --statements 90 --functions 95 --lines 93 && nyc check-coverage --temp-dir .nyc-acceptance-mapped --branches 79",
     "generate:api": "npm --prefix ../war-api run dump-openapi --silent > openapi.json && openapi-typescript openapi.json -o src/api/generated/schema.d.ts",
     "build:mock": "vite build --mode mock"
   },

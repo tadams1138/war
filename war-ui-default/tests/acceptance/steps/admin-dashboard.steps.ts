@@ -175,8 +175,8 @@ Then('the API has not been asked to change the kill switch', async ({ page }) =>
 
 Then('the API has been asked to turn the kill switch {state}', async ({ page }, enabled: boolean) => {
   // Assert
-  const log = await waitForCallLog(page, (calls) => calls.some((entry) => entry.method === 'PUT'))
-  expect(JSON.parse(log.find((entry) => entry.method === 'PUT')?.body ?? '{}')).toEqual({ enabled })
+  const log = await waitForCallLog(page, (calls) => calls.some((entry) => entry.method === 'PUT' && entry.body !== undefined))
+  expect(JSON.parse(log.find((entry) => entry.method === 'PUT')!.body!)).toEqual({ enabled })
 })
 
 Then('the kill switch shows the error {string}', async ({ page }, message: string) => {

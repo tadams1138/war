@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     // The acceptance steps and playwright-bdd's generated tests run via `npm run test:acceptance`, not vitest.
-    exclude: ['node_modules/**', 'tests/acceptance/**', '.features-gen/**', 'coverage/**', '.nyc_output/**', '.nyc-unit/**', '.nyc-merged/**'],
+    exclude: ['node_modules/**', 'tests/acceptance/**', '.features-gen/**', 'coverage/**', '.nyc_output/**', '.nyc-unit/**', '.nyc-merged/**', '.nyc-acceptance-mapped/**'],
     environment: 'jsdom',
     // Istanbul (not v8) so the unit coverage merges with the acceptance
     // coverage (nyc). JSON goes to .nyc-unit/, which `coverage:report` reads.

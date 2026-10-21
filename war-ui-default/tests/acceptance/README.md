@@ -25,11 +25,13 @@ feature's tag, and `-g` still matches the title).
 - It leaves an instrumented `dist/`; `npm run build` replaces it.
 - `npm run test:coverage` (Vitest, istanbul) writes the unit data to `.nyc-unit/`, and
   `npm run coverage:report` (nyc) then reports unit, acceptance and merged (unit plus acceptance)
-  into `coverage/{unit,acceptance,merged}/`. It is report-only: no thresholds.
+  into `coverage/{unit,acceptance,merged}/`. The acceptance data is mapped to source
+  coordinates before the merge. `npm run coverage:check` enforces the thresholds CI applies.
 - The data is taken from the page when a test ends, so counters from a page the test navigated
-  away from (a full reload) are lost. The unit and acceptance instrumentations also differ
-  slightly (a few JSX `return` statements exist in only one), so the merge can understate
-  by a fraction of a point.
+  away from (a full reload) are lost. The unit and acceptance instrumentations differ: statement
+  and line locations line up (a few JSX `return` statements exist in only one, so the merge can
+  understate by a fraction of a point), but branch locations do not, so the merged branch figure
+  is not meaningful. Branches are judged on the acceptance report alone.
 
 ## Layout
 
