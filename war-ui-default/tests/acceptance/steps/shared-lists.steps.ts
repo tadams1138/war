@@ -61,7 +61,8 @@ Then('the next page of {list} was requested from where the first page ended', as
   expect(searchParam(calls[calls.length - 1]!, 'cursor')).toBe(cursorAfter(1))
 })
 
+// Waits for the count: a list is fetched after its page renders, not with it.
 Then('{list} was requested {int} time(s)', async ({ page }, list: ListRef, count: number) => {
   // Assert
-  expect(await callsTo(page, list)).toHaveLength(count)
+  await expect.poll(async () => (await callsTo(page, list)).length).toBe(count)
 })
