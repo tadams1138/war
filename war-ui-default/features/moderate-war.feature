@@ -59,6 +59,7 @@ Feature: Moderating a War
 
   Scenario: Removing a War requires confirmation
     Given a published War
+    And the voter has voted on 1 of 3 matchups in that War
     And the API accepts a request to remove that War
     And an authenticated Moderator
     And they are on that War's detail page
@@ -66,6 +67,7 @@ Feature: Moderating a War
     Then a confirmation is shown
     And the confirmation says "hides it from everyone and permanently deletes its media"
     And the API has not been asked to remove that War
+    And the "Vote" link is shown
     When they confirm
     Then the API has been asked to remove that War
     And the War is shown as Removed
@@ -97,6 +99,7 @@ Feature: Moderating a War
 
   Scenario: A removed War is shown as Removed, with no Remove, Vote or owner controls
     Given a removed War
+    And the voter has voted on 1 of 3 matchups in that War
     And an authenticated Moderator
     When they open that War's detail page
     Then the War is shown as Removed
