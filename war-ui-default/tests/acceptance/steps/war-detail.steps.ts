@@ -26,7 +26,7 @@ Given('no War exists', async ({ world }) => {
 
 Given('the voter created that War', async ({ world }) => {
   // Arrange
-  warDetail(world).is_owner = true
+  Object.assign(warDetail(world), { is_owner: true, can_manage: true })
 })
 
 // The results page polls every 30 seconds; the scenario decides when they pass.

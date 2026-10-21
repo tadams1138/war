@@ -43,6 +43,8 @@ export const handlers = [
   // GET /wars/:id also exercises this fetch.
   http.get('/api/v1/wars/:id/rankings', () => HttpResponse.json(buildRankingsResponse())),
 
+  http.post('/api/v1/wars/:id/export', () => new HttpResponse(null, { status: 204 })),
+
   http.post('/api/v1/wars/:id/join', () => new HttpResponse(null, { status: 204 })),
 
   http.get('/api/v1/wars/:id/matchups/next', () => HttpResponse.json(buildMatchupResponse())),

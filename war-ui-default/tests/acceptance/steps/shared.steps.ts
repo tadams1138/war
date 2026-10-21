@@ -10,7 +10,7 @@ import type { WarSummary } from '../../../src/api/client'
 import type { HandlerRecipe, RecipeResponse } from '../../../src/mocks/scenarios'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { me } from '../support/adminFixtures'
-import { contestantFrom, warDetail } from '../support/editWar'
+import { contestantFrom, letAdminManageEveryWar, warDetail } from '../support/editWar'
 import { queueResults } from '../support/results'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario, votesSubmitted, waitForCallLog } from '../support/mocking'
 import type { CardRef } from '../support/cards'
@@ -74,6 +74,7 @@ function identityRecipe(world: World, role: RoleFlags): HandlerRecipe {
 Given('an authenticated {role}', async ({ page, world }, role: RoleFlags) => {
   // Arrange
   if (role.is_moderator || role.is_admin) world.queue(identityRecipe(world, role))
+  if (role.is_admin) letAdminManageEveryWar(world)
   await boot(page, world)
   await page.goto('/')
   await loginAsTestVoter(page)

@@ -121,7 +121,7 @@ Use these before writing new steps.
 
 | Step | Does |
 |---|---|
-| `Given an authenticated {role}` | Boots the app with the queued mocks, opens Home, signs in. The roles queue the matching `GET /auth/me`; if the signed-in voter's own detail (`voter-1`) was given, `/auth/me` then reads as that detail does after each change |
+| `Given an authenticated {role}` | Boots the app with the queued mocks, opens Home, signs in. The roles queue the matching `GET /auth/me`; if the signed-in voter's own detail (`voter-1`) was given, `/auth/me` then reads as that detail does after each change. An Admin also manages every War given before it (the API reports `can_manage`) |
 | `Given they are on {page}` / `When they open {page}` / `When a visitor opens {page}` | Boots if needed and navigates (client-side once signed in). "A visitor" means not signed in |
 | `Given a(nother) War` / `Given a(nother) {status} War` / `Given a(nother) War themed {string}` | Queues a War's detail as its creator sees it. Wars are numbered `war-1`, `war-2`, ...; "that War" is the latest given |
 | `Given the voter created that War` | The viewer owns that War |

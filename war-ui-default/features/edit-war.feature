@@ -632,3 +632,24 @@ Feature: Edit War
     Then Export, Delete, Publish War and Clear Votes sit in one horizontal row, in that order
     And Export, Publish War and Clear Votes share consistent button styling
     And Delete is visually set apart from Export, Publish War and Clear Votes
+
+  Scenario: An Admin opens another Voter's War from its results page and saves a change
+    Given a draft War
+    And the API accepts a request to save that War's details
+    And an authenticated Admin
+    And they are on that War's detail page
+    When they select the "Edit" link
+    Then that War's Edit page is shown
+    When they change the title to "New Title"
+    And they select the "Save" button
+    Then the API has been asked to save that War's details with:
+      | title | New Title |
+
+  Scenario: An Admin's Edit page of another Voter's War offers the creator's controls
+    Given a draft War
+    And an authenticated Admin
+    When they open that War's Edit page
+    Then the "Publish War" button is shown
+    And the "Clear Votes" button is shown
+    And the "Delete" button is shown
+    And the "Export" button is shown
