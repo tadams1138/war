@@ -436,6 +436,21 @@ label {
   height: 100vh;
 }
 
+/* Neither contestant has media: the cards are a name and a Vote button, so the
+   block shrinks to fit them (and, on a wide viewport, the bios sit right
+   below) instead of filling the viewport. */
+.vote-viewport--compact {
+  height: auto;
+}
+.vote-viewport--compact .matchup-cards,
+.vote-viewport--compact .matchup-view,
+.vote-viewport--compact .matchup-row {
+  flex: none;
+}
+.vote-viewport--compact .contestant-card {
+  height: auto;
+}
+
 .vote-progress {
   flex: none;
 }
@@ -499,6 +514,15 @@ label {
   height: 100%;
   min-width: 0;
   padding: 1rem;
+}
+/* A contestant without media: name, then a Vote button where the media would
+   be, filling the card's height when the other contestant has media. */
+.contestant-card--no-media {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
 }
 @media (max-width: 640px) {
   /* Stacked layout means every px here matters more than in the wide

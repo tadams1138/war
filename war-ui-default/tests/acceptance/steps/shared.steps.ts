@@ -341,6 +341,15 @@ Then('no vote is submitted', async ({ page }) => {
   expect(await votesSubmitted(page)).toHaveLength(0)
 })
 
+// Polls the durable outcome (a vote request landed, naming the tapped
+// contestant), not the transient in-flight state: the mock vote response has
+// no delay, so aria-busy can flip back before the first poll observes it.
+Then('a vote is submitted for the {side} contestant', async ({ page }, side: Side) => {
+  // Assert
+  const votes = async () => (await votesSubmitted(page)).map((entry) => entry.body)
+  await expect.poll(votes).toEqual([JSON.stringify({ winner_id: `contestant-${side}` })])
+})
+
 Then('{card} offers paging controls', async ({ page }, card: CardRef) => {
   // Assert
   await expect(card.locator(page).getByTestId('carousel-arrow-next')).toBeVisible()

@@ -112,6 +112,16 @@ Then('each bio sits beside its own card', async ({ page }) => {
   for (const side of SIDES) expect((await box(bio(page, side))).x).toBeGreaterThan((await box(card(page, side))).x)
 })
 
+Then('each bio sits below its own card', async ({ page }) => {
+  // Assert
+  for (const side of SIDES) {
+    const [own, text] = [await box(card(page, side)), await box(bio(page, side))]
+    expect(text.y).toBeGreaterThanOrEqual(own.y + own.height - SUBPIXEL_ROUNDING_TOLERANCE_PX)
+    expect(text.x).toBeLessThan(own.x + own.width)
+    expect(text.x + text.width).toBeGreaterThan(own.x)
+  }
+})
+
 Then('the bios are below the fold', async ({ page }) => {
   // Assert
   await matchupLoaded(page)

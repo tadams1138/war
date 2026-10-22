@@ -3,7 +3,6 @@
 import { expect, type Locator } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { test } from './fixtures'
-import { getCallLog } from '../support/mocking'
 import { carousel, dots, nextArrow, previousArrow } from '../support/pages'
 import type { Side } from '../support/screens'
 
@@ -60,15 +59,6 @@ When("they tap the {side} contestant's card", async ({ page }, side: Side) => {
 When('they press the {side} arrow key', async ({ page }, side: Side) => {
   // Act
   await page.keyboard.press(side === 'left' ? 'ArrowLeft' : 'ArrowRight')
-})
-
-// Polls the durable outcome (a vote request landed, naming the tapped
-// contestant), not the transient in-flight state: the mock vote response has
-// no delay, so aria-busy can flip back before the first poll observes it.
-Then('a vote is submitted for the {side} contestant', async ({ page }, side: Side) => {
-  // Assert
-  const votes = async () => (await getCallLog(page)).filter((entry) => entry.url.includes('/vote')).map((entry) => entry.body)
-  await expect.poll(votes).toEqual([JSON.stringify({ winner_id: `contestant-${side}` })])
 })
 
 Then("the {side} contestant's card shows no dot indicators or arrow controls", async ({ page }, side: Side) => {
