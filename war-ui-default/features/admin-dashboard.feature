@@ -144,7 +144,7 @@ Feature: Admin Dashboard
     And an authenticated Moderator
     And they are on the Admin Dashboard
     When they select "Alpha War" in the moderation log
-    Then that War's moderation page is shown
+    Then that War's detail page is shown
     And the heading "Alpha War" is shown
 
   Scenario: A moderation log entry targeting a deleted War shows no link
@@ -157,7 +157,7 @@ Feature: Admin Dashboard
     Given a moderation log entry targets a live War that has no title
     And an authenticated Moderator
     When they open the Admin Dashboard
-    Then the entry names it as an untitled War and links to its moderation page
+    Then the entry names it as an untitled War and links to its detail page
 
   Scenario: A moderation log entry's Voter ids link to the Voter's detail
     Given a moderation log entry targets the Voter "Casey Creator"

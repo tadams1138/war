@@ -314,7 +314,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('A non-creator cannot add a contestant', ({ Given, When, Then }) => {
+  Scenario("A plain Voter cannot add a contestant to another Voter's War", ({ Given, When, Then }) => {
     let warId: string;
     let voterBId: string;
     let response: request.Response;

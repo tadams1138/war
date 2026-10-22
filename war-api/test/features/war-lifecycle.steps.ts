@@ -5,7 +5,7 @@ import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { newId } from '../../src/db/uuid.js';
 import { findWarById } from '../../src/wars/warsRepository.js';
 import { countMatchupsForWar } from '../../src/matchups/matchupsRepository.js';
-import { closeWarForTest, giveContestantAnImage, joinWarAsVoter, makeContestant, makeDraftWar, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
+import { closeWarForTest, giveContestantAnImage, joinWarAsVoter, makeContestant, makeDraftWar, makeAdmin, makeDraftWarWithContestants, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { anonymous, as } from '../setup/apiClient.js';
@@ -36,7 +36,7 @@ async function castVoteOnEveryMatchup(harness: TestHarness, warId: string): Prom
   }
 }
 
-describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
+describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => {
   let harness: TestHarness;
 
   BeforeEachScenario(async () => {
@@ -155,7 +155,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Non-creator cannot publish', ({ Given, When, Then }) => {
+  Scenario('A plain Voter cannot publish another Voter\'s War', ({ Given, When, Then }) => {
     let warId: string;
     let voterBId: string;
     let response: request.Response;
@@ -586,6 +586,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('is_owner is true', () => {
       // Assert
       expect(response.body.is_owner).toBe(true);
+      expect(response.body.can_manage).toBe(true);
     });
   });
 
@@ -612,6 +613,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('is_owner is false', () => {
       // Assert
       expect(response.body.is_owner).toBe(false);
+      expect(response.body.can_manage).toBe(false);
     });
   });
 
@@ -636,10 +638,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('is_owner is false', () => {
       // Assert
       expect(response.body.is_owner).toBe(false);
+      expect(response.body.can_manage).toBe(false);
     });
   });
 
-  Scenario('A non-owner cannot see an unpublished War at all', ({ Given, When, Then }) => {
+  Scenario('A plain Voter cannot see another Voter\'s unpublished War at all', ({ Given, When, Then }) => {
     let warId: string;
     let voterBId: string;
     let response: request.Response;
@@ -718,7 +721,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Non-creator cannot delete a draft War', ({ Given, When, Then }) => {
+  Scenario('A plain Voter cannot delete another Voter\'s draft War', ({ Given, When, Then }) => {
     let warId: string;
     let voterBId: string;
     let response: request.Response;
@@ -837,6 +840,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       warId = first.war.id;
       await harness.storage.putPublic(`share-images/${warId}.jpg`, Buffer.from('s'));
       await harness.storage.putPrivate(`originals/share-images/${warId}.png`, Buffer.from('o'));
+      await harness.storage.putPublic(`share-images/${warId}-0f0f.jpg`, Buffer.from('s'));
+      await harness.storage.putPrivate(`originals/share-images/${warId}-0f0f.png`, Buffer.from('o'));
       await harness.storage.putPublic(`share-images/${other.war.id}.jpg`, Buffer.from('s'));
       const firstIds = first.contestants.map((c) => c.id);
       otherKeysBefore = allKeys().filter((key) => !key.includes(warId) && !firstIds.some((id) => key.includes(id)));
@@ -1107,7 +1112,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Non-creator cannot clear votes', ({ Given, When, Then }) => {
+  Scenario('A plain Voter cannot clear another Voter\'s votes', ({ Given, When, Then }) => {
     let warId: string;
     let voterBId: string;
     let response: request.Response;
@@ -1130,6 +1135,136 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     Then('the response status is 403', () => {
       // Assert
       expect(response.status).toBe(403);
+    });
+  });
+
+  Scenario("An Admin opens and edits another Voter's unlisted draft War", ({ Given, And, When, Then }) => {
+    let warId: string;
+    let adminId: string;
+    let detail: request.Response;
+    let rankings: request.Response;
+    let patch: request.Response;
+
+    Given('a War in "draft" status created by Voter A with visibility "unlisted"', async () => {
+      // Arrange
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      warId = (await makeDraftWar(harness.db, voterA.id, { visibility: 'unlisted' })).id;
+    });
+
+    And('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    When("the Admin GETs the War's detail", async () => {
+      // Act
+      detail = await as(harness, adminId).get(`/api/v1/wars/${warId}`);
+    });
+
+    Then('the detail response status is 200', () => {
+      // Assert
+      expect(detail.status).toBe(200);
+    });
+
+    When("the Admin GETs the War's rankings", async () => {
+      // Act
+      rankings = await as(harness, adminId).get(`/api/v1/wars/${warId}/rankings`);
+    });
+
+    Then('the rankings response status is 200', () => {
+      // Assert
+      expect(rankings.status).toBe(200);
+    });
+
+    When('the Admin PATCHes the title', async () => {
+      // Act
+      patch = await as(harness, adminId).patch(`/api/v1/wars/${warId}`, { title: 'Edited by Admin' });
+    });
+
+    Then('the PATCH response status is 200', () => {
+      // Assert
+      expect(patch.status).toBe(200);
+    });
+  });
+
+  Scenario('War detail reports an Admin may manage a War they did not create', ({ Given, And, When, Then }) => {
+    let warId: string;
+    let adminId: string;
+    let response: request.Response;
+
+    Given('a published War created by Voter A', async () => {
+      // Arrange
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2);
+      warId = (await publishWarForTest(harness.db, war)).id;
+    });
+
+    And('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    When("the Admin GETs the War's detail", async () => {
+      // Act
+      response = await as(harness, adminId).get(`/api/v1/wars/${warId}`);
+    });
+
+    Then('is_owner is false and can_manage is true', () => {
+      // Assert
+      expect(response.body.is_owner).toBe(false);
+      expect(response.body.can_manage).toBe(true);
+    });
+  });
+
+  ScenarioOutline("An Admin does to another Voter's War what its creator can", ({ Given, When, Then }, variables) => {
+    let warId: string;
+    let contestantIds: string[];
+    let adminId: string;
+    let response: request.Response;
+
+    Given(
+      'a <status> War created by Voter A, with 2 contestants and a vote cast on their matchup',
+      async () => {
+        // Arrange
+        adminId = (await makeAdmin(harness.db, 'admin')).id;
+        const voterA = await makeVoter(harness.db, 'voter-a');
+        const seeded = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2);
+        warId = seeded.war.id;
+        contestantIds = seeded.contestants.map((c) => c.id);
+        if (variables.status === 'published') await publishWarForTest(harness.db, seeded.war);
+        const [matchup] = await matchupsOf(harness.db, warId);
+        await harness.db
+          .insertInto('votes')
+          .values({
+            id: newId(),
+            matchup_id: matchup!.id,
+            voter_id: voterA.id,
+            winner_id: matchup!.contestant_a_id,
+            presented_left_id: matchup!.contestant_a_id,
+          })
+          .execute();
+      },
+    );
+
+    When('an Admin <action>', async () => {
+      // Act
+      const admin = as(harness, adminId);
+      const actions: Record<string, () => Promise<request.Response>> = {
+        "PATCHes the War's title": () => admin.patch(`/api/v1/wars/${warId}`, { title: 'Edited' }),
+        'adds a contestant to the War': () => admin.post(`/api/v1/wars/${warId}/contestants`, { name: 'Extra' }),
+        'removes a contestant': () => admin.delete(`/api/v1/wars/${warId}/contestants/${contestantIds[0]}`),
+        'publishes the War': () => admin.post(`/api/v1/wars/${warId}/publish`),
+        'unpublishes the War': () => admin.post(`/api/v1/wars/${warId}/unpublish`),
+        "clears the War's votes": () => admin.post(`/api/v1/wars/${warId}/clear-votes`),
+        'DELETEs the War': () => admin.delete(`/api/v1/wars/${warId}`),
+      };
+      response = await actions[variables.action!]!();
+    });
+
+    Then('the request succeeds', () => {
+      // Assert
+      expect(response.status).toBeGreaterThanOrEqual(200);
+      expect(response.status).toBeLessThan(300);
     });
   });
 });

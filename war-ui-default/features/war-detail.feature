@@ -224,12 +224,26 @@ Feature: War Detail
       | published |
       | closed    |
 
-  Scenario: A non-creator sees no Edit or Delete on a War's results page
+  Scenario: A visitor sees no Edit or Delete on a War's results page
     Given a published War
     When a visitor opens that War's detail page
     Then the heading "Miss Universe 2026" is shown
     And the "Edit" link is hidden
     And the "Delete" button is hidden
+
+  Scenario Outline: An Admin sees Edit, Delete and Export on another Voter's results page, in any status
+    Given a <status> War
+    And an authenticated Admin
+    When they open that War's detail page
+    Then the "Edit" link is shown
+    And the "Delete" button is shown
+    And the "Export" button is shown
+
+    Examples:
+      | status    |
+      | draft     |
+      | published |
+      | closed    |
 
   Scenario: Delete from the results page asks for confirmation before removing the War
     Given a draft War
@@ -437,7 +451,7 @@ Feature: War Detail
     When they select the "Export" button
     Then a zip of that War's definition downloads
 
-  Scenario: A non-creator sees no Export button
+  Scenario: A plain voter sees no Export button
     Given a published War
     And an authenticated voter
     When they open that War's detail page

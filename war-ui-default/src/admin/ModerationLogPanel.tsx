@@ -19,7 +19,7 @@ function voterLink(id: string, name: string | null): ReactNode {
 
 function warTarget(id: string, title: string | null, deleted: boolean): ReactNode {
   if (deleted) return <>a deleted War (id {id})</>
-  return <Link to={`/admin/wars/${id}`}>{warTitle(title)}</Link>
+  return <Link to={`/wars/${id}`}>{warTitle(title)}</Link>
 }
 
 function targetOf(entry: ModerationLogEntry): ReactNode {

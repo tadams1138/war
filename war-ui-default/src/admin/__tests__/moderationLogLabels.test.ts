@@ -14,6 +14,18 @@ describe('actionLabel', () => {
     ['unsuspend_voter', 'Unsuspended a Voter'],
     ['ban_voter', 'Banned a Voter'],
     ['unban_voter', 'Unbanned a Voter'],
+    ['edit_war', 'Edited a War'],
+    ['set_share_image', "Set a War's share image"],
+    ['add_contestant', 'Added a contestant'],
+    ['edit_contestant', 'Edited a contestant'],
+    ['remove_contestant', 'Removed a contestant'],
+    ['add_image', 'Added an image'],
+    ['reorder_images', 'Reordered images'],
+    ['remove_image', 'Removed an image'],
+    ['publish_war', 'Published a War'],
+    ['unpublish_war', 'Unpublished a War'],
+    ['clear_votes', "Cleared a War's votes"],
+    ['delete_war', 'Deleted a War'],
   ])('labels %s as %s', (action, expected) => {
     // Arrange
     const input = action

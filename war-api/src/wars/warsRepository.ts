@@ -19,6 +19,8 @@ export interface War {
   endsAt: Date | null;
   shareImageKey: string | null;
   createdAt: Date;
+  /** When a Moderator removed it (§6.7); only {@link findWarIncludingRemoved} can return a War where this is set. */
+  removedAt: Date | null;
 }
 
 function toWar(row: Selectable<WarsTable>): War {
@@ -34,6 +36,7 @@ function toWar(row: Selectable<WarsTable>): War {
     endsAt: row.ends_at ? new Date(row.ends_at) : null,
     shareImageKey: row.share_image_key,
     createdAt: new Date(row.created_at),
+    removedAt: row.removed_at ? new Date(row.removed_at) : null,
   };
 }
 
@@ -68,6 +71,12 @@ export async function createWar(db: Kysely<Database>, input: CreateWarInput): Pr
 
 export async function findWarById(db: Kysely<Database>, id: string): Promise<War | undefined> {
   const row = await db.selectFrom('wars').selectAll().where('id', '=', id).where('removed_at', 'is', null).executeTakeFirst();
+  return row ? toWar(row) : undefined;
+}
+
+/** The War whether or not a Moderator removed it: for the Moderator's own view only (§6.7); every other reader uses {@link findWarById}. */
+export async function findWarIncludingRemoved(db: Kysely<Database>, id: string): Promise<War | undefined> {
+  const row = await db.selectFrom('wars').selectAll().where('id', '=', id).executeTakeFirst();
   return row ? toWar(row) : undefined;
 }
 

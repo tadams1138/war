@@ -173,11 +173,11 @@ Feature: Admin visibility
       | /admin/wars   |
       | /admin/voters |
 
-  Scenario: The public War route still hides a removed War from a Moderator
-    Given a removed War
+  Scenario: A Moderator opens another Voter's unlisted draft War and its rankings
+    Given a Voter who created an unlisted draft War
     And a Moderator
-    When the Moderator GETs that War from the public endpoint
-    Then the response is 404
+    When the Moderator GETs that War and its rankings
+    Then both responses are 200, the War with can_manage false and no removal time
 
   Scenario: Reading the admin endpoints writes nothing to the moderation log
     Given a Voter with a War and a vote

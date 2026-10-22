@@ -5,7 +5,7 @@ import { listMediaByContestants } from '../contestants/contestantMediaRepository
 import { presentMedia } from '../contestants/mediaPresenter.js';
 import { contestantViewSchema, type ContestantView } from '../contestants/contestantPresenter.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
-import { findVisibleWar } from '../wars/warAccess.js';
+import { findVisibleWar, type ViewerRoles } from '../wars/warAccess.js';
 import { THEMES } from '../wars/theme.js';
 import { rankContestants } from './scoring.js';
 
@@ -50,7 +50,7 @@ export const rankingsResponseSchema = {
 };
 
 export type RankingsOutcome =
-  | { kind: 'ok'; view: RankingsView }
+  | { kind: 'ok'; view: RankingsView; shareable: boolean }
   | { kind: 'notFound' };
 
 /** Assembles a War's rankings response (§6.4). `viewerId` is `null` for an anonymous request. */
@@ -60,9 +60,10 @@ export async function getRankings(
   viewerId: string | null,
   now: Date,
   publicBaseUrl: string,
+  roles: ViewerRoles = {},
 ): Promise<RankingsOutcome> {
   // A draft is invisible to anyone but its creator (§6.1): reported as not found, like a missing War.
-  const war = await findVisibleWar(db, warId, viewerId);
+  const war = await findVisibleWar(db, warId, viewerId, roles);
   if (!war) {
     return { kind: 'notFound' };
   }
@@ -97,5 +98,7 @@ export async function getRankings(
       updated_at: now.toISOString(),
       rankings,
     },
+    // Judged on the stored status: only a published (or since-closed), non-removed War is visible to everyone.
+    shareable: war.status !== 'draft' && war.removedAt === null,
   };
 }

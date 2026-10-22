@@ -1,25 +1,30 @@
 import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { sql } from 'kysely';
+import sharp from 'sharp';
 import { expect } from 'vitest';
 import { newId } from '../../src/db/uuid.js';
 import { describeFeature, loadFeature } from '@amiceli/vitest-cucumber';
 import { logAction } from '../../src/moderation/moderationLogRepository.js';
 import { deleteWarRow, markWarRemoved } from '../../src/wars/warsRepository.js';
-import { makeAdmin, makeDraftWar, makeModerator, makeVoter } from '../setup/fixtures.js';
+import { makeAdmin, makeDraftWar, makeDraftWarWithContestants, makeModerator, makeVoter, publishWarForTest } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
-import { putKillSwitch, putRole } from '../setup/apiClient.js';
+import { as, putKillSwitch, putRole, uploadImage } from '../setup/apiClient.js';
 import { moderationLog } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/moderation-log.feature', import.meta.url)));
 
-describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
+describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) => {
   let harness: TestHarness;
 
   BeforeEachScenario(async () => {
     await truncateAll();
     harness = await buildTestHarness();
+  });
+
+  AfterEachScenario(async () => {
+    await restoreModerationLogWrites();
   });
 
   Scenario('Granting a role writes a moderation log entry', ({ Given, When, Then }) => {
@@ -432,6 +437,369 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(entryActions(response)).toEqual(['remove_war']);
     });
   });
+
+  Scenario("An Admin's action on another Voter's War is logged naming the Admin and the War", ({ Given, And, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('an Admin and a published War titled "Their War" created by Voter A', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2, { title: 'Their War' });
+      warId = (await publishWarForTest(harness.db, war)).id;
+    });
+
+    When('the Admin unpublishes the War', async () => {
+      // Act
+      expect((await as(harness, adminId).post(`/api/v1/wars/${warId}/unpublish`)).status).toBe(200);
+    });
+
+    And('the Admin GETs the moderation log', async () => {
+      // Act
+      response = await getLog(adminId);
+    });
+
+    Then('the entry names the Admin as the actor and the War by title "Their War"', () => {
+      // Assert
+      const entry = entryWithAction(response, 'unpublish_war');
+      expect(entry.actor_voter_id).toBe(adminId);
+      expect(entry.actor_name).toBe('admin');
+      expect(entry.target_war_id).toBe(warId);
+      expect(entry.target_war_title).toBe('Their War');
+    });
+  });
+
+  Scenario('An Admin acting on their own War writes no moderation log entry', ({ Given, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+
+    Given('an Admin and a published War created by that Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, adminId, 2);
+      warId = (await publishWarForTest(harness.db, war)).id;
+    });
+
+    When('the Admin unpublishes the War', async () => {
+      // Act
+      expect((await as(harness, adminId).post(`/api/v1/wars/${warId}/unpublish`)).status).toBe(200);
+    });
+
+    Then('no moderation log entry exists', async () => {
+      // Assert
+      expect(await moderationLog(harness.db)).toHaveLength(0);
+    });
+  });
+
+  Scenario("Every kind of change an Admin makes to another Voter's War is logged once per request", ({ Given, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+    let contestantId: string;
+
+    Given('an Admin and a draft War created by Voter A with 2 contestants', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const seeded = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2);
+      warId = seeded.war.id;
+      contestantId = seeded.contestants[0]!.id;
+    });
+
+    When(
+      'the Admin edits, shares, adds and edits a contestant, adds, reorders and removes an image, removes a contestant, publishes, unpublishes, clears the votes of and deletes the War',
+      async () => {
+        // Act
+        const admin = as(harness, adminId);
+        const photo = await sharp({ create: { width: 600, height: 400, channels: 3, background: { r: 1, g: 2, b: 3 } } }).jpeg().toBuffer();
+        const base = `/api/v1/wars/${warId}`;
+        const fresh = await admin.post(`${base}/contestants`, { name: 'Extra' });
+        const extraId = fresh.body.id as string;
+        await admin.patch(`${base}`, { title: 'Edited' });
+        await admin.post(`${base}/share-image`, { configure: (req) => req.attach('file', photo, { filename: 's.jpg', contentType: 'image/jpeg' }) });
+        await admin.patch(`${base}/contestants/${extraId}`, { name: 'Renamed' });
+        await uploadImage(harness, warId, contestantId, adminId, photo);
+        const mediaId = (await harness.db.selectFrom('contestant_media').select('id').executeTakeFirstOrThrow()).id;
+        await admin.patch(`${base}/contestants/${contestantId}/media/${mediaId}`, { display_order: 0 });
+        await admin.delete(`${base}/contestants/${contestantId}/media/${mediaId}`);
+        await admin.delete(`${base}/contestants/${extraId}`);
+        await admin.post(`${base}/publish`);
+        await admin.post(`${base}/unpublish`);
+        await admin.post(`${base}/clear-votes`);
+        await admin.delete(base);
+      },
+    );
+
+    Then(
+      'the log holds one entry per request, with the action names edit_war, set_share_image, add_contestant, edit_contestant, add_image, reorder_images, remove_image, remove_contestant, publish_war, unpublish_war, clear_votes and delete_war',
+      async () => {
+        // Assert
+        const rows = await moderationLog(harness.db);
+        expect(rows.map((r) => r.action).sort()).toEqual(
+          [
+            'add_contestant', 'edit_war', 'set_share_image', 'edit_contestant', 'add_image', 'reorder_images', 'remove_image',
+            'remove_contestant', 'publish_war', 'unpublish_war', 'clear_votes', 'delete_war',
+          ].sort(),
+        );
+        expect(rows.every((r) => r.staff_voter_id === adminId && r.target_war_id === warId)).toBe(true);
+      },
+    );
+  });
+
+  Scenario('A Moderator sees no owner-action entries', ({ Given, When, Then }) => {
+    let moderatorId: string;
+    let response: request.Response;
+
+    Given('a published War created by Voter A, an Admin who unpublished it and a Moderator who removed another War', async () => {
+      // Arrange
+      ({ moderatorId } = await seedOwnerActionAndWarRemoval());
+    });
+
+    When('the Moderator GETs the moderation log', async () => {
+      // Act
+      response = await getLog(moderatorId);
+    });
+
+    Then('the response lists the War removal and no owner-action entry', () => {
+      // Assert
+      expect(entryActions(response)).toEqual(['remove_war']);
+    });
+  });
+
+  Scenario('An Admin sees owner-action entries and no moderation entries', ({ Given, When, Then }) => {
+    let adminId: string;
+    let response: request.Response;
+
+    Given('a published War created by Voter A, an Admin who unpublished it and a Moderator who removed another War', async () => {
+      // Arrange
+      ({ adminId } = await seedOwnerActionAndWarRemoval());
+    });
+
+    When('the Admin GETs the moderation log', async () => {
+      // Act
+      response = await getLog(adminId);
+    });
+
+    Then('the response lists the owner action and no moderation entry', () => {
+      // Assert
+      expect(entryActions(response)).toEqual(['unpublish_war']);
+    });
+  });
+
+  Scenario('A refused owner action by an Admin writes no entry', ({ Given, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('an Admin and a War created by Voter A', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+      warId = (await makeDraftWar(harness.db, (await makeVoter(harness.db, 'voter-a')).id)).id;
+    });
+
+    When('the Admin PATCHes the War with an invalid title', async () => {
+      // Act
+      response = await as(harness, adminId).patch(`/api/v1/wars/${warId}`, { title: '' });
+    });
+
+    Then('no moderation log entry exists', async () => {
+      // Assert
+      expect(response.status).toBe(422);
+      expect(await moderationLog(harness.db)).toHaveLength(0);
+    });
+  });
+
+  Scenario("An Admin's change to another Voter's War is undone when its log entry can't be written", ({ Given, And, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('a published War created by Voter A', async () => {
+      // Arrange
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2, { title: 'Original title' });
+      warId = (await publishWarForTest(harness.db, war)).id;
+    });
+
+    And('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    And('the moderation log cannot be written', async () => {
+      // Arrange
+      await breakModerationLogWrites();
+    });
+
+    When('the Admin PATCHes the title', async () => {
+      // Act
+      response = await as(harness, adminId).patch(`/api/v1/wars/${warId}`, { title: 'Changed title' });
+    });
+
+    Then('the response is 500', () => {
+      // Assert
+      expect(response.status).toBe(500);
+    });
+
+    And("the War's title is unchanged", async () => {
+      // Assert
+      const war = await harness.db.selectFrom('wars').select('title').where('id', '=', warId).executeTakeFirstOrThrow();
+      expect(war.title).toBe('Original title');
+    });
+
+    And('no moderation log entry exists', async () => {
+      // Assert
+      expect(await moderationLog(harness.db)).toHaveLength(0);
+    });
+  });
+
+  Scenario("An Admin's contestant image upload leaves nothing behind when its log entry can't be written", ({ Given, And, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+    let contestantId: string;
+    let response: request.Response;
+    let keysBefore: StoredKeys;
+
+    Given('a published War created by Voter A, with a contestant', async () => {
+      // Arrange
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2);
+      warId = (await publishWarForTest(harness.db, war)).id;
+      contestantId = contestants[0]!.id;
+    });
+
+    And('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    And('the moderation log cannot be written', async () => {
+      // Arrange
+      await breakModerationLogWrites();
+    });
+
+    When('the Admin uploads an image to that contestant', async () => {
+      // Act
+      keysBefore = storedKeys();
+      response = await uploadImage(harness, warId, contestantId, adminId, await solidJpeg(600, 400));
+    });
+
+    Then('the response is 500', () => {
+      // Assert
+      expect(response.status).toBe(500);
+    });
+
+    And('the contestant has no images', async () => {
+      // Assert
+      const rows = await harness.db.selectFrom('contestant_media').select('id').where('contestant_id', '=', contestantId).execute();
+      expect(rows).toHaveLength(0);
+    });
+
+    And('nothing from the upload is left in storage', () => {
+      // Assert
+      expect(storedKeys()).toEqual(keysBefore);
+    });
+  });
+
+  Scenario("An Admin's share image upload leaves the War's share image as it was when its log entry can't be written", ({ Given, And, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+    let response: request.Response;
+    let keysBefore: StoredKeys;
+    let urlBefore: string;
+    let originalBytes: Buffer;
+
+    Given('a published War created by Voter A, with a share image', async () => {
+      // Arrange
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2);
+      warId = (await publishWarForTest(harness.db, war)).id;
+      await uploadShare(voterA.id, await solidJpeg(1600, 900, { r: 200, g: 10, b: 10 }));
+      urlBefore = await shareImageUrl(voterA.id);
+      originalBytes = harness.storage.publicObjects.get(keyOfUrl(urlBefore))!;
+    });
+
+    And('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    And('the moderation log cannot be written', async () => {
+      // Arrange
+      await breakModerationLogWrites();
+    });
+
+    When('the Admin uploads a new share image', async () => {
+      // Act
+      keysBefore = storedKeys();
+      response = await uploadShare(adminId, await solidJpeg(900, 1400, { r: 10, g: 10, b: 200 }));
+    });
+
+    Then('the response is 500', () => {
+      // Assert
+      expect(response.status).toBe(500);
+    });
+
+    And("the War's share image is unchanged", async () => {
+      // Assert
+      const urlAfter = await shareImageUrl(adminId);
+      expect(urlAfter).toBe(urlBefore);
+      expect(harness.storage.publicObjects.get(keyOfUrl(urlAfter))).toEqual(originalBytes);
+    });
+
+    And('nothing from the upload is left in storage', () => {
+      // Assert
+      expect(storedKeys()).toEqual(keysBefore);
+    });
+
+    async function uploadShare(voterId: string, photo: Buffer): Promise<request.Response> {
+      return as(harness, voterId).post(`/api/v1/wars/${warId}/share-image`, {
+        configure: (req) => req.attach('file', photo, { filename: 's.jpg', contentType: 'image/jpeg' }),
+      });
+    }
+
+    async function shareImageUrl(voterId: string): Promise<string> {
+      return (await as(harness, voterId).get(`/api/v1/wars/${warId}`)).body.share_image_url as string;
+    }
+  });
+
+  type StoredKeys = { public: string[]; private: string[] };
+
+  function storedKeys(): StoredKeys {
+    return { public: [...harness.storage.publicObjects.keys()].sort(), private: [...harness.storage.privateObjects.keys()].sort() };
+  }
+
+  function keyOfUrl(url: string): string {
+    return [...harness.storage.publicObjects.keys()].find((key) => url.endsWith(`/${key}`))!;
+  }
+
+  function solidJpeg(width: number, height: number, background = { r: 1, g: 2, b: 3 }): Promise<Buffer> {
+    return sharp({ create: { width, height, channels: 3, background } }).jpeg().toBuffer();
+  }
+
+  async function seedOwnerActionAndWarRemoval(): Promise<{ adminId: string; moderatorId: string }> {
+    const adminId = (await makeAdmin(harness.db, 'admin')).id;
+    const moderatorId = (await makeModerator(harness.db, 'moderator')).id;
+    const voterA = await makeVoter(harness.db, 'voter-a');
+    const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2);
+    const published = await publishWarForTest(harness.db, war);
+    await as(harness, adminId).post(`/api/v1/wars/${published.id}/unpublish`);
+    const other = await makeDraftWar(harness.db, voterA.id);
+    await logAction(harness.db, { action: 'remove_war', actorVoterId: moderatorId, targetWarId: other.id });
+    return { adminId, moderatorId };
+  }
+
+  /** Makes every insert into the moderation log fail, as a stand-in for the log being unwritable. */
+  async function breakModerationLogWrites(): Promise<void> {
+    await sql`create or replace function fail_moderation_log_write() returns trigger language plpgsql as $$ begin raise exception 'moderation log unavailable'; end $$`.execute(harness.db);
+    await sql`create trigger fail_moderation_log_write before insert on moderation_log for each row execute function fail_moderation_log_write()`.execute(harness.db);
+  }
+
+  async function restoreModerationLogWrites(): Promise<void> {
+    await sql`drop trigger if exists fail_moderation_log_write on moderation_log`.execute(harness.db);
+    await sql`drop function if exists fail_moderation_log_write()`.execute(harness.db);
+  }
 
   function entryActions(response: request.Response): string[] {
     expect(response.status).toBe(200);

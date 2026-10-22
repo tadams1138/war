@@ -8,6 +8,7 @@ import {
   countMediaByContestant,
   createImageMedia,
   type ContestantMedia,
+  type CreateImageMediaInput,
 } from './contestantMediaRepository.js';
 
 export const MAX_IMAGES_PER_CONTESTANT = 10;
@@ -19,6 +20,8 @@ interface InvalidUpload {
   kind: 'invalidUpload';
 }
 export type UploadOutcome = MutationOutcome<ContestantMedia, TooManyImages | InvalidUpload>;
+/** The outcome of storing an image's objects: the media row still to be written, or why it was refused. */
+export type StoreImageOutcome = MutationOutcome<CreateImageMediaInput, TooManyImages | InvalidUpload>;
 
 export interface UploadImageInput {
   contestantId: string;
@@ -28,15 +31,11 @@ export interface UploadImageInput {
 }
 
 /**
- * Uploads a contestant image: validate, re-encode into WebP variants (stripping EXIF), write the variants
- * (public) and the original (private) to object storage, then persist the media row. Runs synchronously
- * within the request.
+ * Validates a contestant image, re-encodes it into WebP variants (stripping EXIF) and writes the variants (public) and
+ * the original (private) to object storage. Returns the media row to persist; writing it is left to the caller so it
+ * can share a transaction with other writes without holding that transaction open across the slow work here.
  */
-export async function uploadContestantImage(
-  db: Kysely<Database>,
-  storage: ObjectStorage,
-  input: UploadImageInput,
-): Promise<UploadOutcome> {
+export async function storeContestantImage(db: Kysely<Database>, storage: ObjectStorage, input: UploadImageInput): Promise<StoreImageOutcome> {
   const validation = validateImageUpload({ mimeType: input.mimeType, sizeBytes: input.buffer.length });
   if (validation.kind !== 'ok') {
     return { kind: 'invalidUpload' };
@@ -56,15 +55,23 @@ export async function uploadContestantImage(
   }
   await storage.putPrivate(`originals/${input.contestantId}/${imageId}.${input.originalExt}`, input.buffer, input.mimeType);
 
-  const media = await createImageMedia(db, {
-    contestantId: input.contestantId,
-    displayOrder: existingCount,
-    storageKey,
-    originalExt: input.originalExt,
-    width: processed.original.width,
-    height: processed.original.height,
-    variantWidths: processed.variants.map((variant) => variant.width),
-  });
+  return {
+    kind: 'ok',
+    value: {
+      contestantId: input.contestantId,
+      displayOrder: existingCount,
+      storageKey,
+      originalExt: input.originalExt,
+      width: processed.original.width,
+      height: processed.original.height,
+      variantWidths: processed.variants.map((variant) => variant.width),
+    },
+  };
+}
 
-  return { kind: 'ok', value: media };
+/** Uploads a contestant image: `storeContestantImage`, then persist the media row. Runs synchronously within the request. */
+export async function uploadContestantImage(db: Kysely<Database>, storage: ObjectStorage, input: UploadImageInput): Promise<UploadOutcome> {
+  const stored = await storeContestantImage(db, storage, input);
+  if (stored.kind !== 'ok') return stored;
+  return { kind: 'ok', value: await createImageMedia(db, stored.value) };
 }

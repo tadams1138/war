@@ -9,8 +9,9 @@ import { nonEmptyStringError, validateIfPresent } from '../shared/bodyValidation
 import type { MutationOutcome, NotFound, NotPublished, ValidationError } from '../shared/outcomes.js';
 import { effectiveStatus } from './effectiveStatus.js';
 import { processShareImage } from './shareImageProcessing.js';
-import { loadOwnedWar } from './warAccess.js';
-import { deleteMediaObjects, mediaPrefixes } from './warMediaStorage.js';
+import { asOwnerAction, loadOwnedWar, type Caller } from './warAccess.js';
+import { newId } from '../db/uuid.js';
+import { cleanUpUnlessSaved, deleteMediaObjects, mediaPrefixes, shareImageKeys, shareImageMediaPrefixes } from './warMediaStorage.js';
 import { isWarTheme } from './theme.js';
 import {
   createMembership,
@@ -139,53 +140,49 @@ function resolvePatchEndsAt(raw: string | null | undefined): { value?: Date | nu
   return parseEndsAt(raw);
 }
 
-export async function patchWar(db: Kysely<Database>, warId: string, voterId: string, input: PatchWarInput): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
-  if (guard.kind !== 'ok') return guard;
+export async function patchWar(db: Kysely<Database>, warId: string, caller: Caller, input: PatchWarInput): Promise<MutationOutcome<War>> {
+  return asOwnerAction(db, warId, caller, 'edit_war', async (trx) => {
+    const title = validateIfPresent(input.title, titleError);
+    const visibility = validateIfPresent(input.visibility, visibilityError);
+    const theme = validateIfPresent(input.theme, themeError);
+    const endsAt = resolvePatchEndsAt(input.endsAt);
 
-  const title = validateIfPresent(input.title, titleError);
-  const visibility = validateIfPresent(input.visibility, visibilityError);
-  const theme = validateIfPresent(input.theme, themeError);
-  const endsAt = resolvePatchEndsAt(input.endsAt);
+    const errors = collectErrors(title.error, visibility.error, theme.error, endsAt.error);
+    if (errors.length > 0) {
+      return { kind: 'validationError', errors };
+    }
 
-  const errors = collectErrors(title.error, visibility.error, theme.error, endsAt.error);
-  if (errors.length > 0) {
-    return { kind: 'validationError', errors };
-  }
+    const patch: WarPatch = {
+      title: title.value,
+      category: input.category,
+      visibility: visibility.value,
+      theme: theme.value,
+      endsAt: endsAt.value,
+    };
 
-  const patch: WarPatch = {
-    title: title.value,
-    category: input.category,
-    visibility: visibility.value,
-    theme: theme.value,
-    endsAt: endsAt.value,
-  };
-
-  const updated = await updateWar(db, warId, patch);
-  return { kind: 'ok', value: updated };
+    return { kind: 'ok', value: await updateWar(trx, warId, patch) };
+  });
 }
 
 /**
  * Any status, creator-only (§6.1 "Deletion"). `deleteWarRowIn` cascades everything the War owns in one
- * transaction; its media objects are deleted best effort after that commit (a storage failure is logged and the
- * delete still succeeds), like Remove a War and Ban.
+ * transaction, together with the Admin's moderation log entry; its media objects are deleted best effort after that
+ * commit (a storage failure is logged and the delete still succeeds), like Remove a War and Ban.
  */
 export async function deleteWar(
   db: Kysely<Database>,
   storage: ObjectStorage,
   log: FastifyBaseLogger,
   warId: string,
-  voterId: string,
+  caller: Caller,
 ): Promise<MutationOutcome<void>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
-  if (guard.kind !== 'ok') return guard;
-
-  const prefixes = await db.transaction().execute(async (trx) => {
+  const deleted = await asOwnerAction(db, warId, caller, 'delete_war', async (trx) => {
     const contestantIds = (await listContestantsByWar(trx, warId)).map((contestant) => contestant.id);
     await deleteWarRowIn(trx, warId);
-    return mediaPrefixes(warId, contestantIds);
+    return { kind: 'ok', value: mediaPrefixes(warId, contestantIds) };
   });
-  await deleteMediaObjects(storage, log, prefixes, { warId });
+  if (deleted.kind !== 'ok') return deleted;
+  await deleteMediaObjects(storage, log, deleted.value, { warId });
   return { kind: 'ok', value: undefined };
 }
 
@@ -196,60 +193,56 @@ export async function deleteWar(
  * draft → published requires at least 2 contestants. Republishing never re-checks the count, since nothing
  * revokes visibility retroactively once a published War drops below 2 contestants.
  */
-export async function publishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
-  if (guard.kind !== 'ok') return guard;
-  const { war } = guard;
+export async function publishWar(db: Kysely<Database>, warId: string, caller: Caller, now: Date): Promise<MutationOutcome<War>> {
+  return asOwnerAction(db, warId, caller, 'publish_war', async (trx, war) => {
+    const status = effectiveStatus(war, now);
+    if (status === 'closed') {
+      return { kind: 'validationError', errors: ['a closed War cannot be published'] };
+    }
+    if (status === 'published') {
+      return { kind: 'ok', value: war };
+    }
 
-  const status = effectiveStatus(war, now);
-  if (status === 'closed') {
-    return { kind: 'validationError', errors: ['a closed War cannot be published'] };
-  }
-  if (status === 'published') {
-    return { kind: 'ok', value: war };
-  }
+    const contestants = await listContestantsByWar(trx, warId);
+    if (contestants.length < 2) {
+      return { kind: 'validationError', errors: ['a War needs at least 2 contestants to publish'] };
+    }
 
-  const contestants = await listContestantsByWar(db, warId);
-  if (contestants.length < 2) {
-    return { kind: 'validationError', errors: ['a War needs at least 2 contestants to publish'] };
-  }
-
-  const published = await setWarStatus(db, warId, 'published');
-  return { kind: 'ok', value: published };
+    return { kind: 'ok', value: await setWarStatus(trx, warId, 'published') };
+  });
 }
 
 /** published → draft requires nothing and touches no matchup, vote or contestant; draft → draft is idempotent. */
-export async function unpublishWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
-  if (guard.kind !== 'ok') return guard;
-  const { war } = guard;
+export async function unpublishWar(db: Kysely<Database>, warId: string, caller: Caller, now: Date): Promise<MutationOutcome<War>> {
+  return asOwnerAction(db, warId, caller, 'unpublish_war', async (trx, war) => {
+    const status = effectiveStatus(war, now);
+    if (status === 'closed') {
+      return { kind: 'validationError', errors: ['a closed War cannot be unpublished'] };
+    }
+    if (status === 'draft') {
+      return { kind: 'ok', value: war };
+    }
 
-  const status = effectiveStatus(war, now);
-  if (status === 'closed') {
-    return { kind: 'validationError', errors: ['a closed War cannot be unpublished'] };
-  }
-  if (status === 'draft') {
-    return { kind: 'ok', value: war };
-  }
-
-  const unpublished = await setWarStatus(db, warId, 'draft');
-  return { kind: 'ok', value: unpublished };
+    return { kind: 'ok', value: await setWarStatus(trx, warId, 'draft') };
+  });
 }
 
 export interface SetShareImageInput {
   warId: string;
-  voterId: string;
+  caller: Caller;
   buffer: Buffer;
   mimeType: string;
   originalExt: string;
 }
 
 /**
- * Creator-only, any status (§6.1, §9.1, §10.4). Always replaces: one deterministic key per War, so a
- * second upload overwrites the object in place and the War's own row is the only record of "has one".
+ * Creator-only, any status (§6.1, §9.1, §10.4). Always replaces. Each upload is stored under a new key, so the current
+ * image stays intact until the War points at its successor. Access is checked first, then the slow image work and the
+ * uploads happen outside any transaction; only the row update and the Admin's log entry share one. If that fails or is
+ * refused the new objects are deleted; once it commits the previous image's objects are (both best effort).
  */
-export async function setShareImage(db: Kysely<Database>, storage: ObjectStorage, input: SetShareImageInput): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, input.warId, input.voterId);
+export async function setShareImage(db: Kysely<Database>, storage: ObjectStorage, log: FastifyBaseLogger, input: SetShareImageInput): Promise<MutationOutcome<War>> {
+  const guard = await loadOwnedWar(db, input.warId, input.caller);
   if (guard.kind !== 'ok') return guard;
 
   const validation = validateImageUpload({ mimeType: input.mimeType, sizeBytes: input.buffer.length });
@@ -258,12 +251,20 @@ export async function setShareImage(db: Kysely<Database>, storage: ObjectStorage
   }
 
   const jpeg = await processShareImage(input.buffer);
-  const key = `share-images/${input.warId}.jpg`;
-  await storage.putPublic(key, jpeg, 'image/jpeg');
-  await storage.putPrivate(`originals/share-images/${input.warId}.${input.originalExt}`, input.buffer, input.mimeType);
+  const { publicKey, originalKey } = shareImageKeys(input.warId, newId(), input.originalExt);
+  await storage.putPublic(publicKey, jpeg, 'image/jpeg');
+  await storage.putPrivate(originalKey, input.buffer, input.mimeType);
 
-  const updated = await setWarShareImageKey(db, input.warId, key);
-  return { kind: 'ok', value: updated };
+  let previousKey: string | null = null;
+  const logContext = { warId: input.warId };
+  const outcome = await cleanUpUnlessSaved(storage, log, shareImageMediaPrefixes(publicKey), logContext, () =>
+    asOwnerAction(db, input.warId, input.caller, 'set_share_image', async (trx, war) => {
+      previousKey = war.shareImageKey;
+      return { kind: 'ok', value: await setWarShareImageKey(trx, input.warId, publicKey) };
+    }),
+  );
+  if (outcome.kind === 'ok') await deleteMediaObjects(storage, log, shareImageMediaPrefixes(previousKey), logContext);
+  return outcome;
 }
 
 export async function joinWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<void, NotFound | NotPublished>> {
@@ -280,14 +281,10 @@ export async function joinWar(db: Kysely<Database>, warId: string, voterId: stri
  * any status, creator-only, a deliberate hard delete. Membership rows are untouched. One transaction, so a failure
  * between the delete and the recompute never leaves counters inconsistent with an emptied `votes` table.
  */
-export async function clearVotes(db: Kysely<Database>, warId: string, voterId: string): Promise<MutationOutcome<War>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
-  if (guard.kind !== 'ok') return guard;
-
-  await db.transaction().execute(async (trx) => {
+export async function clearVotes(db: Kysely<Database>, warId: string, caller: Caller): Promise<MutationOutcome<War>> {
+  return asOwnerAction(db, warId, caller, 'clear_votes', async (trx, war) => {
     await deleteVotesForWar(trx, warId);
     await recomputeContestantCounters(trx, warId);
+    return { kind: 'ok', value: war };
   });
-
-  return { kind: 'ok', value: guard.war };
 }

@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type { ObjectStorage } from '../contestants/storage.js';
+import type { MutationOutcome } from '../shared/outcomes.js';
 
 /** Storage prefixes holding these contestants' media (key layout: `imageUploadService.ts`). */
 export function contestantMediaPrefixes(contestantIds: string[]): string[] {
@@ -18,9 +19,53 @@ export function imageMediaPrefixes(contestantId: string, storageKey: string | nu
   return [`${storageKey}-`, `originals/${contestantId}/${imageId}.`];
 }
 
-/** Every storage prefix holding this War's media (key layout: `imageUploadService.ts`, `setShareImage` in `warsService.ts`). */
+/**
+ * Share image keys: every upload is new, `share-images/<warId>-<uploadId>.jpg` (public) with its original at
+ * `originals/share-images/<warId>-<uploadId>.<ext>` (private), so a replaced image can be kept until its successor is saved.
+ * Images stored before that scheme sit at `share-images/<warId>.jpg`; both shapes are recognised.
+ */
+export function shareImageKeys(warId: string, uploadId: string, originalExt: string): { publicKey: string; originalKey: string } {
+  return { publicKey: `share-images/${warId}-${uploadId}.jpg`, originalKey: `originals/share-images/${warId}-${uploadId}.${originalExt}` };
+}
+
+/** Prefixes of one share image's objects (public variant and private original), derived from the public key; none without a key. */
+export function shareImageMediaPrefixes(publicKey: string | null): string[] {
+  if (publicKey === null) return [];
+  const stem = publicKey.slice('share-images/'.length, publicKey.lastIndexOf('.'));
+  return [`share-images/${stem}.`, `originals/share-images/${stem}.`];
+}
+
+/** Every storage prefix holding this War's media (key layout: `imageUploadService.ts`, `shareImageKeys`). */
 export function mediaPrefixes(warId: string, contestantIds: string[]): string[] {
-  return [...contestantMediaPrefixes(contestantIds), `share-images/${warId}.`, `originals/share-images/${warId}.`];
+  return [
+    ...contestantMediaPrefixes(contestantIds),
+    `share-images/${warId}-`,
+    `originals/share-images/${warId}-`,
+    `share-images/${warId}.`,
+    `originals/share-images/${warId}.`,
+  ];
+}
+
+/**
+ * Runs the owner action that persists objects already uploaded under `uploadedPrefixes`. If it throws or is refused,
+ * nothing references those objects, so they are deleted (best effort) before the error or outcome is passed on unchanged.
+ */
+export async function cleanUpUnlessSaved<T>(
+  storage: ObjectStorage,
+  log: FastifyBaseLogger,
+  uploadedPrefixes: string[],
+  logContext: Record<string, unknown>,
+  action: () => Promise<MutationOutcome<T>>,
+): Promise<MutationOutcome<T>> {
+  let outcome: MutationOutcome<T>;
+  try {
+    outcome = await action();
+  } catch (err) {
+    await deleteMediaObjects(storage, log, uploadedPrefixes, logContext);
+    throw err;
+  }
+  if (outcome.kind !== 'ok') await deleteMediaObjects(storage, log, uploadedPrefixes, logContext);
+  return outcome;
 }
 
 /**

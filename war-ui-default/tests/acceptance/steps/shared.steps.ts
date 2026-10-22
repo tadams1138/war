@@ -10,7 +10,7 @@ import type { WarSummary } from '../../../src/api/client'
 import type { HandlerRecipe, RecipeResponse } from '../../../src/mocks/scenarios'
 import { buildMatchupResponse, buildMediaItem, buildWarDetail, buildWarSummary } from '../../../src/mocks/fixtures'
 import { me } from '../support/adminFixtures'
-import { contestantFrom, warDetail } from '../support/editWar'
+import { contestantFrom, letAdminManageEveryWar, warDetail } from '../support/editWar'
 import { queueResults } from '../support/results'
 import { API, loginAsTestVoter, navigateAuthenticated, useScenario, votesSubmitted, waitForCallLog } from '../support/mocking'
 import type { CardRef } from '../support/cards'
@@ -74,6 +74,7 @@ function identityRecipe(world: World, role: RoleFlags): HandlerRecipe {
 Given('an authenticated {role}', async ({ page, world }, role: RoleFlags) => {
   // Arrange
   if (role.is_moderator || role.is_admin) world.queue(identityRecipe(world, role))
+  if (role.is_admin) letAdminManageEveryWar(world)
   await boot(page, world)
   await page.goto('/')
   await loginAsTestVoter(page)
@@ -412,12 +413,10 @@ Then('no error message is shown', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
-// What both detail pages (a War's moderation page, a Voter's) have: the way back to the
-// dashboard, and their records' rows.
+// What the Voter's detail page has: the way back to the dashboard, and its rows.
 Then('no detail page is shown', async ({ page }) => {
   // Assert
   await expect(page.getByRole('link', { name: 'Back to Admin Dashboard' })).toHaveCount(0)
-  await expect(page.getByTestId('admin-contestant-row')).toHaveCount(0)
   await expect(page.getByTestId('admin-voter-war-row')).toHaveCount(0)
 })
 

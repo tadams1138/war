@@ -19,7 +19,7 @@ export function VoterVotesSection({ voterId }: { voterId: string }) {
           <ul>
             {history.votes.map((vote) => (
               <li key={vote.id} data-testid="admin-vote-row">
-                <Link to={`/admin/wars/${vote.war_id}`}>{warTitle(vote.war_title)}</Link>
+                <Link to={`/wars/${vote.war_id}`}>{warTitle(vote.war_title)}</Link>
                 <span>
                   {' '}
                   · <strong>{vote.winner_name}</strong> beat {vote.loser_name} ·{' '}

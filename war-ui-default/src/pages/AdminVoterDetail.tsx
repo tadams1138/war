@@ -1,6 +1,6 @@
 // A single Voter as a Moderator or an Admin sees it (war-spec.md §6.7): their
 // roles and sanctions and the Wars they created, and for a Moderator (below)
-// their vote history and links to their Wars. Reached from the Admin
+// their vote history. Each War opens on its detail page. Reached from the Admin
 // Dashboard's Voters list and the moderation log.
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -67,7 +67,7 @@ function VoterBody({ voter, viewer, onChanged }: VoterBodyProps) {
         <ul>
           {voter.wars.map((war) => (
             <li key={war.id} data-testid="admin-voter-war-row">
-              {moderates ? <Link to={`/admin/wars/${war.id}`}>{warTitle(war.title)}</Link> : warTitle(war.title)}
+              <Link to={`/wars/${war.id}`}>{warTitle(war.title)}</Link>
               <span> · {war.status}</span>
               {war.removed_at && (
                 <span data-testid="admin-war-removed" className="badge">

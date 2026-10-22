@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger } from 'fastify';
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import type { Database } from '../db/types.js';
-import { loadOwnedWar } from '../wars/warAccess.js';
+import { asOwnerAction, type Caller } from '../wars/warAccess.js';
 import { contestantMediaPrefixes, deleteMediaObjects } from '../wars/warMediaStorage.js';
 import type { ObjectStorage } from './storage.js';
 import { nonEmptyStringError } from '../shared/bodyValidation.js';
@@ -24,7 +24,7 @@ import {
 
 export interface CreateContestantInput {
   warId: string;
-  voterId: string;
+  caller: Caller;
   name: string;
   bio?: string | null;
 }
@@ -38,33 +38,32 @@ function invalidNameOutcome(name: unknown): ValidationError | undefined {
 }
 
 /** The contestant, only if it belongs to this War -- `null` covers both "doesn't exist" and "wrong War". */
-async function findContestantInWar(db: Kysely<Database>, warId: string, contestantId: string): Promise<Contestant | null> {
+async function findContestantInWar(db: Kysely<Database> | Transaction<Database>, warId: string, contestantId: string): Promise<Contestant | null> {
   const contestant = await findContestantById(db, contestantId);
   if (!contestant || contestant.warId !== warId) return null;
   return contestant;
 }
 
 export async function addContestant(db: Kysely<Database>, input: CreateContestantInput): Promise<MutationOutcome<Contestant>> {
-  const guard = await loadOwnedWar(db, input.warId, input.voterId);
-  if (guard.kind !== 'ok') return guard;
+  return asOwnerAction(db, input.warId, input.caller, 'add_contestant', async (trx) => {
+    const nameError = invalidNameOutcome(input.name);
+    if (nameError) return nameError;
 
-  const nameError = invalidNameOutcome(input.name);
-  if (nameError) return nameError;
-
-  const existing = await listContestantsByWar(db, input.warId);
-  const contestant = await createContestant(db, {
-    warId: input.warId,
-    name: input.name,
-    bio: input.bio ?? null,
+    const existing = await listContestantsByWar(trx, input.warId);
+    const contestant = await createContestant(trx, {
+      warId: input.warId,
+      name: input.name,
+      bio: input.bio ?? null,
+    });
+    // Matchups generate incrementally: the new contestant is paired against everyone already on the roster (§4 "Matchup").
+    await generateMatchupsForNewContestant(
+      trx,
+      input.warId,
+      contestant.id,
+      existing.map((c) => c.id),
+    );
+    return { kind: 'ok', value: contestant };
   });
-  // Matchups generate incrementally: the new contestant is paired against everyone already on the roster (§4 "Matchup").
-  await generateMatchupsForNewContestant(
-    db,
-    input.warId,
-    contestant.id,
-    existing.map((c) => c.id),
-  );
-  return { kind: 'ok', value: contestant };
 }
 
 export interface PatchContestantInput {
@@ -76,29 +75,29 @@ export async function patchContestant(
   db: Kysely<Database>,
   warId: string,
   contestantId: string,
-  voterId: string,
+  caller: Caller,
   input: PatchContestantInput,
 ): Promise<MutationOutcome<Contestant>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
-  if (guard.kind !== 'ok') return guard;
+  return asOwnerAction<Contestant>(db, warId, caller, 'edit_contestant', async (trx) => {
+    const contestant = await findContestantInWar(trx, warId, contestantId);
+    if (!contestant) return { kind: 'notFound' };
 
-  const contestant = await findContestantInWar(db, warId, contestantId);
-  if (!contestant) return { kind: 'notFound' };
+    const nameError = input.name === undefined ? undefined : invalidNameOutcome(input.name);
+    if (nameError) return nameError;
 
-  const nameError = input.name === undefined ? undefined : invalidNameOutcome(input.name);
-  if (nameError) return nameError;
-
-  const updated = await updateContestant(db, contestantId, {
-    name: input.name,
-    bio: input.bio,
+    const updated = await updateContestant(trx, contestantId, {
+      name: input.name,
+      bio: input.bio,
+    });
+    return { kind: 'ok', value: updated };
   });
-  return { kind: 'ok', value: updated };
 }
 
 /**
  * Removes a contestant, any status, creator-only (§6.1). Votes on its matchups (and only those) are
  * cleared with it and the surviving contestants' counters recomputed, all in one transaction so a failure
- * never leaves a matchup or vote orphaned from a contestant that no longer exists.
+ * never leaves a matchup or vote orphaned from a contestant that no longer exists. An Admin's moderation log entry
+ * joins that transaction; the stored media objects are deleted best effort after it commits.
  */
 export async function removeContestant(
   db: Kysely<Database>,
@@ -106,15 +105,12 @@ export async function removeContestant(
   log: FastifyBaseLogger,
   warId: string,
   contestantId: string,
-  voterId: string,
+  caller: Caller,
 ): Promise<MutationOutcome<void>> {
-  const guard = await loadOwnedWar(db, warId, voterId);
-  if (guard.kind !== 'ok') return guard;
+  const removed = await asOwnerAction(db, warId, caller, 'remove_contestant', async (trx) => {
+    const contestant = await findContestantInWar(trx, warId, contestantId);
+    if (!contestant) return { kind: 'notFound' };
 
-  const contestant = await findContestantInWar(db, warId, contestantId);
-  if (!contestant) return { kind: 'notFound' };
-
-  await db.transaction().execute(async (trx) => {
     const matchupIds = await findMatchupIdsForContestant(trx, warId, contestantId);
     if (matchupIds.length > 0) {
       await deleteVotesForMatchups(trx, matchupIds);
@@ -124,7 +120,9 @@ export async function removeContestant(
     if (matchupIds.length > 0) {
       await recomputeContestantCounters(trx, warId);
     }
+    return { kind: 'ok', value: undefined };
   });
+  if (removed.kind !== 'ok') return removed;
   await deleteMediaObjects(storage, log, contestantMediaPrefixes([contestantId]), { warId, contestantId });
-  return { kind: 'ok', value: undefined };
+  return removed;
 }

@@ -83,3 +83,61 @@ Feature: Moderation log
     Given an Admin who granted the moderator role to a Voter, and a Moderator who removed a War
     When the Moderator GETs the moderation log
     Then the response lists the War removal and no role-change entry
+
+  Scenario: An Admin's action on another Voter's War is logged naming the Admin and the War
+    Given an Admin and a published War titled "Their War" created by Voter A
+    When the Admin unpublishes the War
+    And the Admin GETs the moderation log
+    Then the entry names the Admin as the actor and the War by title "Their War"
+
+  Scenario: An Admin acting on their own War writes no moderation log entry
+    Given an Admin and a published War created by that Admin
+    When the Admin unpublishes the War
+    Then no moderation log entry exists
+
+  Scenario: Every kind of change an Admin makes to another Voter's War is logged once per request
+    Given an Admin and a draft War created by Voter A with 2 contestants
+    When the Admin edits, shares, adds and edits a contestant, adds, reorders and removes an image, removes a contestant, publishes, unpublishes, clears the votes of and deletes the War
+    Then the log holds one entry per request, with the action names edit_war, set_share_image, add_contestant, edit_contestant, add_image, reorder_images, remove_image, remove_contestant, publish_war, unpublish_war, clear_votes and delete_war
+
+  Scenario: A Moderator sees no owner-action entries
+    Given a published War created by Voter A, an Admin who unpublished it and a Moderator who removed another War
+    When the Moderator GETs the moderation log
+    Then the response lists the War removal and no owner-action entry
+
+  Scenario: An Admin sees owner-action entries and no moderation entries
+    Given a published War created by Voter A, an Admin who unpublished it and a Moderator who removed another War
+    When the Admin GETs the moderation log
+    Then the response lists the owner action and no moderation entry
+
+  Scenario: A refused owner action by an Admin writes no entry
+    Given an Admin and a War created by Voter A
+    When the Admin PATCHes the War with an invalid title
+    Then no moderation log entry exists
+
+  Scenario: An Admin's change to another Voter's War is undone when its log entry can't be written
+    Given a published War created by Voter A
+    And an Admin
+    And the moderation log cannot be written
+    When the Admin PATCHes the title
+    Then the response is 500
+    And the War's title is unchanged
+    And no moderation log entry exists
+
+  Scenario: An Admin's contestant image upload leaves nothing behind when its log entry can't be written
+    Given a published War created by Voter A, with a contestant
+    And an Admin
+    And the moderation log cannot be written
+    When the Admin uploads an image to that contestant
+    Then the response is 500
+    And the contestant has no images
+    And nothing from the upload is left in storage
+
+  Scenario: An Admin's share image upload leaves the War's share image as it was when its log entry can't be written
+    Given a published War created by Voter A, with a share image
+    And an Admin
+    And the moderation log cannot be written
+    When the Admin uploads a new share image
+    Then the response is 500
+    And the War's share image is unchanged
+    And nothing from the upload is left in storage

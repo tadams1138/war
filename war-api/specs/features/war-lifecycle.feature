@@ -22,7 +22,7 @@ Feature: War Lifecycle
     When the creator POSTs to publish
     Then the War status becomes "published"
 
-  Scenario: Non-creator cannot publish
+  Scenario: A plain Voter cannot publish another Voter's War
     Given a War created by Voter A
     When Voter B POSTs to publish
     Then the response status is 403
@@ -115,7 +115,7 @@ Feature: War Lifecycle
     When anyone GETs the War's detail, unauthenticated
     Then is_owner is false
 
-  Scenario: A non-owner cannot see an unpublished War at all
+  Scenario: A plain Voter cannot see another Voter's unpublished War at all
     Given a War in "draft" status created by Voter A
     When Voter B GETs the War's detail, authenticated
     Then the response status is 404
@@ -131,7 +131,7 @@ Feature: War Lifecycle
     Then the response status is 204
     And the War no longer exists
 
-  Scenario: Non-creator cannot delete a draft War
+  Scenario: A plain Voter cannot delete another Voter's draft War
     Given a War created by Voter A
     When Voter B DELETEs the War
     Then the response status is 403
@@ -191,7 +191,38 @@ Feature: War Lifecycle
     When the creator POSTs to /api/v1/wars/:id/clear-votes
     Then no votes remain in the War
 
-  Scenario: Non-creator cannot clear votes
+  Scenario: A plain Voter cannot clear another Voter's votes
     Given a published War created by Voter A
     When Voter B POSTs to /api/v1/wars/:id/clear-votes
     Then the response status is 403
+
+  Scenario: An Admin opens and edits another Voter's unlisted draft War
+    Given a War in "draft" status created by Voter A with visibility "unlisted"
+    And an Admin
+    When the Admin GETs the War's detail
+    Then the detail response status is 200
+    When the Admin GETs the War's rankings
+    Then the rankings response status is 200
+    When the Admin PATCHes the title
+    Then the PATCH response status is 200
+
+  Scenario: War detail reports an Admin may manage a War they did not create
+    Given a published War created by Voter A
+    And an Admin
+    When the Admin GETs the War's detail
+    Then is_owner is false and can_manage is true
+
+  Scenario Outline: An Admin does to another Voter's War what its creator can
+    Given a <status> War created by Voter A, with 2 contestants and a vote cast on their matchup
+    When an Admin <action>
+    Then the request succeeds
+
+    Examples:
+      | status    | action                         |
+      | draft     | PATCHes the War's title        |
+      | draft     | adds a contestant to the War   |
+      | draft     | removes a contestant           |
+      | draft     | publishes the War              |
+      | published | unpublishes the War            |
+      | published | clears the War's votes         |
+      | draft     | DELETEs the War                |
