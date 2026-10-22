@@ -44,6 +44,29 @@ Feature: Vote Mode Responsive Layout
     Then each contestant's bio is on screen
     And each bio sits beside its own card
 
+  Scenario: On a narrow viewport, a poll's bios sit beside their Vote buttons
+    Given a phone screen
+    And the left contestant has 0 images
+    And the right contestant has 0 images
+    And the left contestant's bio is "Left bio."
+    And the right contestant's bio is "Right bio."
+    And an authenticated voter
+    When they open that War's vote page
+    Then each contestant's bio is on screen
+    And each bio sits beside its own card
+
+  Scenario: On a wide viewport, a poll's bios sit below their Vote buttons, on screen
+    Given a desktop screen
+    And the left contestant has 0 images
+    And the right contestant has 0 images
+    And the left contestant's bio is "Left bio."
+    And the right contestant's bio is "Right bio."
+    And an authenticated voter
+    When they open that War's vote page
+    Then the contestants are side by side
+    And each contestant's bio is on screen
+    And each bio sits below its own card
+
   Scenario: Clicking a bio never casts a vote
     Given a phone screen
     And the left contestant's bio is "A bio long enough to click on."
