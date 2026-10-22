@@ -123,3 +123,21 @@ Feature: Moderation log
     Then the response is 500
     And the War's title is unchanged
     And no moderation log entry exists
+
+  Scenario: An Admin's contestant image upload leaves nothing behind when its log entry can't be written
+    Given a published War created by Voter A, with a contestant
+    And an Admin
+    And the moderation log cannot be written
+    When the Admin uploads an image to that contestant
+    Then the response is 500
+    And the contestant has no images
+    And nothing from the upload is left in storage
+
+  Scenario: An Admin's share image upload leaves the War's share image as it was when its log entry can't be written
+    Given a published War created by Voter A, with a share image
+    And an Admin
+    And the moderation log cannot be written
+    When the Admin uploads a new share image
+    Then the response is 500
+    And the War's share image is unchanged
+    And nothing from the upload is left in storage

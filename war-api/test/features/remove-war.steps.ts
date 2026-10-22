@@ -317,6 +317,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       otherContestantIds = other.contestants.map((c) => c.id);
       await harness.storage.putPublic(`share-images/${warId}.jpg`, Buffer.from('s'));
       await harness.storage.putPrivate(`originals/share-images/${warId}.png`, Buffer.from('o'));
+      await harness.storage.putPublic(`share-images/${warId}-0f0f.jpg`, Buffer.from('s'));
+      await harness.storage.putPrivate(`originals/share-images/${warId}-0f0f.png`, Buffer.from('o'));
       await harness.storage.putPublic(`share-images/${other.war.id}.jpg`, Buffer.from('s'));
       await setWarShareImageKey(harness.db, warId, `share-images/${warId}.jpg`);
       otherKeysBefore = allKeys().filter((key) => key.includes(other.war.id) || otherContestantIds.some((id) => key.includes(id)));

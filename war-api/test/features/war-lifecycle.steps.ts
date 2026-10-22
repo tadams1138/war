@@ -840,6 +840,8 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
       warId = first.war.id;
       await harness.storage.putPublic(`share-images/${warId}.jpg`, Buffer.from('s'));
       await harness.storage.putPrivate(`originals/share-images/${warId}.png`, Buffer.from('o'));
+      await harness.storage.putPublic(`share-images/${warId}-0f0f.jpg`, Buffer.from('s'));
+      await harness.storage.putPrivate(`originals/share-images/${warId}-0f0f.png`, Buffer.from('o'));
       await harness.storage.putPublic(`share-images/${other.war.id}.jpg`, Buffer.from('s'));
       const firstIds = first.contestants.map((c) => c.id);
       otherKeysBefore = allKeys().filter((key) => !key.includes(warId) && !firstIds.some((id) => key.includes(id)));

@@ -132,7 +132,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
       if (!upload) {
         return sendNoFileUploaded(reply);
       }
-      const outcome = await addContestantImage(db, deps.storage, {
+      const outcome = await addContestantImage(db, deps.storage, request.log, {
         warId: request.params.id,
         contestantId: request.params.cId,
         caller: callerOf(request),

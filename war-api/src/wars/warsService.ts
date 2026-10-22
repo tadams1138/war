@@ -10,7 +10,8 @@ import type { MutationOutcome, NotFound, NotPublished, ValidationError } from '.
 import { effectiveStatus } from './effectiveStatus.js';
 import { processShareImage } from './shareImageProcessing.js';
 import { asOwnerAction, loadOwnedWar, type Caller } from './warAccess.js';
-import { deleteMediaObjects, mediaPrefixes } from './warMediaStorage.js';
+import { newId } from '../db/uuid.js';
+import { cleanUpUnlessSaved, deleteMediaObjects, mediaPrefixes, shareImageKeys, shareImageMediaPrefixes } from './warMediaStorage.js';
 import { isWarTheme } from './theme.js';
 import {
   createMembership,
@@ -235,12 +236,12 @@ export interface SetShareImageInput {
 }
 
 /**
- * Creator-only, any status (§6.1, §9.1, §10.4). Always replaces: one deterministic key per War, so a
- * second upload overwrites the object in place and the War's own row is the only record of "has one".
- * Access is checked first, then the slow image work and the uploads happen outside any transaction; only the row
- * update and the Admin's log entry share one.
+ * Creator-only, any status (§6.1, §9.1, §10.4). Always replaces. Each upload is stored under a new key, so the current
+ * image stays intact until the War points at its successor. Access is checked first, then the slow image work and the
+ * uploads happen outside any transaction; only the row update and the Admin's log entry share one. If that fails or is
+ * refused the new objects are deleted; once it commits the previous image's objects are (both best effort).
  */
-export async function setShareImage(db: Kysely<Database>, storage: ObjectStorage, input: SetShareImageInput): Promise<MutationOutcome<War>> {
+export async function setShareImage(db: Kysely<Database>, storage: ObjectStorage, log: FastifyBaseLogger, input: SetShareImageInput): Promise<MutationOutcome<War>> {
   const guard = await loadOwnedWar(db, input.warId, input.caller);
   if (guard.kind !== 'ok') return guard;
 
@@ -250,14 +251,20 @@ export async function setShareImage(db: Kysely<Database>, storage: ObjectStorage
   }
 
   const jpeg = await processShareImage(input.buffer);
-  const key = `share-images/${input.warId}.jpg`;
-  await storage.putPublic(key, jpeg, 'image/jpeg');
-  await storage.putPrivate(`originals/share-images/${input.warId}.${input.originalExt}`, input.buffer, input.mimeType);
+  const { publicKey, originalKey } = shareImageKeys(input.warId, newId(), input.originalExt);
+  await storage.putPublic(publicKey, jpeg, 'image/jpeg');
+  await storage.putPrivate(originalKey, input.buffer, input.mimeType);
 
-  return asOwnerAction(db, input.warId, input.caller, 'set_share_image', async (trx) => ({
-    kind: 'ok',
-    value: await setWarShareImageKey(trx, input.warId, key),
-  }));
+  let previousKey: string | null = null;
+  const logContext = { warId: input.warId };
+  const outcome = await cleanUpUnlessSaved(storage, log, shareImageMediaPrefixes(publicKey), logContext, () =>
+    asOwnerAction(db, input.warId, input.caller, 'set_share_image', async (trx, war) => {
+      previousKey = war.shareImageKey;
+      return { kind: 'ok', value: await setWarShareImageKey(trx, input.warId, publicKey) };
+    }),
+  );
+  if (outcome.kind === 'ok') await deleteMediaObjects(storage, log, shareImageMediaPrefixes(previousKey), logContext);
+  return outcome;
 }
 
 export async function joinWar(db: Kysely<Database>, warId: string, voterId: string, now: Date): Promise<MutationOutcome<void, NotFound | NotPublished>> {
