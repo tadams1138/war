@@ -924,7 +924,7 @@ action rather than navigating.
 
 Two contestant cards side by side.
 
-- Cards show image and name **only**; a contestant's bio renders in its own area outside the
+- Cards show image (or, with no media, a Vote button) and name **only**; a contestant's bio renders in its own area outside the
   tap-to-vote media (below), as §4.2 requires
 - Images use the width set the API supplies, sized for two cards sharing the viewport, so a
   phone downloads a small variant rather than a large one
@@ -937,11 +937,12 @@ Two contestant cards side by side.
 - The next pair's media is prefetched while the voter decides
 - **The API decides left and right.** The order is rendered verbatim and never shuffled,
   sorted or reordered; doing so destroys the position-bias signal
-- Tapping a card casts the vote; both cards disable while it is in flight, then the next pair
+- Tapping a card's media (or its Vote button) casts the vote; both cards disable while it is in flight, then the next pair
   loads automatically
 - **Votes are final.** A voter is never served a decided pair, so there is no path back to
   one. A conflict — reachable only from a stale tab or double submit — advances rather than
   showing an error, because the vote it conflicts with is the voter's own
+- A contestant with no media shows a Vote button in place of its media; when neither contestant has media, on a wide viewport the cards shrink to fit and the bios render directly below them.
 - There is no skip or abstain control
 - Once every matchup is voted, the voter is redirected straight to the War's results page
   (§10.4) — whether that happens because they just cast the final vote, or because they
