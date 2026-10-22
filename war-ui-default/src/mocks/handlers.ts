@@ -46,8 +46,6 @@ export const handlers = [
   // A Moderator's War detail asks for the War's reports; none by default.
   http.get('/api/v1/wars/:id/reports', () => HttpResponse.json({ reports: [] })),
 
-  http.post('/api/v1/wars/:id/export', () => new HttpResponse(null, { status: 204 })),
-
   http.post('/api/v1/wars/:id/join', () => new HttpResponse(null, { status: 204 })),
 
   http.get('/api/v1/wars/:id/matchups/next', () => HttpResponse.json(buildMatchupResponse())),

@@ -19,7 +19,7 @@ import type { ObjectStorage } from '../contestants/storage.js';
 import { countContestantsByWarIds, countContestantsForWar } from '../contestants/contestantsRepository.js';
 import { callerOf, findVisibleWar } from './warAccess.js';
 import { presentWarDetail, presentWarSummary, warDetailResponseSchema, warSummaryProperties } from './warPresenter.js';
-import { clearVotes, createWarForVoter, deleteWar, joinWar, patchWar, publishWar, recordWarExport, setShareImage, unpublishWar } from './warsService.js';
+import { clearVotes, createWarForVoter, deleteWar, joinWar, patchWar, publishWar, setShareImage, unpublishWar } from './warsService.js';
 import { removeWar } from './removeWarService.js';
 import { closeExpiredWars, listWars, type War, type WarsSort } from './warsRepository.js';
 
@@ -317,18 +317,6 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return replyForOutcome(reply, outcome);
       }
       return reply.send(await presentOwnedWar(outcome.value));
-    },
-  );
-
-  app.post<{ Params: { id: string } }>(
-    '/wars/:id/export',
-    bearerAuthRoute(auth, { response: { 204: {}, 403: errorResponseSchema, 404: errorResponseSchema } }),
-    async (request, reply) => {
-      const outcome = await recordWarExport(db, request.params.id, callerOf(request));
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.code(204).send();
     },
   );
 

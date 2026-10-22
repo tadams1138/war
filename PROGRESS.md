@@ -63,9 +63,8 @@ required-reviewer approval. See `war-spec.md` section 12.
   `can_manage` (creator or Admin) beside `is_owner` (creator only). Each such request an Admin makes
   on a War they did not create writes one owner-action log entry (`edit_war`, `set_share_image`,
   `add_contestant`, `edit_contestant`, `remove_contestant`, `add_image`, `reorder_images`,
-  `remove_image`, `publish_war`, `unpublish_war`, `clear_votes`, `export_war`, `delete_war`), after the
-  action succeeds and not in its transaction; export is client-side, so the UI reports it through
-  `POST /wars/:id/export` (204). Any
+  `remove_image`, `publish_war`, `unpublish_war`, `clear_votes`, `delete_war`), after the
+  action succeeds and not in its transaction; export is client-side and changes nothing, so it is not logged. Any
   voter can report any War; Moderators list reports per War, read the unaddressed queue and
   toggle a report's addressed state. Remove a War hides it and deletes its media while
   keeping the audit trail. Suspend blocks War creation. Ban purges the voter's Wars and
@@ -125,8 +124,7 @@ required-reviewer approval. See `war-spec.md` section 12.
   contestants in the browser; nothing is uploaded until Save.
 - **Export and import.** A War exports to a zip (`war.json` plus media, share image
   included) built client-side; import validates the whole file before sending anything,
-  then recreates the War through the ordinary endpoints. Starting an export also tells the API
-  (`POST /wars/:id/export`, which only logs it); a failure there never blocks the download.
+  then recreates the War through the ordinary endpoints.
 - **Lists.** Home and My Wars share one hook: sort, debounced search, Prev/Next over
   cursor-paged results with an in-memory page cache, ten Wars per page.
 - **Themes and chrome.** Three visual themes with a per-device, per-War voter override

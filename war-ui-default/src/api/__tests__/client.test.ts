@@ -17,7 +17,6 @@ import {
   getWars,
   joinWar,
   logout,
-  recordWarExport,
   patchContestant,
   patchWar,
   providerLoginUrl,
@@ -690,26 +689,6 @@ describe('clearVotes', () => {
 
     // Assert
     expect(result.id).toBe('war-1')
-  })
-})
-
-describe('recordWarExport', () => {
-  it('posts to the War\'s export route and resolves on 204', async () => {
-    // Arrange
-    let requested = false
-    server.use(
-      http.post(`${BASE}/wars/war-1/export`, () => {
-        requested = true
-        return new HttpResponse(null, { status: 204 })
-      }),
-    )
-
-    // Act
-    const outcome = recordWarExport('war-1')
-
-    // Assert
-    await expect(outcome).resolves.toBeUndefined()
-    expect(requested).toBe(true)
   })
 })
 

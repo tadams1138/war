@@ -25,7 +25,6 @@ describe('actionLabel', () => {
     ['publish_war', 'Published a War'],
     ['unpublish_war', 'Unpublished a War'],
     ['clear_votes', "Cleared a War's votes"],
-    ['export_war', 'Exported a War'],
     ['delete_war', 'Deleted a War'],
   ])('labels %s as %s', (action, expected) => {
     // Arrange
