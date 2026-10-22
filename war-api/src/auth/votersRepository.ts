@@ -92,26 +92,26 @@ export async function setVoterRole(
   return row ? toVoter(row) : undefined;
 }
 
-/** Suspends or unsuspends `voterId` (§6.7). Returns `undefined` if no such voter exists, for callers to 404. */
-export async function setVoterSuspended(db: Kysely<Database>, voterId: string, suspended: boolean): Promise<Voter | undefined> {
+/** Suspends or unsuspends `voterId` (§6.7), which must exist: callers have already found and locked it. */
+export async function setVoterSuspended(db: Kysely<Database>, voterId: string, suspended: boolean): Promise<Voter> {
   const row = await db
     .updateTable('voters')
     .set({ suspended_at: suspended ? sql<Date>`now()` : null })
     .where('id', '=', voterId)
     .returningAll()
-    .executeTakeFirst();
-  return row ? toVoter(row) : undefined;
+    .executeTakeFirstOrThrow();
+  return toVoter(row);
 }
 
-/** Bans or unbans `voterId` (§6.7). Returns `undefined` if no such voter exists, for callers to 404. */
-export async function setVoterBanned(db: Kysely<Database>, voterId: string, banned: boolean): Promise<Voter | undefined> {
+/** Bans or unbans `voterId` (§6.7), which must exist: callers have already found and locked it. */
+export async function setVoterBanned(db: Kysely<Database>, voterId: string, banned: boolean): Promise<Voter> {
   const row = await db
     .updateTable('voters')
     .set({ banned_at: banned ? sql<Date>`now()` : null })
     .where('id', '=', voterId)
     .returningAll()
-    .executeTakeFirst();
-  return row ? toVoter(row) : undefined;
+    .executeTakeFirstOrThrow();
+  return toVoter(row);
 }
 
 /**

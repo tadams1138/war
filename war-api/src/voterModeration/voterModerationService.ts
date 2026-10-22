@@ -46,7 +46,7 @@ export async function changeSuspension(
     if (target.kind !== 'ok') return target;
     const voter = await setVoterSuspended(trx, targetVoterId, suspended);
     await logAction(trx, { action: suspended ? 'suspend_voter' : 'unsuspend_voter', actorVoterId, targetVoterId });
-    return { kind: 'ok', value: voter! };
+    return { kind: 'ok', value: voter };
   });
 }
 
@@ -72,7 +72,7 @@ export async function changeBan(
     const voter = await setVoterBanned(trx, targetVoterId, banned);
     const prefixes = banned ? await purgeBannedVoterData(trx, targetVoterId) : [];
     await logAction(trx, { action: banned ? 'ban_voter' : 'unban_voter', actorVoterId, targetVoterId });
-    return { outcome: { kind: 'ok', value: voter! }, prefixes };
+    return { outcome: { kind: 'ok', value: voter }, prefixes };
   });
 
   await deleteMediaObjects(storage, log, result.prefixes, { voterId: targetVoterId });
