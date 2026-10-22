@@ -114,3 +114,12 @@ Feature: Moderation log
     Given an Admin and a War created by Voter A
     When the Admin PATCHes the War with an invalid title
     Then no moderation log entry exists
+
+  Scenario: An Admin's change to another Voter's War is undone when its log entry can't be written
+    Given a published War created by Voter A
+    And an Admin
+    And the moderation log cannot be written
+    When the Admin PATCHes the title
+    Then the response is 500
+    And the War's title is unchanged
+    And no moderation log entry exists

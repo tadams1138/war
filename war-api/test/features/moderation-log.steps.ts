@@ -15,12 +15,16 @@ import { moderationLog } from '../setup/queries.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/moderation-log.feature', import.meta.url)));
 
-describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
+describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) => {
   let harness: TestHarness;
 
   BeforeEachScenario(async () => {
     await truncateAll();
     harness = await buildTestHarness();
+  });
+
+  AfterEachScenario(async () => {
+    await restoreModerationLogWrites();
   });
 
   Scenario('Granting a role writes a moderation log entry', ({ Given, When, Then }) => {
@@ -606,6 +610,50 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario("An Admin's change to another Voter's War is undone when its log entry can't be written", ({ Given, And, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+    let response: request.Response;
+
+    Given('a published War created by Voter A', async () => {
+      // Arrange
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2, { title: 'Original title' });
+      warId = (await publishWarForTest(harness.db, war)).id;
+    });
+
+    And('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    And('the moderation log cannot be written', async () => {
+      // Arrange
+      await breakModerationLogWrites();
+    });
+
+    When('the Admin PATCHes the title', async () => {
+      // Act
+      response = await as(harness, adminId).patch(`/api/v1/wars/${warId}`, { title: 'Changed title' });
+    });
+
+    Then('the response is 500', () => {
+      // Assert
+      expect(response.status).toBe(500);
+    });
+
+    And("the War's title is unchanged", async () => {
+      // Assert
+      const war = await harness.db.selectFrom('wars').select('title').where('id', '=', warId).executeTakeFirstOrThrow();
+      expect(war.title).toBe('Original title');
+    });
+
+    And('no moderation log entry exists', async () => {
+      // Assert
+      expect(await moderationLog(harness.db)).toHaveLength(0);
+    });
+  });
+
   async function seedOwnerActionAndWarRemoval(): Promise<{ adminId: string; moderatorId: string }> {
     const adminId = (await makeAdmin(harness.db, 'admin')).id;
     const moderatorId = (await makeModerator(harness.db, 'moderator')).id;
@@ -616,6 +664,17 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     const other = await makeDraftWar(harness.db, voterA.id);
     await logAction(harness.db, { action: 'remove_war', actorVoterId: moderatorId, targetWarId: other.id });
     return { adminId, moderatorId };
+  }
+
+  /** Makes every insert into the moderation log fail, as a stand-in for the log being unwritable. */
+  async function breakModerationLogWrites(): Promise<void> {
+    await sql`create or replace function fail_moderation_log_write() returns trigger language plpgsql as $$ begin raise exception 'moderation log unavailable'; end $$`.execute(harness.db);
+    await sql`create trigger fail_moderation_log_write before insert on moderation_log for each row execute function fail_moderation_log_write()`.execute(harness.db);
+  }
+
+  async function restoreModerationLogWrites(): Promise<void> {
+    await sql`drop trigger if exists fail_moderation_log_write on moderation_log`.execute(harness.db);
+    await sql`drop function if exists fail_moderation_log_write()`.execute(harness.db);
   }
 
   function entryActions(response: request.Response): string[] {
