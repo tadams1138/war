@@ -1,15 +1,16 @@
 // Steps for features/vote-mode.feature. Scoped with the feature's own tag so
 // no other feature can ever bind to (or collide with) this text.
-import { expect } from '@playwright/test'
+import { expect, type Locator } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildMatchupResponse, buildMediaItem } from '../../../src/mocks/fixtures'
 import { test } from './fixtures'
 import { API, getCallLog, votesSubmitted, waitForCallLog, type MswCallLogEntry } from '../support/mocking'
 import { contestantCard, controlNamed, matchupCard } from '../support/pages'
 import { queueProgress, reply, voteRecipe } from '../support/recipes'
+import type { CardRef } from '../support/cards'
 import type { Side } from '../support/screens'
 
-const { Given, Then } = createBdd(test, { tags: '@vote-mode' })
+const { Given, When, Then } = createBdd(test, { tags: '@vote-mode' })
 
 const idOf = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 const contestantNamed = (name: string) => ({ id: idOf(name), name, bio: null, media: [buildMediaItem({ id: `${idOf(name)}-media-0` })] })
@@ -98,3 +99,15 @@ Then('exactly one vote is submitted', async ({ page }) => {
   expect(await votesSubmitted(page)).toHaveLength(1)
 })
 
+const voteButton = (card: Locator, name: string) => card.getByRole('button', { name, exact: true })
+
+Then('{card} shows a {string} button and no image', async ({ page }, card: CardRef, name: string) => {
+  // Assert
+  await expect(voteButton(card.locator(page), name)).toBeVisible()
+  await expect(card.locator(page).locator('img')).toHaveCount(0)
+})
+
+When("they select the {side} contestant's {string} button", async ({ page }, side: Side, name: string) => {
+  // Act
+  await voteButton(matchupCard(page, side), name).click()
+})

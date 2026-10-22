@@ -108,3 +108,13 @@ Feature: Vote Mode
     And an authenticated voter
     When they open that War's vote page
     Then they are redirected to that War's results page
+
+  Scenario: A contestant with no media is voted for with a Vote button where its media would be
+    Given that War has a matchup to vote on
+    And the left contestant has 0 images
+    And the API accepts votes
+    And an authenticated voter
+    And they are on that War's vote page
+    Then the left contestant's card shows a "Vote" button and no image
+    When they select the left contestant's "Vote" button
+    Then a vote is submitted for the left contestant

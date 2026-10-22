@@ -28,10 +28,10 @@ interface MatchupViewProps {
   errorMessage: ReactNode
 }
 
-function WideMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage }: MatchupPieces) {
+function WideMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage, viewportClass }: MatchupPieces) {
   return (
     <>
-      <div className="vote-viewport" data-testid="vote-layout">
+      <div className={viewportClass} data-testid="vote-layout">
         <div className="vote-progress">
           {progressBar}
           {errorMessage}
@@ -50,6 +50,8 @@ function WideMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progress
   )
 }
 
+// Always the full-height block, media or not: each bio already sits beside its
+// card here, and a long one must scroll within its own area (war-spec.md §10.3).
 function NarrowMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage }: MatchupPieces) {
   return (
     <div className="vote-viewport" data-testid="vote-layout">
@@ -80,6 +82,15 @@ interface MatchupPieces {
   rightBio: ReactNode
   progressBar: ReactNode
   errorMessage: ReactNode
+  viewportClass: string
+}
+
+// Wide layout only: with no media on either side the cards are only a name and a Vote button, so
+// the block shrinks to fit them instead of filling the viewport; one contestant
+// with media keeps the full-height block.
+function viewportClassFor(matchup: MatchupViewProps['matchup']): string {
+  const mediaFree = matchup.left.media.length === 0 && matchup.right.media.length === 0
+  return mediaFree ? 'vote-viewport vote-viewport--compact' : 'vote-viewport'
 }
 
 export function MatchupView({ matchup, votingInFlight, onSelect, progressBar, errorMessage }: MatchupViewProps) {
@@ -113,6 +124,7 @@ export function MatchupView({ matchup, votingInFlight, onSelect, progressBar, er
     ),
     progressBar,
     errorMessage,
+    viewportClass: viewportClassFor(matchup),
   }
 
   return narrow ? <NarrowMatchup {...pieces} /> : <WideMatchup {...pieces} />
