@@ -506,7 +506,6 @@ over it, and no one can edit a removed War. Beyond the War page, the read-only m
 below cover:
 - Moderator only: every War, filterable by status (including "removed") and by text matching
   its title or creator's name, with each War's count of unaddressed reports
-- Moderator only: one War in full, removed or not, with its contestants and their standings
 - Moderator or Admin: every Voter, filterable to the suspended, the banned, or role holders,
   with how many Wars each created
 - Moderator or Admin: one Voter with all their Wars

@@ -63,7 +63,6 @@ Feature: Admin visibility
     Examples:
       | path                                                         |
       | /admin/wars                                                  |
-      | /admin/wars/00000000-0000-4000-8000-000000000000             |
       | /admin/voters                                                |
       | /admin/voters/00000000-0000-4000-8000-000000000000           |
       | /admin/voters/00000000-0000-4000-8000-000000000000/votes     |
@@ -75,26 +74,17 @@ Feature: Admin visibility
     Examples:
       | path                                                         |
       | /admin/wars                                                  |
-      | /admin/wars/00000000-0000-4000-8000-000000000000             |
       | /admin/voters                                                |
       | /admin/voters/00000000-0000-4000-8000-000000000000           |
       | /admin/voters/00000000-0000-4000-8000-000000000000/votes     |
 
-  Scenario: A Moderator views a removed War with its contestants and counters
-    Given a removed War with contestants "Ann" (3 wins, 5 appearances) and "Bea" (2 wins, 5 appearances) and 3 reports, 1 of them addressed
-    And a Moderator
-    When the Moderator GETs that War from the admin endpoint
-    Then the response shows the removed War with its contestants in order, their counters, and 3 reports of which 2 are unaddressed
-
-  Scenario Outline: An unknown War or Voter is not found
+  Scenario Outline: An unknown Voter is not found
     Given a Moderator
     When the Moderator GETs <path>
     Then the response is 404
 
     Examples:
       | path                                                         |
-      | /admin/wars/00000000-0000-4000-8000-000000000000             |
-      | /admin/wars/not-a-uuid                                       |
       | /admin/voters/00000000-0000-4000-8000-000000000000           |
       | /admin/voters/not-a-uuid                                     |
       | /admin/voters/00000000-0000-4000-8000-000000000000/votes     |
@@ -182,7 +172,7 @@ Feature: Admin visibility
   Scenario: Reading the admin endpoints writes nothing to the moderation log
     Given a Voter with a War and a vote
     And a Moderator
-    When the Moderator GETs all 5 admin endpoints
+    When the Moderator GETs all 4 admin endpoints
     Then the moderation log is empty
 
   Scenario: The admin Wars report and filter by effective status before the close task runs
@@ -192,12 +182,6 @@ Feature: Admin visibility
     Then the response lists that War with status "closed"
     When the Moderator GETs the admin Wars with status published
     Then the response does not list that War
-
-  Scenario: The admin War detail reports effective status before the close task runs
-    Given a Voter who created a published War whose end date passed a minute ago and has not yet been closed by the close task
-    And a Moderator
-    When the Moderator GETs that War from the admin endpoint
-    Then the response shows that War with status "closed"
 
   Scenario: The admin Voter detail reports each War's effective status before the close task runs
     Given a Voter who created a published War whose end date passed a minute ago and has not yet been closed by the close task

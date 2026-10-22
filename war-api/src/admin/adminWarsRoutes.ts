@@ -1,10 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import { requireModerator } from '../auth/guards.js';
-import { errorResponseSchema, sendNotFound } from '../shared/httpOutcomes.js';
+import { errorResponseSchema } from '../shared/httpOutcomes.js';
 import { pagingProperties, sendInvalidCursor, type PagingQuery } from '../shared/paging.js';
 import type { AdminRouteDeps } from './adminRouteShared.js';
-import { findAdminWar, listAdminWars, type AdminWar, type AdminWarDetail } from './adminWarsRepository.js';
+import { listAdminWars, type AdminWar } from './adminWarsRepository.js';
 
 const adminWarProperties = {
   id: { type: 'string', format: 'uuid' },
@@ -31,41 +31,6 @@ function presentAdminWar(war: AdminWar) {
     created_at: war.createdAt.toISOString(),
     removed_at: war.removedAt ? war.removedAt.toISOString() : null,
     unaddressed_report_count: war.unaddressedReportCount,
-  };
-}
-
-const adminWarDetailSchema = {
-  type: 'object',
-  required: [...adminWarRequired, 'contestants', 'report_count'],
-  properties: {
-    ...adminWarProperties,
-    report_count: { type: 'integer' },
-    contestants: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['id', 'name', 'win_count', 'appearance_count'],
-        properties: {
-          id: { type: 'string', format: 'uuid' },
-          name: { type: 'string' },
-          win_count: { type: 'integer' },
-          appearance_count: { type: 'integer' },
-        },
-      },
-    },
-  },
-};
-
-function presentAdminWarDetail(war: AdminWarDetail) {
-  return {
-    ...presentAdminWar(war),
-    report_count: war.reportCount,
-    contestants: war.contestants.map((c) => ({
-      id: c.id,
-      name: c.name,
-      win_count: c.winCount,
-      appearance_count: c.appearanceCount,
-    })),
   };
 }
 
@@ -106,25 +71,6 @@ export function registerAdminWarsRoutes(app: FastifyInstance, deps: AdminRouteDe
         return sendInvalidCursor(reply);
       }
       return reply.send({ wars: outcome.wars.map(presentAdminWar), next_cursor: outcome.nextCursor });
-    },
-  );
-
-  app.get<{ Params: { id: string } }>(
-    '/admin/wars/:id',
-    bearerAuthRoute(
-      auth,
-      {
-        params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
-        response: { 200: adminWarDetailSchema, 403: errorResponseSchema, 404: errorResponseSchema },
-      },
-      [requireModerator],
-    ),
-    async (request, reply) => {
-      const war = await findAdminWar(db, request.params.id, new Date());
-      if (!war) {
-        return sendNotFound(reply);
-      }
-      return reply.send(presentAdminWarDetail(war));
     },
   );
 }

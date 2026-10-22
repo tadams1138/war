@@ -63,8 +63,8 @@ required-reviewer approval. See `war-spec.md` section 12.
   visibility, removed Wars included). War detail has a required `removed_at`, non-null only ever for
   a Moderator. `can_manage` (creator or Admin) sits beside `is_owner`
   (creator only) and is false on a removed War for everyone. Everyone else still gets 404 for removed
-  Wars and other Voters' drafts; an Admin also gets rankings for another Voter's draft. `GET
-  /admin/wars/:id` remains (the default UI no longer uses it). Rankings send `Cache-Control: public,
+  Wars and other Voters' drafts; an Admin also gets rankings for another Voter's draft. There is
+  no separate admin War detail endpoint; a Moderator reads a War on its own page. Rankings send `Cache-Control: public,
   max-age=30` only for Wars visible to everyone; drafts and removed Wars get `private, no-store`.
   Admin owner actions run through one unit of work (`asOwnerAction`): the access check, the change
   and the Admin's moderation-log entry share one transaction, so they stand or fall together; a refusal
