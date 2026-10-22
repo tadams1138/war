@@ -45,7 +45,7 @@ required-reviewer approval. See `war-spec.md` section 12.
   gallery. The bio is carried on the next-matchup response, and `GET /wars/:id` carries
   `is_owner`.
 - **Media.** Uploads are processed with `sharp` into width variants (WebP) and the original
-  is kept privately; per-War share images are cropped to 1200x630 JPEG and replace in place.
+  is kept privately; per-War share images are cropped to 1200x630 JPEG under a new key per upload; the previous image is deleted only after the new key commits.
   Storage is S3-compatible (`ObjectStorage`, with an in-memory fake for feature tests).
 - **Visual theme** per War (`arcade`, `fight_card`, `scrapbook`).
 - **Rate limits** (spec 8.4), in-process fixed windows (`shared/rateLimit.ts`): per voter,
@@ -59,12 +59,24 @@ required-reviewer approval. See `war-spec.md` section 12.
   also holds a War creator's powers over every War (spec 3, 6.1): edit details and share image,
   manage contestants and images, publish, unpublish, clear votes, delete, export, and open any
   War including a draft or unlisted one. Moderators get none of this and Admins get no moderation
-  powers; a Moderator-removed War stays out of reach of everyone. `GET /wars/:id` reports
-  `can_manage` (creator or Admin) beside `is_owner` (creator only). Each such request an Admin makes
-  on a War they did not create writes one owner-action log entry (`edit_war`, `set_share_image`,
-  `add_contestant`, `edit_contestant`, `remove_contestant`, `add_image`, `reorder_images`,
-  `remove_image`, `publish_war`, `unpublish_war`, `clear_votes`, `delete_war`), after the
-  action succeeds and not in its transaction; export is client-side and changes nothing, so it is not logged. Any
+  powers. `GET /wars/:id` and its rankings return any War to a Moderator (any status or
+  visibility, removed Wars included). War detail has a required `removed_at`, non-null only ever for
+  a Moderator. `can_manage` (creator or Admin) sits beside `is_owner`
+  (creator only) and is false on a removed War for everyone. Everyone else still gets 404 for removed
+  Wars and other Voters' drafts; an Admin also gets rankings for another Voter's draft. `GET
+  /admin/wars/:id` remains (the default UI no longer uses it). Rankings send `Cache-Control: public,
+  max-age=30` only for Wars visible to everyone; drafts and removed Wars get `private, no-store`.
+  Admin owner actions run through one unit of work (`asOwnerAction`): the access check, the change
+  and the Admin's moderation-log entry share one transaction, so they stand or fall together; a refusal
+  rolls back and logs nothing. Each such request an Admin makes on a War they did not create writes
+  one owner-action log entry (`edit_war`, `set_share_image`, `add_contestant`, `edit_contestant`,
+  `remove_contestant`, `add_image`, `reorder_images`, `remove_image`, `publish_war`, `unpublish_war`,
+  `clear_votes`, `delete_war`); export is client-side and changes nothing, so it is not logged.
+  Contestant-image and share-image uploads happen before that transaction; if it rolls back or is
+  refused, the uploaded files are deleted. Each share image is stored under a new key
+  `share-images/<warId>-<uploadId>.jpg` (original under `originals/share-images/…`); the previous
+  image's files are deleted only after the new key commits. War delete, remove and ban clean up both
+  this key shape and the older fixed `share-images/<warId>.jpg`. Any
   voter can report any War; Moderators list reports per War, read the unaddressed queue and
   toggle a report's addressed state. Remove a War hides it and deletes its media while
   keeping the audit trail. Suspend blocks War creation. Ban purges the voter's Wars and
@@ -107,11 +119,15 @@ required-reviewer approval. See `war-spec.md` section 12.
 - **Core loop.** Home (published Wars, auth-aware empty state), vote page, War detail with
   results and rankings on one page, My Wars. Finishing every matchup redirects to the
   results page. The results page has a prominent Vote callout, also for anonymous visitors
-  (who sign in and return).
+  (who sign in and return). War detail shows Edit, Delete and Export when the API's `can_manage` is
+  true (creator or any Admin).
 - **Vote page.** Tap-to-vote cards that fill the viewport without scrolling at phone width,
   image carousels whose paging does not register as a vote, bios outside the tap target
   (scrollable on narrow screens), unbiased random pairing, and a visible wait (never an
-  error) when rate-limited.
+  error) when rate-limited. A contestant with no media shows its name and a Vote button in place of
+  media (the button casts the vote). On a wide viewport, when neither contestant has media, the cards
+  shrink to fit and the bios sit directly below, on screen; on a phone the layout keeps full height
+  with each bio beside its card.
 - **Results.** One rank-ordered list with image gallery, bio, wins, appearances and a win
   bar scaled to raw wins. Order always comes from the API.
 - **Authoring.** Start a War makes an empty draft and goes to `/wars/:id/edit`: metadata,
@@ -134,15 +150,17 @@ required-reviewer approval. See `war-spec.md` section 12.
 - **Admin Dashboard** at `/admin`, gated by `RequireRole` (a Moderator, an Admin or both; neither
   is redirected Home). Each role sees its own panels. Moderator: kill switch, unaddressed-reports
   queue, Wars list (status filter, search, removed marker), Voters list, moderation log (the
-  moderation entries) with links to the Wars and Voters involved, War moderation page
-  (`/admin/wars/:id`: standings, reports with mark-addressed, Remove War; Moderator only, an
-  Admin who is not a Moderator is redirected Home). Admin: Voters list (filter Suspended,
+  moderation entries) with links to the Wars and Voters involved. Opening a War from the Wars list,
+  the unaddressed-reports queue, the moderation log or a Voter's detail page (their Wars and vote
+  history) goes to the War's ordinary detail page (`/wars/:id`); there a Moderator also sees the War's
+  reports (mark addressed or unaddressed) and the Remove War control, and a removed War is shown to a
+  Moderator marked Removed, with no Remove, Vote or owner controls, and its results stop polling.
+  Admin: Voters list (filter Suspended,
   Banned, Role holders) and moderation log (the role-change entries and the owner-level actions an
   Admin took on Wars they did not create, each with a readable label). Voter detail
   (`/admin/voters/:id`, either role): Wars and badges for both; for a Moderator also the vote
-  history, links to the Wars' moderation pages and Suspend/Ban (never against a role holder or oneself); for an
-  Admin the role controls only, and each of the Voter's Wars links to its public detail page for a
-  viewer who is not a Moderator (how an Admin finds another Voter's draft or unlisted War) (Grant/Revoke Moderator and Admin, an Admin never sees Revoke
+  history, links to the Wars' detail pages and Suspend/Ban (never against a role holder or oneself); for an
+  Admin the role controls only, and each of the Voter's Wars links to its detail page (how an Admin finds another Voter's draft or unlisted War) (Grant/Revoke Moderator and Admin, an Admin never sees Revoke
   Admin on themselves). A change to the viewer's own roles refetches their identity, so the
   dashboard reflects it at once. Destructive actions confirm first. Signing in as a banned
   voter shows a ban message.
@@ -207,8 +225,8 @@ required-reviewer approval. See `war-spec.md` section 12.
 
 | Project | Size | Notes |
 |---|---|---|
-| war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | 234 unit tests (25 files), 297 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
+| war-api | 57 test files, 1,308 tests (1,311 including 3 skipped) (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
+| war-ui-default | 233 unit tests (25 files), 300 acceptance tests | All 18 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `moderate-war`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: istanbul via
@@ -216,9 +234,9 @@ Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: ist
 
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| war-api (unit + integration + acceptance; `s3ObjectStorage` file not run, no Docker) | 90.06% | 83.05% | 93.81% | 91.58% |
-| war-ui-default, unit (234 tests) | 36.24% | 26.66% | 33.73% | 38.25% |
-| war-ui-default, acceptance (297 scenarios) | 89.44% | 80.89% | 93.76% | 92.35% |
+| war-api (unit + integration + acceptance; `s3ObjectStorage` file not run, no Docker) | 91.81% | 84.85% | 95.14% | 93.51% |
+| war-ui-default, unit (233 tests) | 36.24% | 26.66% | 33.73% | 38.25% |
+| war-ui-default, acceptance (300 scenarios) | 89.44% | 80.89% | 93.76% | 92.35% |
 | war-ui-default, merged (unit and acceptance) | 91.97% | n/a (see above) | 97.11% | 94.19% |
 
 CI publishes the same tables in each pipeline's job summary and uploads the HTML reports as
@@ -266,6 +284,11 @@ Every test labels its Arrange, Act and Assert phases.
   serves Facebook sign-in; restoring the button is one line in `war-ui-default/src/pages/Login.tsx`.
 - **Best-effort storage cleanup.** After a delete, Remove or Ban, a storage failure is
   logged and leaves orphaned objects; the request still succeeds.
+- **Removed-field fallback.** War detail treats a War whose response lacks `removed_at` as
+  removed (hides the Vote link). Only reachable if the UI and API deploys get out of step.
+- **Untested paths.** No test covers: a storage failure during upload cleanup (best effort,
+  logged); a contestant removed from its War mid image upload; a long bio on a phone when neither
+  contestant has media.
 
 ---
 
