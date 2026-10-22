@@ -1,8 +1,9 @@
 import type { FastifyRequest } from 'fastify';
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import type { Database } from '../db/types.js';
 import { logAction } from '../moderation/moderationLogRepository.js';
 import type { OwnerAction } from '../moderation/ownerActions.js';
+import type { MutationFailure, MutationOutcome } from '../shared/outcomes.js';
 import { findWarById, findWarIncludingRemoved, type War } from './warsRepository.js';
 
 /** Who is acting: the roles that widen what they may do to a War (§3, §6.1). */
@@ -33,21 +34,55 @@ export function canManageWar(war: War, caller: { voterId?: string | null; isAdmi
  * Owner-level access, no status requirement: a War is always editable by its creator, in any status, and by any
  * Admin (§6.1). A Moderator-removed War is not found for anyone, as `findWarById` skips it.
  */
-export async function loadOwnedWar(db: Kysely<Database>, warId: string, caller: Caller): Promise<OwnedWarOutcome> {
+export async function loadOwnedWar(db: Kysely<Database> | Transaction<Database>, warId: string, caller: Caller): Promise<OwnedWarOutcome> {
   const war = await findWarById(db, warId);
   if (!war) return { kind: 'notFound' };
   if (!canManageWar(war, caller)) return { kind: 'forbidden' };
   return { kind: 'ok', war, caller };
 }
 
+/** Thrown inside the transaction of `asOwnerAction` to roll it back while carrying the refusal out to the caller. */
+class OwnerActionRefused<R> extends Error {
+  constructor(readonly outcome: R) {
+    super('owner action refused');
+  }
+}
+
 /**
  * Logs one owner-level request that succeeded (§6.7): only when an Admin acts on a War they did not create, since on
  * their own War an Admin is simply its creator.
  */
-export async function recordOwnerAction(db: Kysely<Database>, guard: { war: War; caller: Caller }, action: OwnerAction): Promise<void> {
-  const { war, caller } = guard;
+async function logOwnerAction(trx: Transaction<Database>, war: War, caller: Caller, action: OwnerAction): Promise<void> {
   if (!caller.isAdmin || war.creatorId === caller.voterId) return;
-  await logAction(db, { action, actorVoterId: caller.voterId, targetWarId: war.id });
+  await logAction(trx, { action, actorVoterId: caller.voterId, targetWarId: war.id });
+}
+
+/**
+ * The one unit of work for an owner-level change (§6.1, §6.7): guards access, runs `work` and, when an Admin acts on
+ * another Voter's War, writes its moderation log entry, all in one transaction, so the change and its entry stand or
+ * fall together. `work` must use `trx`, and any refusal it returns (not `ok`) rolls the transaction back and is
+ * returned as is, logging nothing. Keep slow work (object storage) outside `work`.
+ */
+export async function asOwnerAction<T>(
+  db: Kysely<Database>,
+  warId: string,
+  caller: Caller,
+  action: OwnerAction,
+  work: (trx: Transaction<Database>, war: War) => Promise<MutationOutcome<T>>,
+): Promise<MutationOutcome<T>> {
+  try {
+    return await db.transaction().execute(async (trx) => {
+      const guard = await loadOwnedWar(trx, warId, caller);
+      if (guard.kind !== 'ok') return guard;
+      const outcome = await work(trx, guard.war);
+      if (outcome.kind !== 'ok') throw new OwnerActionRefused(outcome);
+      await logOwnerAction(trx, guard.war, caller, action);
+      return outcome;
+    });
+  } catch (error) {
+    if (error instanceof OwnerActionRefused) return error.outcome as MutationFailure;
+    throw error;
+  }
 }
 
 /**
