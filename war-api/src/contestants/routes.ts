@@ -7,6 +7,7 @@ import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } f
 import { reportSchemaViolations, rejectInvalidBody } from '../shared/bodyValidation.js';
 import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 import type { ObjectStorage } from './storage.js';
+import { callerOf } from '../wars/warAccess.js';
 import { addContestant, patchContestant, removeContestant } from './contestantsService.js';
 import { addContestantImage, reorderContestantMedia, removeContestantMedia } from './mediaService.js';
 import { listMediaByContestant } from './contestantMediaRepository.js';
@@ -62,7 +63,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     },
     async (request, reply) => {
       const { name, bio } = request.body;
-      const outcome = await addContestant(db, { warId: request.params.id, voterId: request.voterId!, name, bio });
+      const outcome = await addContestant(db, { warId: request.params.id, caller: callerOf(request), name, bio });
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -90,7 +91,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     }),
     async (request, reply) => {
       const { name, bio } = request.body;
-      const outcome = await patchContestant(db, request.params.id, request.params.cId, request.voterId!, { name, bio });
+      const outcome = await patchContestant(db, request.params.id, request.params.cId, callerOf(request), { name, bio });
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -103,7 +104,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     '/wars/:id/contestants/:cId',
     bearerAuthRoute(auth),
     async (request, reply) => {
-      const outcome = await removeContestant(db, deps.storage, request.log, request.params.id, request.params.cId, request.voterId!);
+      const outcome = await removeContestant(db, deps.storage, request.log, request.params.id, request.params.cId, callerOf(request));
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -131,10 +132,10 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
       if (!upload) {
         return sendNoFileUploaded(reply);
       }
-      const outcome = await addContestantImage(db, deps.storage, {
+      const outcome = await addContestantImage(db, deps.storage, request.log, {
         warId: request.params.id,
         contestantId: request.params.cId,
-        voterId: request.voterId!,
+        caller: callerOf(request),
         ...upload,
       });
       if (outcome.kind !== 'ok') {
@@ -175,7 +176,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
         request.params.id,
         request.params.cId,
         request.params.mId,
-        request.voterId!,
+        callerOf(request),
         request.body.display_order,
       );
       if (outcome.kind !== 'ok') {
@@ -202,7 +203,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
         request.params.id,
         request.params.cId,
         request.params.mId,
-        request.voterId!,
+        callerOf(request),
       );
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);

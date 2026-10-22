@@ -4,8 +4,12 @@
 // Givens edit what was queued in place, so give them before the app boots.
 import type { HandlerRecipe } from '../../../src/mocks/scenarios'
 import type { World } from '../steps/fixtures'
-import { adminWar, adminWarDetail, adminWarDetailGet, REMOVED_AT, reportsGet } from './adminFixtures'
+import { buildWarDetail } from '../../../src/mocks/fixtures'
+import { adminWar, REMOVED_AT } from './adminFixtures'
 import { API } from './mocking'
+import { ok } from './recipes'
+
+type WarStatus = NonNullable<Parameters<typeof buildWarDetail>[0]>['status']
 
 export type AdminWarRecord = ReturnType<typeof adminWar>
 
@@ -15,10 +19,10 @@ export function recipeFor(world: World, path: string): HandlerRecipe {
   return recipe
 }
 
-// The API's detail of the War or Voter in scope: for the Admin Dashboard, or (an "edited
-// war") the War as its creator sees it.
-export function detailRecipe(world: World, record: 'war' | 'voter' | 'edited war'): HandlerRecipe {
-  const paths = { war: `/admin/wars/${world.warId}`, voter: `/admin/voters/${world.voterId}`, 'edited war': `/wars/${world.warId}` }
+// The API's detail of the Voter in scope (for the Admin Dashboard), or (an "edited war")
+// the War as its viewer sees it.
+export function detailRecipe(world: World, record: 'voter' | 'edited war'): HandlerRecipe {
+  const paths = { voter: `/admin/voters/${world.voterId}`, 'edited war': `/wars/${world.warId}` }
   return recipeFor(world, paths[record])
 }
 
@@ -37,11 +41,12 @@ export function warFrom(row: Record<string, string>) {
   }
 }
 
-// Queues the War's moderation detail (with the default contestants) and its reports
-// (none yet); listing it is up to the caller.
+// Queues the War's detail, as a Moderator sees it on the War's page (with the default
+// contestant; a Moderator manages nothing); listing it is up to the caller.
 export function addAdminWar(world: World, row: Record<string, string>): AdminWarRecord {
   const id = world.nextWarId()
   const overrides = warFrom(row)
-  world.queue(adminWarDetailGet(id, adminWarDetail(id, overrides)), reportsGet(id, []))
+  const { title, status, removed_at } = overrides
+  world.queue(ok('GET', `${API}/wars/${id}`, buildWarDetail({ id, title, status: status as WarStatus, removed_at, can_manage: false })))
   return adminWar(id, overrides)
 }

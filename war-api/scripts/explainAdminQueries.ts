@@ -150,7 +150,7 @@ type Paged = { kind: string; nextCursor?: string | null };
 const cursorOf = (outcome: Paged): string | undefined => (outcome.kind === 'ok' ? (outcome.nextCursor ?? undefined) : undefined);
 
 /** The widest reader: a Voter holding both roles sees every entry. */
-const EVERYTHING = { moderation: true, roleChange: true };
+const EVERYTHING = { moderation: true, roleChange: true, ownerAction: true };
 
 async function buildCases(db: Kysely<Database>): Promise<Case[]> {
   const heavy = await sql<{ id: string }>`select voter_id as id from votes group by voter_id order by count(*) desc limit 1`.execute(db);

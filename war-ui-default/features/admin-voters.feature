@@ -87,7 +87,7 @@ Feature: Admin Dashboard Voters
     And the heading "Casey Creator" is shown
     And the Voter's badges and every War they created are shown, the removed one marked Removed
     When they select "Alpha War" in the Voter's Wars
-    Then the first War's moderation page is shown
+    Then the first War's detail page is shown
     And the heading "Alpha War" is shown
 
   Scenario: A Voter's vote history shows the winner and loser of each vote
@@ -101,7 +101,7 @@ Feature: Admin Dashboard Voters
     When they open that Voter's detail page
     Then each vote shows its War, the winner, the loser and when it was cast
     When they select "Alpha War" in the vote history
-    Then the first War's moderation page is shown
+    Then the first War's detail page is shown
     And the heading "Alpha War" is shown
 
   Scenario: A Voter's vote history pages with Load more

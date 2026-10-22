@@ -64,7 +64,7 @@ Feature: War Creation
     Then the response status is 422
     And no contestant is created
 
-  Scenario: A non-creator cannot add a contestant
+  Scenario: A plain Voter cannot add a contestant to another Voter's War
     Given a War created by Voter A
     When Voter B POSTs a contestant to it
     Then the response status is 403

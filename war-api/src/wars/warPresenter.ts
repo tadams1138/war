@@ -3,6 +3,7 @@ import type { Database } from '../db/types.js';
 import { listContestantsByWar } from '../contestants/contestantsRepository.js';
 import { listMediaByContestants } from '../contestants/contestantMediaRepository.js';
 import { presentContestant, type ContestantDetailView } from '../contestants/contestantPresenter.js';
+import { canManageWar } from './warAccess.js';
 import { effectiveStatus } from './effectiveStatus.js';
 import type { War } from './warsRepository.js';
 import { THEMES } from './theme.js';
@@ -75,11 +76,15 @@ export const warSummarySchema = {
  */
 export const warDetailResponseSchema = {
   type: 'object',
-  required: [...warSummaryRequired, 'contestants', 'is_owner'],
+  required: [...warSummaryRequired, 'contestants', 'is_owner', 'can_manage', 'removed_at'],
   properties: {
     ...warSummaryProperties,
     contestants: { type: 'array', items: { $ref: 'ContestantDetail#' } },
     is_owner: { type: 'boolean' },
+    /** The viewer may manage this War: its creator, or any Admin (§6.1). `is_owner` stays false for an Admin who did not create it. */
+    can_manage: { type: 'boolean' },
+    /** When a Moderator removed the War; only a Moderator can load a removed War, so null for everyone else (§6.7). */
+    removed_at: { type: ['string', 'null'], format: 'date-time' },
   },
 };
 
@@ -108,6 +113,9 @@ export function presentWarSummary(
 export interface WarDetailView extends WarSummaryView {
   contestants: ContestantDetailView[];
   is_owner: boolean;
+  can_manage: boolean;
+  /** When a Moderator removed the War; non-null only for a Moderator, the only viewer who can load a removed War (§6.7). */
+  removed_at: string | null;
 }
 
 export async function presentWarDetail(
@@ -115,7 +123,7 @@ export async function presentWarDetail(
   war: War,
   now: Date,
   publicBaseUrl: string,
-  voterId: string | undefined,
+  viewer: { voterId: string | undefined; isAdmin: boolean },
 ): Promise<WarDetailView> {
   const contestants = await listContestantsByWar(db, war.id);
   const mediaByContestant = await listMediaByContestants(
@@ -126,6 +134,8 @@ export async function presentWarDetail(
   return {
     ...presentWarSummary(war, now, contestants.length, publicBaseUrl, null),
     contestants: views,
-    is_owner: war.creatorId === voterId,
+    is_owner: war.creatorId === viewer.voterId,
+    can_manage: canManageWar(war, viewer),
+    removed_at: war.removedAt ? war.removedAt.toISOString() : null,
   };
 }

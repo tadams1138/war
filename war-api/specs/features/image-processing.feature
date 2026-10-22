@@ -43,3 +43,8 @@ Feature: Contestant image processing
     When the creator PATCHes the second image with no display_order
     Then the response status is 422
     And the second image keeps its display order
+
+  Scenario: An Admin can delete an image of a contestant in another Voter's War
+    Given a contestant with two uploaded images in a War created by Voter A
+    When an Admin deletes the first image
+    Then only the second image's variants and original remain in storage

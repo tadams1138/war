@@ -38,6 +38,11 @@ Feature: Rankings
     When rankings are fetched
     Then the response sets Cache-Control public with max-age 30
 
+  Scenario: Rankings of a War only some can see are never shared-cached
+    Given a draft War
+    When its creator GETs rankings
+    Then the response sets Cache-Control private, no-store
+
   Scenario: Anonymous user views an unlisted War's rankings
     Given an unlisted War in "published" status
     When an unauthenticated user GETs rankings

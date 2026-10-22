@@ -17,7 +17,7 @@ import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '.
 import { readUploadedFile, sendNoFileUploaded, uploadErrorResponseSchema } from '../contestants/uploadRequest.js';
 import type { ObjectStorage } from '../contestants/storage.js';
 import { countContestantsByWarIds, countContestantsForWar } from '../contestants/contestantsRepository.js';
-import { findVisibleWar } from './warAccess.js';
+import { callerOf, findVisibleWar } from './warAccess.js';
 import { presentWarDetail, presentWarSummary, warDetailResponseSchema, warSummaryProperties } from './warPresenter.js';
 import { clearVotes, createWarForVoter, deleteWar, joinWar, patchWar, publishWar, setShareImage, unpublishWar } from './warsService.js';
 import { removeWar } from './removeWarService.js';
@@ -192,11 +192,13 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     '/wars/:id',
     { schema: { response: { 200: warDetailResponseSchema, 404: errorResponseSchema } }, preHandler: optionalAuth(auth) },
     async (request, reply) => {
-      const war = await findVisibleWar(db, request.params.id, request.voterId);
+      const isAdmin = request.voter?.isAdmin === true;
+      const isModerator = request.voter?.isModerator === true;
+      const war = await findVisibleWar(db, request.params.id, request.voterId, { isAdmin, isModerator });
       if (!war) {
         return sendNotFound(reply);
       }
-      return reply.send(await presentWarDetail(db, war, new Date(), deps.publicBaseUrl, request.voterId));
+      return reply.send(await presentWarDetail(db, war, new Date(), deps.publicBaseUrl, { voterId: request.voterId, isAdmin }));
     },
   );
 
@@ -210,7 +212,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       },
     }),
     async (request, reply) => {
-      const outcome = await deleteWar(db, deps.storage, request.log, request.params.id, request.voterId!);
+      const outcome = await deleteWar(db, deps.storage, request.log, request.params.id, callerOf(request));
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -247,7 +249,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     },
     async (request, reply) => {
       const body = request.body;
-      const outcome = await patchWar(db, request.params.id, request.voterId!, {
+      const outcome = await patchWar(db, request.params.id, callerOf(request), {
         title: body.title,
         category: body.category,
         visibility: body.visibility,
@@ -273,7 +275,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       },
     }),
     async (request, reply) => {
-      const outcome = await publishWar(db, request.params.id, request.voterId!, new Date());
+      const outcome = await publishWar(db, request.params.id, callerOf(request), new Date());
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -292,7 +294,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       },
     }),
     async (request, reply) => {
-      const outcome = await unpublishWar(db, request.params.id, request.voterId!, new Date());
+      const outcome = await unpublishWar(db, request.params.id, callerOf(request), new Date());
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -310,7 +312,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       },
     }),
     async (request, reply) => {
-      const outcome = await clearVotes(db, request.params.id, request.voterId!);
+      const outcome = await clearVotes(db, request.params.id, callerOf(request));
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
@@ -338,7 +340,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       if (!upload) {
         return sendNoFileUploaded(reply);
       }
-      const outcome = await setShareImage(db, deps.storage, { warId: request.params.id, voterId: request.voterId!, ...upload });
+      const outcome = await setShareImage(db, deps.storage, request.log, { warId: request.params.id, caller: callerOf(request), ...upload });
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }

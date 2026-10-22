@@ -55,14 +55,23 @@ required-reviewer approval. See `war-spec.md` section 12.
   *Known defects and limitations*). The edge adds a coarse auth throttle (see war-infra).
 - **Roles and moderation** (spec 3, 6.7, 8.5). Moderator/Admin are independent account-level flags,
   granted only by an Admin (Admin implies no moderation capability; an Admin may grant
-  themselves Moderator and revoke it again, but cannot remove their own Admin role). Any
+  themselves Moderator and revoke it again, but cannot remove their own Admin role). An Admin
+  also holds a War creator's powers over every War (spec 3, 6.1): edit details and share image,
+  manage contestants and images, publish, unpublish, clear votes, delete, export, and open any
+  War including a draft or unlisted one. Moderators get none of this and Admins get no moderation
+  powers; a Moderator-removed War stays out of reach of everyone. `GET /wars/:id` reports
+  `can_manage` (creator or Admin) beside `is_owner` (creator only). Each such request an Admin makes
+  on a War they did not create writes one owner-action log entry (`edit_war`, `set_share_image`,
+  `add_contestant`, `edit_contestant`, `remove_contestant`, `add_image`, `reorder_images`,
+  `remove_image`, `publish_war`, `unpublish_war`, `clear_votes`, `delete_war`), after the
+  action succeeds and not in its transaction; export is client-side and changes nothing, so it is not logged. Any
   voter can report any War; Moderators list reports per War, read the unaddressed queue and
   toggle a report's addressed state. Remove a War hides it and deletes its media while
   keeping the audit trail. Suspend blocks War creation. Ban purges the voter's Wars and
   votes, revokes their tokens and blocks sign-in immediately. The War-creation kill switch
   is a single-row platform setting. Every moderation action and role change writes an append-only moderation log
   entry in the same transaction as the action; a Moderator reads the moderation entries,
-  an Admin the role-change entries, a Voter holding both reads both; the log is keyset-paged and its `target_war_id`
+  an Admin the role-change and owner-action entries, a Voter holding both reads both; the log is keyset-paged and its `target_war_id`
   deliberately has no foreign key.
 - **Ban races closed with row locks.** Suspend/Ban lock the target voter `FOR UPDATE`; vote
   casting takes `FOR SHARE` on the voter; both lock the voter before contestant rows.
@@ -115,7 +124,7 @@ required-reviewer approval. See `war-spec.md` section 12.
   contestants in the browser; nothing is uploaded until Save.
 - **Export and import.** A War exports to a zip (`war.json` plus media, share image
   included) built client-side; import validates the whole file before sending anything,
-  then recreates the War through the ordinary endpoints. No dedicated backend endpoint.
+  then recreates the War through the ordinary endpoints.
 - **Lists.** Home and My Wars share one hook: sort, debounced search, Prev/Next over
   cursor-paged results with an in-memory page cache, ten Wars per page.
 - **Themes and chrome.** Three visual themes with a per-device, per-War voter override
@@ -128,10 +137,12 @@ required-reviewer approval. See `war-spec.md` section 12.
   moderation entries) with links to the Wars and Voters involved, War moderation page
   (`/admin/wars/:id`: standings, reports with mark-addressed, Remove War; Moderator only, an
   Admin who is not a Moderator is redirected Home). Admin: Voters list (filter Suspended,
-  Banned, Role holders) and moderation log (the role-change entries). Voter detail
+  Banned, Role holders) and moderation log (the role-change entries and the owner-level actions an
+  Admin took on Wars they did not create, each with a readable label). Voter detail
   (`/admin/voters/:id`, either role): Wars and badges for both; for a Moderator also the vote
-  history, links to the Wars and Suspend/Ban (never against a role holder or oneself); for an
-  Admin the role controls only (Grant/Revoke Moderator and Admin, an Admin never sees Revoke
+  history, links to the Wars' moderation pages and Suspend/Ban (never against a role holder or oneself); for an
+  Admin the role controls only, and each of the Voter's Wars links to its public detail page for a
+  viewer who is not a Moderator (how an Admin finds another Voter's draft or unlisted War) (Grant/Revoke Moderator and Admin, an Admin never sees Revoke
   Admin on themselves). A change to the viewer's own roles refetches their identity, so the
   dashboard reflects it at once. Destructive actions confirm first. Signing in as a banned
   voter shows a ban message.
@@ -197,7 +208,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 57 test files, about 1,200 tests (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | about 220 unit tests (24 files), 291 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
+| war-ui-default | 234 unit tests (25 files), 297 acceptance tests | All 17 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: istanbul via
@@ -206,9 +217,9 @@ Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: ist
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
 | war-api (unit + integration + acceptance; `s3ObjectStorage` file not run, no Docker) | 90.06% | 83.05% | 93.81% | 91.58% |
-| war-ui-default, unit (218 tests) | 35.69% | 26.55% | 33.07% | 37.72% |
-| war-ui-default, acceptance (291 scenarios) | 89.31% | 80.46% | 93.75% | 92.28% |
-| war-ui-default, merged (unit and acceptance) | 91.85% | n/a (see above) | 96.95% | 94.12% |
+| war-ui-default, unit (234 tests) | 36.24% | 26.66% | 33.73% | 38.25% |
+| war-ui-default, acceptance (297 scenarios) | 89.44% | 80.89% | 93.76% | 92.35% |
+| war-ui-default, merged (unit and acceptance) | 91.97% | n/a (see above) | 97.11% | 94.19% |
 
 CI publishes the same tables in each pipeline's job summary and uploads the HTML reports as
 `api-coverage` and `ui-default-coverage` artifacts (14 days).

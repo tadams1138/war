@@ -835,16 +835,16 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
   });
 
-  Scenario('The public War route still hides a removed War from a Moderator', ({ Given, And, When, Then }) => {
+  Scenario("A Moderator opens another Voter's unlisted draft War and its rankings", ({ Given, And, When, Then }) => {
     let warId: string;
     let moderatorId: string;
-    let response: request.Response;
+    let warResponse: request.Response;
+    let rankingsResponse: request.Response;
 
-    Given('a removed War', async () => {
+    Given('a Voter who created an unlisted draft War', async () => {
       // Arrange
       const creatorId = (await makeVoter(harness.db, 'alice')).id;
-      warId = (await makeDraftWar(harness.db, creatorId, { title: 'Gone' })).id;
-      await setWarColumns(warId, { status: 'published', removed: true });
+      warId = (await makeDraftWar(harness.db, creatorId, { title: 'Hidden', visibility: 'unlisted' })).id;
     });
 
     And('a Moderator', async () => {
@@ -852,14 +852,18 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
-    When('the Moderator GETs that War from the public endpoint', async () => {
+    When('the Moderator GETs that War and its rankings', async () => {
       // Act
-      response = await getAs(moderatorId, `/wars/${warId}`);
+      warResponse = await getAs(moderatorId, `/wars/${warId}`);
+      rankingsResponse = await getAs(moderatorId, `/wars/${warId}/rankings`);
     });
 
-    Then('the response is 404', () => {
+    Then('both responses are 200, the War with can_manage false and no removal time', () => {
       // Assert
-      expect(response.status).toBe(404);
+      expect(warResponse.status).toBe(200);
+      expect(rankingsResponse.status).toBe(200);
+      expect(warResponse.body.can_manage).toBe(false);
+      expect(warResponse.body.removed_at).toBeNull();
     });
   });
 

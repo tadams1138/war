@@ -1,9 +1,10 @@
 Feature: Remove a War
 
-  Scenario: A Moderator removes a published War and it becomes not found for everyone
+  Scenario: A Moderator removes a published War and it becomes not found to everyone but Moderators
     Given a published War, its creator, a plain Voter and a Moderator
     When the Moderator removes the War
-    Then the response is 204 and the War is 404 for its creator, the plain Voter and the Moderator
+    Then the response is 204 and the War is 404 for its creator and the plain Voter
+    And the Moderator still GETs the War, with its removal time and can_manage false
 
   Scenario: A removed War is absent from the public list and from its creator's own list
     Given a published War and a Moderator
@@ -49,3 +50,8 @@ Feature: Remove a War
     Given a published War, a Moderator and storage that fails to delete
     When the Moderator removes the War
     Then the response is 204 and the War stays removed
+
+  Scenario: An Admin cannot delete, edit or publish a removed War
+    Given a removed published War and an Admin
+    When the Admin DELETEs, PATCHes and publishes the War
+    Then all three responses are 404 and the War, its contestants, matchups and votes still exist

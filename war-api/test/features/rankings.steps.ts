@@ -253,6 +253,29 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario('Rankings of a War only some can see are never shared-cached', ({ Given, When, Then }) => {
+    let warId: string;
+    let creatorId: string;
+    let response: request.Response;
+
+    Given('a draft War', async () => {
+      // Arrange
+      const creator = await makeVoter(harness.db, 'creator');
+      creatorId = creator.id;
+      warId = (await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { visibility: 'public' })).war.id;
+    });
+
+    When('its creator GETs rankings', async () => {
+      // Act
+      response = await as(harness, creatorId).get(`/api/v1/wars/${warId}/rankings`);
+    });
+
+    Then('the response sets Cache-Control private, no-store', () => {
+      // Assert
+      expect(response.headers['cache-control']).toBe('private, no-store');
+    });
+  });
+
   async function givenPublishedUnlistedWar(): Promise<string> {
     const creator = await makeVoter(harness.db, 'creator');
     const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, creator.id, 2, { visibility: 'unlisted' });

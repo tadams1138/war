@@ -478,6 +478,9 @@ export interface paths {
                             creator_name: null | string;
                             contestants: components["schemas"]["ContestantDetail"][];
                             is_owner: boolean;
+                            can_manage: boolean;
+                            /** Format: date-time */
+                            removed_at: null | string;
                         };
                     };
                 };
