@@ -654,6 +654,130 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
     });
   });
 
+  Scenario("An Admin's contestant image upload leaves nothing behind when its log entry can't be written", ({ Given, And, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+    let contestantId: string;
+    let response: request.Response;
+    let keysBefore: StoredKeys;
+
+    Given('a published War created by Voter A, with a contestant', async () => {
+      // Arrange
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const { war, contestants } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2);
+      warId = (await publishWarForTest(harness.db, war)).id;
+      contestantId = contestants[0]!.id;
+    });
+
+    And('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    And('the moderation log cannot be written', async () => {
+      // Arrange
+      await breakModerationLogWrites();
+    });
+
+    When('the Admin uploads an image to that contestant', async () => {
+      // Act
+      keysBefore = storedKeys();
+      response = await uploadImage(harness, warId, contestantId, adminId, await solidJpeg(600, 400));
+    });
+
+    Then('the response is 500', () => {
+      // Assert
+      expect(response.status).toBe(500);
+    });
+
+    And('the contestant has no images', async () => {
+      // Assert
+      const rows = await harness.db.selectFrom('contestant_media').select('id').where('contestant_id', '=', contestantId).execute();
+      expect(rows).toHaveLength(0);
+    });
+
+    And('nothing from the upload is left in storage', () => {
+      // Assert
+      expect(storedKeys()).toEqual(keysBefore);
+    });
+  });
+
+  Scenario("An Admin's share image upload leaves the War's share image as it was when its log entry can't be written", ({ Given, And, When, Then }) => {
+    let adminId: string;
+    let warId: string;
+    let response: request.Response;
+    let keysBefore: StoredKeys;
+    let urlBefore: string;
+    let originalBytes: Buffer;
+
+    Given('a published War created by Voter A, with a share image', async () => {
+      // Arrange
+      const voterA = await makeVoter(harness.db, 'voter-a');
+      const { war } = await makeDraftWarWithContestants(harness.db, harness.storage, voterA.id, 2);
+      warId = (await publishWarForTest(harness.db, war)).id;
+      await uploadShare(voterA.id, await solidJpeg(1600, 900, { r: 200, g: 10, b: 10 }));
+      urlBefore = await shareImageUrl(voterA.id);
+      originalBytes = harness.storage.publicObjects.get(keyOfUrl(urlBefore))!;
+    });
+
+    And('an Admin', async () => {
+      // Arrange
+      adminId = (await makeAdmin(harness.db, 'admin')).id;
+    });
+
+    And('the moderation log cannot be written', async () => {
+      // Arrange
+      await breakModerationLogWrites();
+    });
+
+    When('the Admin uploads a new share image', async () => {
+      // Act
+      keysBefore = storedKeys();
+      response = await uploadShare(adminId, await solidJpeg(900, 1400, { r: 10, g: 10, b: 200 }));
+    });
+
+    Then('the response is 500', () => {
+      // Assert
+      expect(response.status).toBe(500);
+    });
+
+    And("the War's share image is unchanged", async () => {
+      // Assert
+      const urlAfter = await shareImageUrl(adminId);
+      expect(urlAfter).toBe(urlBefore);
+      expect(harness.storage.publicObjects.get(keyOfUrl(urlAfter))).toEqual(originalBytes);
+    });
+
+    And('nothing from the upload is left in storage', () => {
+      // Assert
+      expect(storedKeys()).toEqual(keysBefore);
+    });
+
+    async function uploadShare(voterId: string, photo: Buffer): Promise<request.Response> {
+      return as(harness, voterId).post(`/api/v1/wars/${warId}/share-image`, {
+        configure: (req) => req.attach('file', photo, { filename: 's.jpg', contentType: 'image/jpeg' }),
+      });
+    }
+
+    async function shareImageUrl(voterId: string): Promise<string> {
+      return (await as(harness, voterId).get(`/api/v1/wars/${warId}`)).body.share_image_url as string;
+    }
+  });
+
+  type StoredKeys = { public: string[]; private: string[] };
+
+  function storedKeys(): StoredKeys {
+    return { public: [...harness.storage.publicObjects.keys()].sort(), private: [...harness.storage.privateObjects.keys()].sort() };
+  }
+
+  function keyOfUrl(url: string): string {
+    return [...harness.storage.publicObjects.keys()].find((key) => url.endsWith(`/${key}`))!;
+  }
+
+  function solidJpeg(width: number, height: number, background = { r: 1, g: 2, b: 3 }): Promise<Buffer> {
+    return sharp({ create: { width, height, channels: 3, background } }).jpeg().toBuffer();
+  }
+
   async function seedOwnerActionAndWarRemoval(): Promise<{ adminId: string; moderatorId: string }> {
     const adminId = (await makeAdmin(harness.db, 'admin')).id;
     const moderatorId = (await makeModerator(harness.db, 'moderator')).id;

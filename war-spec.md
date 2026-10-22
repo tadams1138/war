@@ -362,6 +362,8 @@ everyone, an Admin included. Each change an Admin makes to a War they did not cr
 recorded in the moderation log (§6.7); on their own War, an Admin is simply its creator and
 nothing is recorded. Exporting changes nothing, so it isn't recorded.
 
+A failed change leaves no stored files behind, and replacing a share image keeps the old one until the new one is saved.
+
 **Deletion** removes a War, its contestants, its media, its votes, and any reports filed
 against it, entirely, in any status. Media means every stored file too, not just the record of
 it, and the same holds when a creator removes a single contestant or image. Files are

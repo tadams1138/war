@@ -2,7 +2,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Kysely, Transaction } from 'kysely';
 import type { Database } from '../db/types.js';
 import { asOwnerAction, loadOwnedWar, type Caller, type OwnedWarOutcome } from '../wars/warAccess.js';
-import { deleteMediaObjects, imageMediaPrefixes } from '../wars/warMediaStorage.js';
+import { cleanUpUnlessSaved, deleteMediaObjects, imageMediaPrefixes } from '../wars/warMediaStorage.js';
 import type { MutationOutcome } from '../shared/outcomes.js';
 import { findContestantById } from './contestantsRepository.js';
 import { createImageMedia, deleteMedia, findMediaById, setDisplayOrder, type ContestantMedia } from './contestantMediaRepository.js';
@@ -50,9 +50,10 @@ export type AddImageOutcome = MutationOutcome<ContestantMedia>;
 
 /**
  * Access is checked first, then the image is processed and its objects uploaded outside any transaction; only the
- * media row and the Admin's log entry share one.
+ * media row and the Admin's log entry share one. If that transaction fails or is refused, the uploaded objects are
+ * deleted again (best effort).
  */
-export async function addContestantImage(db: Kysely<Database>, storage: ObjectStorage, input: AddImageInput): Promise<AddImageOutcome> {
+export async function addContestantImage(db: Kysely<Database>, storage: ObjectStorage, log: FastifyBaseLogger, input: AddImageInput): Promise<AddImageOutcome> {
   const guard = await guardOwnedContestant(db, input.warId, input.contestantId, input.caller);
   if (guard.kind !== 'ok') return guard;
 
@@ -69,10 +70,14 @@ export async function addContestantImage(db: Kysely<Database>, storage: ObjectSt
   if (stored.kind === 'invalidUpload') {
     return { kind: 'validationError', errors: ['invalid image upload'] };
   }
-  return asOwnerAction<ContestantMedia>(db, input.warId, input.caller, 'add_image', async (trx) => {
-    if (!(await contestantBelongsToWar(trx, input.warId, input.contestantId))) return { kind: 'notFound' };
-    return { kind: 'ok', value: await createImageMedia(trx, stored.value) };
-  });
+  const uploadedPrefixes = imageMediaPrefixes(input.contestantId, stored.value.storageKey);
+  const logContext = { warId: input.warId, contestantId: input.contestantId };
+  return cleanUpUnlessSaved(storage, log, uploadedPrefixes, logContext, () =>
+    asOwnerAction<ContestantMedia>(db, input.warId, input.caller, 'add_image', async (trx) => {
+      if (!(await contestantBelongsToWar(trx, input.warId, input.contestantId))) return { kind: 'notFound' };
+      return { kind: 'ok', value: await createImageMedia(trx, stored.value) };
+    }),
+  );
 }
 
 export async function reorderContestantMedia(

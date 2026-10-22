@@ -142,10 +142,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       // Assert
       expect(response.status).toBe(200);
       const detail = await as(harness, creatorId).get(`/api/v1/wars/${war.id}`);
-      // Same deterministic key every time, so a regenerated image replaces rather than accumulates
-      // -- the URL string itself doesn't change, but the bytes behind it do.
-      expect(detail.body.share_image_url).toBe(firstUrl);
+      // Each upload is stored under a new key, and the previous image's objects are deleted once the new one is saved.
+      expect(detail.body.share_image_url).not.toBe(firstUrl);
       const key = [...harness.storage.publicObjects.keys()].filter((k) => k.startsWith('share-images/'));
+      expect(detail.body.share_image_url.endsWith(`/${key[0]}`)).toBe(true);
+      expect([...harness.storage.privateObjects.keys()].filter((k) => k.startsWith('originals/share-images/'))).toHaveLength(1);
       expect(key).toHaveLength(1);
     });
   });

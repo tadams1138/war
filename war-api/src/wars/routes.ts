@@ -340,7 +340,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       if (!upload) {
         return sendNoFileUploaded(reply);
       }
-      const outcome = await setShareImage(db, deps.storage, { warId: request.params.id, caller: callerOf(request), ...upload });
+      const outcome = await setShareImage(db, deps.storage, request.log, { warId: request.params.id, caller: callerOf(request), ...upload });
       if (outcome.kind !== 'ok') {
         return replyForOutcome(reply, outcome);
       }
