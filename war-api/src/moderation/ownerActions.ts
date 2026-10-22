@@ -11,7 +11,6 @@ export type OwnerAction =
   | 'publish_war'
   | 'unpublish_war'
   | 'clear_votes'
-  | 'export_war'
   | 'delete_war';
 
 export const OWNER_ACTIONS: readonly OwnerAction[] = [
@@ -26,7 +25,6 @@ export const OWNER_ACTIONS: readonly OwnerAction[] = [
   'publish_war',
   'unpublish_war',
   'clear_votes',
-  'export_war',
   'delete_war',
 ];
 

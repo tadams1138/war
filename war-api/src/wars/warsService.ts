@@ -299,14 +299,3 @@ export async function clearVotes(db: Kysely<Database>, warId: string, caller: Ca
 
   return { kind: 'ok', value: guard.war };
 }
-
-/**
- * Export is assembled by the client from the War's own detail (§10.4); this records that one happened, so an Admin's
- * export of a War they did not create reaches the moderation log (§6.7). Creator or Admin only; writes nothing for the creator.
- */
-export async function recordWarExport(db: Kysely<Database>, warId: string, caller: Caller): Promise<MutationOutcome<void>> {
-  const guard = await loadOwnedWar(db, warId, caller);
-  if (guard.kind !== 'ok') return guard;
-  await recordOwnerAction(db, guard, 'export_war');
-  return { kind: 'ok', value: undefined };
-}

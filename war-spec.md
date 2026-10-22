@@ -358,9 +358,9 @@ unpublish, clear its votes, delete and export it. For this an Admin can open and
 else's draft or unlisted War, which no one else can. This power attaches to the Admin role
 alone: a Moderator has none of it, and holding any role never lets someone vote in, or join, a
 War they otherwise couldn't. A War removed by a Moderator (§6.7) stays out of reach of
-everyone, an Admin included. Each such action an Admin takes on a War they did not create is
+everyone, an Admin included. Each change an Admin makes to a War they did not create is
 recorded in the moderation log (§6.7); on their own War, an Admin is simply its creator and
-nothing is recorded.
+nothing is recorded. Exporting changes nothing, so it isn't recorded.
 
 **Deletion** removes a War, its contestants, its media, its votes, and any reports filed
 against it, entirely, in any status. Media means every stored file too, not just the record of
@@ -565,7 +565,7 @@ Its state is shared by every running API instance and survives restarts.
 
 **An append-only moderation log** records every moderation action — Remove a War,
 Suspend/unsuspend, Ban/unban, toggling the kill switch — every role grant or revoke by an
-Admin, and every owner-level action (§6.1) an Admin takes on a War they did not create, naming
+Admin, and every change (§6.1) an Admin makes to a War they did not create, naming
 the War, with which role holder, the target, and when. Never edited or deleted, mirroring
 votes' own immutability (§8.1), and for the same reason: several role holders may exist, and each
 must be individually accountable for what they did. An action and its log entry stand or

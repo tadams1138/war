@@ -489,7 +489,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario("Every kind of owner action an Admin takes on another Voter's War is logged once per request", ({ Given, When, Then }) => {
+  Scenario("Every kind of change an Admin makes to another Voter's War is logged once per request", ({ Given, When, Then }) => {
     let adminId: string;
     let warId: string;
     let contestantId: string;
@@ -504,7 +504,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     When(
-      'the Admin edits, shares, adds and edits a contestant, adds, reorders and removes an image, removes a contestant, publishes, unpublishes, clears the votes of, exports and deletes the War',
+      'the Admin edits, shares, adds and edits a contestant, adds, reorders and removes an image, removes a contestant, publishes, unpublishes, clears the votes of and deletes the War',
       async () => {
         // Act
         const admin = as(harness, adminId);
@@ -523,20 +523,19 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
         await admin.post(`${base}/publish`);
         await admin.post(`${base}/unpublish`);
         await admin.post(`${base}/clear-votes`);
-        await admin.post(`${base}/export`);
         await admin.delete(base);
       },
     );
 
     Then(
-      'the log holds one entry per request, with the action names edit_war, set_share_image, add_contestant, edit_contestant, add_image, reorder_images, remove_image, remove_contestant, publish_war, unpublish_war, clear_votes, export_war and delete_war',
+      'the log holds one entry per request, with the action names edit_war, set_share_image, add_contestant, edit_contestant, add_image, reorder_images, remove_image, remove_contestant, publish_war, unpublish_war, clear_votes and delete_war',
       async () => {
         // Assert
         const rows = await moderationLog(harness.db);
         expect(rows.map((r) => r.action).sort()).toEqual(
           [
             'add_contestant', 'edit_war', 'set_share_image', 'edit_contestant', 'add_image', 'reorder_images', 'remove_image',
-            'remove_contestant', 'publish_war', 'unpublish_war', 'clear_votes', 'export_war', 'delete_war',
+            'remove_contestant', 'publish_war', 'unpublish_war', 'clear_votes', 'delete_war',
           ].sort(),
         );
         expect(rows.every((r) => r.staff_voter_id === adminId && r.target_war_id === warId)).toBe(true);

@@ -95,10 +95,10 @@ Feature: Moderation log
     When the Admin unpublishes the War
     Then no moderation log entry exists
 
-  Scenario: Every kind of owner action an Admin takes on another Voter's War is logged once per request
+  Scenario: Every kind of change an Admin makes to another Voter's War is logged once per request
     Given an Admin and a draft War created by Voter A with 2 contestants
-    When the Admin edits, shares, adds and edits a contestant, adds, reorders and removes an image, removes a contestant, publishes, unpublishes, clears the votes of, exports and deletes the War
-    Then the log holds one entry per request, with the action names edit_war, set_share_image, add_contestant, edit_contestant, add_image, reorder_images, remove_image, remove_contestant, publish_war, unpublish_war, clear_votes, export_war and delete_war
+    When the Admin edits, shares, adds and edits a contestant, adds, reorders and removes an image, removes a contestant, publishes, unpublishes, clears the votes of and deletes the War
+    Then the log holds one entry per request, with the action names edit_war, set_share_image, add_contestant, edit_contestant, add_image, reorder_images, remove_image, remove_contestant, publish_war, unpublish_war, clear_votes and delete_war
 
   Scenario: A Moderator sees no owner-action entries
     Given a published War created by Voter A, an Admin who unpublished it and a Moderator who removed another War

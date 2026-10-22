@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { WarDetailResponse } from '../api/client'
-import { recordWarExport } from '../api/client'
 import { toUserMessage } from '../api/errors'
 import { downloadBlob } from './downloadFile'
 import { buildWarExportZip } from './exportWar'
@@ -27,9 +26,6 @@ export function useWarExportDownload(war: WarDetailResponse | null): WarExportDo
   async function run(): Promise<void> {
     if (!war) return
     setError(null)
-    // Best-effort: the export is the voter's own backup, so a log that cannot
-    // be written must not stop the download.
-    recordWarExport(war.id).catch(() => undefined)
     try {
       const zip = await buildWarExportZip(war, fetchBinary)
       downloadBlob(zip, `war-${war.id}.zip`)
