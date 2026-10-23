@@ -2,7 +2,7 @@ import type { Kysely, Selectable } from 'kysely';
 import { sql } from 'kysely';
 import type { Database, WarsTable } from '../db/types.js';
 import { isUuid, newId } from '../db/uuid.js';
-import { createdAtText } from '../shared/keysetCursor.js';
+import { createdAtText, decodeCursor, encodeCursor } from '../shared/keysetCursor.js';
 import { containsPattern } from '../shared/likePattern.js';
 import { hasEffectiveStatus } from './effectiveStatusSql.js';
 import { deleteReportsForWar } from '../reports/reportsRepository.js';
@@ -221,7 +221,6 @@ interface Cursor {
   sort: WarsSort;
   /** The sort key's value, as a string, or `null` when it was itself null (only meaningful for the two nullable-sort-key modes). */
   v: string | null;
-  isNull: boolean;
   id: string;
 }
 
@@ -236,7 +235,7 @@ function cursorOldest(query: WarsQuery, cursor: Cursor): WarsQuery {
 function cursorAlphabetical(query: WarsQuery, cursor: Cursor): WarsQuery {
   return query.where(
     () =>
-      sql<boolean>`(wars.title IS NULL, COALESCE(wars.title, ''), wars.id) > (${cursor.isNull}, ${cursor.v ?? ''}, ${cursor.id}::uuid)`,
+      sql<boolean>`(wars.title IS NULL, COALESCE(wars.title, ''), wars.id) > (${cursor.v === null}, ${cursor.v ?? ''}, ${cursor.id}::uuid)`,
   );
 }
 
@@ -244,7 +243,7 @@ function cursorExpiringSoonest(query: WarsQuery, cursor: Cursor): WarsQuery {
   const value = cursor.v ?? EXPIRES_SENTINEL;
   return query.where(
     () =>
-      sql<boolean>`(wars.ends_at IS NULL, COALESCE(wars.ends_at, ${EXPIRES_SENTINEL}::timestamptz), wars.id) > (${cursor.isNull}, ${value}::timestamptz, ${cursor.id}::uuid)`,
+      sql<boolean>`(wars.ends_at IS NULL, COALESCE(wars.ends_at, ${EXPIRES_SENTINEL}::timestamptz), wars.id) > (${cursor.v === null}, ${value}::timestamptz, ${cursor.id}::uuid)`,
   );
 }
 
@@ -266,60 +265,20 @@ function isValidCursorValue(sort: WarsSort, v: unknown): boolean {
   return typeof v === 'string' && isValidTimestamp(v);
 }
 
-function isCursorRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
 function hasValidCursorFields(value: Record<string, unknown>, sort: WarsSort): boolean {
-  if (value.sort !== sort) return false;
-  if (!isUuid(value.id)) return false;
-  if (typeof value.isNull !== 'boolean') return false;
-  return isValidCursorValue(sort, value.v);
+  return value.sort === sort && isUuid(value.id) && isValidCursorValue(sort, value.v);
 }
 
-type DecodedCursor = { kind: 'ok'; cursor: Cursor } | { kind: 'invalid' };
-
-/**
- * Decodes an opaque, base64-encoded JSON cursor. Rejects anything
- * malformed, or produced under a different `sort` than the one it is now
- * being replayed against -- the keyset predicate for one sort mode is
- * meaningless (and, for a mismatched nullable column, unsafe) against
- * another's ordering. Never lets an unvalidated value reach the database:
- * every field a query below interpolates is checked here first.
- */
-function decodeCursor(raw: string, sort: WarsSort): DecodedCursor {
-  try {
-    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
-    if (!isCursorRecord(parsed) || !hasValidCursorFields(parsed, sort)) {
-      return { kind: 'invalid' };
-    }
-    return { kind: 'ok', cursor: parsed as unknown as Cursor };
-  } catch {
-    return { kind: 'invalid' };
-  }
-}
-
-function cursorValueFor(sort: WarsSort, row: WarRowWithCreatorName): { v: string | null; isNull: boolean } {
-  if (sort === 'newest' || sort === 'oldest') {
-    return { v: row.created_at_text, isNull: false };
-  }
-  if (sort === 'alphabetical') {
-    return { v: row.title, isNull: row.title === null };
-  }
-  return { v: row.ends_at_text, isNull: row.ends_at_text === null };
-}
-
-function encodeCursor(sort: WarsSort, row: WarRowWithCreatorName): string {
-  const { v, isNull } = cursorValueFor(sort, row);
-  const cursor: Cursor = { sort, v, isNull, id: row.id };
-  return Buffer.from(JSON.stringify(cursor)).toString('base64');
+function cursorValueFor(sort: WarsSort, row: WarRowWithCreatorName): string | null {
+  if (sort === 'alphabetical') return row.title;
+  return sort === 'expiring_soonest' ? row.ends_at_text : row.created_at_text;
 }
 
 /** Fetching `limit + 1` rows is how "more exist" is known: a cursor is emitted only when the extra row came back, and it anchors on the last row of the page proper. */
 function pageOf(sort: WarsSort, rows: WarRowWithCreatorName[], limit: number): { page: WarRowWithCreatorName[]; nextCursor: string | null } {
   const page = rows.slice(0, limit);
   const last = page[page.length - 1];
-  return { page, nextCursor: rows.length > limit && last ? encodeCursor(sort, last) : null };
+  return { page, nextCursor: rows.length > limit && last ? encodeCursor({ sort, v: cursorValueFor(sort, last), id: last.id }) : null };
 }
 
 export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Promise<ListWarsOutcome> {
@@ -333,11 +292,11 @@ export async function listWars(db: Kysely<Database>, filter: ListWarsFilter): Pr
   query = ORDER_APPLIERS[sort](query);
 
   if (filter.cursor) {
-    const decoded = decodeCursor(filter.cursor, sort);
-    if (decoded.kind === 'invalid') {
+    const cursor = decodeCursor<Cursor>(filter.cursor, (fields) => hasValidCursorFields(fields, sort));
+    if (!cursor) {
       return { kind: 'invalidCursor' };
     }
-    query = CURSOR_APPLIERS[sort](query, decoded.cursor);
+    query = CURSOR_APPLIERS[sort](query, cursor);
   }
 
   const rows = await query.limit(filter.limit + 1).execute();
