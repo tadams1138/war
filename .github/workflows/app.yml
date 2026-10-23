@@ -445,10 +445,17 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.api_tag }}
+          API_CI_RESULT: ${{ needs.api-ci.result }}
+        # A missing image is only built when api-ci passed in this run. If
+        # api-ci was skipped (war-api/ unchanged) and the tag is absent, the
+        # tree never passed CI, so publishing it would break the promise above.
         run: |
           if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
             echo "image exists, skipping build: $IMAGE"
             echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif [ "$API_CI_RESULT" != "success" ]; then
+            echo "::error::No image exists for war-api tree ${IMAGE##*:} and its CI did not run in this run. Re-run with 'gh workflow run app.yml --ref master' (workflow_dispatch forces api-ci, which then builds it)."
+            exit 1
           else
             echo "image missing, building: $IMAGE"
             echo "exists=false" >> "$GITHUB_OUTPUT"
