@@ -106,8 +106,8 @@ required-reviewer approval. See `war-spec.md` section 12.
 
 ### Not built / planned
 
-- `video` media mode. The media table's video columns exist and are unused.
-- Custom UI registry endpoints. The registry table and the War slug column exist, unused.
+- `video` media mode. No schema yet: the media table is image-only (its video id column and video check were dropped until the mode is built).
+- Custom UI registry endpoints. No schema yet: the registry table and the War slug column were dropped until the registry is built.
 - Apple sign-in (see *To revisit*) and linking several providers to one voter.
 
 ---
