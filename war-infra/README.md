@@ -20,7 +20,6 @@ Every infrastructure change is applied through the CI pipeline (`.github/workflo
 | `edge/` | Cloudflare Workers for routing, scheduled tasks, and custom UI dispatch |
 | `bootstrap/` | Container image for initial database setup |
 | `scripts/` | Operational scripts (smoke tests) |
-| `tools/` | Local build-time checks and validators (e.g., concurrency-group uniqueness) |
 | `specs/` | Gherkin feature files for infrastructure behavior |
 
 ## Environments
