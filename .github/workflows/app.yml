@@ -387,17 +387,23 @@ jobs:
       - name: Test render-spec.sh
         run: bash war-infra/scripts/render-spec.test.sh
 
-  # Runs in parallel with CI and is NOT gated on it: an image pushed for a
-  # commit whose CI later fails is harmless, because no deploy references it
-  # (deploy-staging needs this job AND the CI jobs). The tag is the git tree
-  # hash of war-api/, so it only changes when war-api/ does; if that image is
-  # already in the registry the build is skipped and only the tag is emitted.
+  # Waits for api-ci, because an image in the registry under a tree-hash tag is
+  # a promise that this war-api/ tree passed CI: a later UI-only commit has the
+  # same tree hash, skips api-ci, finds the tag and deploys it. The cost is no
+  # parallel build when the API changed. api-ci skipped is fine (the tree did
+  # not change, so the image either exists from a run that passed CI or is
+  # built now); api-ci failed or cancelled blocks the job. The tag is the git
+  # tree hash of war-api/, so it only changes when war-api/ does; if that image
+  # is already in the registry the build is skipped and only the tag is emitted.
   # On pull requests it runs only when war-api/ changed, and builds without
   # pushing, which proves the Dockerfile is sound before a change can merge.
   ensure-api-image:
     name: Ensure API image
-    needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.api == 'true'
+    needs: [changes, api-ci]
+    if: >-
+      !cancelled() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.api == 'true') &&
+      needs.api-ci.result != 'failure' && needs.api-ci.result != 'cancelled'
     runs-on: ubuntu-latest
     outputs:
       api_tag: ${{ steps.tag.outputs.api_tag }}
@@ -470,7 +476,8 @@ jobs:
     # request, and pull requests never deploy.
     if: >-
       github.event_name != 'pull_request' && !cancelled() &&
-      !contains(needs.*.result, 'failure') && needs.changes.outputs.deploy == 'true'
+      !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') &&
+      needs.changes.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     environment:
       name: staging
