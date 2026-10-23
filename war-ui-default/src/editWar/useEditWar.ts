@@ -107,9 +107,11 @@ export function useEditWar(
   // wait clears itself independently on its own timer.
   const imageWaitTimersRef = useRef<Record<string, number>>({})
 
-  const load = useCallback(async (): Promise<void> => {
+  // `quiet` swaps in the refetched War without passing through 'loading',
+  // which would unmount the page and lose the open editor's unsaved edits.
+  const load = useCallback(async (quiet = false): Promise<void> => {
     if (!warId) return
-    setState({ status: 'loading' })
+    if (!quiet) setState({ status: 'loading' })
     try {
       const war = await getWar(warId)
       setState({
@@ -162,7 +164,7 @@ export function useEditWar(
     if (!warId) return
     try {
       await uploadShareImageApi(warId, blob)
-      await load()
+      await load(true)
     } catch (error) {
       setLoaded((prev) => ({ ...prev, metadataError: toUserMessage(error) }))
     }
@@ -231,7 +233,7 @@ export function useEditWar(
     setLoaded((prev) => ({ ...prev, imageErrors: { ...prev.imageErrors, [contestantId]: null } }))
     try {
       await uploadContestantImages(warId, contestantId, files)
-      await load()
+      await load(true)
     } catch (error) {
       if (isRateLimited(error)) {
         applyImageRateLimit(contestantId, error)
@@ -266,7 +268,7 @@ export function useEditWar(
     if (!warId) return
     try {
       await deleteContestantMedia(warId, contestantId, mediaId)
-      await load()
+      await load(true)
     } catch (error) {
       showImageError(contestantId, error)
     }
@@ -286,7 +288,7 @@ export function useEditWar(
         reorderContestantMedia(warId, contestantId, current.id, previous.display_order),
         reorderContestantMedia(warId, contestantId, previous.id, current.display_order),
       ])
-      await load()
+      await load(true)
     } catch (error) {
       showImageError(contestantId, error)
     }
@@ -319,7 +321,7 @@ export function useEditWar(
     setLoaded((prev) => ({ ...prev, clearingVotes: true }))
     try {
       await clearVotesApi(warId)
-      await load()
+      await load(true)
       setLoaded((prev) => ({ ...prev, toast: 'Votes cleared' }))
     } catch (error) {
       setLoaded((prev) => ({ ...prev, clearingVotes: false, metadataError: toUserMessage(error) }))
