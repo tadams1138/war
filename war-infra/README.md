@@ -186,6 +186,6 @@ See `scripts/smoke-test.sh` and pipeline definitions in `.github/workflows/`.
 ## Further reading
 
 - `war-spec.md` (§12) — infrastructure specification and requirements
-- `CLAUDE.md` — build and test commands
+- `AGENTS.md` — build and test commands
 - `.github/workflows/infra.yml` — Terraform pipeline (validate, plan, apply)
 - `.github/workflows/api.yml` — API deploy pipeline (build, push, spec apply)

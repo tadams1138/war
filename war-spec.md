@@ -8,7 +8,7 @@ behaviour with no implementation yet; everything else is built.
 This is the complete functional specification for the War platform. It describes *what the
 system does*, not how any particular implementation achieves it. Concrete technology
 choices live in the code and the README's Stack section, project layout and build commands
-in `CLAUDE.md`, and what has actually been built in `PROGRESS.md`.
+in `AGENTS.md`, and what has actually been built in `PROGRESS.md`.
 
 Request and response payload shapes are deliberately absent. They are settled during the
 TDD/BDD cycle against the rules stated here.
@@ -1473,7 +1473,7 @@ preview environments, and scheduled tasks beyond expiry reconciliation.
 ## 13. Acceptance Tests
 
 Behaviour is specified in the sections above. Its executable expression lives with the code
-that implements it, never in this document — see `CLAUDE.md`'s Specs section for where each
+that implements it, never in this document — see `AGENTS.md`'s Specs section for where each
 project's executable Gherkin lives, and `PROGRESS.md` for what is built versus still pending.
 
 Where a test and this document disagree, **this document is the contract** and the test is

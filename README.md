@@ -13,7 +13,7 @@ with Google, Microsoft or Twitter/X (the Facebook button is hidden until Meta bu
 verification completes). To click through the UI without any backend, run it in
 [mock mode](#try-the-ui-with-no-backend).
 
-The project was developed with an AI-assisted TDD workflow; [`CLAUDE.md`](CLAUDE.md) holds those
+The project was developed with an AI-assisted TDD workflow; [`AGENTS.md`](AGENTS.md) holds those
 working conventions.
 
 ## Architecture
