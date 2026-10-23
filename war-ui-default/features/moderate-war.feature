@@ -24,7 +24,7 @@ Feature: Moderating a War
     And the "Remove War" button is hidden
     And that War's reports were requested 0 times
 
-  Scenario: Marking a report addressed and unaddressed
+  Scenario: Marking a report addressed
     Given a published War
     And that War has an unaddressed report
     And the API accepts changes to that War's reports
@@ -33,9 +33,7 @@ Feature: Moderating a War
     When they select the "Mark addressed" button
     Then the API has been asked to mark the report addressed
     And the report is shown as addressed
-    When they select the "Mark unaddressed" button
-    Then the API has been asked to mark the report unaddressed
-    And the report is shown as unaddressed
+    And the "Mark unaddressed" button is hidden
 
   Scenario: A failed report update shows an error and leaves the report unchanged
     Given a published War

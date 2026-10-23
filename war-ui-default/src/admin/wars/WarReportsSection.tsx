@@ -1,7 +1,7 @@
 // A War's abuse reports (war-spec.md §8.5), shown to a Moderator on the War's detail,
-// each with a control to mark it addressed or unaddressed.
+// each unaddressed one with a control to mark it addressed.
 import { useState } from 'react'
-import { getWarReports, setReportAddressed, type WarReport } from '../../api/client'
+import { getWarReports, markReportAddressed, type WarReport } from '../../api/client'
 import { toUserMessage } from '../../api/errors'
 import { useAsyncResource } from '../../hooks/useAsyncResource'
 import { AsyncStatus } from '../../components/AsyncStatus'
@@ -30,12 +30,11 @@ function ReportRow({ report }: { report: WarReport }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function toggle() {
-    const next = !addressed
+  function markAddressed() {
     setSaving(true)
     setError(null)
-    setReportAddressed(report.id, next)
-      .then(() => setAddressed(next))
+    markReportAddressed(report.id)
+      .then(() => setAddressed(true))
       .catch((failure: unknown) => setError(toUserMessage(failure)))
       .finally(() => setSaving(false))
   }
@@ -48,11 +47,13 @@ function ReportRow({ report }: { report: WarReport }) {
         <span> · filed </span>
         <time dateTime={report.filed_at}>{new Date(report.filed_at).toLocaleString()}</time>
       </p>
-      <div className="action-bar">
-        <button type="button" className="button" disabled={saving} onClick={toggle}>
-          {addressed ? 'Mark unaddressed' : 'Mark addressed'}
-        </button>
-      </div>
+      {!addressed && (
+        <div className="action-bar">
+          <button type="button" className="button" disabled={saving} onClick={markAddressed}>
+            Mark addressed
+          </button>
+        </div>
+      )}
       <ErrorMessage message={error} />
     </li>
   )

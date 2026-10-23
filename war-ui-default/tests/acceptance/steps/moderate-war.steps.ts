@@ -94,13 +94,13 @@ Then(/^the report is shown as (addressed|unaddressed)$/, async ({ page }, state:
 })
 
 // The latest change the API was asked for.
-Then(/^the API has been asked to mark the report (addressed|unaddressed)$/, async ({ page, world }, state: string) => {
+Then('the API has been asked to mark the report addressed', async ({ page, world }) => {
   // Assert
   const asked = async () => {
     const latest = (await getCallLog(page)).filter((entry) => entry.method === 'PATCH').pop()
     return latest && { path: new URL(latest.url).pathname, body: JSON.parse(latest.body ?? '{}') }
   }
-  await expect.poll(asked).toEqual({ path: `${API}/reports/${reportsOf(world)[0]!.id}`, body: { addressed: state === 'addressed' } })
+  await expect.poll(asked).toEqual({ path: `${API}/reports/${reportsOf(world)[0]!.id}`, body: { addressed: true } })
 })
 
 Then(/^the War is (not )?shown as Removed$/, async ({ page }, not?: string) => {
