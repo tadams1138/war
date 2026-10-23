@@ -1367,13 +1367,21 @@ own policy.
 
 ### 12.5 Pipelines
 
-Each project has its own pipeline, path-filtered so one project's change does not run
-another's, with deploy stages gated on not being a pull request.
+The API and the default UI share one application pipeline. It detects which project
+changed and runs only that project's checks; deploy stages are gated on not being a pull
+request. Infrastructure and custom UIs have their own pipelines.
 
-- **API:** lint → test → build image → push → deploy staging → smoke test → **manual gate** →
-  deploy production → smoke test
-- **Default UI:** lint → typecheck → unit test → acceptance test → build → deploy staging →
-  purge → smoke test → **manual gate** → deploy production → purge → smoke test
+- **Application (API and default UI):** detect changes → each changed project's checks, plus
+  the generated-types check when either side of the API contract changed and the deploy
+  script tests when those scripts changed → build the API image only when its source changed
+  → deploy staging → purge → smoke test → **manual gate** → deploy production → purge →
+  smoke test. Every deploy carries both the API and the default UI.
+  - *API checks:* lint → typecheck → migrate → test.
+  - *Default UI checks:* lint → typecheck → unit test → acceptance test → build.
+  - The API image is identified by the content of the API source, so an unchanged API reuses
+    the image already published. An image exists only for API source that passed its checks:
+    publishing waits for them, and a deploy that needs an image whose checks did not run
+    fails and says to run the pipeline manually, which forces every check.
 - **Custom UI:** resolve and validate slug → lint → build → template check → size check →
   deploy staging → purge → smoke test → **manual gate** → promote the same artefact
 - **Infrastructure:** validate → plan → apply staging → plan → **manual gate** → apply
@@ -1454,9 +1462,9 @@ tidiness. Procedures live in `war-infra/README.md`.
 
 - The application's identifier is set by hand per environment after any from-scratch apply;
   deploy pipelines read it from there.
-- Each deploy pipeline has its own named serialization group per environment. Sharing one lets
-  a sibling pipeline silently evict a deploy waiting at an approval gate; a build-time check
-  fails if two pipelines declare the same group.
+- One pipeline writes to the application per environment. A newer release supersedes one
+  still waiting at the production gate; that is safe because every deploy carries the full
+  state of its commit.
 - Infrastructure creates the application with a placeholder image and ignores later spec
   changes; the deployment spec, not the infrastructure module, owns the running application.
 - Each provider's redirect URI is registered by hand, per environment; nothing in the

@@ -72,8 +72,8 @@ Things a reviewer may want to look at:
   ([conventions](war-ui-default/tests/acceptance/README.md)).
 - **Typed client with a CI contract check.** The API's OpenAPI document is generated from its
   route definitions; the UI's request/response types are generated from it and committed.
-  The [OpenAPI Contract workflow](.github/workflows/openapi-contract.yml) regenerates them on
-  every API change and fails if the committed file is stale.
+  The [app pipeline](.github/workflows/app.yml)'s "Generated types match the API" job
+  regenerates them on every API change and fails if the committed file is stale.
 - **Keyset paging everywhere.** War lists, the moderation log, and the admin lists use opaque
   cursors over microsecond-precision timestamps, so rows created in the same millisecond are
   never skipped and no total count is needed.
@@ -210,14 +210,12 @@ See [`PROGRESS.md`](PROGRESS.md) for what is there.
 
 ## CI/CD and deploy
 
-Workflows in [`.github/workflows/`](.github/workflows), all path-filtered:
+Workflows in [`.github/workflows/`](.github/workflows):
 
 | Workflow | What it does |
 |---|---|
-| `api.yml` | Lint, typecheck, migrate and test against a Postgres service; build the image; on `master`, deploy to staging, then production behind the `production` environment's required reviewer. Renders `war-infra/platform/{env}.yaml` with the commit's image tag, applies it with `doctl --wait` (the `PRE_DEPLOY` migration job runs inside it), then smoke-tests. |
-| `ui-default.yml` | Lint, typecheck, unit, Playwright acceptance (MSW mocks), build; on `master`, trigger the App Platform static-site deployment, purge the edge cache for `index.html`, smoke test; staging then gated production. |
+| `app.yml` | The API and default UI pipeline. A change-detection job runs only the changed project's CI (API CI, UI CI), the generated-types check when the API contract changed, and the deploy script tests when `war-infra/scripts/` changed. The API image is tagged with the git tree hash of `war-api/` and built only if the registry lacks it, after API CI passes. On `master`, one deploy job per environment renders the full app spec with `war-infra/scripts/render-spec.sh`, applies it with `doctl --wait` (the `PRE_DEPLOY` migration job runs inside it), purges the edge cache and smoke-tests: staging, then production behind the `production` environment's required reviewer. `gh workflow run app.yml --ref master` forces every check. |
 | `infra.yml` | `terraform fmt`, `validate`, `tflint`; plan on pull requests; on `master`, apply shared, staging, then production (approval gate). |
-| `openapi-contract.yml` | Regenerates the UI's typed client from the API and fails if the committed types differ. |
 | `workflows.yml` | Lints every workflow file with actionlint (shellcheck included) on pull requests and pushes to `master` that touch `.github/workflows/`. |
 | `ui-custom.yml` | Reusable pipeline for separate custom-UI repositories. |
 | `push-bootstrap-image.yml` | Manual one-off publish of the placeholder image Terraform's initial app spec points at. |

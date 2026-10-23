@@ -192,7 +192,7 @@ required-reviewer approval. See `war-spec.md` section 12.
   (managed PostgreSQL, pooled connection, firewall), storage (Spaces buckets and CDNs), edge
   (DNS and Workers) and scheduler (cron Worker). Remote state in Spaces.
 - **App Platform specs** in `platform/{staging,production}.yaml` are the source of truth for
-  the app. They are rendered with `envsubst` and applied by the API pipeline: pinned image
+  the app. They are rendered by `render-spec.sh` and applied by the app pipeline: pinned image
   tag, secrets from GitHub, ingress (`/api/v1` to the API, the rest to the static UI),
   health check, and a `PRE_DEPLOY` migration job that makes a failed migration abort the
   deploy.
@@ -204,9 +204,21 @@ required-reviewer approval. See `war-spec.md` section 12.
 - **Edge rules.** Block `/api/v1/internal/*` and `/media/originals/*`; one rate-limit rule
   on `/api/v1/auth/*` (10 requests per 10 seconds per address and colo, the Free-plan
   limit); no caching of API responses except rankings.
-- **Pipelines** in `.github/workflows/`: `api.yml`, `ui-default.yml`, `infra.yml`,
-  `openapi-contract.yml`, `workflows.yml`, `ui-custom.yml`,
-  `push-bootstrap-image.yml`. Each deploy runs `war-infra/scripts/smoke-test.sh` afterwards.
+- **Pipelines** in `.github/workflows/`: `app.yml`, `infra.yml`, `workflows.yml`,
+  `ui-custom.yml`, `push-bootstrap-image.yml`. Each deploy runs
+  `war-infra/scripts/smoke-test.sh` afterwards.
+- **`app.yml`** is the one pipeline for the API and the default UI (it replaced the separate API, default UI
+  and OpenAPI-contract workflows). Jobs: Detect changes, API CI, UI CI,
+  Generated types match the API, Deploy scripts tests, Ensure API image, Deploy to Staging,
+  Deploy to Production. The API image tag is the git tree hash of `war-api/`; the image job
+  waits for API CI and publishes only if it passed, and fails with a pointer to
+  `gh workflow run app.yml --ref master` if a needed image is missing and its CI did not run
+  (a manual run forces every check). One deploy job per environment (concurrency groups
+  `deploy-staging`, `deploy-production`) applies the full app spec for its commit, so a newer
+  release safely supersedes one waiting at the production gate. Specs are rendered by
+  `war-infra/scripts/render-spec.sh`, which derives its placeholder list from the template
+  and fails naming any empty variable; its test is `bash war-infra/scripts/render-spec.test.sh`.
+  The default UI is still built by App Platform from `master` at deploy time.
 - **`workflows.yml`** runs actionlint (with shellcheck) over every workflow file on pull
   requests and pushes to `master` that touch `.github/workflows/`.
 - **Alerts** on the App Platform app: CPU, memory, restart count, failed deployment,
@@ -316,7 +328,7 @@ Every test labels its Arrange, Act and Assert phases.
 - **`TRUST_PROXY_HOPS`** per environment, as above.
 - **GitHub environments** `staging` and `production` carry `DO_APP_ID` and
   `PUBLIC_BASE_URL`; `production` has the required reviewer. Repository secrets and variables
-  are listed in the header of `.github/workflows/api.yml`.
+  are listed in the header of `.github/workflows/app.yml`.
 
 ---
 

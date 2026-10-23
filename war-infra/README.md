@@ -63,13 +63,15 @@ The `.yaml` files are the source of truth for the running app — Terraform crea
 - Image tags to change on every deploy without terraform apply
 - Secrets to be substituted at deploy time without storing them in state
 
-Apply the spec to a running app:
+Apply the spec to a running app (every placeholder in the template must be set in the environment; the script fails naming any that is empty):
 ```bash
-IMAGE_TAG=<commit-sha> envsubst < platform/staging.yaml > /tmp/app.yaml
+IMAGE_TAG=<war-api tree hash> war-infra/scripts/render-spec.sh war-infra/platform/staging.yaml /tmp/app.yaml
 doctl apps update <app-id> --spec /tmp/app.yaml --wait
 ```
 
-The deploy pipeline (`.github/workflows/api.yml`) automates this.
+`render-spec.sh` derives its placeholder list from the template; its test is `bash war-infra/scripts/render-spec.test.sh`. The image tag is the git tree hash of `war-api/` (`git rev-parse HEAD:war-api`).
+
+The app pipeline (`.github/workflows/app.yml`) automates this: one deploy job per environment applies the full app spec for its commit. A push that needs an API image missing from the registry, whose API CI did not run in that run, fails with an error; run `gh workflow run app.yml --ref master` (a manual run forces every check, builds the image, and deploys). The default UI is still built by App Platform from `master` at deploy time.
 
 ## Routing and Cloudflare Workers
 
@@ -165,7 +167,7 @@ Known rules not visible in code, each learned through production incidents:
 
 1. **Manual bootstrap step** — After `terraform apply`, the output includes the new App Platform app ID. This must be stored manually as the `DO_APP_ID` variable of that GitHub environment; the deploy pipelines read it from there.
 
-2. **Unique concurrency groups** — Each deploy pipeline requires its own named serialization group per environment to prevent pending runs from being evicted by a sibling pipeline's new job.
+2. **One writer per environment** — A single deploy job per environment (concurrency groups `deploy-staging` and `deploy-production`) writes to the App Platform app. A newer release supersedes one still waiting at the production gate; that is safe because every deploy applies the full state of its commit (image tag and app spec). A second pipeline that deployed only part of the state would reintroduce the eviction problem.
 
 3. **Placeholder image** — Terraform cannot bootstrap the app with the real API image (which requires secrets to boot). A placeholder image is pushed once; the API deploy replaces it.
 
@@ -175,7 +177,7 @@ Known rules not visible in code, each learned through production incidents:
 
 ## Smoke tests
 
-Both API and UI deploy pipelines run smoke tests after deployment to catch deploy-time failures before promoting to production:
+Each deploy job runs both smoke tests after deployment to catch deploy-time failures before promoting to production:
 
 - **API smoke test** — POST to internal endpoints, verify basic health
 - **UI smoke test** — Load the app, verify key pages render
@@ -187,4 +189,4 @@ See `scripts/smoke-test.sh` and pipeline definitions in `.github/workflows/`.
 - `war-spec.md` (§12) — infrastructure specification and requirements
 - `AGENTS.md` — build and test commands
 - `.github/workflows/infra.yml` — Terraform pipeline (validate, plan, apply)
-- `.github/workflows/api.yml` — API deploy pipeline (build, push, spec apply)
+- `.github/workflows/app.yml` — API and default UI pipeline (CI, image, spec apply, deploy)

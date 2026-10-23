@@ -117,7 +117,7 @@ Feature: CI/CD Pipelines
     Given a merged PR in war-api
     When the pipeline triggers
     Then lint, test, and build stages all pass
-    And the image is pushed to the container registry
+    And the image is pushed to the container registry under the content hash of war-api as its tag
     And a deployment is triggered for staging
     And smoke tests pass before the production gate is reached
 
@@ -151,25 +151,27 @@ Feature: CI/CD Pipelines
     Then the second run queues behind the first
     And neither run is cancelled
 
-Feature: Concurrency Group Isolation
+Feature: Single App Pipeline
 
-  Scenario: A concurrency group name shared by two different pipelines is flagged
-    Given two different workflow files that each declare the same literal
-      concurrency group name
-    When the repository's concurrency groups are checked
-    Then the check reports a violation naming both files and the shared group
+  Scenario: A UI-only change does not rebuild the API image
+    Given a merged PR that changes only war-ui-default
+    And an image already exists for the current content hash of war-api
+    When the pipeline triggers
+    Then the API checks do not run
+    And no API image is built
+    And staging is deployed with the existing image
 
-  Scenario: A pipeline serialising its own jobs is not flagged
-    Given a single workflow file whose own jobs deliberately share one
-      concurrency group, as the infra pipeline's plan/apply job pairs do
-    When the repository's concurrency groups are checked
-    Then no violation is reported for that file
+  Scenario: A newer release supersedes one waiting at the production gate
+    Given a release is waiting for approval at the production gate
+    When a newer release reaches the production gate
+    Then the older release is superseded
+    And approving the newer release deploys the full state of its commit
 
-  Scenario: The api and ui-default pipelines no longer share a group
-    Given the api and ui-default pipelines as delivered by this change
-    When their staging and production concurrency groups are inspected
-    Then all four group names are distinct
-    And none of them is shared with any other workflow file
+  Scenario: A manual run deploys the full state of the commit
+    Given the current commit on master
+    When the pipeline is run manually
+    Then every project's checks run
+    And staging is deployed with the API image and app spec of that commit
 
 Feature: Secrets & Config
 
