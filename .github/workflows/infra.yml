@@ -2,7 +2,8 @@
 #
 # Spaces provides no state locking (spec), so the per-environment
 # concurrency groups on the apply jobs below are what prevent two applies
-# colliding. Plan jobs carry no concurrency group: they are read-only, so
+# colliding. A workflow_dispatch run validates and plans only; applies need a
+# push to master. Plan jobs carry no concurrency group: they are read-only, so
 # queueing them behind an apply would only slow the run down.
 #
 # The production approval gate is a required reviewer on the `production`
@@ -222,7 +223,7 @@ jobs:
   apply-staging:
     name: Apply → Staging
     needs: [plan-staging, apply-shared]
-    if: github.event_name == 'push' && !cancelled() && needs.plan-staging.outputs.changes == 'true' && needs.apply-shared.result != 'failure'
+    if: github.event_name == 'push' && !cancelled() && needs.plan-staging.result == 'success' && needs.plan-staging.outputs.changes == 'true' && contains(fromJSON('["success","skipped"]'), needs.apply-shared.result)
     runs-on: ubuntu-latest
     environment: staging
     concurrency:
@@ -245,9 +246,10 @@ jobs:
   plan-production:
     name: Plan → Production
     # plan-staging and apply-shared are listed too so the failure check below
-    # sees them: a skipped apply-staging must not hide an upstream failure.
+    # sees them, and only positive results open this stage: a failed validate
+    # or plan-shared leaves everything downstream skipped, which must not pass.
     needs: [plan-staging, apply-shared, apply-staging]
-    if: github.event_name == 'push' && !cancelled() && !contains(needs.*.result, 'failure')
+    if: github.event_name == 'push' && !cancelled() && needs.plan-staging.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.apply-shared.result) && contains(fromJSON('["success","skipped"]'), needs.apply-staging.result)
     runs-on: ubuntu-latest
     outputs:
       changes: ${{ steps.plan.outputs.changes }}
