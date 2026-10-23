@@ -45,7 +45,7 @@ to it.
 
 ### Non-Goals
 
-- Real-time leaderboard streaming — polled refresh only
+- Live leaderboard updates — results refresh when the page loads, not while it is open
 - Push notifications
 - War creator moderation tools (removing voters, resetting votes)
 - Vote tamper-detection analytics — the data is collected; the tooling is future work
@@ -445,7 +445,7 @@ Each row carries the contestant, its rank, its win count and its appearance coun
 Appearances are shown for transparency: they let a viewer confirm contestants have been shown
 comparably often, which is the assumption the ranking rests on.
 
-Responses are cacheable for about thirty seconds, matching the UI's poll interval, so many
+Responses are cacheable for about thirty seconds, so many
 concurrent viewers collapse to roughly one origin query per interval per edge location.
 
 ### 6.5 Custom UI registry
@@ -1006,11 +1006,6 @@ shows no image at all in its row — never a placeholder standing in for the mis
 share is a bar sized to a contestant's raw wins relative to the leader's, never wins over
 appearances — an appearance-normalized percentage is exactly what §7 rejects as a display value.
 A bio, however long, always renders in full — there is no truncation and nothing to expand.
-
-Results poll while the War is published. **A failed poll does not clear already-loaded results**
-— it leaves the last good data on screen, shows no error, and keeps polling; the page recovers
-on its own. This does not apply to the *initial* load, where there is no last-good data to
-fall back on and the standard error state applies.
 
 **The results page carries its own entry points, each conditional.** Its creator, and any Admin
 on any War, sees an
