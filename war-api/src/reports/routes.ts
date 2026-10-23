@@ -9,9 +9,9 @@ import { errorResponseSchema, sendOutcome, validationErrorResponseSchema, failur
 import {
   fileReport,
   listReportsForWar,
+  markAddressed,
   presentReport,
   reportViewSchema,
-  setAddressed,
   unaddressedQueue,
   unaddressedWarViewSchema,
 } from './reportsService.js';
@@ -87,18 +87,18 @@ export function registerReportsRoutes(app: FastifyInstance, deps: ReportsRouteDe
     },
   );
 
-  app.patch<{ Params: { id: string }; Body: { addressed: boolean } }>(
+  app.patch<{ Params: { id: string }; Body: { addressed: true } }>(
     '/reports/:id',
     bearerAuthRoute(
       auth,
       {
-        body: { type: 'object', required: ['addressed'], properties: { addressed: { type: 'boolean' } } },
+        body: { type: 'object', required: ['addressed'], properties: { addressed: { type: 'boolean', const: true } } },
         response: { 200: reportViewSchema, ...failureResponses },
       },
       [requireModerator],
     ),
     async (request, reply) => {
-      const outcome = await setAddressed(db, request.params.id, request.body.addressed);
+      const outcome = await markAddressed(db, request.params.id);
       return sendOutcome(reply, outcome, (value) => reply.send(presentReport(value)));
     },
   );

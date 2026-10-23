@@ -68,11 +68,11 @@ Feature: Abuse reporting
     Then the response status is 200
     And the report's addressed state is now true
 
-  Scenario: A Moderator reopens a report addressed in error
+  Scenario: An addressed report cannot be reopened
     Given a Moderator and a report already marked addressed
     When the Moderator PATCHes that report's addressed state to false
-    Then the response status is 200
-    And the report's addressed state is now false
+    Then the response status is 400
+    And the report's addressed state is now true
 
   Scenario: A plain Voter cannot change a report's addressed state
     Given a plain Voter and an unaddressed report

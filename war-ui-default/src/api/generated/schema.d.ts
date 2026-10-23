@@ -1953,7 +1953,8 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        addressed: boolean;
+                        /** @enum {boolean} */
+                        addressed: true;
                     };
                 };
             };

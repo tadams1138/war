@@ -78,7 +78,7 @@ required-reviewer approval. See `war-spec.md` section 12.
   image's files are deleted only after the new key commits. War delete, remove and ban clean up both
   this key shape and the older fixed `share-images/<warId>.jpg`. Any
   voter can report any War; Moderators list reports per War, read the unaddressed queue and
-  toggle a report's addressed state. Remove a War hides it and deletes its media while
+  mark a report addressed (final). Remove a War hides it and deletes its media while
   keeping the audit trail. Suspend blocks War creation. Ban purges the voter's Wars and
   votes, revokes their tokens and blocks sign-in immediately. The War-creation kill switch
   is a single-row platform setting. Every moderation action and role change writes an append-only moderation log
@@ -153,7 +153,7 @@ required-reviewer approval. See `war-spec.md` section 12.
   moderation entries) with links to the Wars and Voters involved. Opening a War from the Wars list,
   the unaddressed-reports queue, the moderation log or a Voter's detail page (their Wars and vote
   history) goes to the War's ordinary detail page (`/wars/:id`); there a Moderator also sees the War's
-  reports (mark addressed or unaddressed) and the Remove War control, and a removed War is shown to a
+  reports (mark addressed; final) and the Remove War control, and a removed War is shown to a
   Moderator marked Removed, with no Remove, Vote or owner controls, and its results stop polling.
   Admin: Voters list (filter Suspended,
   Banned, Role holders) and moderation log (the role-change entries and the owner-level actions an

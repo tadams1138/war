@@ -71,11 +71,11 @@ export async function listWarsWithUnaddressedReports(db: Kysely<Database>): Prom
   return rows.map((row) => ({ warId: row.warId, title: row.title, unaddressedCount: Number(row.unaddressedCount) }));
 }
 
-/** Toggles one report's `addressed` flag (§8.5: "in either direction"). `undefined` if `reportId` doesn't exist. */
-export async function setReportAddressed(db: Kysely<Database>, reportId: string, addressed: boolean): Promise<Report | undefined> {
+/** Marks one report addressed (§8.5: final, never reopened). `undefined` if `reportId` doesn't exist. */
+export async function markReportAddressed(db: Kysely<Database>, reportId: string): Promise<Report | undefined> {
   const row = await db
     .updateTable('reports')
-    .set({ addressed })
+    .set({ addressed: true })
     .where('id', '=', reportId)
     .returningAll()
     .executeTakeFirst();
