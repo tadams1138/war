@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { deleteWarRow, deleteWarRowIn, findWarById, markWarRemoved } from '../../src/wars/warsRepository.js';
-import { makeDraftWarWithContestants, makeVoter } from '../setup/fixtures.js';
+import { deleteWarRowIn, findWarById, markWarRemoved } from '../../src/wars/warsRepository.js';
+import { deleteWarRow, makeDraftWarWithContestants, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 

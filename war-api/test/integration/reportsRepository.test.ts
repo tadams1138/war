@@ -4,8 +4,7 @@ import {
   listWarsWithUnaddressedReports,
   setReportAddressed,
 } from '../../src/reports/reportsRepository.js';
-import { deleteWarRow } from '../../src/wars/warsRepository.js';
-import { makeDraftWar, makeVoter } from '../setup/fixtures.js';
+import { deleteWarRow, makeDraftWar, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 

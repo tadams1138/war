@@ -375,15 +375,11 @@ export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise
 }
 
 /**
- * Removes a War and everything it owns, in any status (§6.1 "Deletion"), in one transaction and FK dependency order:
- * none of the foreign keys in `20260101000000_init.sql` cascade. Storage objects are the caller's job, after commit
- * (`deleteWar`, `warMediaStorage.ts`).
+ * Removes a War and everything it owns, in any status (§6.1 "Deletion"), in FK dependency order: none of the foreign
+ * keys in `20260101000000_init.sql` cascade. Runs on the caller's open transaction (Kysely cannot nest `.transaction()`)
+ * so callers such as banning a Voter can delete several Wars atomically with their own writes. Storage objects are the
+ * caller's job, after commit (`deleteWar`, `warMediaStorage.ts`).
  */
-export async function deleteWarRow(db: Kysely<Database>, warId: string): Promise<void> {
-  await db.transaction().execute((trx) => deleteWarRowIn(trx, warId));
-}
-
-/** `deleteWarRow`'s body, run on an already-open transaction (Kysely cannot nest `.transaction()`) so callers such as banning a Voter can delete several Wars atomically with their own writes. */
 export async function deleteWarRowIn(trx: Kysely<Database>, warId: string): Promise<void> {
   const matchupRows = await trx.selectFrom('matchups').select('id').where('war_id', '=', warId).execute();
   const matchupIds = matchupRows.map((row) => row.id);
