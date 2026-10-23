@@ -286,6 +286,20 @@ Feature: Edit War
     And they add an image
     Then the gallery shows the first image then the second
 
+  Scenario: Adding an image keeps the contestant's unsaved edits
+    Given a draft War
+    And that War has contestants:
+      | name | images |
+      | Ada  | 1      |
+    And the API accepts a request to add an image to the contestant "Ada"
+    And an authenticated voter
+    And they are on that War's Edit page
+    When they select "Ada" in the sections list
+    And they change the contestant's bio to "Not saved yet"
+    And they add an image
+    Then the gallery shows the first image then the second
+    And the contestant's bio shows "Not saved yet"
+
   Scenario: A failed image upload shows an error
     Given a draft War
     And that War has contestants:

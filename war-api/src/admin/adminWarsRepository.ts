@@ -1,8 +1,6 @@
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type { Database } from '../db/types.js';
-import { isUuid } from '../db/uuid.js';
-import { listContestantsByWar } from '../contestants/contestantsRepository.js';
 import { createdAtText, fetchKeysetPage, type InvalidCursor } from '../shared/keysetCursor.js';
 import { effectiveStatus } from '../wars/effectiveStatus.js';
 import { hasEffectiveStatus } from '../wars/effectiveStatusSql.js';
@@ -98,38 +96,4 @@ export async function listAdminWars(db: Kysely<Database>, options: ListAdminWars
   const result = await fetchKeysetPage(query, { createdAtColumn: 'wars.created_at', idColumn: 'wars.id', ...options });
   if (result.kind === 'invalidCursor') return result;
   return { kind: 'ok', wars: result.page.map((row) => toAdminWar(row, options.now)), nextCursor: result.nextCursor };
-}
-
-export interface AdminWarContestant {
-  id: string;
-  name: string;
-  winCount: number;
-  appearanceCount: number;
-}
-
-export interface AdminWarDetail extends AdminWar {
-  contestants: AdminWarContestant[];
-  reportCount: number;
-}
-
-async function countReports(db: Kysely<Database>, warId: string): Promise<number> {
-  const row = await db
-    .selectFrom('reports')
-    .select(sql<number>`count(*)::int`.as('count'))
-    .where('war_id', '=', warId)
-    .executeTakeFirstOrThrow();
-  return row.count;
-}
-
-/** One War by id, removed or not, with its contestants (ordered as the public detail orders them) and report totals; `undefined` only when no row exists. */
-export async function findAdminWar(db: Kysely<Database>, id: string, now: Date): Promise<AdminWarDetail | undefined> {
-  if (!isUuid(id)) return undefined;
-  const row = await baseAdminWarsQuery(db).where('wars.id', '=', id).executeTakeFirst();
-  if (!row) return undefined;
-  const [contestants, reportCount] = await Promise.all([listContestantsByWar(db, id), countReports(db, id)]);
-  return {
-    ...toAdminWar(row, now),
-    contestants: contestants.map((c) => ({ id: c.id, name: c.name, winCount: c.winCount, appearanceCount: c.appearanceCount })),
-    reportCount,
-  };
 }

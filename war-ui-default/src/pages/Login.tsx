@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom'
 import { providerLoginUrl } from '../api/client'
 import { storeReturnTo } from '../auth/returnTo'
 import { PROVIDER_LABELS, ProviderLogo, type OAuthProviderSlug } from '../components/ProviderLogo'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
 const PROVIDERS: OAuthProviderSlug[] = ['google', 'microsoft', 'twitter']
@@ -15,7 +15,7 @@ export function Login() {
   const [searchParams] = useSearchParams()
   const returnTo = searchParams.get('returnTo') ?? '/'
   const sessionExpired = searchParams.get('reason') === 'session-expired'
-  const [theme, setTheme] = useTheme('home', 'arcade')
+  const [theme, setTheme] = useTheme('home', FALLBACK_THEME)
   usePublishTheme('home', theme, setTheme)
 
   return (

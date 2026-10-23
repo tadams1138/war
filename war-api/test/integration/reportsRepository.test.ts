@@ -2,10 +2,9 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import {
   createReport,
   listWarsWithUnaddressedReports,
-  setReportAddressed,
+  markReportAddressed,
 } from '../../src/reports/reportsRepository.js';
-import { deleteWarRow } from '../../src/wars/warsRepository.js';
-import { makeDraftWar, makeVoter } from '../setup/fixtures.js';
+import { deleteWarRow, makeDraftWar, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
@@ -26,7 +25,7 @@ describe('reportsRepository (war-spec.md §8.5)', () => {
     await createReport(harness.db, { warId: warWithUnaddressed.id, reporterId: reporter.id, explanation: 'a' });
     await createReport(harness.db, { warId: warWithUnaddressed.id, reporterId: reporter.id, explanation: 'b' });
     const reportC = await createReport(harness.db, { warId: warFullyAddressed.id, reporterId: reporter.id, explanation: 'c' });
-    await setReportAddressed(harness.db, reportC.id, true);
+    await markReportAddressed(harness.db, reportC.id);
 
     // Act
     const queue = await listWarsWithUnaddressedReports(harness.db);

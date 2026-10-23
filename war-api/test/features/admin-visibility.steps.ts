@@ -354,63 +354,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
   });
 
-  Scenario('A Moderator views a removed War with its contestants and counters', ({ Given, And, When, Then }) => {
-    let warId: string;
-    let creatorId: string;
-    let contestantIds: string[];
-    let moderatorId: string;
-    let response: request.Response;
-
-    Given(
-      'a removed War with contestants "Ann" (3 wins, 5 appearances) and "Bea" (2 wins, 5 appearances) and 3 reports, 1 of them addressed',
-      async () => {
-        // Arrange
-        creatorId = (await makeVoter(harness.db, 'alice')).id;
-        const war = await makeDraftWar(harness.db, creatorId, { title: 'Gone War' });
-        warId = war.id;
-        const ann = await makeContestant(harness.db, warId, 'Ann');
-        const bea = await makeContestant(harness.db, warId, 'Bea');
-        contestantIds = [ann.id, bea.id];
-        await harness.db.updateTable('contestants').set({ win_count: 3, appearance_count: 5 }).where('id', '=', ann.id).execute();
-        await harness.db.updateTable('contestants').set({ win_count: 2, appearance_count: 5 }).where('id', '=', bea.id).execute();
-        await addReport(warId, creatorId, false);
-        await addReport(warId, creatorId, false);
-        await addReport(warId, creatorId, true);
-        await setWarColumns(warId, { status: 'published', removed: true });
-      },
-    );
-
-    And('a Moderator', async () => {
-      // Arrange
-      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
-    });
-
-    When('the Moderator GETs that War from the admin endpoint', async () => {
-      // Act
-      response = await getAs(moderatorId, `/admin/wars/${warId}`);
-    });
-
-    Then('the response shows the removed War with its contestants in order, their counters, and 3 reports of which 2 are unaddressed', () => {
-      // Assert
-      expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({
-        id: warId,
-        title: 'Gone War',
-        status: 'published',
-        creator_id: creatorId,
-        creator_name: 'alice',
-        unaddressed_report_count: 2,
-        report_count: 3,
-      });
-      expect(Number.isNaN(Date.parse(response.body.removed_at as string))).toBe(false);
-      expect(response.body.contestants).toEqual([
-        { id: contestantIds[0], name: 'Ann', win_count: 3, appearance_count: 5 },
-        { id: contestantIds[1], name: 'Bea', win_count: 2, appearance_count: 5 },
-      ]);
-    });
-  });
-
-  ScenarioOutline('An unknown War or Voter is not found', ({ Given, When, Then }, variables) => {
+  ScenarioOutline('An unknown Voter is not found', ({ Given, When, Then }, variables) => {
     let moderatorId: string;
     let response: request.Response;
 
@@ -869,13 +813,12 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
 
   Scenario('Reading the admin endpoints writes nothing to the moderation log', ({ Given, And, When, Then }) => {
     let voterId: string;
-    let warId: string;
     let moderatorId: string;
 
     Given('a Voter with a War and a vote', async () => {
       // Arrange
       voterId = (await makeVoter(harness.db, 'alice')).id;
-      warId = (await castVoteInNewWar(voterId, voterId, { title: 'Mine', castAt: '2026-01-01T00:00:00Z' })).warId;
+      await castVoteInNewWar(voterId, voterId, { title: 'Mine', castAt: '2026-01-01T00:00:00Z' });
     });
 
     And('a Moderator', async () => {
@@ -883,9 +826,9 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
       moderatorId = (await makeModerator(harness.db, 'moderator')).id;
     });
 
-    When('the Moderator GETs all 5 admin endpoints', async () => {
+    When('the Moderator GETs all 4 admin endpoints', async () => {
       // Act
-      for (const path of ['/admin/wars', `/admin/wars/${warId}`, '/admin/voters', `/admin/voters/${voterId}`, `/admin/voters/${voterId}/votes`]) {
+      for (const path of ['/admin/wars', '/admin/voters', `/admin/voters/${voterId}`, `/admin/voters/${voterId}/votes`]) {
         expect((await getAs(moderatorId, path)).status).toBe(200);
       }
     });
@@ -932,33 +875,6 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
       // Assert
       expect(response.status).toBe(200);
       expect((response.body.wars as Item[]).map((war) => war.id)).not.toContain(warId);
-    });
-  });
-
-  Scenario('The admin War detail reports effective status before the close task runs', ({ Given, And, When, Then }) => {
-    let warId: string;
-    let moderatorId: string;
-    let response: request.Response;
-
-    Given('a Voter who created a published War whose end date passed a minute ago and has not yet been closed by the close task', async () => {
-      // Arrange
-      ({ warId } = await seedExpiredUnclosedWar());
-    });
-
-    And('a Moderator', async () => {
-      // Arrange
-      moderatorId = (await makeModerator(harness.db, 'moderator')).id;
-    });
-
-    When('the Moderator GETs that War from the admin endpoint', async () => {
-      // Act
-      response = await getAs(moderatorId, `/admin/wars/${warId}`);
-    });
-
-    Then('the response shows that War with status "closed"', () => {
-      // Assert
-      expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({ id: warId, status: 'closed' });
     });
   });
 

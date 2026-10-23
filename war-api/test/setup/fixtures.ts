@@ -3,7 +3,7 @@ import sharp from 'sharp';
 import type { Kysely } from 'kysely';
 import type { Database } from '../../src/db/types.js';
 import { findOrCreateVoter, setVoterRole, type Voter } from '../../src/auth/votersRepository.js';
-import { createMembership, createWar, setWarStatus, type War } from '../../src/wars/warsRepository.js';
+import { createMembership, createWar, deleteWarRowIn, setWarStatus, type War } from '../../src/wars/warsRepository.js';
 import { publishWar } from '../../src/wars/warsService.js';
 import { createContestant, type Contestant } from '../../src/contestants/contestantsRepository.js';
 import { uploadContestantImage } from '../../src/contestants/imageUploadService.js';
@@ -141,4 +141,9 @@ export async function expireWar(db: Kysely<Database>, warId: string, agoMs = 60_
 /** Marks a War closed, as the expiry task does once its end date has passed. */
 export async function closeWarForTest(db: Kysely<Database>, war: War): Promise<War> {
   return setWarStatus(db, war.id, 'closed');
+}
+
+/** Hard-deletes a War and what it owns in its own transaction. */
+export async function deleteWarRow(db: Kysely<Database>, warId: string): Promise<void> {
+  await db.transaction().execute((trx) => deleteWarRowIn(trx, warId));
 }

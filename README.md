@@ -13,8 +13,7 @@ with Google, Microsoft or Twitter/X (the Facebook button is hidden until Meta bu
 verification completes). To click through the UI without any backend, run it in
 [mock mode](#try-the-ui-with-no-backend).
 
-This is a single-author showcase repository, not an accepting-contributions project. The
-project was developed with an AI-assisted TDD workflow; [`CLAUDE.md`](CLAUDE.md) holds those
+The project was developed with an AI-assisted TDD workflow; [`CLAUDE.md`](CLAUDE.md) holds those
 working conventions.
 
 ## Architecture
@@ -242,6 +241,6 @@ for an AI assistant that assembles a War import file for the app's Import featur
 
 Copyright © 2026 Tom Adams. All rights reserved.
 
-This repository is publicly available for viewing and evaluation purposes only. No
+This repository is publicly available for viewing purposes only. No
 permission is granted to copy, modify, distribute, sublicense, or use this software or its
 source code for commercial purposes without prior written permission.

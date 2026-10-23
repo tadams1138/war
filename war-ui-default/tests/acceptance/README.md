@@ -94,9 +94,6 @@ Rules:
 10. **Keep `World` small.** Add a field to the `World` class in `fixtures.ts` only for state that
     a later step really needs.
 11. **Swipes never vote**; only clicks, taps and button presses do.
-12. **Time is controlled, never waited for.** A scenario that depends on time passing says so in
-    a Given (`the clock is controlled`) and moves it with a When (`30 seconds elapse`); the step
-    waits for the page to take in what the elapsed time caused, so the next one cannot race it.
 
 ## Parameter types and registries
 

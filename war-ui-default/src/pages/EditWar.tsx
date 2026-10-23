@@ -21,8 +21,9 @@ import { EditWarContestant } from '../editWar/EditWarContestant'
 import { EditWarMetadataForm } from '../editWar/EditWarMetadataForm'
 import { useEditWar, type EditWarLoadedState, type EditWarState } from '../editWar/useEditWar'
 import { useWarExportDownload, type WarExportDownload } from '../export/useWarExportDownload'
+import { useConfirm, type Confirm } from '../hooks/useConfirm'
 import { useDeleteWarFlow, type DeleteWarFlow } from '../hooks/useDeleteWarFlow'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import type { Theme } from '../theme/themeCookie'
 import { useTheme } from '../theme/useTheme'
 import { warTitle } from '../utils/warTitle'
@@ -30,7 +31,11 @@ import { warTitle } from '../utils/warTitle'
 type Selection = 'metadata' | 'add' | string
 
 function initialTheme(state: EditWarState): Theme {
-  return state.status === 'loaded' ? state.war.theme : 'arcade'
+  return state.status === 'loaded' ? state.war.theme : FALLBACK_THEME
+}
+
+function isDraft(state: EditWarState): boolean {
+  return state.status === 'loaded' && state.war.status === 'draft'
 }
 
 function loadedWarOrNull(state: EditWarState): WarDetailResponse | null {
@@ -54,45 +59,25 @@ export function EditWar() {
   const [selected, setSelected] = useState<Selection>('metadata')
   const [theme, setTheme] = useTheme(safeWarId, initialTheme(editWar.state))
   usePublishTheme(safeWarId, theme, setTheme)
-  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
-  const [showClearVotesConfirm, setShowClearVotesConfirm] = useState(false)
-  const [pendingRemoval, setPendingRemoval] = useState<ContestantDetail | null>(null)
+  const publishConfirm = useConfirm(() => void (isDraft(editWar.state) ? editWar.publish() : editWar.unpublish()))
+  const clearVotesConfirm = useConfirm(() => void editWar.clearVotes())
+
+  async function handleRemove(contestant: ContestantDetail): Promise<void> {
+    if (await editWar.removeContestant(contestant.id)) setSelected('metadata')
+  }
+
+  const removalConfirm = useConfirm<ContestantDetail>((contestant) => void handleRemove(contestant))
 
   if (editWar.state.status !== 'loaded') return <AsyncStatus state={editWar.state} />
 
   const state = editWar.state
 
-  function handleConfirmPublishToggle(): void {
-    setShowPublishConfirm(false)
-    if (state.war.status === 'draft') void editWar.publish()
-    else void editWar.unpublish()
-  }
-
-  function handleConfirmClearVotes(): void {
-    setShowClearVotesConfirm(false)
-    void editWar.clearVotes()
-  }
-
   // A contestant with no votes on its own matchups is just removed (spec
   // §6.1); one that does carry votes asks first, naming what will be lost,
   // like every other destructive action on this page.
   function requestRemoveContestant(contestant: ContestantDetail): void {
-    if (contestant.appearance_count > 0) {
-      setPendingRemoval(contestant)
-    } else {
-      void handleRemove(contestant.id)
-    }
-  }
-
-  async function handleRemove(contestantId: string): Promise<void> {
-    if (await editWar.removeContestant(contestantId)) setSelected('metadata')
-  }
-
-  function confirmRemoveContestant(): void {
-    if (!pendingRemoval) return
-    const contestantId = pendingRemoval.id
-    setPendingRemoval(null)
-    void handleRemove(contestantId)
+    if (contestant.appearance_count > 0) removalConfirm.ask(contestant)
+    else void handleRemove(contestant)
   }
 
   return (
@@ -103,14 +88,8 @@ export function EditWar() {
         state={state}
         exportFlow={exportFlow}
         deleteFlow={deleteFlow}
-        showPublishConfirm={showPublishConfirm}
-        showClearVotesConfirm={showClearVotesConfirm}
-        onPublishToggleClick={() => setShowPublishConfirm(true)}
-        onConfirmPublishToggle={handleConfirmPublishToggle}
-        onCancelPublishConfirm={() => setShowPublishConfirm(false)}
-        onClearVotesClick={() => setShowClearVotesConfirm(true)}
-        onConfirmClearVotes={handleConfirmClearVotes}
-        onCancelClearVotesConfirm={() => setShowClearVotesConfirm(false)}
+        publishConfirm={publishConfirm}
+        clearVotesConfirm={clearVotesConfirm}
       />
       <div className="edit-war-layout">
         <EditWarNav selected={selected} contestants={state.war.contestants} onSelect={setSelected} />
@@ -122,11 +101,7 @@ export function EditWar() {
           onRequestRemove={requestRemoveContestant}
         />
       </div>
-      <RemoveContestantConfirmDialog
-        contestant={pendingRemoval}
-        onConfirm={confirmRemoveContestant}
-        onCancel={() => setPendingRemoval(null)}
-      />
+      <RemoveContestantConfirmDialog confirm={removalConfirm} />
     </main>
   )
 }
@@ -138,34 +113,22 @@ function TopActions({
   state,
   exportFlow,
   deleteFlow,
-  showPublishConfirm,
-  showClearVotesConfirm,
-  onPublishToggleClick,
-  onConfirmPublishToggle,
-  onCancelPublishConfirm,
-  onClearVotesClick,
-  onConfirmClearVotes,
-  onCancelClearVotesConfirm,
+  publishConfirm,
+  clearVotesConfirm,
 }: {
   state: EditWarLoadedState
   exportFlow: WarExportDownload
   deleteFlow: DeleteWarFlow
-  showPublishConfirm: boolean
-  showClearVotesConfirm: boolean
-  onPublishToggleClick: () => void
-  onConfirmPublishToggle: () => void
-  onCancelPublishConfirm: () => void
-  onClearVotesClick: () => void
-  onConfirmClearVotes: () => void
-  onCancelClearVotesConfirm: () => void
+  publishConfirm: Confirm
+  clearVotesConfirm: Confirm
 }) {
   return (
     <>
       <div className="action-bar">
         <ExportButton testId="edit-war-export-button" onClick={exportFlow.trigger} />
         <DeleteButton testId="edit-war-delete-button" onClick={deleteFlow.open} />
-        <PublishToggleButton war={state.war} publishing={state.publishing} onClick={onPublishToggleClick} />
-        <button type="button" className="button" data-testid="clear-votes-submit" disabled={state.clearingVotes} onClick={onClearVotesClick}>
+        <PublishToggleButton war={state.war} publishing={state.publishing} onClick={() => publishConfirm.ask(true)} />
+        <button type="button" className="button" data-testid="clear-votes-submit" disabled={state.clearingVotes} onClick={() => clearVotesConfirm.ask(true)}>
           Clear Votes
         </button>
       </div>
@@ -173,13 +136,8 @@ function TopActions({
       <ErrorMessage message={deleteFlow.error} />
       <PublishStatus war={state.war} publishDetails={state.publishDetails} />
       <DeleteWarConfirmDialog show={deleteFlow.showConfirm} onConfirm={deleteFlow.confirm} onCancel={deleteFlow.cancel} testIdPrefix="edit-war" />
-      <PublishToggleConfirmDialog
-        war={state.war}
-        show={showPublishConfirm}
-        onConfirm={onConfirmPublishToggle}
-        onCancel={onCancelPublishConfirm}
-      />
-      <ClearVotesConfirmDialog show={showClearVotesConfirm} onConfirm={onConfirmClearVotes} onCancel={onCancelClearVotesConfirm} />
+      <PublishToggleConfirmDialog war={state.war} confirm={publishConfirm} />
+      <ClearVotesConfirmDialog confirm={clearVotesConfirm} />
     </>
   )
 }
@@ -227,25 +185,15 @@ function PublishStatus({ war, publishDetails }: { war: WarDetailResponse; publis
   )
 }
 
-function PublishToggleConfirmDialog({
-  war,
-  show,
-  onConfirm,
-  onCancel,
-}: {
-  war: WarDetailResponse
-  show: boolean
-  onConfirm: () => void
-  onCancel: () => void
-}) {
+function PublishToggleConfirmDialog({ war, confirm }: { war: WarDetailResponse; confirm: Confirm }) {
   const isDraft = war.status === 'draft'
   return (
     <ConfirmDialog
-      show={show}
+      show={confirm.pending !== null}
       testId="publish-toggle-confirm"
       confirmLabel={isDraft ? 'Publish War' : 'Unpublish War'}
-      onConfirm={onConfirm}
-      onCancel={onCancel}
+      onConfirm={confirm.confirm}
+      onCancel={confirm.cancel}
     >
       <p>
         {isDraft
@@ -256,9 +204,16 @@ function PublishToggleConfirmDialog({
   )
 }
 
-function ClearVotesConfirmDialog({ show, onConfirm, onCancel }: { show: boolean; onConfirm: () => void; onCancel: () => void }) {
+function ClearVotesConfirmDialog({ confirm }: { confirm: Confirm }) {
   return (
-    <ConfirmDialog show={show} testId="clear-votes-confirm" confirmLabel="Clear Votes" danger onConfirm={onConfirm} onCancel={onCancel}>
+    <ConfirmDialog
+      show={confirm.pending !== null}
+      testId="clear-votes-confirm"
+      confirmLabel="Clear Votes"
+      danger
+      onConfirm={confirm.confirm}
+      onCancel={confirm.cancel}
+    >
       <p>
         Clear Votes deletes every vote cast in this War and resets every contestant&rsquo;s counters to zero. This
         cannot be undone. Continue?
@@ -267,23 +222,16 @@ function ClearVotesConfirmDialog({ show, onConfirm, onCancel }: { show: boolean;
   )
 }
 
-function RemoveContestantConfirmDialog({
-  contestant,
-  onConfirm,
-  onCancel,
-}: {
-  contestant: ContestantDetail | null
-  onConfirm: () => void
-  onCancel: () => void
-}) {
+function RemoveContestantConfirmDialog({ confirm }: { confirm: Confirm<ContestantDetail> }) {
+  const contestant = confirm.pending
   return (
     <ConfirmDialog
       show={contestant !== null}
       testId="edit-war-contestant-remove-confirm"
       confirmLabel="Remove contestant"
       danger
-      onConfirm={onConfirm}
-      onCancel={onCancel}
+      onConfirm={confirm.confirm}
+      onCancel={confirm.cancel}
     >
       <p>
         Removing {contestant?.name} also clears the {contestant?.appearance_count} vote

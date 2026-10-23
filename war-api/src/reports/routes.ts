@@ -5,13 +5,13 @@ import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import { requireModerator } from '../auth/guards.js';
 import { reportSchemaViolations, rejectInvalidBody } from '../shared/bodyValidation.js';
-import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
+import { errorResponseSchema, sendOutcome, validationErrorResponseSchema, failureResponses } from '../shared/httpOutcomes.js';
 import {
   fileReport,
   listReportsForWar,
+  markAddressed,
   presentReport,
   reportViewSchema,
-  setAddressed,
   unaddressedQueue,
   unaddressedWarViewSchema,
 } from './reportsService.js';
@@ -43,10 +43,7 @@ export function registerReportsRoutes(app: FastifyInstance, deps: ReportsRouteDe
     },
     async (request, reply) => {
       const outcome = await fileReport(db, { warId: request.params.id, reporterId: request.voterId!, explanation: request.body.explanation });
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.code(201).send(presentReport(outcome.value));
+      return sendOutcome(reply, outcome, (value) => reply.code(201).send(presentReport(value)));
     },
   );
 
@@ -61,18 +58,14 @@ export function registerReportsRoutes(app: FastifyInstance, deps: ReportsRouteDe
             required: ['reports'],
             properties: { reports: { type: 'array', items: reportViewSchema } },
           },
-          403: errorResponseSchema,
-          404: errorResponseSchema,
+          ...failureResponses,
         },
       },
       [requireModerator],
     ),
     async (request, reply) => {
       const outcome = await listReportsForWar(db, request.params.id);
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send({ reports: outcome.value.map(presentReport) });
+      return sendOutcome(reply, outcome, (value) => reply.send({ reports: value.map(presentReport) }));
     },
   );
 
@@ -94,22 +87,19 @@ export function registerReportsRoutes(app: FastifyInstance, deps: ReportsRouteDe
     },
   );
 
-  app.patch<{ Params: { id: string }; Body: { addressed: boolean } }>(
+  app.patch<{ Params: { id: string }; Body: { addressed: true } }>(
     '/reports/:id',
     bearerAuthRoute(
       auth,
       {
-        body: { type: 'object', required: ['addressed'], properties: { addressed: { type: 'boolean' } } },
-        response: { 200: reportViewSchema, 403: errorResponseSchema, 404: errorResponseSchema },
+        body: { type: 'object', required: ['addressed'], properties: { addressed: { type: 'boolean', const: true } } },
+        response: { 200: reportViewSchema, ...failureResponses },
       },
       [requireModerator],
     ),
     async (request, reply) => {
-      const outcome = await setAddressed(db, request.params.id, request.body.addressed);
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send(presentReport(outcome.value));
+      const outcome = await markAddressed(db, request.params.id);
+      return sendOutcome(reply, outcome, (value) => reply.send(presentReport(value)));
     },
   );
 }

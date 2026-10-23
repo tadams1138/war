@@ -12,14 +12,14 @@ import { VoterActions } from '../admin/voters/VoterActions'
 import { VoterBadges } from '../admin/voters/VoterBadges'
 import { VoterVotesSection } from '../admin/voters/VoterVotesSection'
 import { useAsyncResource } from '../hooks/useAsyncResource'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { warTitle } from '../utils/warTitle'
 import { AsyncStatus } from '../components/AsyncStatus'
 
 export function AdminVoterDetail() {
   const { id } = useParams<{ id: string }>()
-  const [theme, setTheme] = useTheme('home', 'arcade')
+  const [theme, setTheme] = useTheme('home', FALLBACK_THEME)
   usePublishTheme('home', theme, setTheme)
   // Bumped after an action so the detail is refetched from the API. An action on the
   // viewer's own roles also refetches their identity, which decides what the

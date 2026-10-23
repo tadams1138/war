@@ -11,9 +11,8 @@ import { contestantNamed, warDetail } from '../support/editWar'
 import { API } from '../support/mocking'
 import { boxOf, resultRow } from '../support/pages'
 import { reply } from '../support/recipes'
-import { queuePoll, resultsAnswer } from '../support/results'
 
-const { Given, When, Then } = createBdd(test, { tags: '@war-detail' })
+const { Given, Then } = createBdd(test, { tags: '@war-detail' })
 
 const results = (page: Page) => page.getByTestId('ranking-row')
 
@@ -29,23 +28,6 @@ Given('the voter created that War', async ({ world }) => {
   Object.assign(warDetail(world), { is_owner: true, can_manage: true })
 })
 
-// The results page polls every 30 seconds; the scenario decides when they pass.
-Given('the clock is controlled', async ({ page }) => {
-  // Arrange
-  await page.clock.install()
-})
-
-// The polls answer in the order given, after the load.
-Given("the next poll of that War's results shows:", async ({ world }, table: DataTable) => {
-  // Arrange
-  queuePoll(world, (war) => resultsAnswer(war, table.hashes()))
-})
-
-Given("the next poll of that War's results fails", async ({ world }) => {
-  // Arrange
-  queuePoll(world, () => ({ status: 503, body: { error: 'server error' } }))
-})
-
 // In place: the results hold the same images as the War's contestant.
 Given('the images of {string} arrive out of display order', async ({ world }, name: string) => {
   // Arrange
@@ -56,30 +38,6 @@ Given('the images of {string} arrive out of display order', async ({ world }, na
 Given('the API still sends {string} a legacy attributes field', async ({ world }, name: string) => {
   // Arrange
   Object.assign(contestantNamed(warDetail(world), name), { attributes: [{ key: 'height', label: 'Height', type: 'number', value: 170 }] })
-})
-
-// --- Act -------------------------------------------------------------------
-
-// A poll is the results being asked for again, and the next one is scheduled
-// only once the last answer has been taken in. So time moves on only once the
-// page is idle (the first load is in), and a poll's answer is awaited before
-// the step ends (none comes when the War is closed).
-When('{int} seconds elapse', async ({ page }, seconds: number) => {
-  // Act
-  await page.waitForLoadState('networkidle')
-  const polled = page.waitForResponse((response) => response.url().endsWith('/rankings'), { timeout: 1000 }).catch(() => undefined)
-  await page.clock.fastForward(seconds * 1000)
-  const response = await polled
-  if (!response) return
-  await response.finished()
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        const channel = new MessageChannel()
-        channel.port1.onmessage = () => resolve()
-        channel.port2.postMessage(0)
-      }),
-  )
 })
 
 // --- Assert: the results ---------------------------------------------------

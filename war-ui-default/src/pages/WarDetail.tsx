@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getToken } from '../api/authState'
 import { ModeratorSection } from '../admin/wars/ModeratorSection'
-import { getMyProgress, getWar, type ContestantDetail, type VoteProgress, type WarDetailResponse } from '../api/client'
+import { getMyProgress, getRankings, getWar, type ContestantDetail, type RankingsResponse, type VoteProgress, type WarDetailResponse } from '../api/client'
 import { DeleteButton } from '../components/DeleteButton'
 import { DeleteWarConfirmDialog } from '../components/DeleteWarConfirmDialog'
 import { AsyncStatus } from '../components/AsyncStatus'
@@ -16,9 +16,8 @@ import { ResultsTable } from '../components/ResultsTable'
 import { useAsyncResource, type AsyncResourceState } from '../hooks/useAsyncResource'
 import { useDeleteWarFlow } from '../hooks/useDeleteWarFlow'
 import { useWarExportDownload } from '../export/useWarExportDownload'
-import { useRankings, type RankingsState } from '../rankings/useRankings'
 import type { Theme } from '../theme/themeCookie'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { warTitle } from '../utils/warTitle'
 
@@ -31,11 +30,7 @@ function loadWar(id: string | undefined): (() => Promise<WarDetailResponse>) | u
 }
 
 function initialTheme(state: AsyncResourceState<WarDetailResponse>): Theme {
-  return state.status === 'loaded' ? state.value.theme : 'arcade'
-}
-
-function isRemoved(state: AsyncResourceState<WarDetailResponse>): boolean {
-  return state.status === 'loaded' && state.value.removed_at !== null
+  return state.status === 'loaded' ? state.value.theme : FALLBACK_THEME
 }
 
 // '' before the War has loaded never matches 'published', so useVoteProgress
@@ -50,8 +45,8 @@ export function WarDetail() {
   // Bumped after a moderation action so the War is refetched from the API.
   const [refreshToken, setRefreshToken] = useState(0)
   const state = useAsyncResource(loadWar(id), [id, refreshToken])
-  // A removed War can no longer change, so its results are not polled.
-  const rankingsState = useRankings(id, !isRemoved(state))
+  // The results load once, with the page; they are not refetched after a moderation action.
+  const rankingsState = useAsyncResource(id ? () => getRankings(id) : undefined, [id])
   const [theme, setTheme] = useTheme(safeId, initialTheme(state))
   usePublishTheme(safeId, theme, setTheme)
   // Called unconditionally, ahead of the loading/error returns below (rules
@@ -209,11 +204,9 @@ function ResultsActions({ war }: { war: WarDetailResponse }) {
 
 // Its own load/error state, independent of the War overview above: a
 // results fetch failing (or still loading) must never blank out a title and
-// category that loaded fine, and vice versa (war-spec.md 10.4's "failed
-// poll does not clear already-loaded results" carried down to this
-// section's own scope rather than the whole page).
-function ResultsSection({ state, contestants }: { state: RankingsState; contestants: ContestantDetail[] }) {
+// category that loaded fine, and vice versa.
+function ResultsSection({ state, contestants }: { state: AsyncResourceState<RankingsResponse>; contestants: ContestantDetail[] }) {
   if (state.status === 'loading') return <p role="status">Loading results…</p>
   if (state.status === 'error') return <ErrorMessage message={state.message} />
-  return <ResultsTable rankings={state.rankings.rankings} contestants={contestants} />
+  return <ResultsTable rankings={state.value.rankings} contestants={contestants} />
 }

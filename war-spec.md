@@ -45,7 +45,7 @@ to it.
 
 ### Non-Goals
 
-- Real-time leaderboard streaming — polled refresh only
+- Live leaderboard updates — results refresh when the page loads, not while it is open
 - Push notifications
 - War creator moderation tools (removing voters, resetting votes)
 - Vote tamper-detection analytics — the data is collected; the tooling is future work
@@ -445,7 +445,7 @@ Each row carries the contestant, its rank, its win count and its appearance coun
 Appearances are shown for transparency: they let a viewer confirm contestants have been shown
 comparably often, which is the assumption the ranking rests on.
 
-Responses are cacheable for about thirty seconds, matching the UI's poll interval, so many
+Responses are cacheable for about thirty seconds, so many
 concurrent viewers collapse to roughly one origin query per interval per edge location.
 
 ### 6.5 Custom UI registry
@@ -506,7 +506,6 @@ over it, and no one can edit a removed War. Beyond the War page, the read-only m
 below cover:
 - Moderator only: every War, filterable by status (including "removed") and by text matching
   its title or creator's name, with each War's count of unaddressed reports
-- Moderator only: one War in full, removed or not, with its contestants and their standings
 - Moderator or Admin: every Voter, filterable to the suspended, the banned, or role holders,
   with how many Wars each created
 - Moderator or Admin: one Voter with all their Wars
@@ -735,8 +734,8 @@ report is filed, consistent with the platform carrying no push notifications (§
   addressed, each with its unaddressed-report count. This is the moderation
   queue: it is how a Moderator finds what still needs attention without checking
   every War.
-- **Set a report's addressed state** — toggles one report's addressed state in either
-  direction, so a Moderator can reopen a report addressed in error.
+- **Mark a report addressed** — a Moderator marks one report addressed. Addressing is final: an
+  addressed report cannot be reopened.
 
 ---
 
@@ -867,7 +866,7 @@ has a stable address, so lists, the reports queue, and the moderation log can li
 - **Wars:** The War page shows a Moderator the War's reports and the Remove control. Remove a War, Suspend, and Ban each ask for confirmation. Ban's confirmation
   states plainly that it permanently deletes everything the Voter created and every vote they
   cast.
-- **Reports:** Moderators mark a War's reports addressed or unaddressed from the War's page.
+- **Reports:** a Moderator marks a War's reports addressed from the War's page (addressing is final).
 - **Role controls** appear only to Admins, on any Voter's detail view, their own included.
   Revoking the Admin role asks for confirmation.
 - **Moderation controls** (Suspend, Ban) appear only to Moderators.
@@ -1007,11 +1006,6 @@ shows no image at all in its row — never a placeholder standing in for the mis
 share is a bar sized to a contestant's raw wins relative to the leader's, never wins over
 appearances — an appearance-normalized percentage is exactly what §7 rejects as a display value.
 A bio, however long, always renders in full — there is no truncation and nothing to expand.
-
-Results poll while the War is published. **A failed poll does not clear already-loaded results**
-— it leaves the last good data on screen, shows no error, and keeps polling; the page recovers
-on its own. This does not apply to the *initial* load, where there is no last-good data to
-fall back on and the standard error state applies.
 
 **The results page carries its own entry points, each conditional.** Its creator, and any Admin
 on any War, sees an

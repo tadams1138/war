@@ -37,24 +37,26 @@ function matches(value: unknown, pattern: RegExp): boolean {
   return typeof value === 'string' && pattern.test(value);
 }
 
-function isCursor(value: unknown): value is KeysetCursor {
-  if (typeof value !== 'object' || value === null) return false;
-  const { v, id } = value as Record<string, unknown>;
-  return matches(v, CURSOR_TIMESTAMP_PATTERN) && isUuid(id);
+/** Encodes any cursor payload as an opaque base64 JSON string. */
+export function encodeCursor(cursor: object): string {
+  return Buffer.from(JSON.stringify(cursor)).toString('base64');
 }
 
-/** Decodes an opaque base64 JSON cursor; `undefined` when malformed. Every field is validated here so nothing unvalidated reaches the database. */
-function decodeKeysetCursor(raw: string): KeysetCursor | undefined {
+/**
+ * Decodes an opaque base64 JSON cursor; `undefined` when it is not a JSON object or `hasValidFields` rejects it.
+ * Each caller validates every field it will interpolate, so nothing unvalidated reaches the database.
+ */
+export function decodeCursor<T>(raw: string, hasValidFields: (fields: Record<string, unknown>) => boolean): T | undefined {
   try {
     const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
-    return isCursor(parsed) ? parsed : undefined;
+    return typeof parsed === 'object' && parsed !== null && hasValidFields(parsed as Record<string, unknown>) ? (parsed as T) : undefined;
   } catch {
     return undefined;
   }
 }
 
-function encodeKeysetCursor(cursor: KeysetCursor): string {
-  return Buffer.from(JSON.stringify(cursor)).toString('base64');
+function hasValidKeysetFields({ v, id }: Record<string, unknown>): boolean {
+  return matches(v, CURSOR_TIMESTAMP_PATTERN) && isUuid(id);
 }
 
 /** The "strictly after this cursor in newest-first order" predicate over the given (possibly table-qualified) columns. */
@@ -73,7 +75,7 @@ export async function fetchKeysetPage<DB, TB extends keyof DB, R extends KeysetR
 ): Promise<KeysetPage<R>> {
   let paged = query;
   if (options.cursor !== undefined) {
-    const cursor = decodeKeysetCursor(options.cursor);
+    const cursor = decodeCursor<KeysetCursor>(options.cursor, hasValidKeysetFields);
     if (!cursor) return { kind: 'invalidCursor' };
     paged = paged.where(isAfterCursor(options.createdAtColumn, options.idColumn, cursor));
   }
@@ -81,6 +83,6 @@ export async function fetchKeysetPage<DB, TB extends keyof DB, R extends KeysetR
   const rows = await paged.limit(options.limit + 1).execute();
   const page = rows.slice(0, options.limit);
   const last = page[page.length - 1];
-  const nextCursor = rows.length > options.limit && last ? encodeKeysetCursor({ v: last.created_at_text, id: last.id }) : null;
+  const nextCursor = rows.length > options.limit && last ? encodeCursor({ v: last.created_at_text, id: last.id }) : null;
   return { kind: 'ok', page, nextCursor };
 }

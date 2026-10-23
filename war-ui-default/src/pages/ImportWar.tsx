@@ -5,13 +5,13 @@
 // same as an abandoned Create War draft already is.
 import { useNavigate } from 'react-router-dom'
 import { useWarImport } from '../import/useWarImport'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
 export function ImportWar() {
   const navigate = useNavigate()
   const { state, importFile } = useWarImport((warId) => navigate(`/wars/${warId}/edit`))
-  const [theme, setTheme] = useTheme('home', 'arcade')
+  const [theme, setTheme] = useTheme('home', FALLBACK_THEME)
   usePublishTheme('home', theme, setTheme)
 
   return (

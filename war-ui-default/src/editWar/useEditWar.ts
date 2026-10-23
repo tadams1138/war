@@ -90,13 +90,13 @@ function swapPartner(war: WarDetailResponse, contestantId: string, mediaId: stri
   return index > 0 ? { current: sorted[index], previous: sorted[index - 1] } : null
 }
 
-function withContestant(
-  war: WarDetailResponse,
-  contestantId: string,
-  update: ContestantDetail,
-): WarDetailResponse {
-  return { ...war, contestants: war.contestants.map((c) => (c.id === contestantId ? update : c)) }
-}
+type Update = (prev: EditWarLoadedState) => EditWarLoadedState
+
+const keep: Update = (prev) => prev
+const patch = (changes: Partial<EditWarLoadedState>): Update => (prev) => ({ ...prev, ...changes })
+const setWar = (war: (prev: WarDetailResponse) => WarDetailResponse, changes: Partial<EditWarLoadedState> = {}): Update => (prev) => ({ ...prev, ...changes, war: war(prev.war) })
+const setContestantError = (id: string, message: string | null): Update => (prev) => ({ ...prev, contestantErrors: { ...prev.contestantErrors, [id]: message } })
+const setImageNotice = (id: string, notice: ImageNotice | null): Update => (prev) => ({ ...prev, imageErrors: { ...prev.imageErrors, [id]: notice } })
 
 export function useEditWar(
   warId: string | undefined,
@@ -107,9 +107,11 @@ export function useEditWar(
   // wait clears itself independently on its own timer.
   const imageWaitTimersRef = useRef<Record<string, number>>({})
 
-  const load = useCallback(async (): Promise<void> => {
+  // `quiet` swaps in the refetched War without passing through 'loading',
+  // which would unmount the page and lose the open editor's unsaved edits.
+  const load = useCallback(async (quiet = false): Promise<void> => {
     if (!warId) return
-    setState({ status: 'loading' })
+    if (!quiet) setState({ status: 'loading' })
     try {
       const war = await getWar(warId)
       setState({
@@ -139,191 +141,160 @@ export function useEditWar(
     return () => Object.values(timers).forEach((timer) => window.clearTimeout(timer))
   }, [])
 
-  function setLoaded(update: (prev: EditWarLoadedState) => EditWarLoadedState): void {
+  function setLoaded(update: Update): void {
     setState((prev) => (prev.status !== 'loaded' ? prev : update(prev)))
   }
 
-  async function saveMetadata(payload: PatchWarPayload): Promise<void> {
-    if (!warId || state.status !== 'loaded') return
-    setLoaded((prev) => ({ ...prev, savingMetadata: true, metadataError: null }))
-    try {
-      const summary = await patchWar(warId, payload)
-      setLoaded((prev) => ({ ...prev, war: { ...prev.war, ...summary }, savingMetadata: false, toast: 'War details saved' }))
-    } catch (error) {
-      setLoaded((prev) => ({ ...prev, savingMetadata: false, metadataError: toUserMessage(error) }))
-    }
-  }
-
-  // Fired from the metadata form's submit(), before its own PATCH, only
-  // when a pending upload or generated image exists (spec: deferred until
-  // Save). Reloads the War afterward so the saved share_image_url is what
-  // renders, the same reload-after-mutation pattern addImages uses.
-  async function uploadShareImage(blob: Blob): Promise<void> {
-    if (!warId) return
-    try {
-      await uploadShareImageApi(warId, blob)
-      await load()
-    } catch (error) {
-      setLoaded((prev) => ({ ...prev, metadataError: toUserMessage(error) }))
-    }
-  }
-
-  async function saveContestant(contestantId: string, payload: PatchContestantPayload): Promise<void> {
-    if (!warId || state.status !== 'loaded') return
-    setLoaded((prev) => ({ ...prev, contestantErrors: { ...prev.contestantErrors, [contestantId]: null } }))
-    try {
-      const contestant = await patchContestant(warId, contestantId, payload)
-      setLoaded((prev) => ({ ...prev, war: withContestant(prev.war, contestantId, contestant), toast: 'Contestant saved' }))
-    } catch (error) {
-      setLoaded((prev) => ({
-        ...prev,
-        contestantErrors: { ...prev.contestantErrors, [contestantId]: toUserMessage(error) },
-      }))
-    }
-  }
-
-  async function addContestant(name: string, bio: string | null): Promise<ContestantDetail | null> {
+  // One mutation of the loaded War: apply `start`, make the call, then apply
+  // `ok` (default: nothing) or `fail`. Resolves to the call's result, or null when it failed (or
+  // there was nothing loaded to mutate).
+  async function mutate<T>(start: Update, call: (warId: string) => Promise<T>, fail: (error: unknown) => Update, ok: (result: T) => Update = () => keep): Promise<{ value: T } | null> {
     if (!warId || state.status !== 'loaded') return null
-    setLoaded((prev) => ({ ...prev, addContestantError: null }))
+    setLoaded(start)
     try {
-      const contestant = await addContestantApi(warId, { name, bio })
-      setLoaded((prev) => ({ ...prev, war: { ...prev.war, contestants: [...prev.war.contestants, contestant] } }))
-      return contestant
+      const value = await call(warId)
+      setLoaded(ok(value))
+      return { value }
     } catch (error) {
-      setLoaded((prev) => ({ ...prev, addContestantError: toUserMessage(error) }))
+      setLoaded(fail(error))
       return null
     }
+  }
+
+  const saveMetadata = async (payload: PatchWarPayload): Promise<void> => {
+    await mutate(
+      patch({ savingMetadata: true, metadataError: null }),
+      (id) => patchWar(id, payload),
+      (error) => patch({ savingMetadata: false, metadataError: toUserMessage(error) }),
+      (summary) => setWar((war) => ({ ...war, ...summary }), { savingMetadata: false, toast: 'War details saved' }),
+    )
+  }
+
+  const saveContestant = async (contestantId: string, payload: PatchContestantPayload): Promise<void> => {
+    const replace = (war: WarDetailResponse, contestant: ContestantDetail) => ({
+      ...war,
+      contestants: war.contestants.map((c) => (c.id === contestantId ? contestant : c)),
+    })
+    await mutate(
+      setContestantError(contestantId, null),
+      (id) => patchContestant(id, contestantId, payload),
+      (error) => setContestantError(contestantId, toUserMessage(error)),
+      (contestant) => setWar((war) => replace(war, contestant), { toast: 'Contestant saved' }),
+    )
+  }
+
+  const addContestant = async (name: string, bio: string | null): Promise<ContestantDetail | null> => {
+    const result = await mutate(
+      patch({ addContestantError: null }),
+      (id) => addContestantApi(id, { name, bio }),
+      (error) => patch({ addContestantError: toUserMessage(error) }),
+      (contestant) => setWar((war) => ({ ...war, contestants: [...war.contestants, contestant] })),
+    )
+    return result?.value ?? null
   }
 
   // The API clears a removed contestant's votes itself (spec §6.1); the
   // "ask first" confirmation lives in EditWar.tsx. Resolves to whether the
   // contestant was removed; a failure is shown on that contestant's editor.
-  async function removeContestant(contestantId: string): Promise<boolean> {
-    if (!warId || state.status !== 'loaded') return false
-    try {
-      await deleteContestantApi(warId, contestantId)
-    } catch (error) {
-      setLoaded((prev) => ({
-        ...prev,
-        contestantErrors: { ...prev.contestantErrors, [contestantId]: toUserMessage(error) },
-      }))
-      return false
-    }
-    setLoaded((prev) => {
-      const contestantErrors = { ...prev.contestantErrors }
-      delete contestantErrors[contestantId]
-      return {
-        ...prev,
-        war: { ...prev.war, contestants: prev.war.contestants.filter((c) => c.id !== contestantId) },
-        contestantErrors,
-      }
-    })
-    return true
+  const removeContestant = async (contestantId: string): Promise<boolean> => {
+    const result = await mutate(
+      keep,
+      (id) => deleteContestantApi(id, contestantId),
+      (error) => setContestantError(contestantId, toUserMessage(error)),
+      () => (prev) => {
+        const contestantErrors = { ...prev.contestantErrors }
+        delete contestantErrors[contestantId]
+        return { ...prev, contestantErrors, war: { ...prev.war, contestants: prev.war.contestants.filter((c) => c.id !== contestantId) } }
+      },
+    )
+    return result !== null
   }
 
-  // Image mutations all reload the whole War afterward rather than
+  // Image mutations all refetch the whole War afterward rather than
   // patching local state by hand: the upload response carries no URL
   // (war-api, `POST .../images` returns only `{ id, display_order }`), so a
   // freshly uploaded image's displayable variants only ever come from a
   // War-detail fetch.
-  async function addImages(contestantId: string, files: File[]): Promise<void> {
-    if (!warId || files.length === 0) return
-    setLoaded((prev) => ({ ...prev, imageErrors: { ...prev.imageErrors, [contestantId]: null } }))
-    try {
-      await uploadContestantImages(warId, contestantId, files)
-      await load()
-    } catch (error) {
-      if (isRateLimited(error)) {
-        applyImageRateLimit(contestantId, error)
-        return
-      }
-      showImageError(contestantId, error)
-    }
+  const thenReload = (call: (warId: string) => Promise<unknown>) => async (id: string) => {
+    await call(id)
+    await load(true)
   }
 
-  function showImageError(contestantId: string, error: unknown): void {
-    setLoaded((prev) => ({
-      ...prev,
-      imageErrors: { ...prev.imageErrors, [contestantId]: { message: toUserMessage(error), kind: 'error' } },
-    }))
+  const mutateImage = async (contestantId: string, call: (warId: string) => Promise<unknown>, start: Update = keep): Promise<void> => {
+    const fail = (error: unknown) =>
+      isRateLimited(error)
+        ? applyImageRateLimit(contestantId, error)
+        : setImageNotice(contestantId, { message: toUserMessage(error), kind: 'error' })
+    await mutate(start, thenReload(call), fail)
   }
 
-  // Mirrors useVoteSession's applyRateLimit: shows the wait (war-spec.md
-  // §10.5, never an error) and clears itself once the delay passes, no
-  // action required from the creator.
-  function applyImageRateLimit(contestantId: string, error: ApiError): void {
-    setLoaded((prev) => ({
-      ...prev,
-      imageErrors: { ...prev.imageErrors, [contestantId]: { message: error.message, kind: 'wait' } },
-    }))
-    window.clearTimeout(imageWaitTimersRef.current[contestantId])
-    imageWaitTimersRef.current[contestantId] = window.setTimeout(() => {
-      setLoaded((prev) => ({ ...prev, imageErrors: { ...prev.imageErrors, [contestantId]: null } }))
-    }, (error.retryAfterSeconds ?? 0) * 1000)
+  const addImages = async (contestantId: string, files: File[]): Promise<void> => {
+    if (files.length === 0) return
+    await mutateImage(contestantId, (id) => uploadContestantImages(id, contestantId, files), setImageNotice(contestantId, null))
   }
 
-  async function removeImage(contestantId: string, mediaId: string): Promise<void> {
-    if (!warId) return
-    try {
-      await deleteContestantMedia(warId, contestantId, mediaId)
-      await load()
-    } catch (error) {
-      showImageError(contestantId, error)
-    }
-  }
+  const removeImage = (contestantId: string, mediaId: string): Promise<void> =>
+    mutateImage(contestantId, (id) => deleteContestantMedia(id, contestantId, mediaId))
 
   // A swap, not a relocation -- moving an image up trades its
   // display_order with its immediate predecessor's, so both sides of the
   // pair change and neither ends up sharing an order value with a third
   // image.
-  async function moveImageUp(contestantId: string, mediaId: string): Promise<void> {
-    if (!warId || state.status !== 'loaded') return
-    const pair = swapPartner(state.war, contestantId, mediaId)
+  const moveImageUp = async (contestantId: string, mediaId: string): Promise<void> => {
+    const pair = state.status === 'loaded' ? swapPartner(state.war, contestantId, mediaId) : null
     if (!pair) return
     const { current, previous } = pair
-    try {
-      await Promise.all([
-        reorderContestantMedia(warId, contestantId, current.id, previous.display_order),
-        reorderContestantMedia(warId, contestantId, previous.id, current.display_order),
-      ])
-      await load()
-    } catch (error) {
-      showImageError(contestantId, error)
-    }
+    await mutateImage(contestantId, (id) =>
+      Promise.all([
+        reorderContestantMedia(id, contestantId, current.id, previous.display_order),
+        reorderContestantMedia(id, contestantId, previous.id, current.display_order),
+      ]),
+    )
   }
 
-  async function publish(): Promise<void> {
-    if (!warId || state.status !== 'loaded') return
-    setLoaded((prev) => ({ ...prev, publishing: true, publishDetails: null }))
-    try {
-      const published = await publishWar(warId)
+  // Mirrors useVoteSession's applyRateLimit: shows the wait (war-spec.md
+  // §10.5, never an error) and clears itself once the delay passes, no
+  // action required from the creator.
+  function applyImageRateLimit(contestantId: string, error: ApiError): Update {
+    window.clearTimeout(imageWaitTimersRef.current[contestantId])
+    imageWaitTimersRef.current[contestantId] = window.setTimeout(
+      () => setLoaded(setImageNotice(contestantId, null)),
+      (error.retryAfterSeconds ?? 0) * 1000,
+    )
+    return setImageNotice(contestantId, { message: error.message, kind: 'wait' })
+  }
+
+  // Fired from the metadata form's submit(), before its own PATCH, only
+  // when a pending upload or generated image exists (spec: deferred until
+  // Save). Refetches the War afterward so the saved share_image_url is what
+  // renders.
+  const uploadShareImage = async (blob: Blob): Promise<void> => {
+    await mutate(keep, thenReload((id) => uploadShareImageApi(id, blob)), (error) => patch({ metadataError: toUserMessage(error) }))
+  }
+
+  const publishFailed = (error: unknown): Update => patch({ publishing: false, publishDetails: detailsFromPublishError(error) })
+  const startPublishing = patch({ publishing: true, publishDetails: null })
+
+  const publish = async (): Promise<void> => {
+    await mutate(startPublishing, publishWar, publishFailed, (published) => {
       onPublished?.(published)
-    } catch (error) {
-      setLoaded((prev) => ({ ...prev, publishing: false, publishDetails: detailsFromPublishError(error) }))
-    }
+      return keep
+    })
   }
 
-  async function unpublish(): Promise<void> {
-    if (!warId || state.status !== 'loaded') return
-    setLoaded((prev) => ({ ...prev, publishing: true, publishDetails: null }))
-    try {
-      const unpublished = await unpublishWar(warId)
-      setLoaded((prev) => ({ ...prev, war: { ...prev.war, ...unpublished }, publishing: false }))
-    } catch (error) {
-      setLoaded((prev) => ({ ...prev, publishing: false, publishDetails: detailsFromPublishError(error) }))
-    }
+  const unpublish = async (): Promise<void> => {
+    await mutate(startPublishing, unpublishWar, publishFailed, (unpublished) =>
+      setWar((war) => ({ ...war, ...unpublished }), { publishing: false }),
+    )
   }
 
-  async function clearVotes(): Promise<void> {
-    if (!warId || state.status !== 'loaded') return
-    setLoaded((prev) => ({ ...prev, clearingVotes: true }))
-    try {
-      await clearVotesApi(warId)
-      await load()
-      setLoaded((prev) => ({ ...prev, toast: 'Votes cleared' }))
-    } catch (error) {
-      setLoaded((prev) => ({ ...prev, clearingVotes: false, metadataError: toUserMessage(error) }))
-    }
+  const clearVotes = async (): Promise<void> => {
+    await mutate(
+      patch({ clearingVotes: true }),
+      thenReload(clearVotesApi),
+      (error) => patch({ clearingVotes: false, metadataError: toUserMessage(error) }),
+      () => patch({ toast: 'Votes cleared' }),
+    )
   }
 
   return {

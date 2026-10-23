@@ -413,8 +413,8 @@ async function voterJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await (await requestEntity(path, init, VOTER_NOT_FOUND_MESSAGE)).json()) as T
 }
 
-export async function setReportAddressed(reportId: string, addressed: boolean): Promise<void> {
-  await requestEntity(`/reports/${reportId}`, jsonInit('PATCH', { addressed }), REPORT_NOT_FOUND_MESSAGE)
+export async function markReportAddressed(reportId: string): Promise<void> {
+  await requestEntity(`/reports/${reportId}`, jsonInit('PATCH', { addressed: true }), REPORT_NOT_FOUND_MESSAGE)
 }
 
 export function getAdminVoter(voterId: string): Promise<AdminVoterDetail> {

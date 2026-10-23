@@ -11,7 +11,7 @@ import { MatchupView } from '../components/MatchupView'
 import { ProgressBar } from '../components/ProgressBar'
 import { useAsyncResource, type AsyncResourceState } from '../hooks/useAsyncResource'
 import type { Theme } from '../theme/themeCookie'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { useVoteSession } from '../vote/useVoteSession'
 
@@ -43,7 +43,7 @@ function loadWar(warId: string | undefined): (() => Promise<WarDetailResponse>) 
 }
 
 function initialTheme(warState: AsyncResourceState<WarDetailResponse>): Theme {
-  return warState.status === 'loaded' ? warState.value.theme : 'arcade'
+  return warState.status === 'loaded' ? warState.value.theme : FALLBACK_THEME
 }
 
 // Finishing every matchup -- whether by just casting the last vote, or by

@@ -351,7 +351,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
     });
   });
 
-  Scenario('A Moderator reopens a report addressed in error', ({ Given, When, Then, And }) => {
+  Scenario('An addressed report cannot be reopened', ({ Given, When, Then, And }) => {
     let moderatorId: string;
     let reportId: string;
     let response: request.Response;
@@ -373,14 +373,15 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
       response = await patchAddressed(moderatorId, reportId, false);
     });
 
-    Then('the response status is 200', () => {
+    Then('the response status is 400', () => {
       // Assert
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(400);
     });
 
-    And("the report's addressed state is now false", () => {
+    And("the report's addressed state is now true", async () => {
       // Assert
-      expect(response.body.addressed).toBe(false);
+      const stored = await harness.db.selectFrom('reports').select('addressed').where('id', '=', reportId).executeTakeFirstOrThrow();
+      expect(stored.addressed).toBe(true);
     });
   });
 

@@ -36,7 +36,6 @@ export interface WarsTable {
   media_mode: Generated<string>;
   theme: Generated<string>;
   ends_at: Timestamp | null;
-  ui_slug: string | null;
   share_image_key: string | null;
   removed_at: Timestamp | null;
   created_at: GeneratedTimestamp;
@@ -73,7 +72,6 @@ export interface ContestantMediaTable {
   width: number | null;
   height: number | null;
   provider: string | null;
-  provider_video_id: string | null;
   start_seconds: number | null;
   end_seconds: number | null;
   duration_seconds: Generated<number>;

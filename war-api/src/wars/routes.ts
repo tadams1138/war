@@ -10,7 +10,7 @@ import {
   suspendedResponseSchema,
   warCreationDisabledResponseSchema,
 } from '../auth/guards.js';
-import { errorResponseSchema, replyForOutcome, sendNotFound, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
+import { errorResponseSchema, sendOutcome, sendNotFound, validationErrorResponseSchema, failureResponses, editFailureResponses } from '../shared/httpOutcomes.js';
 import { pagingProperties, sendInvalidCursor, type PagingQuery } from '../shared/paging.js';
 import { reportSchemaViolations, rejectInvalidBody } from '../shared/bodyValidation.js';
 import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
@@ -180,11 +180,8 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         endsAt: body.ends_at,
       });
 
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
       // A freshly created War has no contestants yet.
-      return reply.code(201).send(presentWarSummary(outcome.value, new Date(), 0, deps.publicBaseUrl, null));
+      return sendOutcome(reply, outcome, (value) => reply.code(201).send(presentWarSummary(value, new Date(), 0, deps.publicBaseUrl, null)));
     },
   );
 
@@ -207,16 +204,12 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     bearerAuthRoute(auth, {
       response: {
         204: {},
-        403: errorResponseSchema,
-        404: errorResponseSchema,
+        ...failureResponses,
       },
     }),
     async (request, reply) => {
       const outcome = await deleteWar(db, deps.storage, request.log, request.params.id, callerOf(request));
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.code(204).send();
+      return sendOutcome(reply, outcome, () => reply.code(204).send());
     },
   );
 
@@ -239,9 +232,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
           },
           response: {
             200: { $ref: 'WarSummary#' },
-            403: errorResponseSchema,
-            404: errorResponseSchema,
-            422: validationErrorResponseSchema,
+            ...editFailureResponses,
           },
         },
         [rejectInvalidBody],
@@ -257,10 +248,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         endsAt: body.ends_at,
       });
 
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send(await presentOwnedWar(outcome.value));
+      return sendOutcome(reply, outcome, async (value) => reply.send(await presentOwnedWar(value)));
     },
   );
 
@@ -269,17 +257,12 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     bearerAuthRoute(auth, {
       response: {
         200: { $ref: 'WarSummary#' },
-        403: errorResponseSchema,
-        404: errorResponseSchema,
-        422: validationErrorResponseSchema,
+        ...editFailureResponses,
       },
     }),
     async (request, reply) => {
       const outcome = await publishWar(db, request.params.id, callerOf(request), new Date());
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send(await presentOwnedWar(outcome.value));
+      return sendOutcome(reply, outcome, async (value) => reply.send(await presentOwnedWar(value)));
     },
   );
 
@@ -288,17 +271,12 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     bearerAuthRoute(auth, {
       response: {
         200: { $ref: 'WarSummary#' },
-        403: errorResponseSchema,
-        404: errorResponseSchema,
-        422: validationErrorResponseSchema,
+        ...editFailureResponses,
       },
     }),
     async (request, reply) => {
       const outcome = await unpublishWar(db, request.params.id, callerOf(request), new Date());
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send(await presentOwnedWar(outcome.value));
+      return sendOutcome(reply, outcome, async (value) => reply.send(await presentOwnedWar(value)));
     },
   );
 
@@ -307,16 +285,12 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     bearerAuthRoute(auth, {
       response: {
         200: { $ref: 'WarSummary#' },
-        403: errorResponseSchema,
-        404: errorResponseSchema,
+        ...failureResponses,
       },
     }),
     async (request, reply) => {
       const outcome = await clearVotes(db, request.params.id, callerOf(request));
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send(await presentOwnedWar(outcome.value));
+      return sendOutcome(reply, outcome, async (value) => reply.send(await presentOwnedWar(value)));
     },
   );
 
@@ -327,8 +301,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
       {
         response: {
           200: { $ref: 'WarSummary#' },
-          403: errorResponseSchema,
-          404: errorResponseSchema,
+          ...failureResponses,
           422: uploadErrorResponseSchema,
           429: rateLimitedResponseSchema,
         },
@@ -341,34 +314,25 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         return sendNoFileUploaded(reply);
       }
       const outcome = await setShareImage(db, deps.storage, request.log, { warId: request.params.id, caller: callerOf(request), ...upload });
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send(await presentOwnedWar(outcome.value));
+      return sendOutcome(reply, outcome, async (value) => reply.send(await presentOwnedWar(value)));
     },
   );
 
   app.post<{ Params: { id: string } }>(
     '/wars/:id/join',
-    bearerAuthRoute(auth, { response: { 204: {}, 403: errorResponseSchema, 404: errorResponseSchema } }),
+    bearerAuthRoute(auth, { response: { 204: {}, ...failureResponses } }),
     async (request, reply) => {
       const outcome = await joinWar(db, request.params.id, request.voterId!, new Date());
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.code(204).send();
+      return sendOutcome(reply, outcome, () => reply.code(204).send());
     },
   );
 
   app.post<{ Params: { id: string } }>(
     '/wars/:id/remove',
-    bearerAuthRoute(auth, { response: { 204: {}, 403: errorResponseSchema, 404: errorResponseSchema } }, [requireModerator]),
+    bearerAuthRoute(auth, { response: { 204: {}, ...failureResponses } }, [requireModerator]),
     async (request, reply) => {
       const outcome = await removeWar(db, deps.storage, request.log, request.voterId!, request.params.id);
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.code(204).send();
+      return sendOutcome(reply, outcome, () => reply.code(204).send());
     },
   );
 
