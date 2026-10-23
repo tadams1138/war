@@ -48,8 +48,7 @@ Staging and production are each one DigitalOcean App Platform app, with the API 
 static UI served from a single domain. In [`war-infra/`](war-infra): `terraform/` (shared,
 per-environment, and modules for compute, data, storage, edge, scheduler), `platform/` (the
 App Platform specs, which the deploy pipeline applies and Terraform does not own), `edge/`
-(the Cloudflare Workers), `bootstrap/` (placeholder image), `scripts/smoke-test.sh`, and
-`tools/concurrency-groups/`. [`war-infra/README.md`](war-infra/README.md) covers deploys,
+(the Cloudflare Workers), `bootstrap/` (placeholder image) and `scripts/smoke-test.sh`. [`war-infra/README.md`](war-infra/README.md) covers deploys,
 secrets and operational rules.
 
 ## Tech stack
@@ -195,8 +194,9 @@ War-infra:
 terraform fmt -check -recursive war-infra
 terraform -chdir=war-infra/terraform/envs/staging init -backend=false
 terraform -chdir=war-infra/terraform/envs/staging validate
-npm --prefix war-infra/tools/concurrency-groups ci
-npm --prefix war-infra/tools/concurrency-groups test
+
+# Lint the GitHub Actions workflows (actionlint + shellcheck)
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
 ```
 
 | Project | Feature files | Bound by |
@@ -218,7 +218,7 @@ Workflows in [`.github/workflows/`](.github/workflows), all path-filtered:
 | `ui-default.yml` | Lint, typecheck, unit, Playwright acceptance (MSW mocks), build; on `master`, trigger the App Platform static-site deployment, purge the edge cache for `index.html`, smoke test; staging then gated production. |
 | `infra.yml` | `terraform fmt`, `validate`, `tflint`; plan on pull requests; on `master`, apply shared, staging, then production (approval gate). |
 | `openapi-contract.yml` | Regenerates the UI's typed client from the API and fails if the committed types differ. |
-| `concurrency-groups.yml` | Fails if two workflow files declare the same concurrency group. |
+| `workflows.yml` | Lints every workflow file with actionlint (shellcheck included) on pull requests and pushes to `master` that touch `.github/workflows/`. |
 | `ui-custom.yml` | Reusable pipeline for separate custom-UI repositories. |
 | `push-bootstrap-image.yml` | Manual one-off publish of the placeholder image Terraform's initial app spec points at. |
 

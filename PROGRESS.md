@@ -205,10 +205,10 @@ required-reviewer approval. See `war-spec.md` section 12.
   on `/api/v1/auth/*` (10 requests per 10 seconds per address and colo, the Free-plan
   limit); no caching of API responses except rankings.
 - **Pipelines** in `.github/workflows/`: `api.yml`, `ui-default.yml`, `infra.yml`,
-  `openapi-contract.yml`, `concurrency-groups.yml`, `ui-custom.yml`,
+  `openapi-contract.yml`, `workflows.yml`, `ui-custom.yml`,
   `push-bootstrap-image.yml`. Each deploy runs `war-infra/scripts/smoke-test.sh` afterwards.
-- **`tools/concurrency-groups`**, a small tested checker that fails the build when two
-  workflows share a concurrency group.
+- **`workflows.yml`** runs actionlint (with shellcheck) over every workflow file on pull
+  requests and pushes to `master` that touch `.github/workflows/`.
 - **Alerts** on the App Platform app: CPU, memory, restart count, failed deployment,
   failed domain.
 
@@ -228,7 +228,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 |---|---|---|
 | war-api | 57 test files, 1,289 tests plus the Docker-only `s3ObjectStorage` file (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
 | war-ui-default | 231 unit tests (25 files), 297 acceptance tests | All 18 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `moderate-war`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
-| war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
+| war-infra | None; the workflows are linted by actionlint | No runner for the infra scenarios |
 
 Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: istanbul via
 `test:coverage` + `test:acceptance:coverage`, then `coverage:report`; CI fails below the thresholds: war-api 88/80/90/89, war-ui-default merged 90/95/93 for statements/functions/lines plus acceptance branches 79 — a merged branch figure is not meaningful, since the unit and acceptance instrumenters place branch locations differently):

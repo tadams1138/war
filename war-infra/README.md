@@ -154,8 +154,8 @@ terraform -chdir=war-infra/terraform/envs/staging validate
 terraform -chdir=war-infra/terraform/envs/production init -backend=false
 terraform -chdir=war-infra/terraform/envs/production validate
 
-# Run local concurrency-group checks
-npm --prefix war-infra/tools/concurrency-groups run check
+# Lint the GitHub Actions workflows (same check as .github/workflows/workflows.yml)
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
 ```
 
 These mirror the validation steps in `.github/workflows/infra.yml`.

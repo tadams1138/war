@@ -87,14 +87,11 @@ can be reached without `cd`. Permission rules match on a command's leading text,
 changing directory ahead of `npm test` matches nothing approved for `npm` and prompts
 every time.
 
-### war-infra tools
+### workflows
 
-`war-infra/tools/` holds small self-contained checkers with their own
-`package.json`. They are not part of any deployed artifact.
-
-- install: `npm --prefix war-infra/tools/concurrency-groups ci`
-- test: `npm --prefix war-infra/tools/concurrency-groups test`
-- run the guard: `npm --prefix war-infra/tools/concurrency-groups run check`
+- lint (actionlint with shellcheck, via Docker): `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color`
+  (on Git Bash for Windows, prefix with `MSYS_NO_PATHCONV=1`). Keep the tag in step with
+  `.github/workflows/workflows.yml`.
 
 These commands mirror the pipelines in `.github/workflows/`, so local runs match CI.
 

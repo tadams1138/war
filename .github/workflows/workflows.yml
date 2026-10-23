@@ -1,0 +1,31 @@
+# Lints every workflow file with actionlint (syntax, expressions, and
+# shellcheck over inline `run:` blocks). Deploys nothing and needs no
+# credentials. Run locally with the command in AGENTS.md.
+
+name: Workflows
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    branches: [master]
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint workflows
+        # The pinned image bundles shellcheck, so run: blocks are checked too.
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
