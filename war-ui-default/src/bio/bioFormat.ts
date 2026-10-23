@@ -39,7 +39,7 @@ const WRAP_TEMPLATES: Record<'bold' | 'italic', WrapTemplate> = {
 // One handler per marker, looked up rather than branched on — adding a
 // future marker means adding a map entry, not another decision point in
 // this function (cyclomatic complexity stays 1; a `switch` over all five
-// markers measured 6, over CLAUDE.md's report threshold of 5).
+// markers measured 6, over AGENTS.md's report threshold of 5).
 const FORMATTERS: Record<BioFormatMarker, (text: string, selection: TextSelection) => FormatResult> = {
   bold: (text, selection) => wrapSelection(text, selection, WRAP_TEMPLATES.bold),
   italic: (text, selection) => wrapSelection(text, selection, WRAP_TEMPLATES.italic),

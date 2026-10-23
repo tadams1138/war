@@ -113,7 +113,7 @@ function VoteCallout({ war, progress }: { war: WarDetailResponse; progress: Vote
 
 // Narrows away the 'anonymous' sentinel -- shared by CompletionNotice and
 // VoteCallout, and keeps each of their own boolean expressions to two
-// operators instead of three (CLAUDE.md's cyclomatic-complexity rule).
+// operators instead of three (AGENTS.md's cyclomatic-complexity rule).
 function asVoteProgress(progress: VoteProgress | 'anonymous' | null): VoteProgress | null {
   return progress !== null && progress !== 'anonymous' ? progress : null
 }

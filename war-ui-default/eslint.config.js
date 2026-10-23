@@ -17,7 +17,7 @@ export default tseslint.config(
     },
   },
   {
-    // Root CLAUDE.md: no function above cyclomatic complexity 5.
+    // Root AGENTS.md: no function above cyclomatic complexity 5.
     rules: {
       complexity: ['error', 5],
     },

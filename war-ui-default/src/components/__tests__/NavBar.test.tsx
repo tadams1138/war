@@ -3,7 +3,7 @@
 // still renders full authenticated navigation — My Wars, Start a War,
 // and logout all remain" even when GET /auth/me fails. NavBar has real
 // branching (AuthenticatedNavLinks vs the anonymous link), so this is not
-// the "component that only renders API data" case CLAUDE.md excludes from
+// the "component that only renders API data" case AGENTS.md excludes from
 // component testing.
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'

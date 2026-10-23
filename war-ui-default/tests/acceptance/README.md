@@ -153,7 +153,7 @@ Use these before writing new steps.
 4. Prove it can fail: change one expected value, or break the app behaviour it covers, see the
    run go red, restore it.
 5. Run lint (zero warnings), typecheck, unit tests, the full acceptance suite and the build
-   (commands in the root `CLAUDE.md`).
+   (commands in the root `AGENTS.md`).
 
 ## Pitfalls
 
