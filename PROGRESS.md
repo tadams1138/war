@@ -129,7 +129,8 @@ required-reviewer approval. See `war-spec.md` section 12.
   shrink to fit and the bios sit directly below, on screen; on a phone the layout keeps full height
   with each bio beside its card.
 - **Results.** One rank-ordered list with image gallery, bio, wins, appearances and a win
-  bar scaled to raw wins. Order always comes from the API.
+  bar scaled to raw wins. Order always comes from the API. Results load with the page; there
+  are no live updates.
 - **Authoring.** Start a War makes an empty draft and goes to `/wars/:id/edit`: metadata,
   theme, visibility (public or unlisted), end date, contestants (name, bio, gallery of up
   to ten images with add/remove/reorder), Publish/Unpublish with confirmation, Clear
@@ -154,7 +155,7 @@ required-reviewer approval. See `war-spec.md` section 12.
   the unaddressed-reports queue, the moderation log or a Voter's detail page (their Wars and vote
   history) goes to the War's ordinary detail page (`/wars/:id`); there a Moderator also sees the War's
   reports (mark addressed; final) and the Remove War control, and a removed War is shown to a
-  Moderator marked Removed, with no Remove, Vote or owner controls, and its results stop polling.
+  Moderator marked Removed, with no Remove, Vote or owner controls.
   Admin: Voters list (filter Suspended,
   Banned, Role holders) and moderation log (the role-change entries and the owner-level actions an
   Admin took on Wars they did not create, each with a readable label). Voter detail
@@ -225,8 +226,8 @@ required-reviewer approval. See `war-spec.md` section 12.
 
 | Project | Size | Notes |
 |---|---|---|
-| war-api | 57 test files, 1,308 tests (1,311 including 3 skipped) (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | 233 unit tests (25 files), 300 acceptance tests | All 18 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `moderate-war`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
+| war-api | 57 test files, 1,289 tests plus the Docker-only `s3ObjectStorage` file (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
+| war-ui-default | 231 unit tests (25 files), 297 acceptance tests | All 18 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `moderate-war`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
 | war-infra | `tools/concurrency-groups` unit tests only | No runner for the infra scenarios |
 
 Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: istanbul via
@@ -234,10 +235,10 @@ Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: ist
 
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| war-api (unit + integration + acceptance; `s3ObjectStorage` file not run, no Docker) | 91.81% | 84.85% | 95.14% | 93.51% |
-| war-ui-default, unit (233 tests) | 36.24% | 26.66% | 33.73% | 38.25% |
-| war-ui-default, acceptance (300 scenarios) | 89.44% | 80.89% | 93.76% | 92.35% |
-| war-ui-default, merged (unit and acceptance) | 91.97% | n/a (see above) | 97.11% | 94.19% |
+| war-api (unit + integration + acceptance; `s3ObjectStorage` file not run, no Docker) | 92.16% | 85.23% | 95.25% | 93.68% |
+| war-ui-default, unit (231 tests) | 37.00% | 27.50% | 32.83% | 38.95% |
+| war-ui-default, acceptance (297 scenarios) | 90.27% | 81.85% | 94.02% | 92.39% |
+| war-ui-default, merged (unit and acceptance) | 92.90% | n/a (see above) | 97.16% | 94.33% |
 
 CI publishes the same tables in each pipeline's job summary and uploads the HTML reports as
 `api-coverage` and `ui-default-coverage` artifacts (14 days).
