@@ -166,7 +166,7 @@ Known rules not visible in code, each learned through production incidents:
 
 1. **Manual bootstrap step** — After `terraform apply`, the output includes the new App Platform app ID. This must be stored manually as the `DO_APP_ID` variable of that GitHub environment; the deploy pipelines read it from there.
 
-2. **Unique concurrency groups** — Each deploy pipeline requires its own named serialization group per environment to prevent pending runs from being evicted by a sibling pipeline's new job. A build-time check fails if two pipelines share one.
+2. **Unique concurrency groups** — Each deploy pipeline requires its own named serialization group per environment to prevent pending runs from being evicted by a sibling pipeline's new job.
 
 3. **Placeholder image** — Terraform cannot bootstrap the app with the real API image (which requires secrets to boot). A placeholder image is pushed once; the API deploy replaces it.
 
