@@ -1,0 +1,10 @@
+{
+  "name": "deploy-app",
+  "version": "1.0.0",
+  "description": "Starts an App Platform deployment with doctl and waits for the app's newest deployment to settle, so the API and UI pipelines' overlapping deploys do not fail each other. Node built-ins only: deploy jobs need no install step.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

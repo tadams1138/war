@@ -165,8 +165,11 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
+      # Waits for the app's newest deployment, not the one created here:
+      # api.yml deploys to the same app, so ours can be overtaken. See
+      # war-infra/tools/deploy-app. Needs only the runner's Node (18+).
       - name: Deploy
-        run: doctl apps create-deployment "${{ vars.DO_APP_ID }}" --wait
+        run: node war-infra/tools/deploy-app/deploy.js "${{ vars.DO_APP_ID }}" apps create-deployment "${{ vars.DO_APP_ID }}"
 
       # Hashed assets are immutable and never need purging; only index.html does.
       - name: Purge edge cache
@@ -211,8 +214,11 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
+      # Waits for the app's newest deployment, not the one created here:
+      # api.yml deploys to the same app, so ours can be overtaken. See
+      # war-infra/tools/deploy-app. Needs only the runner's Node (18+).
       - name: Deploy
-        run: doctl apps create-deployment "${{ vars.DO_APP_ID }}" --wait
+        run: node war-infra/tools/deploy-app/deploy.js "${{ vars.DO_APP_ID }}" apps create-deployment "${{ vars.DO_APP_ID }}"
 
       - name: Purge edge cache
         run: |

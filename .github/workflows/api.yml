@@ -256,11 +256,16 @@ jobs:
           envsubst '$IMAGE_TAG $JWT_SECRET $INTERNAL_TASK_TOKEN $S3_ACCESS_KEY_ID $S3_SECRET_ACCESS_KEY $GOOGLE_CLIENT_ID $GOOGLE_CLIENT_SECRET $MICROSOFT_CLIENT_ID $MICROSOFT_CLIENT_SECRET $FACEBOOK_CLIENT_ID $FACEBOOK_CLIENT_SECRET $TWITTER_CLIENT_ID $TWITTER_CLIENT_SECRET' \
             < war-infra/platform/staging.yaml > "$RUNNER_TEMP/app-spec.yaml"
 
-      # --wait blocks until the deployment settles. The PRE_DEPLOY migration job
-      # (spec) runs inside it, so a failed migration fails this step and the
-      # previous revision keeps serving traffic.
+      # deploy-app starts the update, then waits for the app's newest
+      # deployment to settle (not for the one it created: ui-default.yml
+      # deploys to the same app, which runs one deployment at a time, so ours
+      # can be overtaken by a newer one that includes our changes). The
+      # PRE_DEPLOY migration job (spec) runs inside it, so a failed migration
+      # fails this step and the previous revision keeps serving traffic. Plain
+      # `node` from the runner image: the tool has no dependencies and needs
+      # no install step (Node 18+).
       - name: Deploy
-        run: doctl apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml" --wait
+        run: node war-infra/tools/deploy-app/deploy.js "${{ vars.DO_APP_ID }}" apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml"
 
       - name: Smoke test
         env:
@@ -318,7 +323,7 @@ jobs:
             < war-infra/platform/production.yaml > "$RUNNER_TEMP/app-spec.yaml"
 
       - name: Deploy
-        run: doctl apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml" --wait
+        run: node war-infra/tools/deploy-app/deploy.js "${{ vars.DO_APP_ID }}" apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml"
 
       - name: Smoke test
         env:

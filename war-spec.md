@@ -1457,6 +1457,8 @@ tidiness. Procedures live in `war-infra/README.md`.
 - Each deploy pipeline has its own named serialization group per environment. Sharing one lets
   a sibling pipeline silently evict a deploy waiting at an approval gate; a build-time check
   fails if two pipelines declare the same group.
+- A deploy waits for the application's newest deployment rather than the one it started, so
+  overlapping deploys from the two pipelines do not fail each other.
 - Infrastructure creates the application with a placeholder image and ignores later spec
   changes; the deployment spec, not the infrastructure module, owns the running application.
 - Each provider's redirect URI is registered by hand, per environment; nothing in the

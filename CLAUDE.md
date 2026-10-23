@@ -96,6 +96,11 @@ every time.
 - test: `npm --prefix war-infra/tools/concurrency-groups test`
 - run the guard: `npm --prefix war-infra/tools/concurrency-groups run check`
 
+`war-infra/tools/deploy-app` (used by the deploy jobs in `api.yml` and `ui-default.yml`)
+has no dependencies, so it needs no install step:
+
+- test: `npm --prefix war-infra/tools/deploy-app test`
+
 These commands mirror the pipelines in `.github/workflows/`, so local runs match CI.
 
 ## Working efficiently

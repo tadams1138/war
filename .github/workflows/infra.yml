@@ -70,6 +70,26 @@ env:
   TF_VAR_internal_task_token: ${{ secrets.INTERNAL_TASK_TOKEN }}
 
 jobs:
+  # Unit tests for the deploy helper used by api.yml and ui-default.yml. They
+  # live here because this workflow already triggers on war-infra/**; the job
+  # needs no credentials, so it overrides the war-infra working directory.
+  test-deploy-app:
+    name: Test deploy-app tool
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Test
+        run: npm --prefix war-infra/tools/deploy-app test
+
   validate:
     name: Validate
     runs-on: ubuntu-latest
