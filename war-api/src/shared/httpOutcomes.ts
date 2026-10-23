@@ -24,6 +24,12 @@ export const validationErrorResponseSchema = {
   },
 };
 
+/** The 403 and 404 responses of a route that acts on a War, Voter or report; spread it into `response`. */
+export const failureResponses = { 403: errorResponseSchema, 404: errorResponseSchema };
+
+/** `failureResponses` plus the 422 of a route that validates a request body. */
+export const editFailureResponses = { ...failureResponses, 422: validationErrorResponseSchema };
+
 /**
  * Status and message per outcome kind. `Record` requires every key, so a kind added to the union without an
  * entry here is a compile error.
@@ -53,7 +59,7 @@ export function failureResponse(outcome: HttpFailure): { status: number; body: {
 }
 
 /** Sends a failed `MutationOutcome` (or any union built from the same failure variants) as its HTTP response. */
-export function replyForOutcome(reply: FastifyReply, outcome: HttpFailure): FastifyReply {
+function replyForOutcome(reply: FastifyReply, outcome: HttpFailure): FastifyReply {
   const { status, body } = failureResponse(outcome);
   return reply.code(status).send(body);
 }
@@ -61,4 +67,13 @@ export function replyForOutcome(reply: FastifyReply, outcome: HttpFailure): Fast
 /** The 404 every route sends for a missing, removed or invisible resource. */
 export function sendNotFound(reply: FastifyReply): FastifyReply {
   return replyForOutcome(reply, { kind: 'notFound' });
+}
+
+/** Sends a failed outcome as its HTTP response, or hands the success value to `onOk` to build the reply. */
+export function sendOutcome<T>(
+  reply: FastifyReply,
+  outcome: HttpFailure | { kind: 'ok'; value: T },
+  onOk: (value: T) => FastifyReply | Promise<FastifyReply>,
+): FastifyReply | Promise<FastifyReply> {
+  return outcome.kind === 'ok' ? onOk(outcome.value) : replyForOutcome(reply, outcome);
 }

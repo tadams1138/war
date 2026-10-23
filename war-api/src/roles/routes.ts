@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
-import { errorResponseSchema, replyForOutcome } from '../shared/httpOutcomes.js';
+import { sendOutcome, failureResponses } from '../shared/httpOutcomes.js';
 import { requireAdmin } from '../auth/guards.js';
 import { grantRole } from './rolesService.js';
 
@@ -36,16 +36,13 @@ export function registerRolesRoutes(app: FastifyInstance, deps: RolesRouteDeps):
           properties: { id: { type: 'string' }, role: { type: 'string', enum: ['moderator', 'admin'] } },
         },
         body: { type: 'object', required: ['granted'], properties: { granted: { type: 'boolean' } } },
-        response: { 200: voterRoleViewSchema, 403: errorResponseSchema, 404: errorResponseSchema },
+        response: { 200: voterRoleViewSchema, ...failureResponses },
       },
       [requireAdmin],
     ),
     async (request, reply) => {
       const outcome = await grantRole(db, request.voterId!, request.params.id, request.params.role as 'moderator' | 'admin', request.body.granted);
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send({ id: outcome.value.id, is_moderator: outcome.value.isModerator, is_admin: outcome.value.isAdmin });
+      return sendOutcome(reply, outcome, (value) => reply.send({ id: value.id, is_moderator: value.isModerator, is_admin: value.isAdmin }));
     },
   );
 }

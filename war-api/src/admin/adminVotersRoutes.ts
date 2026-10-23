@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import { requireModeratorOrAdmin } from '../auth/guards.js';
-import { errorResponseSchema, sendNotFound } from '../shared/httpOutcomes.js';
+import { errorResponseSchema, sendNotFound, failureResponses } from '../shared/httpOutcomes.js';
 import { pagingProperties, sendInvalidCursor, type PagingQuery } from '../shared/paging.js';
 import { findAdminVoter, listAdminVoters, type AdminVoter, type AdminVoterDetail } from './adminVotersRepository.js';
 import type { AdminRouteDeps } from './adminRouteShared.js';
@@ -113,7 +113,7 @@ export function registerAdminVotersRoutes(app: FastifyInstance, deps: AdminRoute
       auth,
       {
         params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
-        response: { 200: adminVoterDetailSchema, 403: errorResponseSchema, 404: errorResponseSchema },
+        response: { 200: adminVoterDetailSchema, ...failureResponses },
       },
       [requireModeratorOrAdmin],
     ),

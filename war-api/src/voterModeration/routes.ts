@@ -5,7 +5,7 @@ import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
 import type { Voter } from '../auth/votersRepository.js';
 import type { ObjectStorage } from '../contestants/storage.js';
-import { errorResponseSchema, replyForOutcome } from '../shared/httpOutcomes.js';
+import { sendOutcome, failureResponses } from '../shared/httpOutcomes.js';
 import { requireModerator } from '../auth/guards.js';
 import { changeBan, changeSuspension } from './voterModerationService.js';
 
@@ -39,16 +39,13 @@ export function registerVoterModerationRoutes(app: FastifyInstance, deps: VoterM
       {
         params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
         body: { type: 'object', required: ['suspended'], properties: { suspended: { type: 'boolean' } } },
-        response: { 200: voterModerationViewSchema, 403: errorResponseSchema, 404: errorResponseSchema },
+        response: { 200: voterModerationViewSchema, ...failureResponses },
       },
       [requireModerator],
     ),
     async (request, reply) => {
       const outcome = await changeSuspension(db, request.voterId!, request.params.id, request.body.suspended);
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send(presentVoterModeration(outcome.value));
+      return sendOutcome(reply, outcome, (value) => reply.send(presentVoterModeration(value)));
     },
   );
 
@@ -59,16 +56,13 @@ export function registerVoterModerationRoutes(app: FastifyInstance, deps: VoterM
       {
         params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
         body: { type: 'object', required: ['banned'], properties: { banned: { type: 'boolean' } } },
-        response: { 200: voterModerationViewSchema, 403: errorResponseSchema, 404: errorResponseSchema },
+        response: { 200: voterModerationViewSchema, ...failureResponses },
       },
       [requireModerator],
     ),
     async (request, reply) => {
       const outcome = await changeBan(db, deps.storage, request.log, request.voterId!, request.params.id, request.body.banned);
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.send(presentVoterModeration(outcome.value));
+      return sendOutcome(reply, outcome, (value) => reply.send(presentVoterModeration(value)));
     },
   );
 }

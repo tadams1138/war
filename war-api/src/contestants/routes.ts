@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { bearerAuthRoute } from '../auth/plugin.js';
 import type { AuthDependencies } from '../auth/authService.js';
-import { errorResponseSchema, replyForOutcome, validationErrorResponseSchema } from '../shared/httpOutcomes.js';
+import { sendOutcome, failureResponses, editFailureResponses } from '../shared/httpOutcomes.js';
 import { reportSchemaViolations, rejectInvalidBody } from '../shared/bodyValidation.js';
 import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '../shared/rateLimit.js';
 import type { ObjectStorage } from './storage.js';
@@ -53,9 +53,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
           },
           response: {
             201: { $ref: 'ContestantDetail#' },
-            403: errorResponseSchema,
-            404: errorResponseSchema,
-            422: validationErrorResponseSchema,
+            ...editFailureResponses,
           },
         },
         [rejectInvalidBody],
@@ -64,11 +62,10 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     async (request, reply) => {
       const { name, bio } = request.body;
       const outcome = await addContestant(db, { warId: request.params.id, caller: callerOf(request), name, bio });
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      const media = await listMediaByContestant(db, outcome.value.id);
-      return reply.code(201).send(presentContestant(outcome.value, media, deps.publicBaseUrl));
+      return sendOutcome(reply, outcome, async (value) => {
+        const media = await listMediaByContestant(db, value.id);
+        return reply.code(201).send(presentContestant(value, media, deps.publicBaseUrl));
+      });
     },
   );
 
@@ -84,19 +81,16 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
       },
       response: {
         200: { $ref: 'ContestantDetail#' },
-        403: errorResponseSchema,
-        404: errorResponseSchema,
-        422: validationErrorResponseSchema,
+        ...editFailureResponses,
       },
     }),
     async (request, reply) => {
       const { name, bio } = request.body;
       const outcome = await patchContestant(db, request.params.id, request.params.cId, callerOf(request), { name, bio });
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      const media = await listMediaByContestant(db, outcome.value.id);
-      return reply.send(presentContestant(outcome.value, media, deps.publicBaseUrl));
+      return sendOutcome(reply, outcome, async (value) => {
+        const media = await listMediaByContestant(db, value.id);
+        return reply.send(presentContestant(value, media, deps.publicBaseUrl));
+      });
     },
   );
 
@@ -105,10 +99,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     bearerAuthRoute(auth),
     async (request, reply) => {
       const outcome = await removeContestant(db, deps.storage, request.log, request.params.id, request.params.cId, callerOf(request));
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.code(204).send();
+      return sendOutcome(reply, outcome, () => reply.code(204).send());
     },
   );
 
@@ -119,8 +110,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
       {
         response: {
           201: imageUploadResponseSchema,
-          403: errorResponseSchema,
-          404: errorResponseSchema,
+          ...failureResponses,
           422: uploadErrorResponseSchema,
           429: rateLimitedResponseSchema,
         },
@@ -138,13 +128,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
         caller: callerOf(request),
         ...upload,
       });
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.code(201).send({
-        id: outcome.value.id,
-        display_order: outcome.value.displayOrder,
-      });
+      return sendOutcome(reply, outcome, (value) => reply.code(201).send({ id: value.id, display_order: value.displayOrder }));
     },
   );
 
@@ -162,9 +146,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
           },
           response: {
             204: {},
-            403: errorResponseSchema,
-            404: errorResponseSchema,
-            422: validationErrorResponseSchema,
+            ...editFailureResponses,
           },
         },
         [rejectInvalidBody],
@@ -179,10 +161,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
         callerOf(request),
         request.body.display_order,
       );
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.code(204).send();
+      return sendOutcome(reply, outcome, () => reply.code(204).send());
     },
   );
 
@@ -191,8 +170,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
     bearerAuthRoute(auth, {
       response: {
         204: {},
-        403: errorResponseSchema,
-        404: errorResponseSchema,
+        ...failureResponses,
       },
     }),
     async (request, reply) => {
@@ -205,10 +183,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
         request.params.mId,
         callerOf(request),
       );
-      if (outcome.kind !== 'ok') {
-        return replyForOutcome(reply, outcome);
-      }
-      return reply.code(204).send();
+      return sendOutcome(reply, outcome, () => reply.code(204).send());
     },
   );
 }
