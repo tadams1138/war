@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createWar } from '../api/client'
 import { ApiError, toUserMessage } from '../api/errors'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
 export function CreateWar() {
@@ -13,7 +13,7 @@ export function CreateWar() {
   const [error, setError] = useState<string | null>(null)
   const [wait, setWait] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const [theme, setTheme] = useTheme('home', 'arcade')
+  const [theme, setTheme] = useTheme('home', FALLBACK_THEME)
   usePublishTheme('home', theme, setTheme)
 
   useEffect(() => {

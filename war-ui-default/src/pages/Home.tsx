@@ -5,14 +5,14 @@ import { useAuth } from '../auth/context'
 import { WarCard } from '../components/WarCard'
 import { WarListControls, WarListPagination } from '../components/WarListControls'
 import { useWarListPage, type UseWarListPageResult } from '../hooks/useWarListPage'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { AsyncStatus } from '../components/AsyncStatus'
 
 export function Home() {
   const { isAuthenticated } = useAuth()
   const listPage = useWarListPage()
-  const [theme, setTheme] = useTheme('home', 'arcade')
+  const [theme, setTheme] = useTheme('home', FALLBACK_THEME)
   usePublishTheme('home', theme, setTheme)
 
   return (

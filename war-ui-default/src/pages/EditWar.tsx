@@ -23,7 +23,7 @@ import { useEditWar, type EditWarLoadedState, type EditWarState } from '../editW
 import { useWarExportDownload, type WarExportDownload } from '../export/useWarExportDownload'
 import { useConfirm, type Confirm } from '../hooks/useConfirm'
 import { useDeleteWarFlow, type DeleteWarFlow } from '../hooks/useDeleteWarFlow'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import type { Theme } from '../theme/themeCookie'
 import { useTheme } from '../theme/useTheme'
 import { warTitle } from '../utils/warTitle'
@@ -31,7 +31,7 @@ import { warTitle } from '../utils/warTitle'
 type Selection = 'metadata' | 'add' | string
 
 function initialTheme(state: EditWarState): Theme {
-  return state.status === 'loaded' ? state.war.theme : 'arcade'
+  return state.status === 'loaded' ? state.war.theme : FALLBACK_THEME
 }
 
 function isDraft(state: EditWarState): boolean {

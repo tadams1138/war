@@ -18,7 +18,7 @@ import { useDeleteWarFlow } from '../hooks/useDeleteWarFlow'
 import { useWarExportDownload } from '../export/useWarExportDownload'
 import { useRankings, type RankingsState } from '../rankings/useRankings'
 import type { Theme } from '../theme/themeCookie'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { warTitle } from '../utils/warTitle'
 
@@ -31,7 +31,7 @@ function loadWar(id: string | undefined): (() => Promise<WarDetailResponse>) | u
 }
 
 function initialTheme(state: AsyncResourceState<WarDetailResponse>): Theme {
-  return state.status === 'loaded' ? state.value.theme : 'arcade'
+  return state.status === 'loaded' ? state.value.theme : FALLBACK_THEME
 }
 
 function isRemoved(state: AsyncResourceState<WarDetailResponse>): boolean {

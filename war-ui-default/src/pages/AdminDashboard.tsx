@@ -10,11 +10,11 @@ import { ModerationLogPanel } from '../admin/ModerationLogPanel'
 import { AdminVotersPanel } from '../admin/voters/AdminVotersPanel'
 import { AdminWarsPanel } from '../admin/wars/AdminWarsPanel'
 import { UnaddressedQueuePanel } from '../admin/wars/UnaddressedQueuePanel'
-import { usePublishTheme } from '../theme/ThemeContext'
+import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 
 export function AdminDashboard() {
-  const [theme, setTheme] = useTheme('home', 'arcade')
+  const [theme, setTheme] = useTheme('home', FALLBACK_THEME)
   usePublishTheme('home', theme, setTheme)
   // Bumped whenever a panel takes a moderation action, so the moderation log
   // refetches and shows the entry that action just wrote.
