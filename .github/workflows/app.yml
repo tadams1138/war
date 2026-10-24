@@ -269,8 +269,33 @@ jobs:
       - name: Unit tests with coverage
         run: npm run test:coverage
 
-      # TODO(Task 7): Playwright browser cache step goes here.
+      # The browser cache is keyed on the Playwright version, so a bump to
+      # @playwright/test fetches a fresh browser build.
+      - name: Read Playwright version
+        id: pw-version
+        run: |
+          version=$(npm ls @playwright/test --json | jq -r '.dependencies["@playwright/test"].version')
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "::error::Could not read the @playwright/test version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
+
+      # A cache hit restores the browser binaries, so only the OS packages
+      # they need still have to be installed.
+      - name: Install Playwright system dependencies
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
       - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       # Acceptance tests run against MSW mocks, so they run on every PR without
