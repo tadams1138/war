@@ -128,7 +128,8 @@ jobs:
         with:
           name: dist
           path: dist/
-          retention-days: 1
+          # Production downloads this artifact after approval, so it must outlive the wait for approval.
+          retention-days: 30
 
   deploy-staging:
     name: Deploy → Staging
