@@ -77,6 +77,8 @@ resource "cloudflare_workers_script" "ui_default" {
     config = {
       not_found_handling = "single-page-application"
       run_worker_first   = ["/wars/*"]
+      # _headers rules, kept out of the build so they are never served as a file.
+      headers = file("${path.module}/asset-headers")
     }
   }
 }

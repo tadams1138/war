@@ -469,9 +469,10 @@ applies `war-infra/terraform/ui`, so staging and production serve the same bytes
 spec (API only; App Platform serves just `/api/v1`) is applied by a separate app deploy job.
 Each side's jobs run only when its own inputs changed, and within an environment the app job
 waits for the UI job and goes ahead unless it failed, so the UI is live and smoke-tested
-first. There is no edge cache
-purge: `/assets/*` is `public, max-age=31536000, immutable` (hashed filenames) and the HTML
-shell is `max-age=0, must-revalidate`.
+first. There is no edge cache purge: `/assets/*` is `public, max-age=31536000, immutable`
+(hashed filenames) and the HTML shell is `max-age=0, must-revalidate`. The asset header rules
+live in `war-infra/terraform/ui/asset-headers` (`_headers` syntax), passed to the Worker's
+asset config rather than shipped in the build, so they are never served as a file.
 
 **Rollback.** Re-run the deploy job of an earlier successful run (it redeploys that run's
 `ui-default-dist` artefact and app spec). The artefact is kept for 14 days; past that, use
