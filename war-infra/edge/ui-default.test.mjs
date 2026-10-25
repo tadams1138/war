@@ -69,6 +69,18 @@ test('share page gets the War\'s tags', async () => {
   assert.ok(body.includes('<meta name="twitter:card" content="summary_large_image">'))
 })
 
+test('share page drops the shell\'s ETag', async () => {
+  // Arrange
+  stubApi(async () => Response.json({ title: 'T' }))
+  const shell = new Response(SHELL, { headers: { 'content-type': 'text/html', etag: '"shell-etag"' } })
+
+  // Act
+  const res = await worker.fetch(req('/wars/abc'), envWith(shell))
+
+  // Assert
+  assert.equal(res.headers.get('etag'), null)
+})
+
 test('no share image means no image tags', async () => {
   // Arrange
   stubApi(async () => Response.json({ title: 'T' }))

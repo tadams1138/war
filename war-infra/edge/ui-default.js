@@ -105,9 +105,11 @@ export default {
 
     // index.html must never be edge-cached or a deploy would not be picked
     // up -- true here too, since this response *is* that same shell, tags
-    // included.
+    // included. The shell's ETag goes too: this body is per-War, not the
+    // shared index.html it names.
     const headers = new Headers(rewritten.headers)
     headers.set('cache-control', 'no-store')
+    headers.delete('etag')
     return new Response(rewritten.body, { status: rewritten.status, headers })
   },
 }
