@@ -1474,10 +1474,12 @@ tidiness. Procedures live in the README's Deployment and operations section.
 
 - The application's identifier is set by hand per environment after any from-scratch apply;
   deploy pipelines read it from there.
-- One pipeline writes to the application per environment. A newer release supersedes one
-  still waiting at the production gate; that is safe because every deploy carries the full
-  state of the application at that point (the API image and the deployment spec; the default
-  UI is built by the hosting platform at deploy time).
+- One pipeline writes to the application per environment, with one deploy for the API and
+  one for the default UI. A newer release supersedes a deploy of the same side still waiting
+  to run (at the production gate, for instance), and never one of the other side; that is
+  safe because each deploy carries the whole of its side at that point (the API image and
+  the deployment spec, or the single default UI build). Within an environment the API deploy
+  waits for the default UI deploy and goes ahead unless it failed.
 - Infrastructure creates the application with a placeholder image and ignores later spec
   changes; the deployment spec, not the infrastructure module, owns the running application.
 - Each provider's redirect URI is registered by hand, per environment; nothing in the

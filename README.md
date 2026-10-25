@@ -457,18 +457,19 @@ doctl apps update <app-id> --spec /tmp/app.yaml --wait
 `war-api/` (`git rev-parse HEAD:war-api`).
 
 `app.yml` automates this (stage order: spec section 12.5). The API image is tagged with that
-tree hash and built only if the registry lacks it, after API CI passes. One deploy job per
+tree hash and built only if the registry lacks it, after API CI passes. One app deploy job per
 environment renders the full app spec and applies it with `doctl --wait`; the `PRE_DEPLOY`
 migration job runs inside it. A push that needs an API image missing from the registry,
 whose API CI did not run in that run, fails with an error; run the workflow manually (see
 [Workflows](#workflows)), which builds the image and deploys.
 
 The default UI deploys independently of the API. `ui-ci` builds it once and uploads the
-`ui-default-dist` artefact; each environment's deploy job downloads that exact build and
+`ui-default-dist` artefact; each environment's UI deploy job downloads that exact build and
 applies `war-infra/terraform/ui`, so staging and production serve the same bytes. The app
-spec (API only; App Platform serves just `/api/v1`) is applied separately. Each side runs only
-when its own inputs changed, and the UI goes first so that on a first rollout the Worker is
-live and smoke-tested before anything is removed from the app spec. There is no edge cache
+spec (API only; App Platform serves just `/api/v1`) is applied by a separate app deploy job.
+Each side's jobs run only when its own inputs changed, and within an environment the app job
+waits for the UI job and goes ahead unless it failed, so the UI is live and smoke-tested
+first. There is no edge cache
 purge: `/assets/*` is `public, max-age=31536000, immutable` (hashed filenames) and the HTML
 shell is `max-age=0, must-revalidate`.
 
@@ -555,12 +556,15 @@ Rules not visible in code, each learned through production incidents:
 1. **Manual bootstrap step.** After `terraform apply`, the output includes the new App
    Platform app ID. Store it by hand as the `DO_APP_ID` variable of that GitHub environment;
    the deploy pipeline reads it from there.
-2. **One writer per environment.** A single deploy job per environment (concurrency groups
-   `deploy-staging` and `deploy-production`) writes to the App Platform app. A newer release
-   supersedes one still waiting at the production gate; that is safe because every deploy
-   applies the state of its commit (API image tag and app spec, and the run's single UI
-   build). A second pipeline that deployed only part of the state would reintroduce the
-   eviction problem.
+2. **One writer per side per environment.** Each environment has one UI deploy job and one
+   app deploy job, each in its own concurrency group (`deploy-ui-staging`,
+   `deploy-app-staging`, `deploy-ui-production`, `deploy-app-production`). A newer release
+   supersedes only a pending job of the same side; that is safe because the newer job
+   carries the whole of that side at a later commit (the run's single UI build, or the API
+   image tag and app spec). A UI-only release therefore never evicts a pending API deploy, or
+   the reverse. Sharing one group between both sides while each run deploys only what
+   changed, or a job that deployed only part of a side, would reintroduce the eviction
+   problem (commit 9404ffe).
 3. **Placeholder image.** Terraform cannot bootstrap the app with the real API image (it
    needs secrets to boot), so a placeholder is pushed once (`push-bootstrap-image.yml`) and
    the first deploy replaces it.
@@ -614,7 +618,8 @@ Rules not visible in code, each learned through production incidents:
 
 ### Smoke tests
 
-Each deploy job runs both after deploying, to catch deploy-time failures before production:
+Each deploy job runs its side's smoke test after deploying, to catch deploy-time failures
+before production:
 
 - **API:** POST to internal endpoints, verify basic health.
 - **UI:** load the app, verify key pages render.

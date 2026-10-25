@@ -1,20 +1,20 @@
 # War app pipeline (war-api + war-ui-default) — see war-spec.md
 #
-# One pipeline, one writer to the App Platform app. A change-detection job
-# decides which project's CI runs; the API image is built only when no image
+# One pipeline, one writer per side (UI Worker, App Platform app) per
+# environment. A change-detection job decides which project's CI runs; the API
+# image is built only when no image
 # exists for the war-api/ tree hash (the tag is that hash, so an unchanged API
 # reuses the image already in the registry).
 #
 # The UI and the API deploy independently. The UI is built once, in ui-ci, and
-# uploaded as the `ui-default-dist` artefact; each environment's deploy job
+# uploaded as the `ui-default-dist` artefact; each environment's UI deploy job
 # downloads that exact build and applies war-infra/terraform/ui (a Cloudflare
 # Worker with static assets), so staging and production serve the same bytes.
-# The API deploys by rendering the app spec from this commit and updating the
-# App Platform app. `changes` emits ui_deploy and app_deploy, and each deploy
-# job runs only the steps whose side changed: a UI-only change never touches the
-# app spec or the API image, and an API-only change never applies the UI root.
-# The UI goes first so that, on the first rollout, the Worker is live and
-# smoke-tested before the spec without the static site is applied.
+# The app deploy job renders the app spec from this commit and updates the App
+# Platform app. `changes` emits ui_deploy and app_deploy, and each side's jobs
+# run only when that side changed: a UI-only change never touches the app spec
+# or the API image, and an API-only change never applies the UI root. Within an
+# environment the app job waits for the UI job, so the UI goes first.
 #
 # Per-environment GitHub Environment variables:
 #   DO_APP_ID          App Platform app id for that environment
@@ -561,27 +561,33 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-staging:
-    name: Deploy → Staging
-    needs: [changes, api-ci, ui-ci, contract, scripts-test, ensure-api-image]
+  # Each environment has two deploy jobs, one per side: deploy-ui-<env> applies
+  # the UI Worker root with this run's ui-default-dist build, deploy-app-<env>
+  # renders and applies the app spec. Each has its own concurrency group, so a
+  # newer run can only supersede a pending job of the same side, and that newer
+  # job carries a superset build: the UI build is the whole UI at a later
+  # commit, the app spec the whole API at a later commit. A UI-only run can
+  # therefore never evict a pending API deploy, nor the reverse (the 9404ffe
+  # incident: a pending security fix evicted by a run that deployed only part
+  # of the state). cancel-in-progress stays false so a running deploy is never
+  # killed mid-flight. Both jobs of an environment use the same GitHub
+  # Environment, so the same reviewer gates both.
+
+  deploy-ui-staging:
+    name: Deploy UI → Staging
+    needs: [changes, api-ci, ui-ci, contract, scripts-test]
     # Skipped CI jobs (unchanged project) must not block the deploy, but a
-    # failed one must. ensure-api-image is skipped on a UI-only change
-    # (app_deploy false), or when api-ci failed or was cancelled, which blocks
-    # the deploy anyway; pull requests never deploy. Which steps run is decided
-    # per step from ui_deploy and app_deploy.
+    # failed or cancelled one must; pull requests never deploy.
     if: >-
       github.event_name != 'pull_request' && !cancelled() &&
       !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') &&
-      needs.changes.outputs.deploy == 'true'
+      needs.changes.outputs.ui_deploy == 'true'
     runs-on: ubuntu-latest
     environment:
       name: staging
       url: ${{ vars.PUBLIC_BASE_URL }}
-    # This is the only workflow that writes to the App Platform app or the UI
-    # Worker, so there is exactly one staging deploy group. Reruns queue behind a running
-    # deploy instead of cancelling it mid-flight.
     concurrency:
-      group: deploy-staging
+      group: deploy-ui-staging
       cancel-in-progress: false
 
     env:
@@ -596,27 +602,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # UI first: on the first rollout this is the no-downtime cutover, since
-      # the Worker is live and smoke-tested before the spec without the static
-      # site is applied below.
       - name: Download the UI build
-        if: needs.changes.outputs.ui_deploy == 'true'
         uses: actions/download-artifact@v8
         with:
           name: ui-default-dist
           path: ${{ runner.temp }}/ui-dist
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        if: needs.changes.outputs.ui_deploy == 'true'
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Init the UI Worker root
-        if: needs.changes.outputs.ui_deploy == 'true'
         run: terraform -chdir=war-infra/terraform/ui init -backend-config=key=ui/staging/terraform.tfstate
 
       - name: Deploy the UI Worker
-        if: needs.changes.outputs.ui_deploy == 'true'
         env:
           PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: |
@@ -626,18 +625,47 @@ jobs:
             -var "assets_dir=$RUNNER_TEMP/ui-dist"
 
       - name: Smoke test (ui-default)
-        if: needs.changes.outputs.ui_deploy == 'true'
         env:
           BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: war-infra/scripts/smoke-test.sh staging ui-default
 
+  deploy-app-staging:
+    name: Deploy app → Staging
+    needs: [changes, api-ci, ui-ci, contract, scripts-test, ensure-api-image, deploy-ui-staging]
+    # Waits for this run's UI job, so when both sides change the UI is live and
+    # smoke-tested before the app spec is applied. It proceeds when that job
+    # succeeded, was skipped (UI unchanged) or was cancelled because a newer
+    # run's pending UI job superseded it (that newer job carries this UI and
+    # more), and stops only when it failed. Cancelling the run skips this job
+    # (!cancelled()). The CI jobs are checked by name rather than via needs.*,
+    # because a superseded UI job's 'cancelled' must not block. ensure-api-image
+    # is skipped when api-ci failed or was cancelled, so requiring its success
+    # covers that too.
+    if: >-
+      github.event_name != 'pull_request' && !cancelled() &&
+      needs.changes.outputs.app_deploy == 'true' &&
+      contains(fromJSON('["success","skipped"]'), needs.api-ci.result) &&
+      contains(fromJSON('["success","skipped"]'), needs.ui-ci.result) &&
+      contains(fromJSON('["success","skipped"]'), needs.contract.result) &&
+      contains(fromJSON('["success","skipped"]'), needs.scripts-test.result) &&
+      needs.ensure-api-image.result == 'success' &&
+      needs.deploy-ui-staging.result != 'failure'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.PUBLIC_BASE_URL }}
+    concurrency:
+      group: deploy-app-staging
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v7
+
       - uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2.5.2
-        if: needs.changes.outputs.app_deploy == 'true'
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
       - name: Render app spec pinned to this commit's image
-        if: needs.changes.outputs.app_deploy == 'true'
         env:
           IMAGE_TAG: ${{ needs.ensure-api-image.outputs.api_tag }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -661,39 +689,30 @@ jobs:
 
       # --wait blocks until the deployment settles. The PRE_DEPLOY migration job
       # (spec) runs inside it, so a failed migration fails this step and the
-      # previous revision keeps serving traffic. The spec update also rebuilds
-      # the static site from source, so no separate create-deployment is needed.
+      # previous revision keeps serving traffic. The spec update itself starts
+      # the deployment, so no separate create-deployment is needed.
       - name: Deploy the app spec
-        if: needs.changes.outputs.app_deploy == 'true'
         run: doctl apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml" --wait
 
       - name: Smoke test (api)
-        if: needs.changes.outputs.app_deploy == 'true'
         env:
           BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: war-infra/scripts/smoke-test.sh staging api
 
-  deploy-production:
-    name: Deploy → Production
-    needs: [changes, deploy-staging, ensure-api-image]
-    # ensure-api-image is skipped on a UI-only change, which must not block.
+  deploy-ui-production:
+    name: Deploy UI → Production
+    needs: [changes, deploy-ui-staging]
+    # Promotes the build staging served. Skipped unless the staging UI job
+    # succeeded in this run; a superseded one leaves promotion to the newer run.
     if: >-
       github.event_name != 'pull_request' && !cancelled() &&
-      needs.deploy-staging.result == 'success' &&
-      contains(fromJSON('["success","skipped"]'), needs.ensure-api-image.result)
+      needs.deploy-ui-staging.result == 'success'
     runs-on: ubuntu-latest
     environment:
       name: production
       url: ${{ vars.PUBLIC_BASE_URL }}
-    # Superseding a queued production run is safe now: every run deploys the
-    # state of its own commit (API image tag and app spec; the UI build is the
-    # artefact ui-ci uploaded in this run, the one staging served), and this
-    # is the only workflow that writes to the app. The pending-eviction that
-    # once cancelled a live security fix (commit 9404ffe) came from two
-    # pipelines each deploying only half the state. cancel-in-progress stays
-    # false so a deploy that is already running is never killed mid-flight.
     concurrency:
-      group: deploy-production
+      group: deploy-ui-production
       cancel-in-progress: false
 
     env:
@@ -708,27 +727,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # UI first: on the first rollout this is the no-downtime cutover, since
-      # the Worker is live and smoke-tested before the spec without the static
-      # site is applied below.
       - name: Download the UI build
-        if: needs.changes.outputs.ui_deploy == 'true'
         uses: actions/download-artifact@v8
         with:
           name: ui-default-dist
           path: ${{ runner.temp }}/ui-dist
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        if: needs.changes.outputs.ui_deploy == 'true'
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Init the UI Worker root
-        if: needs.changes.outputs.ui_deploy == 'true'
         run: terraform -chdir=war-infra/terraform/ui init -backend-config=key=ui/production/terraform.tfstate
 
       - name: Deploy the UI Worker
-        if: needs.changes.outputs.ui_deploy == 'true'
         env:
           PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: |
@@ -738,19 +750,37 @@ jobs:
             -var "assets_dir=$RUNNER_TEMP/ui-dist"
 
       - name: Smoke test (ui-default)
-        if: needs.changes.outputs.ui_deploy == 'true'
         env:
           BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: war-infra/scripts/smoke-test.sh production ui-default
 
+  deploy-app-production:
+    name: Deploy app → Production
+    needs: [changes, ensure-api-image, deploy-app-staging, deploy-ui-production]
+    # Promotes the app spec staging ran. Like the staging app job, it waits for
+    # this run's production UI job and proceeds unless that job failed.
+    if: >-
+      github.event_name != 'pull_request' && !cancelled() &&
+      needs.deploy-app-staging.result == 'success' &&
+      needs.ensure-api-image.result == 'success' &&
+      needs.deploy-ui-production.result != 'failure'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PUBLIC_BASE_URL }}
+    concurrency:
+      group: deploy-app-production
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v7
+
       - uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2.5.2
-        if: needs.changes.outputs.app_deploy == 'true'
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
       # Deploys the exact image already validated in staging — never a rebuild.
       - name: Render app spec pinned to this commit's image
-        if: needs.changes.outputs.app_deploy == 'true'
         env:
           IMAGE_TAG: ${{ needs.ensure-api-image.outputs.api_tag }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -765,17 +795,15 @@ jobs:
           FACEBOOK_CLIENT_SECRET: ${{ secrets.FACEBOOK_CLIENT_SECRET }}
           TWITTER_CLIENT_ID: ${{ vars.TWITTER_CLIENT_ID }}
           TWITTER_CLIENT_SECRET: ${{ secrets.TWITTER_CLIENT_SECRET }}
-        # See the staging job's identical step for why the variable list is
+        # See the staging app job's identical step for why the variable list is
         # derived and enforced, not optional tidiness.
         run: war-infra/scripts/render-spec.sh war-infra/platform/production.yaml "$RUNNER_TEMP/app-spec.yaml"
 
-      # See the staging job: --wait covers the PRE_DEPLOY migration.
+      # See the staging app job: --wait covers the PRE_DEPLOY migration.
       - name: Deploy the app spec
-        if: needs.changes.outputs.app_deploy == 'true'
         run: doctl apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml" --wait
 
       - name: Smoke test (api)
-        if: needs.changes.outputs.app_deploy == 'true'
         env:
           BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: war-infra/scripts/smoke-test.sh production api
