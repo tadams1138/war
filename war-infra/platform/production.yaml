@@ -138,7 +138,7 @@ services:
       # Actions secrets by envsubst immediately before this file is applied
       # (spec). Re-rendered fresh on every deploy, so rotating the GitHub
       # secret and redeploying (even a no-op redeploy) is all rotation takes.
-      # Apple is absent: unimplemented (see PROGRESS.md's "To revisit"),
+      # Apple is absent: unimplemented (see PROGRESS.md's "Not built"),
       # so there is nothing to substitute it with — add it here only once
       # the provider actually exists.
       - key: JWT_SECRET

@@ -122,8 +122,9 @@ platform does, in implementation-agnostic terms — no payload shapes, no schema
 structures. Keep it accurate enough to rebuild the project from alone, and keep
 implementation detail out of it: that belongs here.
 
-`PROGRESS.md` records what is actually built, what is not, known defects, and open
-questions. Update it when something ships.
+`PROGRESS.md` lists only work not yet done: what is not built, known defects, owner actions
+and open decisions. When something ships, delete its entry there and make sure `war-spec.md`
+(behaviour) and the README's "Deployment and operations" (how to operate it) describe it.
 
 Executable Gherkin lives with the code that implements it — `war-api/specs/features/`,
 `war-ui-default/features/`, `war-infra/specs/features/`. Each has a `pending/` subdirectory
@@ -134,6 +135,6 @@ calls.
 
 **The UI's Gherkin is executed.** Every scenario in `war-ui-default/features/*.feature` runs
 step by step through playwright-bdd; a step with no definition fails the run. Read
-the "UI acceptance test conventions" section of the root `README.md` before adding or
+the "UI acceptance test conventions" section of the [`README.md`](README.md) before adding or
 changing a UI scenario. Reuse a shared step or add a registry entry before writing a new
 step.
