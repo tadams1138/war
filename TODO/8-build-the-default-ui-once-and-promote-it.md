@@ -44,30 +44,36 @@ Options:
 - **C. Stay on App Platform:** no Worker cost, but pinning the UI to the validated commit
   likely needs a container service (an extra instance).
 
-Recommendation: **B**, with `run_worker_first = ["/wars/*"]` so only the og-tags path spends
-quota, after confirming the provider path. If the provider v4 to v5 upgrade is unwanted now,
-deploy the assets Worker with Wrangler from CI and manage only its route in Terraform, or do C
-now and B later. Not A.
+B was chosen; see Decisions below.
 
 ## Dependencies
 - #6 would let the routing be tested; #2 shares the `/ui/*` edge routing.
 
-## Open questions
-The decision (A, B or C) is pending.
-
-Unverified:
-- whether provider v4 can deploy static assets (static assets in `cloudflare_workers_script`
-  shipped in v5.11.0);
-- same-zone subrequest and route precedence behaviour (`/media/*`, `/ui/*`, `/wars/*` over a
-  `/*` catch-all; needs a staging test);
-- real daily page views and the Workers plan (the Free quota is believed account-wide,
-  unconfirmed);
-- whether `run_worker_first` in array form disables SPA navigation detection;
-- whether App Platform can deploy a static site from a pinned commit.
-
-Questions for the owner:
-- traffic and plan;
-- is a provider v5 upgrade acceptable now;
-- keep `og-tags-router` separate or merge it into the UI Worker;
-- keep `/ui/default/*` as an alias;
-- is a staging test of subrequest and route precedence acceptable.
+## Decisions (2026-10-25)
+- **Option B,** Cloudflare Workers static assets, deployed by Terraform. The UI is built once
+  in CI as a run artefact; staging deploys it and production deploys the same artefact.
+  `VITE_API_BASE_URL` is unset, so one build serves both environments.
+- **The Cloudflare provider moves to v5 (5.11.0 or later) in all three stacks** (shared,
+  staging, production) in the same change. The upgrade lands first, and every plan must show
+  no destroy and no recreate: `cloudflare_record` becomes `cloudflare_dns_record`, and
+  `cloudflare_zone_settings_override` becomes one `cloudflare_zone_setting` per setting.
+- **`og-tags-router` is merged into the UI Worker,** which reads the shell through its assets
+  binding. Settings: `run_worker_first = ["/wars/*"]` and
+  `not_found_handling = "single-page-application"`.
+- **`/ui/default/*` is dropped.**
+- **Routes:**
+  - `/*` goes to the UI Worker;
+  - `/api/v1/*` is a route with no Worker, so it reaches App Platform;
+  - `/media/*` and `/ui/*` are unchanged.
+- **App Platform keeps only the API.**
+- **An infra plan never needs the UI build.** The UI Worker script and its `/*` route share
+  one Terraform root, which only the app pipeline applies.
+- **Caching follows spec §12.4.** The shell keeps the assets default
+  (`max-age=0, must-revalidate`). `/assets/*` gets one year, immutable, through a `_headers`
+  file. The edge purge step goes away.
+- **Production cutover has no downtime:** the Worker and route go live and pass the smoke
+  tests before the static site leaves the app spec.
+- **Before the first production apply, a one-off manual check on staging** covers route
+  precedence, same-zone subrequests, and whether the `run_worker_first` array form keeps the
+  SPA fallback. If the SPA fallback breaks, stop and ask; `run_worker_first = true` is not an
+  acceptable fallback.
