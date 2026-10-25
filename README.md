@@ -18,14 +18,12 @@ working conventions.
 
 ## Architecture
 
-Three projects and one specification:
-
-| Path | What it is |
-|---|---|
-| [`war-spec.md`](war-spec.md) | The platform specification: what the system does, in implementation-agnostic terms. Where a test and the spec disagree, the spec wins. |
-| [`war-api/`](war-api) | Backend REST API: Node/TypeScript, Fastify, Kysely, PostgreSQL |
-| [`war-ui-default/`](war-ui-default) | Default web frontend: React SPA, Vite, Playwright |
-| [`war-infra/`](war-infra) | Terraform, App Platform specs, Cloudflare Workers, deploy scripts |
+The platform is three projects and one specification. [`war-spec.md`](war-spec.md) says what
+the system does, in implementation-agnostic terms; where a test and the spec disagree, the
+spec wins. [`war-api/`](war-api) is the backend REST API, [`war-ui-default/`](war-ui-default)
+the default web frontend (a React single-page app) and [`war-infra/`](war-infra) the
+Terraform, App Platform specs, Cloudflare Workers and deploy scripts. The technologies are in
+[Tech stack](#tech-stack).
 
 A brand-specific custom UI (spec section 11) is its own repository, not a directory here;
 [`.github/workflows/ui-custom.yml`](.github/workflows/ui-custom.yml) is the reusable pipeline
@@ -62,11 +60,9 @@ operated are under [Deployment and operations](#deployment-and-operations).
 
 Things a reviewer may want to look at:
 
-- **Executable Gherkin bound to tests.** Behaviour lives in `.feature` files next to the code
-  (`war-api/specs/features/`, `war-ui-default/features/`). API scenarios are bound with
-  `@amiceli/vitest-cucumber`, which executes every step; UI scenarios are executed the same way
-  with playwright-bdd, so a step with no definition fails the run
-  ([conventions](#ui-acceptance-test-conventions)).
+- **Executable Gherkin bound to tests.** Behaviour lives in `.feature` files next to the code,
+  and both the API and the UI execute every step
+  ([UI conventions](#ui-acceptance-test-conventions)).
 - **Typed client with a CI contract check.** The API's OpenAPI document is generated from its
   route definitions; the UI's request/response types are generated from it and committed.
   The [app pipeline](.github/workflows/app.yml)'s "Generated types match the API" job
@@ -82,14 +78,12 @@ Things a reviewer may want to look at:
   grant. An integration test proves each interleaving with two real transactions.
 - **Sessions.** Short-lived JWT plus a rotating refresh-token family with reuse detection;
   PKCE on every provider; a banned voter is rejected on the next authenticated request.
-- **Production config guard.** The API refuses to boot with default secrets, a missing
-  provider credential, or a localhost-shaped public URL.
-- **Edge behaviour.** Link-preview tags for each War's own link are injected by a Cloudflare
-  Worker (crawlers never run the SPA); originals and internal task endpoints are blocked at
-  the edge.
-- **Deploy safety.** Migrations run as an App Platform `PRE_DEPLOY` job, so a failed
-  migration leaves the previous revision serving. Production deploys the exact API image
-  staging validated.
+- **Production config guard.** The API refuses to boot on default secrets or a missing
+  provider credential.
+- **Edge behaviour.** Link-preview tags for each War's link are injected by a Cloudflare
+  Worker, since crawlers never run the SPA ([routing](#routing-and-cloudflare-workers)).
+- **Deploy safety.** A failed migration leaves the previous revision serving, and production
+  promotes the API image staging validated ([deployment](#app-platform-deployment)).
 - **Complexity budget.** ESLint enforces cyclomatic complexity of at most 5 in both
   applications.
 
@@ -166,16 +160,8 @@ Terraform validation, workflow lint) are in the "Build and test" section of
 is set and otherwise a Testcontainers Postgres, so Docker must be running. The UI acceptance
 suite needs a Chromium install once (`npx playwright install chromium`).
 
-Executable Gherkin lives next to the code it describes:
-
-| Project | Feature files | Bound by |
-|---|---|---|
-| API | `war-api/specs/features/` | `war-api/test/features/*.steps.ts` |
-| Default UI | `war-ui-default/features/` | `war-ui-default/tests/acceptance/steps/*.steps.ts` |
-| Infrastructure | `war-infra/specs/features/` | not bound: `war-infra` has no scenario runner |
-
-Each `features/` directory has a `pending/` subdirectory for scenarios with no binding yet.
-See [`PROGRESS.md`](PROGRESS.md) for what is there.
+Executable Gherkin lives next to the code it describes; see "Specs" in
+[`AGENTS.md`](AGENTS.md) for where, and for the `pending/` convention.
 
 ## Default UI
 
@@ -204,17 +190,6 @@ service worker with the baseline handlers in `src/mocks/handlers.ts`.
 `mock-sw/mockServiceWorker.js` is served only in mock mode, so it is never part of a real
 deployment's `dist/`.
 
-### Tests
-
-- `src/**` unit tests (Vitest): `api/client.ts` logic, pure helpers, hooks.
-- `features/*.feature`: Gherkin scenarios for user-visible behaviour; `features/pending/`
-  holds scenarios with no binding yet.
-- Acceptance tests load the mock build and set up each scenario with data-driven MSW recipes
-  (`tests/acceptance/support/mocking.ts`, `src/mocks/scenarios.ts`). Shared helpers live in
-  `tests/acceptance/support/`. Every scenario is executed step by step with playwright-bdd
-  using the step definitions in `tests/acceptance/steps/`; the conventions are in
-  [UI acceptance test conventions](#ui-acceptance-test-conventions).
-
 ### Source layout
 
 - `src/api`: typed client, error mapping, generated schema
@@ -229,6 +204,11 @@ deployment's `dist/`.
 Required reading before adding or changing a UI scenario. Paths are relative to
 `war-ui-default/` (`features/`, `src/`) or, for `steps/` and `support/`, to
 `war-ui-default/tests/acceptance/`.
+
+Unit tests (Vitest) cover `api/client.ts` logic, pure helpers and hooks. Acceptance tests
+load the mock build and set up each scenario with data-driven MSW recipes
+(`tests/acceptance/support/mocking.ts`, `src/mocks/scenarios.ts`); shared helpers live in
+`tests/acceptance/support/`.
 
 Every scenario in `features/*.feature` is executed step by step with
 [playwright-bdd](https://github.com/vitalets/playwright-bdd), against the mock build (MSW). A
@@ -383,7 +363,7 @@ Use these before writing new steps.
 4. Prove it can fail: change one expected value, or break the app behaviour it covers, see the
    run go red, restore it.
 5. Run lint (zero warnings), typecheck, unit tests, the full acceptance suite and the build
-   (commands in the root `AGENTS.md`).
+   (commands in [`AGENTS.md`](AGENTS.md)).
 
 ### Acceptance pitfalls
 
@@ -412,10 +392,10 @@ change is applied through CI, never by hand.
 | `ui-custom.yml` | Reusable pipeline for separate custom-UI repositories |
 | `push-bootstrap-image.yml` | Manual one-off publish of the placeholder image Terraform's initial app spec points at |
 
-Path filters decide what runs. `app.yml` runs a changed project's CI (API, UI), the
-generated-types check when the API contract changed, and the deploy-script tests when
-`war-infra/scripts/` or `war-infra/platform/` changed. `workflows.yml` runs on changes under
-`.github/workflows/`. `gh workflow run app.yml --ref master` forces every check.
+Path filters decide what runs (the stage order is in spec section 12.5). The deploy-script
+tests run when `war-infra/scripts/` or `war-infra/platform/` changed, and `workflows.yml`
+runs on changes under `.github/workflows/`. A manual run forces every check:
+`gh workflow run app.yml --ref master`.
 
 ### `war-infra/` layout
 
@@ -430,16 +410,13 @@ generated-types check when the API contract changed, and the deploy-script tests
 
 ### Environments
 
-**Staging** (`staging.war.tmad.dev`): single-node PostgreSQL; deployed on every merge to
-`master`; the integration check before production.
-
-**Production** (`war.tmad.dev`): PostgreSQL with an automated standby and point-in-time
-recovery; deploy waits on the `production` environment's required reviewer. It promotes the
-exact API image staging validated and never rebuilds it.
+Staging is `staging.war.tmad.dev` and deploys on every merge to `master`; production is
+`war.tmad.dev` and waits on the `production` GitHub Environment's required reviewer. What each
+environment must provide is in spec sections 12.1 and 12.2.
 
 ### Terraform
 
-- `shared/`: resources shared across environments (none currently).
+- `shared/`: the container registry and the Cloudflare zone-wide settings (zone settings, firewall, rate-limit and cache rulesets).
 - `envs/staging/`, `envs/production/`: the environment roots. Each `main.tf` configures the
   providers and the remote state backend (Spaces, S3-compatible), instantiates the modules
   with environment values (node size, counts, hostnames) and handles async dependencies such
@@ -449,11 +426,10 @@ exact API image staging validated and never rebuilds it.
   state), `edge/` (Cloudflare DNS, TLS, WAF rules, rate limiting, Worker routes) and
   `scheduler/` (Cloudflare cron triggers and Worker bindings).
 
-`infra.yml` validates and plans on every change. On merge to `master` it applies shared
-(approval gate), then staging, then production (approval gate), each only when its plan shows
-changes. A manual run validates and plans only. To validate locally, use the Terraform
-commands in `AGENTS.md`'s "Build and test"; repeat them with `envs/production` for
-production, as CI does.
+`infra.yml` is gated as spec section 12.5 describes; the shared apply waits on the
+`infra-shared` GitHub Environment's reviewer and the production apply on `production`'s. To
+validate locally, use the Terraform commands in "Build and test" in
+[`AGENTS.md`](AGENTS.md); repeat them with `envs/production` for production, as CI does.
 
 ### App Platform deployment
 
@@ -479,14 +455,13 @@ doctl apps update <app-id> --spec /tmp/app.yaml --wait
 `bash war-infra/scripts/render-spec.test.sh`. The image tag is the git tree hash of
 `war-api/` (`git rev-parse HEAD:war-api`).
 
-`app.yml` automates this. The API image is tagged with that tree hash and built only if the
-registry lacks it, after API CI passes. On `master`, one deploy job per environment renders
-the full app spec, applies it with `doctl --wait` (the `PRE_DEPLOY` migration job runs
-inside it), purges the edge cache and smoke-tests: staging, then production behind the
-approval. A push that needs an API image missing from the registry, whose API CI did not run
-in that run, fails with an error; run `gh workflow run app.yml --ref master` (a manual run
-forces every check, builds the image and deploys). The default UI is built by App Platform
-from `master` at deploy time.
+`app.yml` automates this (stage order: spec section 12.5). The API image is tagged with that
+tree hash and built only if the registry lacks it, after API CI passes. One deploy job per
+environment renders the full app spec and applies it with `doctl --wait`; the `PRE_DEPLOY`
+migration job runs inside it. A push that needs an API image missing from the registry,
+whose API CI did not run in that run, fails with an error; run the workflow manually (see
+[Workflows](#workflows)), which builds the image and deploys. The default UI is built by App
+Platform from `master` at deploy time.
 
 ### Routing and Cloudflare Workers
 
@@ -507,13 +482,19 @@ from `master` at deploy time.
 | `media-router.js` | Caches and serves media, stripping the `/media/` prefix |
 | `scheduled-tasks.js` | Invoked by Cloudflare cron; dispatches scheduled operations to internal API endpoints |
 
+Media and the shared custom-UI bucket are served with a one-year cache on content-addressed
+keys; the link-preview Worker acts on `/wars/:id` only. Zone-wide rules (in `terraform/shared/`):
+block `/api/v1/internal/*` and `/media/originals/*`; one rate-limit rule on `/api/v1/auth/*`
+(10 requests per 10 seconds per address and colo, which is all the Cloudflare Free plan
+permits per zone); bypass the cache for the API except rankings.
+
 ### Scheduled tasks
 
-One task runs: **close-expired-wars** (nightly), which updates the `status` column for Wars
-past their `ends_at`. It is never authoritative (spec 12.8): the API evaluates expiry lazily
-on every read and write, so a failed run delays stored-state convergence but breaks neither
-voting nor ranking. It is safe to run repeatedly and concurrently; two consecutive failures
-are meant to alert (not built; see `PROGRESS.md`).
+One task runs, nightly: the `scheduled-tasks.js` Cron Worker calls
+`POST /api/v1/internal/close-expired-wars` with `INTERNAL_TASK_TOKEN` (the `x-internal-token`
+header). When a task fails the Worker throws, which marks the invocation failed in Cloudflare.
+Why a failure is not an outage: spec section 12.8. Alerting on repeated failure is not built
+([`PROGRESS.md`](PROGRESS.md#not-built)).
 
 ### Secrets and configuration
 
@@ -529,6 +510,10 @@ Required GitHub Actions secrets (per repository):
 | `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_SECRET`, `FACEBOOK_CLIENT_SECRET`, `TWITTER_CLIENT_SECRET` | API config | OAuth provider client secrets |
 | `DOCKERHUB_TOKEN` | API and bootstrap pipelines | Authenticated image pulls (avoids the anonymous rate limit on shared runners) |
 
+The `staging` and `production` GitHub Environments each carry `DO_APP_ID` and
+`PUBLIC_BASE_URL`; `production` has the required reviewer. Repository secrets and variables
+are also listed in the header of [`app.yml`](.github/workflows/app.yml).
+
 Required GitHub Actions variables:
 
 | Variable | Used by | Purpose |
@@ -536,21 +521,19 @@ Required GitHub Actions variables:
 | `CLOUDFLARE_ZONE_ID` | terraform | Cloudflare DNS zone ID |
 | `CLOUDFLARE_ACCOUNT_ID` | terraform, scheduler | Cloudflare account ID |
 | `GOOGLE_CLIENT_ID`, `MICROSOFT_CLIENT_ID`, `FACEBOOK_CLIENT_ID`, `TWITTER_CLIENT_ID` | API config | OAuth provider client IDs |
-| `PUBLIC_BASE_URL` | API config | The API's public base URL |
 | `DO_APP_ID` | app pipeline | App Platform app ID, set once per GitHub environment (staging, production) from Terraform's `app_id` output |
+| `PUBLIC_BASE_URL` | app pipeline, API config | The environment's public URL (`https://staging.war.tmad.dev` or `https://war.tmad.dev`), set per GitHub environment |
 | `DOCKERHUB_USERNAME` | API and bootstrap pipelines | Docker Hub account that owns `DOCKERHUB_TOKEN` |
 
 ### Rate limiting
 
-The API's per-address limits (sign-in start 10/min, token refresh 30/min; spec 8.4) need the
-real client address, which depends on how many reverse-proxy hops sit in front of the API.
-The hop count is **not yet verified**, so `TRUST_PROXY_HOPS` is unset and those limits are
-**off**. Unset is deliberate: a wrong count would either throttle every client as one address
-or trust a spoofable header. The Cloudflare edge rule on `/auth/*` still applies. To enable:
+The API's per-address limits (spec 8.4) need the real client address, which depends on how
+many reverse-proxy hops sit in front of the API (spec 12.2). The hop count is **not yet
+verified**, so `TRUST_PROXY_HOPS` is unset in `platform/{env}.yaml` and those limits are
+**off**; the Cloudflare edge rule on `/api/v1/auth/*` still applies. To enable:
 
 1. Measure the hop count for Cloudflare to App Platform ingress.
 2. Set `TRUST_PROXY_HOPS` in `platform/{env}.yaml` to that count.
-3. The API then extracts the true client IP and applies per-client limits.
 
 ### Operational constraints
 
@@ -580,6 +563,43 @@ Rules not visible in code, each learned through production incidents:
    provider, per environment. Nothing in the pipeline does this; sign-in fails silently if
    missing.
 
+### First-time setup of an environment
+
+1. **Provider apps.** Register an app with each of Google, Microsoft, Facebook and Twitter/X,
+   put the client IDs and secrets in GitHub (see [Secrets and
+   configuration](#secrets-and-configuration)) and register the environment's redirect URI
+   with each provider. Do this before a deploy reaches the environment: the API refuses to
+   boot with any provider unconfigured. Bring staging up first and confirm sign-in works end
+   to end with each provider, then production.
+2. **Provider verification** is a manual step in each provider's console: Microsoft needs
+   publisher/domain verification and Twitter/X a developer app review. Google, Microsoft and
+   Twitter/X are done; Facebook is not (see [`PROGRESS.md`](PROGRESS.md#owner-actions)).
+3. **Seed the first Admin**, once per environment, after that environment's deploy has run
+   (it needs the roles migration) and the owner has signed in once. Nothing else grants the
+   role, since granting is Admin-only (spec 6.7). Run from the repository root with dev
+   dependencies installed (`npm --prefix war-api ci`):
+
+   ```powershell
+   $env:NODE_EXTRA_CA_CERTS = "<that cluster's CA certificate file>"
+   $env:DATABASE_URL = doctl databases connection <cluster-id> --format URI --no-header
+   if (-not $env:DATABASE_URL) { throw "No connection string returned" }
+   npm --prefix war-api run seed-admin -- <voter-id>
+   Remove-Item Env:DATABASE_URL, Env:NODE_EXTRA_CA_CERTS
+   ```
+
+   - The cluster id comes from `doctl databases list` (`war-staging-pg`, `war-production-pg`).
+   - The voter id is `voter.id` in the response of `GET /api/v1/auth/me` while signed in on
+     that environment; ids differ per environment.
+   - Your IP must be in the cluster's trusted sources
+     (`doctl databases firewalls append <cluster-id> --rule ip_addr:<ip>`) or the connection
+     times out.
+   - DigitalOcean issues a separate CA per cluster; the wrong file fails with "self-signed
+     certificate in certificate chain".
+   - Fetching the URI through `doctl` keeps the password out of shell history and
+     transcripts. Success prints `Granted admin to voter <id>`.
+4. **GitHub Environments** `staging`, `production` and `infra-shared` exist with their
+   reviewers (see constraint 5 above).
+
 ### Smoke tests
 
 Each deploy job runs both after deploying, to catch deploy-time failures before production:
@@ -589,14 +609,19 @@ Each deploy job runs both after deploying, to catch deploy-time failures before 
 
 See `war-infra/scripts/smoke-test.sh` and the deploy jobs in `app.yml`.
 
+### Alerts
+
+The App Platform app alerts on CPU, memory, restart count, failed deployment and failed
+domain. Anything beyond that is not built (spec 12.7; [`PROGRESS.md`](PROGRESS.md#not-built)).
+
 ## Status and specification
 
-[`PROGRESS.md`](PROGRESS.md) is the status board: what is built, what is not, known defects,
-open questions and operational prerequisites. [`war-spec.md`](war-spec.md) describes the
-full design, including parts not yet built, so a section being present in the spec does not
-mean it ships. [`docs/building-a-war-import.md`](docs/building-a-war-import.md) holds
-instructions written for an AI assistant that assembles a War import file for the app's
-Import feature.
+[`war-spec.md`](war-spec.md) describes the full design, including parts not yet built, so a
+section being present in the spec does not mean it ships; sections marked **Planned** are the
+unbuilt ones. [`PROGRESS.md`](PROGRESS.md) lists only the work not yet done: what is not
+built, known defects, owner actions and open decisions.
+[`docs/building-a-war-import.md`](docs/building-a-war-import.md) holds instructions written
+for an AI assistant that assembles a War import file for the app's Import feature.
 
 ## License
 
