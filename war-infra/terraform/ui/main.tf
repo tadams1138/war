@@ -87,6 +87,9 @@ resource "cloudflare_workers_route" "ui_default" {
   zone_id = var.cloudflare_zone_id
   pattern = "${var.domain}/*"
   script  = cloudflare_workers_script.ui_default.script_name
+
+  # /api/v1/* must already bypass the Worker when /* first goes live.
+  depends_on = [cloudflare_workers_route.api_passthrough]
 }
 
 # No script: keeps /api/v1/* out of the /* route and sends it to App Platform.
