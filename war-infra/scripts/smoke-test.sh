@@ -80,8 +80,12 @@ body_contains() {
 
 # body_lacks <path> <substring> <description>
 body_lacks() {
-  local path="$1" unwanted="$2" desc="$3"
-  if curl -sS --max-time "$CURL_TIMEOUT" "${BASE_URL}${path}" 2>/dev/null | grep -qF -- "$unwanted"; then
+  local path="$1" unwanted="$2" desc="$3" body rc=0
+  # Fetch first: an empty body from a failed request must not count as a pass.
+  body="$(curl -sS --max-time "$CURL_TIMEOUT" "${BASE_URL}${path}" 2>/dev/null)" || rc=$?
+  if (( rc != 0 )); then
+    fail "$desc — request failed (curl exit $rc, ${BASE_URL}${path})"
+  elif grep -qF -- "$unwanted" <<< "$body"; then
     fail "$desc — response unexpectedly contained '$unwanted' (${BASE_URL}${path})"
   else
     pass "$desc"
@@ -142,7 +146,8 @@ case "$TARGET" in
     # every request, fingerprinted assets are cached forever.
     cc_value="$(curl -sSI --max-time "$CURL_TIMEOUT" "${BASE_URL}/" 2>/dev/null \
                 | tr -d '\r' | awk -F': ' 'tolower($1)=="cache-control"{print $2; exit}')"
-    if [[ "$cc_value" == *"no-store"* || "$cc_value" == *"max-age=0"* ]]; then
+    # max-age=0 as a whole directive only: s-maxage=0 must not match.
+    if [[ "$cc_value" == *"no-store"* || "$cc_value" =~ (^|[ ,])max-age=0([ ,]|$) ]]; then
       pass "index.html is not cached (cache-control: ${cc_value:-<absent>})"
     else
       fail "index.html cache-control too permissive — got '${cc_value:-<absent>}'"
