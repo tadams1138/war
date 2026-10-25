@@ -498,7 +498,10 @@ Cloudflare's Worker version rollback for the UI, or re-run the pipeline on the o
 | `scheduled-tasks.js` | Invoked by Cloudflare cron; dispatches scheduled operations to internal API endpoints |
 
 Media and the shared custom-UI bucket are served with a one-year cache on content-addressed
-keys; the default UI Worker runs code on `/wars/:id` only and serves everything else straight from its assets. Zone-wide rules (in `terraform/shared/`):
+keys. The default UI Worker's script runs first on `/wars/*` and rewrites only `/wars/:id`;
+other paths are served straight from its assets, except a non-navigation request that matches
+no file (a crawler or `curl` asking for a missing `/robots.txt`, say), which reaches the
+script and gets the shell. Zone-wide rules (in `terraform/shared/`):
 block `/api/v1/internal/*` and `/media/originals/*`; one rate-limit rule on `/api/v1/auth/*`
 (10 requests per 10 seconds per address and colo, which is all the Cloudflare Free plan
 permits per zone); bypass the cache for the API except rankings.

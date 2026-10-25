@@ -49,8 +49,9 @@ variable "ui_custom_cdn_host" {
 }
 
 locals {
-  # Everything not matched by a Worker route proxies to App Platform, which
-  # performs the path→component routing.
+  # Paths not matched by a Worker route here fall to the default UI Worker's
+  # /* route (terraform/ui), apart from /api/v1/*, which that root keeps on a
+  # script-less route so it proxies to App Platform.
   ui_worker_name    = "war-ui-router-${var.env}"
   media_worker_name = "war-media-router-${var.env}"
 }
