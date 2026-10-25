@@ -54,10 +54,13 @@ resource "cloudflare_workers_script" "scheduled_tasks" {
   }
 }
 
-resource "cloudflare_workers_cron_trigger" "scheduled_tasks" {
-  account_id  = var.account_id
-  script_name = cloudflare_workers_script.scheduled_tasks.name
-  schedules   = [var.cron]
+# The trigger stays live and keeps firing; the provider v5 upgrade imports it again.
+removed {
+  from = cloudflare_workers_cron_trigger.scheduled_tasks
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 output "worker_name" {
