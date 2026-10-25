@@ -7,7 +7,7 @@ terraform {
 
   required_providers {
     digitalocean = { source = "digitalocean/digitalocean", version = "~> 2.43" }
-    cloudflare   = { source = "cloudflare/cloudflare", version = "~> 4.40" }
+    cloudflare   = { source = "cloudflare/cloudflare", version = "~> 5.28" }
     time         = { source = "hashicorp/time", version = "~> 0.12" }
   }
 
@@ -156,6 +156,13 @@ module "scheduler" {
   account_id          = var.cloudflare_account_id
   api_origin          = data.digitalocean_app.war.default_ingress
   internal_task_token = var.internal_task_token
+}
+
+# Adopts the existing cron schedule under the cron trigger's new address in
+# modules/scheduler (provider v5 cannot upgrade the v4 state in place).
+import {
+  to = module.scheduler.cloudflare_workers_cron_trigger.cron
+  id = "${nonsensitive(var.cloudflare_account_id)}/war-scheduled-tasks-${local.env}"
 }
 
 # ── Outputs ───────────────────────────────────────────────────────────────────

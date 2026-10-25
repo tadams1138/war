@@ -13,7 +13,7 @@ terraform {
   required_version = "~> 1.9"
 
   required_providers {
-    cloudflare = { source = "cloudflare/cloudflare", version = "~> 4.40" }
+    cloudflare = { source = "cloudflare/cloudflare", version = "~> 5.28" }
   }
 }
 
@@ -58,7 +58,14 @@ locals {
 
 # ── DNS ───────────────────────────────────────────────────────────────────────
 
-resource "cloudflare_record" "apex" {
+# Provider v5 renamed cloudflare_record to cloudflare_dns_record; the moved
+# block carries the existing record across without recreating it.
+moved {
+  from = cloudflare_record.apex
+  to   = cloudflare_dns_record.apex
+}
+
+resource "cloudflare_dns_record" "apex" {
   zone_id = var.zone_id
   name    = var.domain
   type    = "CNAME"
@@ -77,21 +84,22 @@ resource "cloudflare_record" "apex" {
 
 resource "cloudflare_workers_script" "media_router" {
   account_id         = var.account_id
-  name               = local.media_worker_name
+  script_name        = local.media_worker_name
   content            = file("${path.module}/../../../edge/media-router.js")
-  module             = true
+  main_module        = "media-router.js"
   compatibility_date = "2025-04-02" # earliest date the Worker's own cf.cacheEverything/cacheTtl are honoured over Cache Rules — required for the aggressive media caching this Worker exists to provide
 
-  plain_text_binding {
+  bindings = [{
+    type = "plain_text"
     name = "MEDIA_CDN_ORIGIN"
     text = "https://${var.media_cdn_host}"
-  }
+  }]
 }
 
 resource "cloudflare_workers_route" "media_router" {
-  zone_id     = var.zone_id
-  pattern     = "${var.domain}/media/*"
-  script_name = cloudflare_workers_script.media_router.name
+  zone_id = var.zone_id
+  pattern = "${var.domain}/media/*"
+  script  = cloudflare_workers_script.media_router.script_name
 }
 
 # ── Custom UI router Worker ───────────────────────────────────────────────────
@@ -101,24 +109,25 @@ resource "cloudflare_workers_route" "media_router" {
 
 resource "cloudflare_workers_script" "ui_router" {
   account_id         = var.account_id
-  name               = local.ui_worker_name
+  script_name        = local.ui_worker_name
   content            = file("${path.module}/../../../edge/ui-router.js")
-  module             = true
+  main_module        = "ui-router.js"
   compatibility_date = "2025-04-02" # pinned for predictable behaviour, matching media_router; this script sets no cf overrides today
 
-  plain_text_binding {
+  bindings = [{
+    type = "plain_text"
     name = "STORAGE_CDN_ORIGIN"
     text = "https://${var.ui_custom_cdn_host}"
-  }
+  }]
 }
 
 # Bound only to /ui/*, so the bulk of platform traffic never invokes it and any
 # per-invocation quota applies to custom-UI traffic alone (spec).
 # /ui/default/* is served by App Platform and must not reach the Worker.
 resource "cloudflare_workers_route" "ui_router" {
-  zone_id     = var.zone_id
-  pattern     = "${var.domain}/ui/*"
-  script_name = cloudflare_workers_script.ui_router.name
+  zone_id = var.zone_id
+  pattern = "${var.domain}/ui/*"
+  script  = cloudflare_workers_script.ui_router.script_name
 }
 
 # ── Open Graph tag injector Worker ────────────────────────────────────────────
@@ -131,16 +140,16 @@ resource "cloudflare_workers_route" "ui_router" {
 
 resource "cloudflare_workers_script" "og_tags_router" {
   account_id         = var.account_id
-  name               = local.og_tags_worker_name
+  script_name        = local.og_tags_worker_name
   content            = file("${path.module}/../../../edge/og-tags-router.js")
-  module             = true
+  main_module        = "og-tags-router.js"
   compatibility_date = "2025-04-02" # pinned for predictable behaviour, matching the other two Workers; this script sets no cf overrides today
 }
 
 resource "cloudflare_workers_route" "og_tags_router" {
-  zone_id     = var.zone_id
-  pattern     = "${var.domain}/wars/*"
-  script_name = cloudflare_workers_script.og_tags_router.name
+  zone_id = var.zone_id
+  pattern = "${var.domain}/wars/*"
+  script  = cloudflare_workers_script.og_tags_router.script_name
 }
 
 # WAF, rate limiting, and cache rules live in terraform/shared, not here, one
@@ -155,13 +164,13 @@ resource "cloudflare_workers_route" "og_tags_router" {
 # of them exist. See terraform/shared/main.tf.
 
 output "worker_name" {
-  value = cloudflare_workers_script.ui_router.name
+  value = cloudflare_workers_script.ui_router.script_name
 }
 
 output "media_worker_name" {
-  value = cloudflare_workers_script.media_router.name
+  value = cloudflare_workers_script.media_router.script_name
 }
 
 output "og_tags_worker_name" {
-  value = cloudflare_workers_script.og_tags_router.name
+  value = cloudflare_workers_script.og_tags_router.script_name
 }

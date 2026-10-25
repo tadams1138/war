@@ -12,7 +12,7 @@ terraform {
 
   required_providers {
     digitalocean = { source = "digitalocean/digitalocean", version = "~> 2.43" }
-    cloudflare   = { source = "cloudflare/cloudflare", version = "~> 4.40" }
+    cloudflare   = { source = "cloudflare/cloudflare", version = "~> 5.28" }
   }
 
   backend "s3" {
@@ -69,19 +69,98 @@ resource "digitalocean_container_registry" "war" {
 
 # ── Zone-wide Cloudflare settings ─────────────────────────────────────────────
 
-# The zone settings stay live on Cloudflare; Terraform stops tracking them here
-# so the provider v5 upgrade can import each setting as its own resource.
-# Values at release: ssl strict (App Platform and Spaces present valid
-# certificates), always_use_https on, automatic_https_rewrites on,
-# min_tls_version 1.2, tls_1_3 on, browser_cache_ttl 0 (respect origin
-# Cache-Control; assets are content-hashed and immutable), HSTS enabled,
-# include_subdomains, max_age 31536000, preload false.
-removed {
-  from = cloudflare_zone_settings_override.war
+# Provider v5 removed cloudflare_zone_settings_override in favour of one
+# cloudflare_zone_setting per setting. PR "infra: stop tracking zone settings and
+# the cron trigger ahead of the provider v5 upgrade" already released the old
+# resource from state without touching the zone, so each setting is imported
+# here and the zone is adopted as it stands. Every value is unchanged.
 
-  lifecycle {
-    destroy = false
+resource "cloudflare_zone_setting" "ssl" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "ssl"
+  # Full (strict) — App Platform and Spaces both present valid certificates,
+  # so there is no reason to accept an unvalidated origin.
+  value = "strict"
+}
+
+resource "cloudflare_zone_setting" "always_use_https" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "always_use_https"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "automatic_https_rewrites" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "automatic_https_rewrites"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "min_tls_version" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "min_tls_version"
+  value      = "1.2"
+}
+
+resource "cloudflare_zone_setting" "tls_1_3" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "tls_1_3"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "browser_cache_ttl" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "browser_cache_ttl"
+  # Assets are content-hashed and immutable; let the edge honour that.
+  value = 0 # respect origin Cache-Control
+}
+
+resource "cloudflare_zone_setting" "security_header" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "security_header"
+  value = {
+    strict_transport_security = {
+      enabled            = true
+      include_subdomains = true
+      max_age            = 31536000
+      preload            = false
+      nosniff            = false # matches the live value, so the import plans no change
+    }
   }
+}
+
+import {
+  to = cloudflare_zone_setting.ssl
+  id = "${nonsensitive(var.cloudflare_zone_id)}/ssl"
+}
+
+import {
+  to = cloudflare_zone_setting.always_use_https
+  id = "${nonsensitive(var.cloudflare_zone_id)}/always_use_https"
+}
+
+import {
+  to = cloudflare_zone_setting.automatic_https_rewrites
+  id = "${nonsensitive(var.cloudflare_zone_id)}/automatic_https_rewrites"
+}
+
+import {
+  to = cloudflare_zone_setting.min_tls_version
+  id = "${nonsensitive(var.cloudflare_zone_id)}/min_tls_version"
+}
+
+import {
+  to = cloudflare_zone_setting.tls_1_3
+  id = "${nonsensitive(var.cloudflare_zone_id)}/tls_1_3"
+}
+
+import {
+  to = cloudflare_zone_setting.browser_cache_ttl
+  id = "${nonsensitive(var.cloudflare_zone_id)}/browser_cache_ttl"
+}
+
+import {
+  to = cloudflare_zone_setting.security_header
+  id = "${nonsensitive(var.cloudflare_zone_id)}/security_header"
 }
 
 # ── WAF, rate limiting, and cache ─────────────────────────────────────────────
@@ -102,22 +181,23 @@ resource "cloudflare_ruleset" "firewall" {
   kind    = "zone"
   phase   = "http_request_firewall_custom"
 
-  # Internal task endpoints are reachable only by the scheduler, which calls the
-  # App Platform origin directly rather than through this hostname (spec).
-  rules {
-    description = "Block internal task endpoints from the public internet"
-    expression  = "(starts_with(http.request.uri.path, \"/api/v1/internal/\"))"
-    action      = "block"
-    enabled     = true
-  }
-
-  # Originals exist only for reprocessing and are never served (spec).
-  rules {
-    description = "Block direct access to unprocessed image originals"
-    expression  = "(starts_with(http.request.uri.path, \"/media/originals/\"))"
-    action      = "block"
-    enabled     = true
-  }
+  rules = [
+    # Internal task endpoints are reachable only by the scheduler, which calls the
+    # App Platform origin directly rather than through this hostname (spec).
+    {
+      description = "Block internal task endpoints from the public internet"
+      expression  = "(starts_with(http.request.uri.path, \"/api/v1/internal/\"))"
+      action      = "block"
+      enabled     = true
+    },
+    # Originals exist only for reprocessing and are never served (spec).
+    {
+      description = "Block direct access to unprocessed image originals"
+      expression  = "(starts_with(http.request.uri.path, \"/media/originals/\"))"
+      action      = "block"
+      enabled     = true
+    },
+  ]
 }
 
 # Volumetric shedding only. Per-voter limits live in the API, which can decode
@@ -136,24 +216,26 @@ resource "cloudflare_ruleset" "ratelimit" {
   kind    = "zone"
   phase   = "http_ratelimit"
 
-  rules {
-    description = "Throttle auth endpoints per address"
-    expression  = "(starts_with(http.request.uri.path, \"/api/v1/auth/\"))"
-    action      = "block"
-    enabled     = true
+  rules = [
+    {
+      description = "Throttle auth endpoints per address"
+      expression  = "(starts_with(http.request.uri.path, \"/api/v1/auth/\"))"
+      action      = "block"
+      enabled     = true
 
-    ratelimit {
-      characteristics = ["ip.src", "cf.colo.id"]
-      # Free plan only permits a 10s period and a 10s mitigation timeout
-      # ("not entitled to use the period 60, can only use a period among
-      # [10]", then separately "not entitled to use a mitigation timeout
-      # different from 10"). Rate scaled to preserve the original 60
-      # requests/60s average; mitigation window is just whatever Free allows.
-      period              = 10
-      requests_per_period = 10
-      mitigation_timeout  = 10
-    }
-  }
+      ratelimit = {
+        characteristics = ["cf.colo.id", "ip.src"] # the order the API returns, so the plan shows no reorder
+        # Free plan only permits a 10s period and a 10s mitigation timeout
+        # ("not entitled to use the period 60, can only use a period among
+        # [10]", then separately "not entitled to use a mitigation timeout
+        # different from 10"). Rate scaled to preserve the original 60
+        # requests/60s average; mitigation window is just whatever Free allows.
+        period              = 10
+        requests_per_period = 10
+        mitigation_timeout  = 10
+      }
+    },
+  ]
 }
 
 resource "cloudflare_ruleset" "cache" {
@@ -180,16 +262,18 @@ resource "cloudflare_ruleset" "cache" {
   # scripts/smoke-test.sh's ui-default cache-control check). Adding a "cache
   # everything" rule here for performance later would make that s-maxage
   # start mattering — revisit the smoke test's tolerance at the same time.
-  rules {
-    description = "Bypass cache for the API, except where it opts in"
-    expression  = "(starts_with(http.request.uri.path, \"/api/v1/\") and not http.request.uri.path contains \"/rankings\")"
-    action      = "set_cache_settings"
-    enabled     = true
+  rules = [
+    {
+      description = "Bypass cache for the API, except where it opts in"
+      expression  = "(starts_with(http.request.uri.path, \"/api/v1/\") and not http.request.uri.path contains \"/rankings\")"
+      action      = "set_cache_settings"
+      enabled     = true
 
-    action_parameters {
-      cache = false
-    }
-  }
+      action_parameters = {
+        cache = false
+      }
+    },
+  ]
 }
 
 output "registry_name" {
