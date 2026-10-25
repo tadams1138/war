@@ -7,7 +7,7 @@ behaviour with no implementation yet; everything else is built.
 
 This is the complete functional specification for the War platform. It describes *what the
 system does*, not how any particular implementation achieves it. Concrete technology
-choices live in the code and the README's Stack section, project layout and build commands
+choices live in the code and the README's Tech stack section, project layout and build commands
 in `AGENTS.md`, and what has actually been built in `PROGRESS.md`.
 
 Request and response payload shapes are deliberately absent. They are settled during the
@@ -1285,17 +1285,17 @@ than the standard ones, and per-slug infrastructure of any kind.
 Infrastructure is defined as code, and every environment change is applied by automated
 pipeline — no manual console changes in staging or production. This section states
 infrastructure by **role**; the products currently filling each role are named in the
-README's Stack section, and operational detail lives in `war-infra/README.md`.
+README's Tech stack section, and operational detail lives in its Deployment and operations section.
 
 | Role | Responsibility |
 |---|---|
 | **Edge** | DNS, TLS termination, CDN caching, web application firewall, rate limiting, DDoS mitigation |
 | **Edge function** | Small request-time compute, used only where routing requires it |
 | **Application platform** | Runs the API and hosts the default UI; owns path-based ingress |
-| **Database** | Managed PostgreSQL with a connection pooler and automated backups |
-| **Object storage** | S3-compatible buckets for media, custom UI bundles, and infrastructure state |
+| **Database** | Managed relational database with a connection pooler and automated backups |
+| **Object storage** | Buckets for media, custom UI bundles, and infrastructure state |
 | **Container registry** | Stores API images |
-| **Scheduler** | Invokes endpoints on a cron schedule |
+| **Scheduler** | Invokes endpoints on a recurring schedule |
 | **Observability** | Error tracking, log aggregation, metric alerting |
 
 ### 12.1 Environments
@@ -1460,7 +1460,7 @@ alerting on repeated failure is part of the planned monitoring (§12.7).
 ### 12.9 Operational constraints
 
 Rules not visible in the infrastructure code; changing any needs a better reason than
-tidiness. Procedures live in `war-infra/README.md`.
+tidiness. Procedures live in the README's Deployment and operations section.
 
 - The application's identifier is set by hand per environment after any from-scratch apply;
   deploy pipelines read it from there.
