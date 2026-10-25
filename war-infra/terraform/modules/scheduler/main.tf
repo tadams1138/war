@@ -31,8 +31,6 @@ variable "internal_task_token" {
   sensitive = true
 }
 
-# Unused until the provider v5 upgrade brings the cron trigger back under Terraform.
-# tflint-ignore: terraform_unused_declarations
 variable "cron" {
   type        = string
   description = "Cron expression in UTC"
