@@ -1,6 +1,6 @@
 # War — Platform Specification
 
-**Status:** Living specification. `PROGRESS.md` lists only the work not yet done.
+**Status:** Living specification. `TODO.md` lists only the work not yet done.
 
 Sections marked **Planned — not yet built** (§6.5, §9.2, §11, §12.7) describe designed
 behaviour with no implementation yet; everything else is built.
@@ -8,7 +8,7 @@ behaviour with no implementation yet; everything else is built.
 This is the complete functional specification for the War platform. It describes *what the
 system does*, not how any particular implementation achieves it. Concrete technology
 choices live in the code and the README's Tech stack section, project layout and build commands
-in `AGENTS.md`, and the work not yet done in `PROGRESS.md`.
+in `AGENTS.md`, and the work not yet done in `TODO.md`.
 
 Request and response payload shapes are deliberately absent. They are settled during the
 TDD/BDD cycle against the rules stated here.

@@ -115,6 +115,13 @@ These commands mirror the pipelines in `.github/workflows/`, so local runs match
 - **Close `claude-in-chrome` tabs as soon as a browser task finishes.** Don't leave automation
   tabs open across turns.
 
+## TODO
+
+Work still to be done is listed in `TODO.md`, with each item's details in
+`TODO/<number>-<title>.md`. New feature ideas get the next number (highest + 1) and a
+detail file. When an item is fully implemented, describe the behavior in the spec,
+remove it from `TODO.md`, delete its detail file, and ask whether to renumber.
+
 ## Specs
 
 `war-spec.md` is the single specification and the contract. It describes **what** the
@@ -122,9 +129,8 @@ platform does, in implementation-agnostic terms — no payload shapes, no schema
 structures. Keep it accurate enough to rebuild the project from alone, and keep
 implementation detail out of it: that belongs here.
 
-`PROGRESS.md` lists only work not yet done: what is not built, known defects, owner actions
-and open decisions. When something ships, delete its entry there and make sure `war-spec.md`
-(behaviour) and the README's "Deployment and operations" (how to operate it) describe it.
+When something ships, make sure `war-spec.md` (behaviour) and the README's "Deployment and
+operations" section (how to operate it) describe it.
 
 Executable Gherkin lives with the code that implements it — `war-api/specs/features/`,
 `war-ui-default/features/`, `war-infra/specs/features/`. Each has a `pending/` subdirectory

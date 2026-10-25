@@ -1,6 +1,6 @@
 // OAuth provider selection (war-spec.md §5.1). Apple is left off: it is not
 // built, and a button that 404s would be worse than none. Facebook is withheld
-// until Meta business verification completes (PROGRESS.md "Owner actions"); its logo and label
+// until Meta business verification completes (TODO.md #12); its logo and label
 // stay in ProviderLogo so restoring it is a one-line change here.
 import { useSearchParams } from 'react-router-dom'
 import { providerLoginUrl } from '../api/client'

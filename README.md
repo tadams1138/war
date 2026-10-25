@@ -494,7 +494,7 @@ One task runs, nightly: the `scheduled-tasks.js` Cron Worker calls
 `POST /api/v1/internal/close-expired-wars` with `INTERNAL_TASK_TOKEN` (the `x-internal-token`
 header). When a task fails the Worker throws, which marks the invocation failed in Cloudflare.
 Why a failure is not an outage: spec section 12.8. Alerting on repeated failure is not built
-([`PROGRESS.md`](PROGRESS.md#not-built)).
+([`TODO/5-monitoring-and-alerting.md`](TODO/5-monitoring-and-alerting.md)).
 
 ### Secrets and configuration
 
@@ -573,7 +573,7 @@ Rules not visible in code, each learned through production incidents:
    to end with each provider, then production.
 2. **Provider verification** is a manual step in each provider's console: Microsoft needs
    publisher/domain verification and Twitter/X a developer app review. Google, Microsoft and
-   Twitter/X are done; Facebook is not (see [`PROGRESS.md`](PROGRESS.md#owner-actions)).
+   Twitter/X are done; Facebook is not (see [`TODO/12-restore-facebook-sign-in.md`](TODO/12-restore-facebook-sign-in.md)).
 3. **Seed the first Admin**, once per environment, after that environment's deploy has run
    (it needs the roles migration) and the owner has signed in once. Nothing else grants the
    role, since granting is Admin-only (spec 6.7). Run from the repository root with dev
@@ -612,14 +612,13 @@ See `war-infra/scripts/smoke-test.sh` and the deploy jobs in `app.yml`.
 ### Alerts
 
 The App Platform app alerts on CPU, memory, restart count, failed deployment and failed
-domain. Anything beyond that is not built (spec 12.7; [`PROGRESS.md`](PROGRESS.md#not-built)).
+domain. Anything beyond that is not built (spec 12.7; [`TODO/5-monitoring-and-alerting.md`](TODO/5-monitoring-and-alerting.md)).
 
 ## Status and specification
 
 [`war-spec.md`](war-spec.md) describes the full design, including parts not yet built, so a
 section being present in the spec does not mean it ships; sections marked **Planned** are the
-unbuilt ones. [`PROGRESS.md`](PROGRESS.md) lists only the work not yet done: what is not
-built, known defects, owner actions and open decisions.
+unbuilt ones. Planned work is tracked in [TODO.md](TODO.md).
 [`docs/building-a-war-import.md`](docs/building-a-war-import.md) holds instructions written
 for an AI assistant that assembles a War import file for the app's Import feature.
 
