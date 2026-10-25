@@ -7,10 +7,14 @@
 // Without this Worker, pasting any War's URL anywhere produces the same
 // generic (or blank) preview regardless of which War it is.
 //
-// Runs only on /wars/* (the route that reaches it); every other path is
-// served by the assets runtime without invoking this script. Only the War's
-// own share page, /wars/:id (exactly one segment, not "new" or "import"),
-// gets real per-War tags -- everything else under /wars/ passes straight
+// Runs first on /wars/* (run_worker_first). Elsewhere the assets runtime
+// answers without invoking this script when a file matches, or when a
+// browser navigation gets the SPA shell; a non-navigation request that
+// matches no file (a crawler, curl, a missing /robots.txt) still reaches it,
+// and gets the shell from env.ASSETS like any other non-share path.
+//
+// Only the War's own share page, /wars/:id (exactly one segment, not "new"
+// or "import"), gets real per-War tags -- every other path passes straight
 // through to the assets binding untouched. A single-segment id that isn't
 // actually a War falls back to generic tags rather than erroring.
 //
