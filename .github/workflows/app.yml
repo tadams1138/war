@@ -1,0 +1,660 @@
+# War app pipeline (war-api + war-ui-default) — see war-spec.md
+#
+# One pipeline, one writer to the App Platform app. A change-detection job
+# decides which project's CI runs; the API image is built only when no image
+# exists for the war-api/ tree hash (the tag is that hash, so an unchanged API
+# reuses the image already in the registry); each environment is deployed once, with
+# the full app spec rendered from this commit.
+#
+# App Platform builds the static site from source on deployment, so the UI
+# `build` step is a fast-fail check rather than the artefact that ships. The UI
+# is therefore rebuilt from master HEAD at deploy time: only the API image and
+# the app spec are exact per-commit artefacts.
+#
+# Per-environment GitHub Environment variables:
+#   DO_APP_ID          App Platform app id for that environment
+#   PUBLIC_BASE_URL    https://staging.war.tmad.dev | https://war.tmad.dev
+#
+# Repository secrets/variables (spec) — substituted into
+# war-infra/platform/{env}.yaml by war-infra/scripts/render-spec.sh on every
+# deploy, same mechanism as ${IMAGE_TAG}:
+#   JWT_SECRET, INTERNAL_TASK_TOKEN,
+#   GOOGLE_CLIENT_SECRET, MICROSOFT_CLIENT_SECRET, FACEBOOK_CLIENT_SECRET, TWITTER_CLIENT_SECRET   secrets
+#   GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID, FACEBOOK_CLIENT_ID, TWITTER_CLIENT_ID   variables (not secrets)
+#   SPACES_ACCESS_KEY_ID, SPACES_SECRET_ACCESS_KEY   secrets (same Spaces
+#     credentials used elsewhere; substituted into the spec's S3_* keys)
+#
+# The production approval gate is a required reviewer on the `production`
+# GitHub Environment, not a step in this file.
+
+name: App Pipeline
+
+# Pull request runs are superseded by a newer push to the same PR. run_id is
+# unique for every other event, so master and manual runs never share a group
+# and are never cancelled. (The deploy jobs' own groups have different names.)
+concurrency:
+  group: app-pr-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+# Workflow-level paths is the union of everything that can change the app:
+# both projects, the app specs and scripts the deploy executes, and this file.
+# Which project's CI actually runs is decided per job by the `changes` job.
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'war-api/**'
+      - '!war-api/**/*.md'
+      - '!war-api/specs/features/pending/**'
+      - 'war-ui-default/**'
+      - '!war-ui-default/**/*.md'
+      - '!war-ui-default/features/pending/**'
+      - 'war-infra/platform/**'
+      - 'war-infra/scripts/**'
+      - '.github/workflows/app.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'war-api/**'
+      - '!war-api/**/*.md'
+      - '!war-api/specs/features/pending/**'
+      - 'war-ui-default/**'
+      - '!war-ui-default/**/*.md'
+      - '!war-ui-default/features/pending/**'
+      - 'war-infra/platform/**'
+      - 'war-infra/scripts/**'
+      - '.github/workflows/app.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  REGISTRY: registry.digitalocean.com/war
+  IMAGE_NAME: war-api
+  # The deployed runtime is 24.x, not the 22 this pinned before — see
+  # war-spec.md "Toolchain deviation".
+  NODE_VERSION: '24'
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.result.outputs.api }}
+      ui: ${{ steps.result.outputs.ui }}
+      contract: ${{ steps.result.outputs.contract }}
+      scripts: ${{ steps.result.outputs.scripts }}
+      deploy: ${{ steps.result.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # 'every' makes the negated patterns exclusions (a file must match all
+      # patterns in a filter), so each filter below is one positive pattern
+      # plus its exclusions. An OR across areas is computed in the next step.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          predicate-quantifier: 'every'
+          filters: |
+            api:
+              - 'war-api/**'
+              - '!war-api/**/*.md'
+              - '!war-api/specs/features/pending/**'
+            ui:
+              - 'war-ui-default/**'
+              - '!war-ui-default/**/*.md'
+              - '!war-ui-default/features/pending/**'
+            generated:
+              - 'war-ui-default/src/api/generated/**'
+            ui_package:
+              - 'war-ui-default/package.json'
+            scripts:
+              # One pattern: with 'every', separate patterns would be ANDed.
+              - 'war-infra/{scripts,platform}/**'
+            platform:
+              - 'war-infra/platform/**'
+            workflow:
+              - '.github/workflows/app.yml'
+
+      # A manual dispatch, or a change to this file, runs everything.
+      - name: Resolve outputs
+        id: result
+        env:
+          FORCE_ALL: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.workflow == 'true' }}
+          API: ${{ steps.filter.outputs.api }}
+          UI: ${{ steps.filter.outputs.ui }}
+          GENERATED: ${{ steps.filter.outputs.generated }}
+          UI_PACKAGE: ${{ steps.filter.outputs.ui_package }}
+          SCRIPTS: ${{ steps.filter.outputs.scripts }}
+          PLATFORM: ${{ steps.filter.outputs.platform }}
+        run: |
+          is_true() { [ "$FORCE_ALL" = "true" ] || [ "$1" = "true" ]; }
+          emit() { echo "$1=$($2 && echo true || echo false)" >> "$GITHUB_OUTPUT"; }
+          api() { is_true "$API"; }
+          ui() { is_true "$UI"; }
+          scripts() { is_true "$SCRIPTS"; }
+          contract() { api || is_true "$GENERATED" || is_true "$UI_PACKAGE"; }
+          deploy() { api || ui || scripts || is_true "$PLATFORM"; }
+          for name in api ui contract scripts deploy; do
+            emit "$name" "$name"
+          done
+          cat "$GITHUB_OUTPUT"
+
+  api-ci:
+    name: API CI
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        # Authenticated pulls: shared runner IPs hit Docker Hub's anonymous rate limit.
+        credentials:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: war_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/war_test
+
+    # Every `run:` below executes inside war-api/. Steps that take a path
+    # argument (setup-node's cache lookup, upload-artifact) are unaffected by
+    # this and still resolve from the repository root, so they name the
+    # subdirectory explicitly.
+    defaults:
+      run:
+        working-directory: war-api
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: war-api/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Testcontainers pulls its images (S3 mock, Ryuk) from Docker Hub.
+      # Retried, then best effort: if Docker Hub's auth endpoint is down, pulls fall back to anonymous.
+      - name: Log in to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3; do
+            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin && exit 0
+            sleep $((attempt * 10))
+          done
+          echo "::warning::Docker Hub login failed after 3 attempts; continuing with anonymous pulls."
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Apply migrations to test database
+        run: npm run migrate
+
+      # One run: the tests and the coverage report together (v8 coverage,
+      # report only -- no thresholds). The report is still written when a test
+      # file fails, and the two steps below run either way.
+      - name: Test with coverage (unit + integration)
+        run: npm run test:coverage
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            {
+              echo "### war-api test coverage"
+              echo
+              echo "| Statements | Branches | Functions | Lines |"
+              echo "|---|---|---|---|"
+              jq -r '.total | "| \(.statements.pct)% (\(.statements.covered)/\(.statements.total)) | \(.branches.pct)% (\(.branches.covered)/\(.branches.total)) | \(.functions.pct)% (\(.functions.covered)/\(.functions.total)) | \(.lines.pct)% (\(.lines.covered)/\(.lines.total)) |"' coverage/coverage-summary.json
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No coverage report was written." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-coverage
+          # Resolved from the repository root, not the job's working-directory.
+          path: war-api/coverage/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  ui-ci:
+    name: UI CI
+    needs: changes
+    if: needs.changes.outputs.ui == 'true'
+    runs-on: ubuntu-latest
+
+    # Every `run:` below executes inside war-ui-default/. Steps taking a path
+    # argument (setup-node's cache lookup, upload-artifact) still resolve from
+    # the repository root and name the subdirectory explicitly.
+    defaults:
+      run:
+        working-directory: war-ui-default
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: war-ui-default/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      # Unit tests and acceptance tests run once each, in their coverage modes
+      # (report only -- no thresholds). Unit coverage is istanbul, so it merges
+      # with the acceptance coverage of the instrumented mock build.
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+
+      # The browser cache is keyed on the Playwright version, so a bump to
+      # @playwright/test fetches a fresh browser build.
+      - name: Read Playwright version
+        id: pw-version
+        run: |
+          version=$(npm ls @playwright/test --json | jq -r '.dependencies["@playwright/test"].version')
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "::error::Could not read the @playwright/test version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
+
+      # A cache hit restores the browser binaries, so only the OS packages
+      # they need still have to be installed.
+      - name: Install Playwright system dependencies
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # Acceptance tests run against MSW mocks, so they run on every PR without
+      # needing a live API.
+      - name: Acceptance tests with coverage
+        run: npm run test:acceptance:coverage
+
+      - name: Coverage report (unit, acceptance, merged)
+        if: always()
+        run: |
+          if [ -d .nyc-unit ] && [ -d .nyc_output ]; then
+            npm run coverage:report
+          else
+            echo "::warning::Unit or acceptance coverage data is missing; no coverage report."
+          fi
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo "### war-ui-default test coverage"
+            echo
+            echo "| Suite | Statements | Branches | Functions | Lines |"
+            echo "|---|---|---|---|---|"
+            for suite in unit acceptance merged; do
+              file="coverage/$suite/coverage-summary.json"
+              if [ -f "$file" ]; then
+                jq -r --arg suite "$suite" '.total | "| \($suite) | \(.statements.pct)% (\(.statements.covered)/\(.statements.total)) | \(.branches.pct)% (\(.branches.covered)/\(.branches.total)) | \(.functions.pct)% (\(.functions.covered)/\(.functions.total)) | \(.lines.pct)% (\(.lines.covered)/\(.lines.total)) |"' "$file"
+              else
+                echo "| $suite | n/a | n/a | n/a | n/a |"
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-default-coverage
+          # Resolved from the repository root, not the job's working-directory.
+          path: war-ui-default/coverage/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # Fails the job when merged (unit + acceptance) coverage drops below the
+      # thresholds in package.json's coverage:check.
+      - name: Coverage thresholds
+        run: npm run coverage:check
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          # Resolved from the repository root, not the job's working-directory.
+          path: war-ui-default/playwright-report/
+          retention-days: 7
+
+  # war-ui-default's request/response types are generated from war-api's own
+  # OpenAPI document and committed. Nothing else forces the two to agree: a
+  # merged API change that war-ui-default has not absorbed compiles, passes both
+  # projects' suites, and only surfaces in staging. This job regenerates the
+  # types and fails if the committed file differs.
+  contract:
+    name: Generated types match the API
+    needs: changes
+    if: needs.changes.outputs.contract == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            war-api/package-lock.json
+            war-ui-default/package-lock.json
+
+      # Both projects are needed: generate:api builds war-api to dump its
+      # OpenAPI document, then runs war-ui-default's openapi-typescript
+      # against it.
+      - name: Install war-api dependencies
+        run: npm --prefix war-api ci
+
+      - name: Install war-ui-default dependencies
+        run: npm --prefix war-ui-default ci
+
+      - name: Regenerate the typed client
+        run: npm --prefix war-ui-default run generate:api
+
+      - name: Fail if the committed types are stale
+        run: |
+          if ! git diff --exit-code -- war-ui-default/src/api/generated/schema.d.ts; then
+            echo
+            echo "::error::war-ui-default/src/api/generated/schema.d.ts is out of date."
+            echo "The API's OpenAPI document no longer matches the committed types."
+            echo "Run 'npm --prefix war-ui-default run generate:api' and commit the result."
+            exit 1
+          fi
+
+  scripts-test:
+    name: Deploy scripts tests
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Test render-spec.sh
+        run: bash war-infra/scripts/render-spec.test.sh
+
+  # Waits for api-ci, because an image in the registry under a tree-hash tag is
+  # a promise that this war-api/ tree passed CI: a later UI-only commit has the
+  # same tree hash, skips api-ci, finds the tag and deploys it. The cost is no
+  # parallel build when the API changed. api-ci skipped is fine (the tree did
+  # not change, so the image either exists from a run that passed CI or is
+  # built now); api-ci failed or cancelled blocks the job. The tag is the git
+  # tree hash of war-api/, so it only changes when war-api/ does; if that image
+  # is already in the registry the build is skipped and only the tag is emitted.
+  # On pull requests it runs only when war-api/ changed, and builds without
+  # pushing, which proves the Dockerfile is sound before a change can merge.
+  ensure-api-image:
+    name: Ensure API image
+    needs: [changes, api-ci]
+    if: >-
+      !cancelled() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.api == 'true') &&
+      needs.api-ci.result != 'failure' && needs.api-ci.result != 'cancelled'
+    runs-on: ubuntu-latest
+    outputs:
+      api_tag: ${{ steps.tag.outputs.api_tag }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compute image tag
+        id: tag
+        run: echo "api_tag=$(git rev-parse HEAD:war-api)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # The Dockerfile's node base image comes from Docker Hub.
+      # Retried, then best effort: if Docker Hub's auth endpoint is down, pulls fall back to anonymous.
+      - name: Log in to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3; do
+            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin && exit 0
+            sleep $((attempt * 10))
+          done
+          echo "::warning::Docker Hub login failed after 3 attempts; continuing with anonymous pulls."
+
+      - name: Authenticate to DigitalOcean
+        if: github.event_name != 'pull_request'
+        uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2.5.2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Log in to container registry
+        if: github.event_name != 'pull_request'
+        run: doctl registry login --expiry-seconds 1800
+
+      - name: Check whether the image already exists
+        id: inspect
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.api_tag }}
+          API_CI_RESULT: ${{ needs.api-ci.result }}
+        # A missing image is only built when api-ci passed in this run. If
+        # api-ci was skipped (war-api/ unchanged) and the tag is absent, the
+        # tree never passed CI, so publishing it would break the promise above.
+        run: |
+          if docker buildx imagetools inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "image exists, skipping build: $IMAGE"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif [ "$API_CI_RESULT" != "success" ]; then
+            echo "::error::No image exists for war-api tree ${IMAGE##*:} and its CI did not run in this run. An earlier run for this tree may still be building it; if it fails or none exists, run 'gh workflow run app.yml --ref master' (workflow_dispatch forces api-ci, which then builds it)."
+            exit 1
+          else
+            echo "image missing, building: $IMAGE"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # On pull requests the image is built but not pushed (the inspect step is
+      # skipped there, so its output is empty and the build runs).
+      - name: Build and push
+        if: steps.inspect.outputs.exists != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          # war-api/, not the repository root: the Dockerfile and the package
+          # files it COPYs are all relative to that directory.
+          context: war-api
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.api_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy → Staging
+    needs: [changes, api-ci, ui-ci, contract, scripts-test, ensure-api-image]
+    # Skipped CI jobs (unchanged project) must not block the deploy, but a
+    # failed one must. ensure-api-image is skipped off a pull request only when
+    # api-ci failed or was cancelled, which blocks the deploy anyway; pull
+    # requests never deploy.
+    if: >-
+      github.event_name != 'pull_request' && !cancelled() &&
+      !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') &&
+      needs.changes.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.PUBLIC_BASE_URL }}
+    # This is the only workflow that writes to the App Platform app, so there
+    # is exactly one staging deploy group. Reruns queue behind a running
+    # deploy instead of cancelling it mid-flight.
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2.5.2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Render app spec pinned to this commit's image
+        env:
+          IMAGE_TAG: ${{ needs.ensure-api-image.outputs.api_tag }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          INTERNAL_TASK_TOKEN: ${{ secrets.INTERNAL_TASK_TOKEN }}
+          S3_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          FACEBOOK_CLIENT_ID: ${{ vars.FACEBOOK_CLIENT_ID }}
+          FACEBOOK_CLIENT_SECRET: ${{ secrets.FACEBOOK_CLIENT_SECRET }}
+          TWITTER_CLIENT_ID: ${{ vars.TWITTER_CLIENT_ID }}
+          TWITTER_CLIENT_SECRET: ${{ secrets.TWITTER_CLIENT_SECRET }}
+        # render-spec.sh derives the variable list from the template and fails
+        # naming any that is unset or empty. The explicit list it enforces is
+        # load-bearing: platform/{env}.yaml's run_command intentionally contains
+        # $DATABASE_CA_CERT as a literal shell reference for the container to
+        # expand at runtime, and an unrestricted envsubst clobbered it.
+        run: war-infra/scripts/render-spec.sh war-infra/platform/staging.yaml "$RUNNER_TEMP/app-spec.yaml"
+
+      # --wait blocks until the deployment settles. The PRE_DEPLOY migration job
+      # (spec) runs inside it, so a failed migration fails this step and the
+      # previous revision keeps serving traffic. The spec update also rebuilds
+      # the static site from source, so no separate create-deployment is needed.
+      - name: Deploy
+        run: doctl apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml" --wait
+
+      # Hashed assets are immutable and never need purging; only index.html does.
+      - name: Purge edge cache
+        run: |
+          curl -sS --fail-with-body -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ vars.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data "$(printf '{"files":["%s/index.html","%s/ui/default/index.html"]}' \
+                      "${{ vars.PUBLIC_BASE_URL }}" "${{ vars.PUBLIC_BASE_URL }}")"
+
+      - name: Smoke test (api)
+        env:
+          BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: war-infra/scripts/smoke-test.sh staging api
+
+      - name: Smoke test (ui-default)
+        env:
+          BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: war-infra/scripts/smoke-test.sh staging ui-default
+
+  deploy-production:
+    name: Deploy → Production
+    needs: [deploy-staging, ensure-api-image]
+    if: >-
+      github.event_name != 'pull_request' && !cancelled() &&
+      needs.deploy-staging.result == 'success' && needs.ensure-api-image.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PUBLIC_BASE_URL }}
+    # Superseding a queued production run is safe now: every run deploys the
+    # state of its own commit (API image tag and app spec; the UI is built by
+    # App Platform from master HEAD at deploy time), and this
+    # is the only workflow that writes to the app. The pending-eviction that
+    # once cancelled a live security fix (commit 9404ffe) came from two
+    # pipelines each deploying only half the state. cancel-in-progress stays
+    # false so a deploy that is already running is never killed mid-flight.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2.5.2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      # Deploys the exact image already validated in staging — never a rebuild.
+      - name: Render app spec pinned to this commit's image
+        env:
+          IMAGE_TAG: ${{ needs.ensure-api-image.outputs.api_tag }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          INTERNAL_TASK_TOKEN: ${{ secrets.INTERNAL_TASK_TOKEN }}
+          S3_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          FACEBOOK_CLIENT_ID: ${{ vars.FACEBOOK_CLIENT_ID }}
+          FACEBOOK_CLIENT_SECRET: ${{ secrets.FACEBOOK_CLIENT_SECRET }}
+          TWITTER_CLIENT_ID: ${{ vars.TWITTER_CLIENT_ID }}
+          TWITTER_CLIENT_SECRET: ${{ secrets.TWITTER_CLIENT_SECRET }}
+        # See the staging job's identical step for why the variable list is
+        # derived and enforced, not optional tidiness.
+        run: war-infra/scripts/render-spec.sh war-infra/platform/production.yaml "$RUNNER_TEMP/app-spec.yaml"
+
+      # See the staging job: --wait covers the PRE_DEPLOY migration.
+      - name: Deploy
+        run: doctl apps update "${{ vars.DO_APP_ID }}" --spec "$RUNNER_TEMP/app-spec.yaml" --wait
+
+      - name: Purge edge cache
+        run: |
+          curl -sS --fail-with-body -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ vars.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data "$(printf '{"files":["%s/index.html","%s/ui/default/index.html"]}' \
+                      "${{ vars.PUBLIC_BASE_URL }}" "${{ vars.PUBLIC_BASE_URL }}")"
+
+      - name: Smoke test (api)
+        env:
+          BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: war-infra/scripts/smoke-test.sh production api
+
+      - name: Smoke test (ui-default)
+        env:
+          BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: war-infra/scripts/smoke-test.sh production ui-default

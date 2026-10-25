@@ -7,10 +7,11 @@
 # application deploy a terraform apply.
 #
 # Applied by the deploy pipelines:
-#   IMAGE_TAG=<sha> envsubst < platform/staging.yaml > /tmp/app.yaml
+#   bash war-infra/scripts/render-spec.sh war-infra/platform/staging.yaml /tmp/app.yaml
 #   doctl apps update <app-id> --spec /tmp/app.yaml --wait
 #
-# ${IMAGE_TAG} is the only substituted value. It is the commit SHA, so
+# The renderer substitutes all uppercase braced placeholders from the environment.
+# IMAGE_TAG is the war-api tree hash, so
 # production deploys the exact image staging validated rather than a rebuild.
 
 name: war-staging
@@ -132,11 +133,12 @@ services:
         scope: RUN_TIME
         value: "${TWITTER_CLIENT_ID}"
 
-      # Secrets. Not literal values — ${PLACEHOLDER} substituted from GitHub
+      # Secrets. Not literal values — uppercase placeholders in
+      # dollar-brace form, substituted from GitHub
       # Actions secrets by envsubst immediately before this file is applied
       # (spec). Re-rendered fresh on every deploy, so rotating the GitHub
       # secret and redeploying (even a no-op redeploy) is all rotation takes.
-      # Apple is absent: unimplemented (see PROGRESS.md's "To revisit"),
+      # Apple is absent: unimplemented (see TODO.md #3),
       # so there is nothing to substitute it with — add it here only once
       # the provider actually exists.
       - key: JWT_SECRET

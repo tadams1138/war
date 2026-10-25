@@ -1,7 +1,18 @@
 # war-infra pipeline — see war-spec.md
 #
 # Spaces provides no state locking (spec), so the per-environment
-# concurrency groups below are what prevent two applies colliding.
+# concurrency groups on the apply jobs below are what prevent two applies
+# colliding. A workflow_dispatch run validates and plans (shared, staging and
+# production) only; applies need a push to master.
+#
+# On a push, each plan job joins the concurrency group of its apply job. A newer
+# plan then evicts an older run's apply still waiting at an approval gate: if
+# commit B reverts commit A, B's plan shows no changes and B's apply is skipped,
+# so without this A's pending apply would never be evicted and approving it
+# would re-apply the reverted change. The plan and the apply of one run do not
+# deadlock: the apply starts only after the plan has finished, and a group holds
+# one running and one pending job. Off a push (pull request, dispatch) the group
+# is unique per run, so those plans queue behind nothing and evict nothing.
 #
 # The production approval gate is a required reviewer on the `production`
 # GitHub Environment, not a step in this file.
@@ -19,16 +30,25 @@ name: war-infra Pipeline
 # platform/** is excluded for the same reason: Terraform creates the App
 # Platform app but does not own its spec (terraform/modules/compute carries
 # `ignore_changes = [spec]`). Nothing under terraform/ reads those files
-# — api.yml renders and applies them — so a platform/{env}.yaml edit would
+# — app.yml renders and applies them — so a platform/{env}.yaml edit would
 # otherwise cost a full plan/apply cycle and a production approval to change
 # nothing.
+#
+# tools/, scripts/, specs/ and bootstrap/ are excluded for the same reason:
+# nothing under terraform/ reads them. edge/ stays in: Terraform reads the
+# Worker sources via file().
 on:
+  workflow_dispatch:
   push:
     branches: [master]
     paths:
       - 'war-infra/**'
       - '!war-infra/**/*.md'
       - '!war-infra/platform/**'
+      - '!war-infra/tools/**'
+      - '!war-infra/scripts/**'
+      - '!war-infra/specs/**'
+      - '!war-infra/bootstrap/**'
       - '.github/workflows/infra.yml'
   pull_request:
     branches: [master]
@@ -36,6 +56,10 @@ on:
       - 'war-infra/**'
       - '!war-infra/**/*.md'
       - '!war-infra/platform/**'
+      - '!war-infra/tools/**'
+      - '!war-infra/scripts/**'
+      - '!war-infra/specs/**'
+      - '!war-infra/bootstrap/**'
       - '.github/workflows/infra.yml'
 
 # Every `run:` in this workflow executes inside war-infra/, so the
@@ -66,7 +90,7 @@ env:
   # (the scheduler module's Worker needs it to call the internal endpoint).
   # The rest — JWT_SECRET, GOOGLE_CLIENT_ID/SECRET, etc. — are not Terraform
   # inputs; they're substituted straight into platform/{env}.yaml by the
-  # war-api deploy pipeline's own envsubst step (spec).
+  # app.yml's render-spec step (spec).
   TF_VAR_internal_task_token: ${{ secrets.INTERNAL_TASK_TOKEN }}
 
 jobs:
@@ -75,9 +99,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
@@ -93,9 +117,9 @@ jobs:
             echo "::endgroup::"
           done
 
-      - uses: terraform-linters/setup-tflint@v4
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
         with:
-          tflint_version: latest
+          tflint_version: v0.65.0
 
       - name: Lint
         run: |
@@ -107,21 +131,39 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     concurrency:
-      group: terraform-shared
+      group: ${{ github.event_name == 'push' && 'terraform-shared' || format('plan-shared-{0}', github.run_id) }}
       cancel-in-progress: false
+    outputs:
+      changes: ${{ steps.plan.outputs.changes }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: hashicorp/setup-terraform@v3
+      # The setup-terraform wrapper swallows the raw exit code that
+      # -detailed-exitcode reports, so turn it off for jobs that read it.
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
+          terraform_wrapper: false
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Init
         run: terraform -chdir=terraform/shared init
 
+      # -detailed-exitcode: 0 = no changes, 2 = changes present, 1 = error.
+      # Record the verdict as a job output so the matching apply job can skip
+      # itself when there is nothing to apply.
       - name: Plan
-        run: terraform -chdir=terraform/shared plan -detailed-exitcode || [ $? -eq 2 ]
+        id: plan
+        run: |
+          set +e
+          terraform -chdir=terraform/shared plan -detailed-exitcode
+          code=$?
+          set -e
+          case "$code" in
+            0) echo "changes=false" >> "$GITHUB_OUTPUT" ;;
+            2) echo "changes=true" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$code" ;;
+          esac
 
   # Account/zone-scoped (registry, Cloudflare zone settings) — applied once,
   # ahead of either environment. staging and production don't reference this
@@ -130,16 +172,20 @@ jobs:
   apply-shared:
     name: Apply → Shared
     needs: plan-shared
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.plan-shared.outputs.changes == 'true'
     runs-on: ubuntu-latest
+    # Gated: shared resources (Cloudflare zone settings, WAF/rate-limit rules,
+    # the container registry) reach production without a staging pass first,
+    # so a required reviewer on the `infra-shared` Environment approves them.
+    environment: infra-shared
     concurrency:
       group: terraform-shared
       cancel-in-progress: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
@@ -154,27 +200,44 @@ jobs:
     needs: plan-shared
     runs-on: ubuntu-latest
     concurrency:
-      group: terraform-staging
+      group: ${{ github.event_name == 'push' && 'terraform-staging' || format('plan-staging-{0}', github.run_id) }}
       cancel-in-progress: false
+    outputs:
+      changes: ${{ steps.plan.outputs.changes }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: hashicorp/setup-terraform@v3
+      # The setup-terraform wrapper swallows the raw exit code that
+      # -detailed-exitcode reports, so turn it off for jobs that read it.
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
+          terraform_wrapper: false
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Init
         run: terraform -chdir=terraform/envs/staging init
 
       # -detailed-exitcode: 0 = no changes, 2 = changes present, 1 = error.
+      # Record the verdict as a job output so the matching apply job can skip
+      # itself when there is nothing to apply.
       - name: Plan
-        run: terraform -chdir=terraform/envs/staging plan -detailed-exitcode || [ $? -eq 2 ]
+        id: plan
+        run: |
+          set +e
+          terraform -chdir=terraform/envs/staging plan -detailed-exitcode
+          code=$?
+          set -e
+          case "$code" in
+            0) echo "changes=false" >> "$GITHUB_OUTPUT" ;;
+            2) echo "changes=true" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$code" ;;
+          esac
 
   apply-staging:
     name: Apply → Staging
     needs: [plan-staging, apply-shared]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && !cancelled() && needs.plan-staging.result == 'success' && needs.plan-staging.outputs.changes == 'true' && contains(fromJSON('["success","skipped"]'), needs.apply-shared.result)
     runs-on: ubuntu-latest
     environment: staging
     concurrency:
@@ -182,9 +245,9 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
@@ -196,30 +259,51 @@ jobs:
 
   plan-production:
     name: Plan → Production
-    needs: apply-staging
-    if: github.event_name == 'push'
+    # plan-staging and apply-shared are listed too so the failure check below
+    # sees them, and only positive results open this stage: a failed validate
+    # or plan-shared leaves everything downstream skipped, which must not pass.
+    needs: [plan-staging, apply-shared, apply-staging]
+    if: github.event_name != 'pull_request' && !cancelled() && needs.plan-staging.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.apply-shared.result) && contains(fromJSON('["success","skipped"]'), needs.apply-staging.result)
     runs-on: ubuntu-latest
     concurrency:
-      group: terraform-production
+      group: ${{ github.event_name == 'push' && 'terraform-production' || format('plan-production-{0}', github.run_id) }}
       cancel-in-progress: false
+    outputs:
+      changes: ${{ steps.plan.outputs.changes }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: hashicorp/setup-terraform@v3
+      # The setup-terraform wrapper swallows the raw exit code that
+      # -detailed-exitcode reports, so turn it off for jobs that read it.
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
+          terraform_wrapper: false
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Init
         run: terraform -chdir=terraform/envs/production init
 
+      # -detailed-exitcode: 0 = no changes, 2 = changes present, 1 = error.
+      # Record the verdict as a job output so the matching apply job can skip
+      # itself when there is nothing to apply.
       - name: Plan
-        run: terraform -chdir=terraform/envs/production plan -detailed-exitcode || [ $? -eq 2 ]
+        id: plan
+        run: |
+          set +e
+          terraform -chdir=terraform/envs/production plan -detailed-exitcode
+          code=$?
+          set -e
+          case "$code" in
+            0) echo "changes=false" >> "$GITHUB_OUTPUT" ;;
+            2) echo "changes=true" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$code" ;;
+          esac
 
   apply-production:
     name: Apply → Production
     needs: plan-production
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.plan-production.outputs.changes == 'true'
     runs-on: ubuntu-latest
     environment: production
     concurrency:
@@ -227,9 +311,9 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 

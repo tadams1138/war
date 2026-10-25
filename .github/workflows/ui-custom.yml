@@ -59,7 +59,7 @@ jobs:
       slug: ${{ steps.slug.outputs.slug }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The slug becomes both a storage key prefix and a URL path segment, so it
       # is validated strictly. An unvalidated slug containing `../` could write
@@ -79,7 +79,7 @@ jobs:
           echo "slug=$slug" >> "$GITHUB_OUTPUT"
           echo "Resolved slug: $slug"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -124,11 +124,12 @@ jobs:
 
       - name: Upload build
         if: inputs.deploy
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
-          retention-days: 1
+          # Production downloads this artifact after approval, so it must outlive the wait for approval.
+          retention-days: 30
 
   deploy-staging:
     name: Deploy → Staging
@@ -147,14 +148,14 @@ jobs:
 
     steps:
       - name: Check out infrastructure repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.INFRA_REPO }}
           ref: master
           path: infra
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist
@@ -210,7 +211,7 @@ jobs:
 
     steps:
       - name: Check out infrastructure repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.INFRA_REPO }}
           ref: master
@@ -218,7 +219,7 @@ jobs:
 
       # Promotes the exact artefact staging validated — never a rebuild.
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist

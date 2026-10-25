@@ -1,6 +1,6 @@
 // Covers the shared paging/sorting/searching logic Home and MyWars both use
 // (useWarListPage): the pure state-machine parts that don't need a real
-// browser, per CLAUDE.md's guidance ("Unit tests ... for client.ts logic
+// browser, per AGENTS.md's guidance ("Unit tests ... for client.ts logic
 // and pure functions"). Page-level wiring (the sort <select>, the search
 // <input>, the Prev/Next buttons) is covered by the Playwright acceptance
 // suite instead (features/browse-wars.feature, features/my-wars.feature).
