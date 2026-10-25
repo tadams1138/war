@@ -59,7 +59,19 @@ resource "cloudflare_workers_script" "scheduled_tasks" {
   ]
 }
 
-resource "cloudflare_workers_cron_trigger" "scheduled_tasks" {
+# v5's state upgrader for the cron trigger reads v4 state (schedules as a list
+# of strings) against the v5 schema (a list of objects), so v4 state cannot be
+# upgraded in place. The old address leaves state without touching Cloudflare
+# (destroy = false) and the env roots import the live schedule into the new one.
+removed {
+  from = cloudflare_workers_cron_trigger.scheduled_tasks
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+resource "cloudflare_workers_cron_trigger" "cron" {
   account_id  = var.account_id
   script_name = cloudflare_workers_script.scheduled_tasks.script_name
   schedules   = [{ cron = var.cron }]

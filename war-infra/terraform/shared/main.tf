@@ -129,7 +129,6 @@ resource "cloudflare_zone_setting" "security_header" {
       enabled            = true
       include_subdomains = true
       max_age            = 31536000
-      nosniff            = false
       preload            = false
     }
   }
@@ -137,37 +136,37 @@ resource "cloudflare_zone_setting" "security_header" {
 
 import {
   to = cloudflare_zone_setting.ssl
-  id = "${var.cloudflare_zone_id}/ssl"
+  id = "${nonsensitive(var.cloudflare_zone_id)}/ssl"
 }
 
 import {
   to = cloudflare_zone_setting.always_use_https
-  id = "${var.cloudflare_zone_id}/always_use_https"
+  id = "${nonsensitive(var.cloudflare_zone_id)}/always_use_https"
 }
 
 import {
   to = cloudflare_zone_setting.automatic_https_rewrites
-  id = "${var.cloudflare_zone_id}/automatic_https_rewrites"
+  id = "${nonsensitive(var.cloudflare_zone_id)}/automatic_https_rewrites"
 }
 
 import {
   to = cloudflare_zone_setting.min_tls_version
-  id = "${var.cloudflare_zone_id}/min_tls_version"
+  id = "${nonsensitive(var.cloudflare_zone_id)}/min_tls_version"
 }
 
 import {
   to = cloudflare_zone_setting.tls_1_3
-  id = "${var.cloudflare_zone_id}/tls_1_3"
+  id = "${nonsensitive(var.cloudflare_zone_id)}/tls_1_3"
 }
 
 import {
   to = cloudflare_zone_setting.browser_cache_ttl
-  id = "${var.cloudflare_zone_id}/browser_cache_ttl"
+  id = "${nonsensitive(var.cloudflare_zone_id)}/browser_cache_ttl"
 }
 
 import {
   to = cloudflare_zone_setting.security_header
-  id = "${var.cloudflare_zone_id}/security_header"
+  id = "${nonsensitive(var.cloudflare_zone_id)}/security_header"
 }
 
 # ── WAF, rate limiting, and cache ─────────────────────────────────────────────

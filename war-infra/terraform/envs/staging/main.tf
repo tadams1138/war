@@ -158,6 +158,13 @@ module "scheduler" {
   internal_task_token = var.internal_task_token
 }
 
+# Adopts the existing cron schedule under the cron trigger's new address in
+# modules/scheduler (provider v5 cannot upgrade the v4 state in place).
+import {
+  to = module.scheduler.cloudflare_workers_cron_trigger.cron
+  id = "${nonsensitive(var.cloudflare_account_id)}/war-scheduled-tasks-${local.env}"
+}
+
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # app_id is consumed by the deploy pipelines as the DO_APP_ID environment
 # variable (spec).
