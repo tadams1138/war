@@ -80,22 +80,27 @@ async function tagsForWar(warId, pageUrl) {
   }
 }
 
+// The War id for a share page (/wars/:id), or null for any other path.
+function shareWarId(pathname) {
+  const segments = pathname.split('/').filter(Boolean)
+  const isSharePage = segments.length === 2 && segments[0] === 'wars' && !RESERVED_SEGMENTS.has(segments[1])
+  return isSharePage ? segments[1] : null
+}
+
+function isHtml(response) {
+  return (response.headers.get('content-type') ?? '').includes('text/html')
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
-    const segments = url.pathname.split('/').filter(Boolean)
-    const isDetailPage = segments.length === 2 && segments[0] === 'wars' && !RESERVED_SEGMENTS.has(segments[1])
-
-    if (!isDetailPage) {
-      return env.ASSETS.fetch(request)
-    }
-
+    const warId = shareWarId(url.pathname)
     const shellResponse = await env.ASSETS.fetch(request)
-    if (!shellResponse.headers.get('content-type')?.includes('text/html')) {
+    if (warId === null || !isHtml(shellResponse)) {
       return shellResponse
     }
 
-    const tags = await tagsForWar(segments[1], url)
+    const tags = await tagsForWar(warId, url)
     const rewritten = new HTMLRewriter().on('head', new HeadInjector(tags)).transform(shellResponse)
 
     // index.html must never be edge-cached or a deploy would not be picked
