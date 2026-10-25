@@ -14,7 +14,7 @@ terraform {
   required_version = "~> 1.9"
 
   required_providers {
-    cloudflare = { source = "cloudflare/cloudflare", version = "~> 4.40" }
+    cloudflare = { source = "cloudflare/cloudflare", version = "~> 5.28" }
   }
 }
 
@@ -40,31 +40,31 @@ variable "cron" {
 }
 
 resource "cloudflare_workers_script" "scheduled_tasks" {
-  account_id = var.account_id
-  name       = "war-scheduled-tasks-${var.env}"
-  content    = file("${path.module}/../../../edge/scheduled-tasks.js")
-  module     = true
+  account_id  = var.account_id
+  script_name = "war-scheduled-tasks-${var.env}"
+  content     = file("${path.module}/../../../edge/scheduled-tasks.js")
+  main_module = "scheduled-tasks.js"
 
-  plain_text_binding {
-    name = "API_BASE_URL"
-    text = var.api_origin
-  }
-
-  secret_text_binding {
-    name = "INTERNAL_TASK_TOKEN"
-    text = var.internal_task_token
-  }
+  bindings = [
+    {
+      type = "plain_text"
+      name = "API_BASE_URL"
+      text = var.api_origin
+    },
+    {
+      type = "secret_text"
+      name = "INTERNAL_TASK_TOKEN"
+      text = var.internal_task_token
+    },
+  ]
 }
 
-# The trigger stays live and keeps firing; the provider v5 upgrade imports it again.
-removed {
-  from = cloudflare_workers_cron_trigger.scheduled_tasks
-
-  lifecycle {
-    destroy = false
-  }
+resource "cloudflare_workers_cron_trigger" "scheduled_tasks" {
+  account_id  = var.account_id
+  script_name = cloudflare_workers_script.scheduled_tasks.script_name
+  schedules   = [{ cron = var.cron }]
 }
 
 output "worker_name" {
-  value = cloudflare_workers_script.scheduled_tasks.name
+  value = cloudflare_workers_script.scheduled_tasks.script_name
 }
