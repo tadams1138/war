@@ -59,8 +59,6 @@ section of [`README.md`](README.md) (operation) describe it.
 - **Create the `infra-shared` GitHub Environment with a required reviewer before the
   `ci/consolidate-pipelines` branch merges**; otherwise GitHub creates it unprotected and the
   shared Terraform apply goes ungated.
-- **Set `TRUST_PROXY_HOPS`** per environment once the hop count is verified (see Known
-  defects).
 
 ## Open decisions
 

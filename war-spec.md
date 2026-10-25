@@ -1100,14 +1100,16 @@ never status-gated (§6.1). This page adds no
 resume affordance beyond that. Its header and its empty state both carry two entry points, not
 one: Start a War, and Import a War (above).
 
-**Editing** is one page covering everything a War needs (a contestant's bio is written with formatting controls and a preview of how it will render; saving confirms with a brief notice, and a failed image removal or reorder shows an error): title, category, visibility (with a
+**Editing** is one page covering everything a War needs: title, category, visibility (with a
 one-line hint that unlisted means hidden from public lists but open to anyone with the link), theme,
 end date, share image, each contestant's name, bio, and images (add, remove, reorder, up to
 the per-contestant cap), **Publish/Unpublish**, **Clear Votes**, and **Delete**. There is no
 fixed order to walk, and none of it is gated by status — a War the creator finished voting on
 is exactly as editable as one they just created. Unsaved changes to the War's own details are
 kept while the creator moves between those details and the War's contestants on the page. They
-are discarded only when the creator leaves the page without saving. It is reachable from the creator's own My Wars
+are discarded only when the creator leaves the page without saving. A contestant's bio is
+written with formatting controls and a preview of how it will render. Saving confirms with a
+brief notice, and a failed image removal or reorder shows an error. It is reachable from the creator's own My Wars
 card or War detail page, and for an Admin from any War's detail page, and only for those: opened
 any other way, anyone else sees whatever the War itself would show them (§6.1) — not found for a
 War that isn't published, a plain "this isn't your War" for one that is, never a form they could

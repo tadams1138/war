@@ -134,7 +134,7 @@ keeps its own Gherkin — `.github/workflows/ui-custom.yml` is the reusable pipe
 calls.
 
 **The UI's Gherkin is executed.** Every scenario in `war-ui-default/features/*.feature` runs
-step by step through playwright-bdd; a step with no definition fails the run. Read
+step by step through playwright-bdd. Read
 the "UI acceptance test conventions" section of the [`README.md`](README.md) before adding or
 changing a UI scenario. Reuse a shared step or add a registry entry before writing a new
 step.
