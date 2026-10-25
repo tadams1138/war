@@ -1384,10 +1384,12 @@ request. Infrastructure and custom UIs have their own pipelines.
     fails and says to run the pipeline manually, which forces every check.
 - **Custom UI:** resolve and validate slug → lint → build → template check → size check →
   deploy staging → purge → smoke test → **manual gate** → promote the same artefact
-- **Infrastructure:** validate → plan → apply staging → plan → **manual gate** → apply
-  production
+- **Infrastructure:** validate → plan → **manual gate** → apply shared → plan → apply
+  staging → plan → **manual gate** → apply production. An apply runs only when its plan
+  shows changes. A plan on a push to the main branch supersedes an older run's apply still
+  waiting at a gate. A manual run validates and plans only.
 
-**Production promotes the exact artefact staging validated; it is never rebuilt.** Approval
+**Production promotes the exact API image staging validated; it is never rebuilt.** Approval
 gates are a required-approval step tied to the environment itself, not a step inside a
 pipeline, so a gate cannot be bypassed by editing a pipeline.
 
@@ -1464,7 +1466,8 @@ tidiness. Procedures live in `war-infra/README.md`.
   deploy pipelines read it from there.
 - One pipeline writes to the application per environment. A newer release supersedes one
   still waiting at the production gate; that is safe because every deploy carries the full
-  state of its commit.
+  state of the application at that point (the API image and the deployment spec; the default
+  UI is built by the hosting platform at deploy time).
 - Infrastructure creates the application with a placeholder image and ignores later spec
   changes; the deployment spec, not the infrastructure module, owns the running application.
 - Each provider's redirect URI is registered by hand, per environment; nothing in the

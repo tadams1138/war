@@ -25,8 +25,8 @@ Goal: build once in CI, promote the same files, deploy the UI independently of t
 |---|---|---|
 | Static asset requests billed as Worker invocations | No. Requests that match an asset are "free and unlimited"; only requests that run the Worker script are billed. | [billing and limitations](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/) |
 | `run_worker_first` on Free | Requests matching `run_worker_first` patterns always invoke the Worker and count against the free quota; over quota they get 429, not an asset fallback. `!/` negative patterns serve assets without invoking. | same |
-| SPA mode | An unmatched request serves `/index.html` with 200. With a `main` script and compat date 2025-04-01 or later, navigation requests (`Sec-Fetch-Mode: navigate`) get index.html without running the Worker; other unmatched requests run the Worker. Setting `run_worker_first` disables that navigation detection. | [SPA routing](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/) |
-| Workers Free quota | 100,000 requests/day, resets midnight UTC; over it returns Error 1027. | [limits](https://developers.cloudflare.com/workers/platform/limits/) |
+| SPA mode | An unmatched request serves `/index.html` with 200. With a `main` script and compat date 2025-04-01 or later, navigation requests (`Sec-Fetch-Mode: navigate`) get index.html without running the Worker; other unmatched requests run the Worker. Setting `run_worker_first` disables that navigation detection (unverified for the array form; see Unverified). | [SPA routing](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/) |
+| Workers Free quota | 100,000 requests/day, resets midnight UTC; over it returns Error 1027. Believed to be account-wide (to be confirmed). | [limits](https://developers.cloudflare.com/workers/platform/limits/) |
 | Static assets limits | 20,000 files/version (Free), 100,000 (Paid), 25 MiB/file. | same |
 | Route with no script | Supported. A route without a Worker takes precedence over a less specific route, so that path skips Workers. Query strings defeat an exact-path match unless the pattern ends in `*`. Most specific pattern wins. | [routes](https://developers.cloudflare.com/workers/configuration/routing/routes/) |
 | Same-zone subrequests and routes | Docs state "Routes cannot be the target of a same-zone `fetch()` call." I read this as: a Worker's same-zone fetch does not re-trigger Worker routes and goes to the origin. The page does not spell out the general subrequest case. Treat as likely but confirm with a staging test. | same |
@@ -37,6 +37,9 @@ Goal: build once in CI, promote the same files, deploy the UI independently of t
 - Whether provider v4.x (`~> 4.40`) can deploy static assets. Search found nothing supporting it; I assume it cannot. Check the v4 `cloudflare_workers_script` docs/GitHub before relying on either answer.
 - The exact same-zone subrequest behaviour (above). Needs a staging test.
 - Actual current traffic. None was available to me.
+- Whether `run_worker_first` in its array form disables SPA navigation detection (the docs say it for `run_worker_first` generally; the array form is not stated).
+- Whether App Platform can deploy a static site from a pinned commit or artefact. Static sites take git sources by branch only, so option C's pinning likely needs a container service (an extra instance); Terraform and cost for C are therefore not "None".
+- Whether the `/media/*`, `/ui/*` and `/wars/*` routes keep precedence over a `/*` catch-all as described; `/media/*` is already bound to media-router.
 - Whether the Free plan's 100k/day applies per account across all three Workers (assumed: yes, account-wide; not confirmed on the page I read).
 
 ## Traffic assumption
@@ -53,15 +56,15 @@ Open question 1 asks for the real number.
 
 ### A. Spaces plus a Worker bound to `/*`
 
-Static build in a Spaces bucket behind its CDN. A Worker on `/*` serves it, rewriting misses to `index.html` with 200 (same as `ui-router.js` does for custom UIs). Worker-less routes for `/api/v1/*` and `/media/*` stop the Worker taking those.
+Static build in a Spaces bucket behind its CDN. A Worker on `/*` serves it, rewriting misses to `index.html` with 200 (same as `ui-router.js` does for custom UIs). A no-script route for `/api/v1/*` stops the Worker taking API traffic; the existing more-specific routes (`/media/*`, `/ui/*`, `/wars/*`) keep precedence over the catch-all, and `/media/*` is already bound to media-router in the edge Terraform.
 
 ### B. Cloudflare Workers static assets
 
-A Worker with an `assets` block and `not_found_handling = "single-page-application"`, on route `/*`, with no-script routes for `/api/v1/*` and `/media/*`. Hashed assets cost nothing.
+A Worker with an `assets` block and `not_found_handling = "single-page-application"`, on route `/*`, with a no-script route for `/api/v1/*`. The existing more-specific routes (`/media/*`, `/ui/*`, `/wars/*`) keep precedence over the catch-all. Hashed assets cost nothing.
 
 ### C. Stay on App Platform
 
-Keep `static_sites`. Fix the promotion problem inside App Platform (for example, build the UI image or artifact in CI and deploy it as a pinned source).
+Keep `static_sites`. Fix the promotion problem inside App Platform (for example, build the UI image or artifact in CI and deploy it as a pinned source; unverified: App Platform static sites take git sources by branch only, so pinning likely means a container service, which costs an instance).
 
 ## Comparison
 
@@ -70,7 +73,7 @@ Keep `static_sites`. Fix the promotion problem inside App Platform (for example,
 | Invocation cost | About 8 per page view; Free quota gone near 12k page views/day (assumption above). Breaks the "Worker quota for custom UIs only" rule. | Asset requests 0. Only `/wars/*` (og tags) invokes. Preserves the rule closely. | 0 for UI. |
 | og-tags shell source | Same-origin fetch would go to App Platform (apex CNAME), which no longer has a shell. Must fetch the Spaces CDN host directly (new binding, as `ui-router.js` does) or call the new UI Worker by service binding. | Merge og logic into the assets Worker with `run_worker_first = ["/wars/*"]` and read the shell via `env.ASSETS.fetch`. Or keep og router and a service binding to the assets Worker. | Unchanged. |
 | SPA deep link 200 | Worker rewrites 404 to `/index.html` 200. Must set cache headers itself (index no-store, assets immutable). | Built in by `not_found_handling`. Headers via a `_headers` file in the asset directory (to verify). If `run_worker_first` is set, navigation detection is off, so patterns must be exact. | Existing `catchall_document: index.html`. |
-| Terraform added | Spaces bucket and CDN, a UI Worker script, `/*` route, no-script routes for `/api/v1/*` and `/media/*`, upload credentials. | One Worker script with assets, `/*` route, two no-script routes. Needs provider v5 (v4 unverified). | None. |
+| Terraform added | Spaces bucket and CDN, a UI Worker script, `/*` route, a no-script route for `/api/v1/*`, upload credentials. | One Worker script with assets, `/*` route, a no-script route for `/api/v1/*`. Needs provider v5 (v4 unverified). | Unknown: if pinning needs a container service, an instance and its registry/image wiring are added (unverified). |
 | Terraform removed | `static_sites` and its ingress from `platform/*.yaml`. | Same. | None. |
 | CI/deploy | Upload build to Spaces keyed by `git rev-parse HEAD:war-ui-default`; purge CDN; promote by copying that prefix. Two steps, not atomic. | `wrangler deploy` (or Terraform) of the same build per environment; atomic per version. | Still builds at deploy; needs extra work to pin to the staging-validated commit. |
 | Rollback | Re-point bucket prefix or redeploy previous Worker config; CDN purge needed. | Roll back to a previous Worker version (one command). | Redeploy previous API+UI together. |

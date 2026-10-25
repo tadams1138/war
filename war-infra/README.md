@@ -9,7 +9,7 @@ This directory defines:
 - **Deployment pipelines** — automated environment promotion from staging to production
 - **Operational tools** — local checkers and validators
 
-Every infrastructure change is applied through the CI pipeline (`.github/workflows/infra.yml`), never manually. The pipeline validates, plans, and applies Terraform to staging automatically on merge, and requires manual approval to promote to production.
+Every infrastructure change is applied through the CI pipeline (`.github/workflows/infra.yml`), never manually. The pipeline validates and plans on every change; on merge it applies the shared stack (after manual approval), then staging automatically, then production (after manual approval). Each apply runs only when its plan shows changes. A manual run validates and plans only.
 
 ## Directory structure
 
@@ -32,7 +32,7 @@ Every infrastructure change is applied through the CI pipeline (`.github/workflo
 **Production** (`war.tmad.dev`)
 - PostgreSQL with automated standby and point-in-time recovery
 - Requires manual approval gate in CI before deploy
-- Production promotes the exact image/config that staging validated; never rebuilt
+- Production promotes the exact API image that staging validated; never rebuilt
 
 ## Terraform structure
 
@@ -167,13 +167,15 @@ Known rules not visible in code, each learned through production incidents:
 
 1. **Manual bootstrap step** — After `terraform apply`, the output includes the new App Platform app ID. This must be stored manually as the `DO_APP_ID` variable of that GitHub environment; the deploy pipelines read it from there.
 
-2. **One writer per environment** — A single deploy job per environment (concurrency groups `deploy-staging` and `deploy-production`) writes to the App Platform app. A newer release supersedes one still waiting at the production gate; that is safe because every deploy applies the full state of its commit (image tag and app spec). A second pipeline that deployed only part of the state would reintroduce the eviction problem.
+2. **One writer per environment** — A single deploy job per environment (concurrency groups `deploy-staging` and `deploy-production`) writes to the App Platform app. A newer release supersedes one still waiting at the production gate; that is safe because every deploy applies the state of its commit (API image tag and app spec; the default UI is built by App Platform from `master` HEAD at deploy time, so it is not an exact per-commit artefact). A second pipeline that deployed only part of the state would reintroduce the eviction problem.
 
 3. **Placeholder image** — Terraform cannot bootstrap the app with the real API image (which requires secrets to boot). A placeholder image is pushed once; the API deploy replaces it.
 
 4. **Platform spec ownership** — After bootstrap, changes to the app go in `platform/{env}.yaml`, not in the Terraform compute module. The module ignores spec changes by design; every terraform apply would otherwise roll back the running deployment.
 
-5. **OAuth redirect URIs** — Provider redirect URIs (e.g., `https://staging.war.tmad.dev/auth/google/callback`) must be registered manually with each OAuth provider, per environment. Nothing in the pipeline does this; sign-in fails silently if missing.
+5. **`infra-shared` environment** — The shared apply is gated by a required reviewer on the `infra-shared` GitHub Environment. Create the environment and add the reviewer before the first run: otherwise GitHub auto-creates it unprotected and the shared apply goes ungated.
+
+6. **OAuth redirect URIs** — Provider redirect URIs (e.g., `https://staging.war.tmad.dev/auth/google/callback`) must be registered manually with each OAuth provider, per environment. Nothing in the pipeline does this; sign-in fails silently if missing.
 
 ## Smoke tests
 

@@ -209,8 +209,8 @@ required-reviewer approval. See `war-spec.md` section 12.
   `war-infra/scripts/smoke-test.sh` afterwards.
 - **`app.yml`** is the one pipeline for the API and the default UI (it replaced the separate API, default UI
   and OpenAPI-contract workflows). Jobs: Detect changes, API CI, UI CI,
-  Generated types match the API, Deploy scripts tests, Ensure API image, Deploy to Staging,
-  Deploy to Production. The API image tag is the git tree hash of `war-api/`; the image job
+  Generated types match the API, Deploy scripts tests, Ensure API image, Deploy → Staging,
+  Deploy → Production. The API image tag is the git tree hash of `war-api/`; the image job
   waits for API CI and publishes only if it passed, and fails with a pointer to
   `gh workflow run app.yml --ref master` if a needed image is missing and its CI did not run
   (a manual run forces every check). One deploy job per environment (concurrency groups
@@ -219,6 +219,11 @@ required-reviewer approval. See `war-spec.md` section 12.
   `war-infra/scripts/render-spec.sh`, which derives its placeholder list from the template
   and fails naming any empty variable; its test is `bash war-infra/scripts/render-spec.test.sh`.
   The default UI is still built by App Platform from `master` at deploy time.
+- **`infra.yml`**: validate, then plan and apply shared (gated by the `infra-shared`
+  Environment's required reviewer), staging, and production (gated by `production`). An apply
+  runs only when its plan shows changes. On a push each plan joins its apply's concurrency
+  group, so a newer plan supersedes an older run's apply waiting at a gate. A manual
+  dispatch validates and plans all three stacks and never applies.
 - **`workflows.yml`** runs actionlint (with shellcheck) over every workflow file on pull
   requests and pushes to `master` that touch `.github/workflows/`.
 - **Alerts** on the App Platform app: CPU, memory, restart count, failed deployment,
@@ -267,6 +272,10 @@ Every test labels its Arrange, Act and Assert phases.
 ---
 
 ## Known defects and limitations
+
+- **The default UI is rebuilt from `master` HEAD per deploy.** The exact-artefact guarantee
+  holds for the API only until the UI hosting change (see
+  `docs/superpowers/specs/2026-10-24-default-ui-hosting.md`).
 
 - **Address rate limits are off until `TRUST_PROXY_HOPS` is verified.** The sign-in and
   token-refresh limits (per client address) only activate when `TRUST_PROXY_HOPS` is set.
