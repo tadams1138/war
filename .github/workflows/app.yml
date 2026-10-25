@@ -756,14 +756,15 @@ jobs:
 
   deploy-app-production:
     name: Deploy app → Production
-    needs: [changes, ensure-api-image, deploy-app-staging, deploy-ui-production]
-    # Promotes the app spec staging ran. Like the staging app job, it waits for
-    # this run's production UI job and proceeds unless that job failed.
+    needs: [changes, ensure-api-image, deploy-app-staging]
+    # Promotes the app spec staging ran. It does not wait for the production UI
+    # job, so both reach the production gate together and one approval covers
+    # them; the UI-before-app order only mattered for the cutover, which staging
+    # already proved, and the static site's removal ships after the UI is live.
     if: >-
       github.event_name != 'pull_request' && !cancelled() &&
       needs.deploy-app-staging.result == 'success' &&
-      needs.ensure-api-image.result == 'success' &&
-      needs.deploy-ui-production.result != 'failure'
+      needs.ensure-api-image.result == 'success'
     runs-on: ubuntu-latest
     environment:
       name: production

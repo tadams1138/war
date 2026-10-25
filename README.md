@@ -467,9 +467,10 @@ The default UI deploys independently of the API. `ui-ci` builds it once and uplo
 `ui-default-dist` artefact; each environment's UI deploy job downloads that exact build and
 applies `war-infra/terraform/ui`, so staging and production serve the same bytes. The app
 spec (the API, plus the interim static site below) is applied by a separate app deploy job.
-Each side's jobs run only when its own inputs changed, and within an environment the app job
-waits for the UI job and goes ahead unless it failed, so the UI is live and smoke-tested
-first. There is no edge cache purge: `/assets/*` is `public, max-age=31536000, immutable`
+Each side's jobs run only when its own inputs changed. On staging the app job waits for the
+UI job and goes ahead unless it failed, so the UI is live and smoke-tested first; in
+production the two jobs are independent, so they wait at the gate together and one approval
+covers both. There is no edge cache purge: `/assets/*` is `public, max-age=31536000, immutable`
 (hashed filenames) and the HTML shell is `max-age=0, must-revalidate`. The asset header rules
 live in `war-infra/terraform/ui/asset-headers` (`_headers` syntax), passed to the Worker's
 asset config rather than shipped in the build, so they are never served as a file.
@@ -483,10 +484,9 @@ serves production.
 
 **Rollback.** Re-run the deploy jobs of an earlier successful run. They redeploy only the
 sides that run changed (its `ui-default-dist` artefact, its app spec, or both), so re-running
-a run that changed both also rolls back the API. To roll back the UI alone, re-run only that
-run's UI deploy job(s); GitHub re-runs a job's dependents with it, and the app job depends on
-the UI job, so this keeps the API untouched only when that run did not change the API (pick a
-UI-only run, or use the Worker version rollback below). The artefact is kept for 14 days;
+a run that changed both also rolls back the API. To roll back production's UI alone, re-run only
+that run's `deploy-ui-production` job, which nothing depends on. (Re-running a staging UI job
+also re-runs the staging app job, which depends on it.) The artefact is kept for 14 days;
 past that, use Cloudflare's Worker version rollback for the UI, or re-run the pipeline on the
 old commit.
 
