@@ -2,9 +2,17 @@
 #
 # Spaces provides no state locking (spec), so the per-environment
 # concurrency groups on the apply jobs below are what prevent two applies
-# colliding. A workflow_dispatch run validates and plans only; applies need a
-# push to master. Plan jobs carry no concurrency group: they are read-only, so
-# queueing them behind an apply would only slow the run down.
+# colliding. A workflow_dispatch run validates and plans (shared, staging and
+# production) only; applies need a push to master.
+#
+# On a push, each plan job joins the concurrency group of its apply job. A newer
+# plan then evicts an older run's apply still waiting at an approval gate: if
+# commit B reverts commit A, B's plan shows no changes and B's apply is skipped,
+# so without this A's pending apply would never be evicted and approving it
+# would re-apply the reverted change. The plan and the apply of one run do not
+# deadlock: the apply starts only after the plan has finished, and a group holds
+# one running and one pending job. Off a push (pull request, dispatch) the group
+# is unique per run, so those plans queue behind nothing and evict nothing.
 #
 # The production approval gate is a required reviewer on the `production`
 # GitHub Environment, not a step in this file.
@@ -82,7 +90,7 @@ env:
   # (the scheduler module's Worker needs it to call the internal endpoint).
   # The rest — JWT_SECRET, GOOGLE_CLIENT_ID/SECRET, etc. — are not Terraform
   # inputs; they're substituted straight into platform/{env}.yaml by the
-  # war-api deploy pipeline's own envsubst step (spec).
+  # app.yml's render-spec step (spec).
   TF_VAR_internal_task_token: ${{ secrets.INTERNAL_TASK_TOKEN }}
 
 jobs:
@@ -122,6 +130,9 @@ jobs:
     name: Plan → Shared
     needs: validate
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.event_name == 'push' && 'terraform-shared' || format('plan-shared-{0}', github.run_id) }}
+      cancel-in-progress: false
     outputs:
       changes: ${{ steps.plan.outputs.changes }}
 
@@ -188,6 +199,9 @@ jobs:
     name: Plan → Staging
     needs: plan-shared
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.event_name == 'push' && 'terraform-staging' || format('plan-staging-{0}', github.run_id) }}
+      cancel-in-progress: false
     outputs:
       changes: ${{ steps.plan.outputs.changes }}
 
@@ -249,8 +263,11 @@ jobs:
     # sees them, and only positive results open this stage: a failed validate
     # or plan-shared leaves everything downstream skipped, which must not pass.
     needs: [plan-staging, apply-shared, apply-staging]
-    if: github.event_name == 'push' && !cancelled() && needs.plan-staging.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.apply-shared.result) && contains(fromJSON('["success","skipped"]'), needs.apply-staging.result)
+    if: github.event_name != 'pull_request' && !cancelled() && needs.plan-staging.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.apply-shared.result) && contains(fromJSON('["success","skipped"]'), needs.apply-staging.result)
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.event_name == 'push' && 'terraform-production' || format('plan-production-{0}', github.run_id) }}
+      cancel-in-progress: false
     outputs:
       changes: ${{ steps.plan.outputs.changes }}
 

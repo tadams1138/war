@@ -1,13 +1,15 @@
 # War app pipeline (war-api + war-ui-default) — see war-spec.md
 #
 # One pipeline, one writer to the App Platform app. A change-detection job
-# decides which project's CI runs; the API image is built only when war-api/
-# changed (its tag is the content hash of war-api/, so an unchanged API reuses
-# the image already in the registry); each environment is deployed once, with
+# decides which project's CI runs; the API image is built only when no image
+# exists for the war-api/ tree hash (the tag is that hash, so an unchanged API
+# reuses the image already in the registry); each environment is deployed once, with
 # the full app spec rendered from this commit.
 #
 # App Platform builds the static site from source on deployment, so the UI
-# `build` step is a fast-fail check rather than the artefact that ships.
+# `build` step is a fast-fail check rather than the artefact that ships. The UI
+# is therefore rebuilt from master HEAD at deploy time: only the API image and
+# the app spec are exact per-commit artefacts.
 #
 # Per-environment GitHub Environment variables:
 #   DO_APP_ID          App Platform app id for that environment
@@ -26,6 +28,13 @@
 # GitHub Environment, not a step in this file.
 
 name: App Pipeline
+
+# Pull request runs are superseded by a newer push to the same PR. run_id is
+# unique for every other event, so master and manual runs never share a group
+# and are never cancelled. (The deploy jobs' own groups have different names.)
+concurrency:
+  group: app-pr-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 # Workflow-level paths is the union of everything that can change the app:
 # both projects, the app specs and scripts the deploy executes, and this file.
@@ -102,7 +111,8 @@ jobs:
             ui_package:
               - 'war-ui-default/package.json'
             scripts:
-              - 'war-infra/scripts/**'
+              # One pattern: with 'every', separate patterns would be ANDed.
+              - 'war-infra/{scripts,platform}/**'
             platform:
               - 'war-infra/platform/**'
             workflow:
@@ -479,7 +489,7 @@ jobs:
             echo "image exists, skipping build: $IMAGE"
             echo "exists=true" >> "$GITHUB_OUTPUT"
           elif [ "$API_CI_RESULT" != "success" ]; then
-            echo "::error::No image exists for war-api tree ${IMAGE##*:} and its CI did not run in this run. Re-run with 'gh workflow run app.yml --ref master' (workflow_dispatch forces api-ci, which then builds it)."
+            echo "::error::No image exists for war-api tree ${IMAGE##*:} and its CI did not run in this run. An earlier run for this tree may still be building it; if it fails or none exists, run 'gh workflow run app.yml --ref master' (workflow_dispatch forces api-ci, which then builds it)."
             exit 1
           else
             echo "image missing, building: $IMAGE"
@@ -504,8 +514,9 @@ jobs:
     name: Deploy → Staging
     needs: [changes, api-ci, ui-ci, contract, scripts-test, ensure-api-image]
     # Skipped CI jobs (unchanged project) must not block the deploy, but a
-    # failed one must. A skipped ensure-api-image cannot happen off a pull
-    # request, and pull requests never deploy.
+    # failed one must. ensure-api-image is skipped off a pull request only when
+    # api-ci failed or was cancelled, which blocks the deploy anyway; pull
+    # requests never deploy.
     if: >-
       github.event_name != 'pull_request' && !cancelled() &&
       !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') &&
@@ -588,7 +599,8 @@ jobs:
       name: production
       url: ${{ vars.PUBLIC_BASE_URL }}
     # Superseding a queued production run is safe now: every run deploys the
-    # full state of its own commit (API image tag and app spec both), and this
+    # state of its own commit (API image tag and app spec; the UI is built by
+    # App Platform from master HEAD at deploy time), and this
     # is the only workflow that writes to the app. The pending-eviction that
     # once cancelled a live security fix (commit 9404ffe) came from two
     # pipelines each deploying only half the state. cancel-in-progress stays
