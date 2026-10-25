@@ -244,7 +244,7 @@ required-reviewer approval. See `war-spec.md` section 12.
 | Project | Size | Notes |
 |---|---|---|
 | war-api | 57 test files, 1,289 tests plus the Docker-only `s3ObjectStorage` file (23 Gherkin step files, 14 integration files, unit tests) | One Postgres per run via Vitest `globalSetup`; the full suite takes about 3 minutes |
-| war-ui-default | 231 unit tests (25 files), 297 acceptance tests | All 18 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `moderate-war`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in `war-ui-default/tests/acceptance/README.md` |
+| war-ui-default | 231 unit tests (25 files), 297 acceptance tests | All 18 features (`create-war`, `import-war`, `theme-switching`, `share-image`, `error-handling`, `my-wars`, `vote-mode-responsive`, `login-and-auth`, `contestant-images`, `vote-mode`, `browse-wars`, `admin-dashboard`, `admin-wars`, `moderate-war`, `navigation`, `admin-voters`, `edit-war`, `war-detail`) execute their Gherkin steps through playwright-bdd; conventions in the root `README.md` ("UI acceptance test conventions") |
 | war-infra | None; the workflows are linted by actionlint | No runner for the infra scenarios |
 
 Measured coverage (`war-api`: v8, `npm run test:coverage`; `war-ui-default`: istanbul via
@@ -274,8 +274,8 @@ Every test labels its Arrange, Act and Assert phases.
 ## Known defects and limitations
 
 - **The default UI is rebuilt from `master` HEAD per deploy.** The exact-artefact guarantee
-  holds for the API only until the UI hosting change (see
-  `docs/superpowers/specs/2026-10-24-default-ui-hosting.md`).
+  holds for the API only until the UI hosting change (see "Default UI hosting" under
+  "To revisit").
 
 - **Address rate limits are off until `TRUST_PROXY_HOPS` is verified.** The sign-in and
   token-refresh limits (per client address) only activate when `TRUST_PROXY_HOPS` is set.
@@ -365,3 +365,33 @@ Every test labels its Arrange, Act and Assert phases.
 - **SSRF and DNS-rebinding protection.** Nothing fetches a user-supplied URL today, so none
   exists. If that need returns, recover the address classifier and connect-time
   DNS-rebinding guard from git history rather than rewriting them.
+- **Default UI hosting (decision pending; note of 2026-10-24).** The
+  default UI is an App Platform static site built from source at deploy time, in the same app
+  as the API, so every API deploy rebuilds the UI and production builds `master` HEAD at
+  approval time rather than the commit staging validated. Goal: build once in CI, promote the
+  same files, deploy the UI independently of the API. Constraints: the edge module binds
+  `ui_router` to `/ui/*` only (Worker quota is spent on custom-UI traffic only);
+  `og-tags-router.js` fetches the shell by a same-origin `fetch(request)`, which today
+  resolves to App Platform; deep links must return `index.html` with 200 (index no-store,
+  hashed assets immutable, spec section 12); the Cloudflare provider is `~> 4.40`.
+  - **A. Spaces + a Worker on `/*`:** about 8 Worker invocations per page view (Free quota of
+    100k/day gone near 12k page views/day) and the whole site sits behind the Worker.
+  - **B. Cloudflare Workers static assets** (`assets` block, `not_found_handling =
+    "single-page-application"`, route `/*`, a no-script route for `/api/v1/*`): asset
+    requests cost no invocation; atomic per-version deploy and one-command rollback.
+  - **C. Stay on App Platform:** no Worker cost, but pinning the UI to the validated commit
+    likely needs a container service (an extra instance).
+  - **Recommendation: B**, with `run_worker_first = ["/wars/*"]` so only the og-tags path
+    spends quota, after confirming the provider path. If the provider v4 to v5 upgrade is
+    unwanted now, deploy the assets Worker with Wrangler from CI and manage only its route
+    in Terraform, or do C now and B later. Not A.
+  - **Unverified:** whether provider v4 can deploy static assets (static assets in
+    `cloudflare_workers_script` shipped in v5.11.0); same-zone subrequest and route
+    precedence behaviour (`/media/*`, `/ui/*`, `/wars/*` over a `/*` catch-all; needs a
+    staging test); real daily page views and the Workers plan (the Free quota is believed
+    account-wide, unconfirmed); whether `run_worker_first` in array form disables SPA
+    navigation detection; whether App Platform can deploy a static site from a pinned
+    commit.
+  - **Questions for the owner:** traffic and plan; is a provider v5 upgrade acceptable now;
+    keep `og-tags-router` separate or merge it into the UI Worker; keep `/ui/default/*` as
+    an alias; is a staging test of subrequest and route precedence acceptable.
