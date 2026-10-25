@@ -110,7 +110,7 @@ jobs:
 
       - name: Validate modules
         run: |
-          for env_dir in terraform/shared/ terraform/envs/*/; do
+          for env_dir in terraform/shared/ terraform/envs/*/ terraform/ui/; do
             echo "::group::validate ${env_dir}"
             terraform -chdir="$env_dir" init -backend=false
             terraform -chdir="$env_dir" validate
