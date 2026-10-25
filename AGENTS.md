@@ -33,7 +33,7 @@ Red-Green-Refactor cycle:
 
 Guidance by test type in `war-ui-default`:
 
-- **Acceptance tests** (Playwright): preferred for user-facing behaviour — page loads, navigation, voting interactions, error states. A scenario is a Gherkin scenario in `war-ui-default/features/` whose steps are executed (conventions in `war-ui-default/tests/acceptance/README.md`)
+- **Acceptance tests** (Playwright): preferred for user-facing behaviour — page loads, navigation, voting interactions, error states. A scenario is a Gherkin scenario in `war-ui-default/features/` whose steps are executed (conventions in the root `README.md`, section "UI acceptance test conventions")
 - **Unit tests** (Vitest): use for `war-ui-default/src/api/client.ts` logic (401 retry, error mapping) and any pure functions; not for React components that only render API data
 
 ## Build and test
@@ -134,6 +134,6 @@ calls.
 
 **The UI's Gherkin is executed.** Every scenario in `war-ui-default/features/*.feature` runs
 step by step through playwright-bdd; a step with no definition fails the run. Read
-`war-ui-default/tests/acceptance/README.md` before adding or changing a UI scenario: it holds
-the conventions (tags, step scoping, the rules), the shared vocabulary and the parameter-type
-registries. Reuse a shared step or add a registry entry before writing a new step.
+the "UI acceptance test conventions" section of the root `README.md` before adding or
+changing a UI scenario. Reuse a shared step or add a registry entry before writing a new
+step.
