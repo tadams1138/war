@@ -3,8 +3,8 @@
 # rulesets live in terraform/shared instead, applied once —
 # see that module for why.
 #
-# /ui/default/* must reach App Platform, not the ui_router Worker below —
-# that's what its route pattern excludes it for.
+# Only /api/v1/* reaches App Platform; the default UI is its own Worker
+# (terraform/ui).
 
 # Required in every module that uses it, not just the root — Terraform does
 # not infer a non-default-namespace provider's source for a child module from
@@ -51,9 +51,8 @@ variable "ui_custom_cdn_host" {
 locals {
   # Everything not matched by a Worker route proxies to App Platform, which
   # performs the path→component routing.
-  ui_worker_name      = "war-ui-router-${var.env}"
-  media_worker_name   = "war-media-router-${var.env}"
-  og_tags_worker_name = "war-og-tags-router-${var.env}"
+  ui_worker_name    = "war-ui-router-${var.env}"
+  media_worker_name = "war-media-router-${var.env}"
 }
 
 # ── DNS ───────────────────────────────────────────────────────────────────────
@@ -123,33 +122,10 @@ resource "cloudflare_workers_script" "ui_router" {
 
 # Bound only to /ui/*, so the bulk of platform traffic never invokes it and any
 # per-invocation quota applies to custom-UI traffic alone (spec).
-# /ui/default/* is served by App Platform and must not reach the Worker.
 resource "cloudflare_workers_route" "ui_router" {
   zone_id = var.zone_id
   pattern = "${var.domain}/ui/*"
   script  = cloudflare_workers_script.ui_router.script_name
-}
-
-# ── Open Graph tag injector Worker ────────────────────────────────────────────
-# Rewrites <head> on /wars/:id (only) with that War's own og:title/og:image/etc
-# (spec, "War cards" / "10.4 Share image") so a pasted link previews correctly
-# on Facebook/Twitter/Slack/Teams/iMessage — none of which execute the SPA's
-# own client-side <title>/meta. No origin binding needed: edge/og-tags-router.js
-# never changes hostname, so its same-origin fetches resolve straight to App
-# Platform via this zone's own DNS record.
-
-resource "cloudflare_workers_script" "og_tags_router" {
-  account_id         = var.account_id
-  script_name        = local.og_tags_worker_name
-  content            = file("${path.module}/../../../edge/og-tags-router.js")
-  main_module        = "og-tags-router.js"
-  compatibility_date = "2025-04-02" # pinned for predictable behaviour, matching the other two Workers; this script sets no cf overrides today
-}
-
-resource "cloudflare_workers_route" "og_tags_router" {
-  zone_id = var.zone_id
-  pattern = "${var.domain}/wars/*"
-  script  = cloudflare_workers_script.og_tags_router.script_name
 }
 
 # WAF, rate limiting, and cache rules live in terraform/shared, not here, one
@@ -169,8 +145,4 @@ output "worker_name" {
 
 output "media_worker_name" {
   value = cloudflare_workers_script.media_router.script_name
-}
-
-output "og_tags_worker_name" {
-  value = cloudflare_workers_script.og_tags_router.script_name
 }
