@@ -70,17 +70,10 @@ resource "digitalocean_container_registry" "war" {
 # ── Zone-wide Cloudflare settings ─────────────────────────────────────────────
 
 # Provider v5 removed cloudflare_zone_settings_override in favour of one
-# cloudflare_zone_setting per setting. The old resource leaves state without
-# touching the zone (destroy = false), and each setting is imported so the zone
-# is adopted as it stands rather than recreated. Every value is unchanged.
-
-removed {
-  from = cloudflare_zone_settings_override.war
-
-  lifecycle {
-    destroy = false
-  }
-}
+# cloudflare_zone_setting per setting. PR "infra: stop tracking zone settings and
+# the cron trigger ahead of the provider v5 upgrade" already released the old
+# resource from state without touching the zone, so each setting is imported
+# here and the zone is adopted as it stands. Every value is unchanged.
 
 resource "cloudflare_zone_setting" "ssl" {
   zone_id    = var.cloudflare_zone_id
@@ -130,6 +123,7 @@ resource "cloudflare_zone_setting" "security_header" {
       include_subdomains = true
       max_age            = 31536000
       preload            = false
+      nosniff            = false # matches the live value, so the import plans no change
     }
   }
 }
@@ -230,7 +224,7 @@ resource "cloudflare_ruleset" "ratelimit" {
       enabled     = true
 
       ratelimit = {
-        characteristics = ["ip.src", "cf.colo.id"]
+        characteristics = ["cf.colo.id", "ip.src"] # the order the API returns, so the plan shows no reorder
         # Free plan only permits a 10s period and a 10s mitigation timeout
         # ("not entitled to use the period 60, can only use a period among
         # [10]", then separately "not entitled to use a mitigation timeout
