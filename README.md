@@ -33,17 +33,16 @@ each one calls. Custom UIs and the registry behind them are specified but not bu
 flowchart LR
   B[Browser] --> CF["Cloudflare edge<br/>DNS, WAF, rate limit, cache rules"]
   CF -->|"/api/v1/*"| API["war-api<br/>App Platform service"]
-  CF -->|"everything else, /ui/default/*"| UI["war-ui-default<br/>App Platform static site"]
+  CF -->|"/* (everything else)"| UI["war-ui-default Worker<br/>static assets, and link-preview<br/>tags on /wars/id"]
   CF -->|"/media/*<br/>media-router Worker"| CDN["Spaces CDN<br/>images"]
   CF -->|"/ui/slug/*<br/>ui-router Worker"| CUI["Spaces<br/>custom UI bundles"]
-  CF -->|"/wars/id<br/>og-tags-router Worker"| UI
   API --> PG[("Managed PostgreSQL<br/>pooled connection")]
   API --> SP["Spaces<br/>image storage"]
   CRON["Cloudflare cron Worker"] -->|"POST /internal/close-expired-wars"| API
 ```
 
-Staging and production are each one DigitalOcean App Platform app, with the API image and the
-static UI served from a single domain. The layout of `war-infra/` and how it is deployed and
+Staging and production are each one DigitalOcean App Platform app serving the API image, with
+the default UI served by a Cloudflare Worker with static assets on the same domain. The layout of `war-infra/` and how it is deployed and
 operated are under [Deployment and operations](#deployment-and-operations).
 
 ## Tech stack
@@ -165,7 +164,7 @@ Executable Gherkin lives next to the code it describes; see "Specs" in
 
 ## Default UI
 
-`war-ui-default` is a React single-page app (Vite, TypeScript) served as static files. It
+`war-ui-default` is a React single-page app (Vite, TypeScript) served as static assets by a Cloudflare Worker. It
 talks to `war-api` over REST; behaviour is defined in [`war-spec.md`](war-spec.md) (section
 10). Run its scripts from the repository root with `npm --prefix war-ui-default <script>`.
 Install, lint, typecheck, test, acceptance, coverage and build are in
@@ -386,7 +385,7 @@ change is applied through CI, never by hand.
 
 | Workflow | What it does |
 |---|---|
-| `app.yml` | API and default UI: change-detected CI, API image build, then deploy to staging and (after approval) production |
+| `app.yml` | API and default UI: change-detected CI, API image build, a single UI build, then independent API and UI deploys to staging and (after approval) production |
 | `infra.yml` | Terraform validate, plan and gated apply (shared, staging, production) |
 | `workflows.yml` | actionlint (with shellcheck) over every workflow file |
 | `ui-custom.yml` | Reusable pipeline for separate custom-UI repositories |
@@ -403,7 +402,7 @@ runs on changes under `.github/workflows/`. A manual run forces every check:
 |---|---|
 | `terraform/` | Terraform modules and environment roots |
 | `platform/` | App Platform specs (`staging.yaml`, `production.yaml`): the source of truth for service configuration after bootstrap, applied by the deploy pipeline and not owned by Terraform |
-| `edge/` | Cloudflare Workers for routing, scheduled tasks and custom UI dispatch |
+| `edge/` | Cloudflare Workers for the default UI, media, scheduled tasks and custom UI dispatch |
 | `bootstrap/` | The placeholder container image the app is first created with |
 | `scripts/` | `smoke-test.sh` and `render-spec.sh` (with `render-spec.test.sh`) |
 | `specs/` | Gherkin feature files for infrastructure behaviour |
@@ -416,6 +415,8 @@ environment must provide is in spec sections 12.1 and 12.2.
 
 ### Terraform
 
+- `ui/`: the default UI Worker and its static assets, applied by `app.yml` (not `infra.yml`)
+  with the run's built UI, once per environment (state key `ui/<env>/terraform.tfstate`).
 - `shared/`: the container registry and the Cloudflare zone-wide settings (zone settings, firewall, rate-limit and cache rulesets).
 - `envs/staging/`, `envs/production/`: the environment roots. Each `main.tf` configures the
   providers and the remote state backend (Spaces, S3-compatible), instantiates the modules
@@ -423,7 +424,7 @@ environment must provide is in spec sections 12.1 and 12.2.
   as waiting for App Platform ingress to be ready.
 - `modules/`: `compute/` (the App Platform app and its initial spec), `data/` (PostgreSQL
   cluster with a connection pooler), `storage/` (Spaces buckets for media, custom UIs and
-  state), `edge/` (Cloudflare DNS, TLS, WAF rules, rate limiting, Worker routes) and
+  state), `edge/` (Cloudflare DNS, TLS, WAF rules, rate limiting, Worker routes, including the default UI's `/*` route) and
   `scheduler/` (Cloudflare cron triggers and Worker bindings).
 
 `infra.yml` is gated as spec section 12.5 describes; the shared apply waits on the
@@ -460,30 +461,42 @@ tree hash and built only if the registry lacks it, after API CI passes. One depl
 environment renders the full app spec and applies it with `doctl --wait`; the `PRE_DEPLOY`
 migration job runs inside it. A push that needs an API image missing from the registry,
 whose API CI did not run in that run, fails with an error; run the workflow manually (see
-[Workflows](#workflows)), which builds the image and deploys. The default UI is built by App
-Platform from `master` at deploy time.
+[Workflows](#workflows)), which builds the image and deploys.
+
+The default UI deploys independently of the API. `ui-ci` builds it once and uploads the
+`ui-default-dist` artefact; each environment's deploy job downloads that exact build and
+applies `war-infra/terraform/ui`, so staging and production serve the same bytes. The app
+spec (API only; App Platform serves just `/api/v1`) is applied separately. Each side runs only
+when its own inputs changed, and the UI goes first so that on a first rollout the Worker is
+live and smoke-tested before anything is removed from the app spec. There is no edge cache
+purge: `/assets/*` is `public, max-age=31536000, immutable` (hashed filenames) and the HTML
+shell is `max-age=0, must-revalidate`.
+
+**Rollback.** Re-run the deploy job of an earlier successful run (it redeploys that run's
+`ui-default-dist` artefact and app spec), or use Cloudflare's Worker version rollback for the
+UI.
 
 ### Routing and Cloudflare Workers
 
 1. The public hostname reaches the Cloudflare edge (DNS, TLS, WAF, rate limiting).
 2. Workers dispatch to origins:
    - `/api/v1/*`: App Platform API (prefix preserved)
-   - `/ui/default/*`: App Platform static site (prefix stripped to `/`)
    - `/ui/{slug}/*`: custom UI bucket
    - `/media/*`: media bucket (cached, prefix stripped)
 3. Internal endpoints (`/api/v1/internal/*`) are blocked on the public hostname and reachable
    only from the scheduler.
-4. Everything else returns the default UI shell, for SPA routing.
+4. Everything else (`/*`) goes to the default UI Worker, which serves its static assets and
+   returns the shell for SPA routing.
 
 | Worker | Purpose |
 |---|---|
 | `ui-router.js` | Routes custom UI requests to the shared bucket by slug, returning the shell with 200 for SPA deep links |
-| `og-tags-router.js` | Injects link-preview meta tags into the War detail page |
+| `ui-default.js` | Serves the default UI's static assets and injects link-preview tags on `/wars/:id` |
 | `media-router.js` | Caches and serves media, stripping the `/media/` prefix |
 | `scheduled-tasks.js` | Invoked by Cloudflare cron; dispatches scheduled operations to internal API endpoints |
 
 Media and the shared custom-UI bucket are served with a one-year cache on content-addressed
-keys; the link-preview Worker acts on `/wars/:id` only. Zone-wide rules (in `terraform/shared/`):
+keys; the default UI Worker runs code on `/wars/:id` only and serves everything else straight from its assets. Zone-wide rules (in `terraform/shared/`):
 block `/api/v1/internal/*` and `/media/originals/*`; one rate-limit rule on `/api/v1/auth/*`
 (10 requests per 10 seconds per address and colo, which is all the Cloudflare Free plan
 permits per zone); bypass the cache for the API except rankings.
@@ -545,9 +558,8 @@ Rules not visible in code, each learned through production incidents:
 2. **One writer per environment.** A single deploy job per environment (concurrency groups
    `deploy-staging` and `deploy-production`) writes to the App Platform app. A newer release
    supersedes one still waiting at the production gate; that is safe because every deploy
-   applies the state of its commit (API image tag and app spec; the default UI is built by
-   App Platform from `master` HEAD at deploy time, so it is not an exact per-commit
-   artefact). A second pipeline that deployed only part of the state would reintroduce the
+   applies the state of its commit (API image tag and app spec, and the run's single UI
+   build). A second pipeline that deployed only part of the state would reintroduce the
    eviction problem.
 3. **Placeholder image.** Terraform cannot bootstrap the app with the real API image (it
    needs secrets to boot), so a placeholder is pushed once (`push-bootstrap-image.yml`) and

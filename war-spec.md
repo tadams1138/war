@@ -1313,13 +1313,12 @@ buckets, hostname and schedules.
 
 ### 12.2 Hosting shape
 
-**A single deployment per environment** containing the API service and the default UI's static
-output. Required platform capabilities:
+**A single deployment per environment** containing the API service. The default UI's static
+output is hosted at the edge and deploys separately from the API. Required platform
+capabilities:
 
 - Path-based ingress across components, with per-rule control over whether the matched prefix
   is preserved or stripped
-- A catch-all document for static components, returning the application shell with a success
-  status for unmatched paths
 - Zero-downtime rolling deploys with health checks
 - Pre-deploy hooks that abort the deployment on failure
 - Encrypted environment variables injected at runtime
@@ -1340,13 +1339,12 @@ one.
 |---|---|---|
 | Internal endpoints | Edge | **Blocked** except from the scheduler |
 | API | Platform ingress | API service, prefix preserved |
-| Default UI's own prefix | Platform ingress | Static site, prefix stripped |
 | Custom UI slugs | Edge function | Shared custom-UI bucket, keyed by slug |
 | Media | Edge | Media bucket, prefix stripped, long-lived cache |
-| Everything else | Platform ingress | Static site |
+| Everything else | Edge | Default UI's static assets, with link-preview tags injected on War detail pages |
 
 **Every static UI must serve its shell with a success status for any unmatched path** so deep
-links work. The platform provides this natively for the default UI. Object storage typically
+links work. The edge's static-asset hosting provides this natively for the default UI. Object storage typically
 cannot — it returns a not-found status even when serving an error document — which is why an
 edge function handles it for custom UIs, refetching the slug's shell and returning it
 successfully. That function is the mechanism making the shared-bucket model viable.
@@ -1369,7 +1367,7 @@ budget, and custom UIs are unbounded by design.
 | API responses | Per-endpoint; no store by default |
 
 Content-hashed filenames mean asset URLs change on every deploy and never need invalidation;
-only the shell is purged. The edge bypasses cache for API paths unless an endpoint sets its
+the shell is served with a policy short enough that no purge is needed. The edge bypasses cache for API paths unless an endpoint sets its
 own policy.
 
 ### 12.5 Pipelines
@@ -1381,8 +1379,11 @@ request. Infrastructure and custom UIs have their own pipelines.
 - **Application (API and default UI):** detect changes → each changed project's checks, plus
   the generated-types check when either side of the API contract changed and the deploy
   script tests when those scripts changed → build the API image only when its source changed
-  → deploy staging → purge → smoke test → **manual gate** → deploy production → purge →
-  smoke test. Every deploy carries both the API and the default UI.
+  → deploy staging → smoke test → **manual gate** → deploy production → smoke test. The
+  default UI is built once, and production receives the exact build staging validated. The
+  API and the default UI deploy independently: each deploys only when its own side changed,
+  so a UI-only change never touches the API deployment and an API-only change never
+  redeploys the UI.
   - *API checks:* lint → typecheck → migrate → test.
   - *Default UI checks:* lint → typecheck → unit test → acceptance test → build.
   - The API image is identified by the content of the API source, so an unchanged API reuses
