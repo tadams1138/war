@@ -65,6 +65,8 @@ function applyStatus(query: AdminWarsQuery, status: string | undefined, now: Dat
   return query.where('wars.removed_at', 'is', null).where(hasEffectiveStatus(status, now));
 }
 
+// Title match OR creator id from an up-front name subquery: a rare-term search ran ~30x faster (41 ms to 1.2 ms), a
+// common creator-name search slower (1.1 ms to 8.9 ms). Accepted; a UNION form did worse on common terms.
 function applySearch(query: AdminWarsQuery, q: string | undefined): AdminWarsQuery {
   if (!q) return query;
   const pattern = containsPattern(q);

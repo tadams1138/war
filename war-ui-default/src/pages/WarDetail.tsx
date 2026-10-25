@@ -86,6 +86,7 @@ function RemovedMarker() {
   )
 }
 
+// A response lacking `removed_at` (undefined) counts as removed too: reachable only if UI and API deploys get out of step.
 function isOpenForVoting(war: WarDetailResponse): boolean {
   return war.status === 'published' && war.removed_at === null
 }

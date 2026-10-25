@@ -1,6 +1,6 @@
 # War — Platform Specification
 
-**Status:** Living specification. `PROGRESS.md` records what is built.
+**Status:** Living specification. `PROGRESS.md` lists only the work not yet done.
 
 Sections marked **Planned — not yet built** (§6.5, §9.2, §11, §12.7) describe designed
 behaviour with no implementation yet; everything else is built.
@@ -8,7 +8,7 @@ behaviour with no implementation yet; everything else is built.
 This is the complete functional specification for the War platform. It describes *what the
 system does*, not how any particular implementation achieves it. Concrete technology
 choices live in the code and the README's Tech stack section, project layout and build commands
-in `AGENTS.md`, and what has actually been built in `PROGRESS.md`.
+in `AGENTS.md`, and the work not yet done in `PROGRESS.md`.
 
 Request and response payload shapes are deliberately absent. They are settled during the
 TDD/BDD cycle against the rules stated here.
@@ -260,7 +260,10 @@ useful than reporting a coincidental mismatch. Failures *after* a successful exc
 voter upsert, token issuance — are this platform's own faults and are not laundered into
 provider-flavoured errors.
 
-Failure responses are returned directly rather than redirecting to a UI error page.
+Failure responses are returned directly rather than redirecting to a UI error page, with one
+exception: a banned voter (§6.7) who completes the provider's flow is issued no session and is
+sent to the UI carrying an indication that the account is banned, which the UI shows plainly
+(§10.1).
 
 ### 5.2 Session tokens
 
@@ -446,7 +449,9 @@ Appearances are shown for transparency: they let a viewer confirm contestants ha
 comparably often, which is the assumption the ranking rests on.
 
 Responses are cacheable for about thirty seconds, so many
-concurrent viewers collapse to roughly one origin query per interval per edge location.
+concurrent viewers collapse to roughly one origin query per interval per edge location. Only
+rankings of a War everyone can read are cacheable by shared caches; rankings of a draft or a
+removed War, readable only by those entitled to them (§6.1, §6.7), are never stored.
 
 ### 6.5 Custom UI registry
 
@@ -856,7 +861,7 @@ sensitive, so there is no need for a not-found-shaped response here. A way into 
 Dashboard appears in the navigation only for a Moderator or an Admin. The dashboard shows each
 role only its own panels: a Moderator the Wars, the unaddressed reports queue, the Voters, the
 kill switch and the moderation log's moderation entries; an Admin who is not a Moderator the
-Voters and the moderation log's role-change and owner-action entries. The Admin Dashboard does not list Wars for an Admin who is not a Moderator. A Voter holding both sees every panel. Turning the War-creation kill switch on
+Voters and the moderation log's role-change and owner-action entries. The Admin Dashboard does not list Wars for an Admin who is not a Moderator. A Voter holding both sees every panel. A change to the viewer's own roles takes effect in the dashboard at once, without signing in again. Turning the War-creation kill switch on
 from the dashboard asks for confirmation first, since it stops all creation. Turning it off
 needs none. A banned Voter who tries to sign in is told plainly that the account is banned,
 not shown a generic failure.
@@ -991,7 +996,7 @@ unfinished task, and must never imply a partial contribution is wasted.
 count) are not a separate section below a contestant gallery; each result row carries that same
 contestant's media and bio (§4.2) directly, in rank order, with unranked contestants at the bottom
 marked by a dash. There is no separate "Results" heading and no separate gallery — the rank-ordered
-list *is* the page. Results render exactly as returned, with no percentages computed or displayed.
+list *is* the page. Results render exactly as returned, with no percentages computed or displayed; they are read when the page loads and do not update live.
 Needs no authentication for any published War (§6.4).
 
 Each row shows the contestant's media, bio, and a wins/appearances/win-share group, with the
@@ -1023,12 +1028,12 @@ cast every vote. In its place, at the top of the page, that voter sees a one-lin
 
 **Export**, available to a War's creator (and any Admin) on both its results page and its edit page regardless
 of status, downloads a personal backup of the War's definition — title, category, visibility,
-theme, and each contestant's name, bio, and images — as a single file the creator can keep. It
+theme, share image, and each contestant's name, bio, and images — as a single file the creator can keep. It
 carries no votes, rankings, or win counts; it exists to let a creator recreate a War, not to
 report on one.
 
 **Import** reverses Export. Given a previously exported file, it creates a brand-new draft
-War — metadata, contestants, and their images — owned by the importing voter, entirely
+War — metadata, share image, contestants, and their images — owned by the importing voter, entirely
 independent of whatever War the export came from; nothing about the original is referenced or
 affected. The file is validated in full before anything is created: a malformed or incomplete
 file is rejected with one clear message and creates nothing at all. Once the new draft exists,
@@ -1095,7 +1100,7 @@ never status-gated (§6.1). This page adds no
 resume affordance beyond that. Its header and its empty state both carry two entry points, not
 one: Start a War, and Import a War (above).
 
-**Editing** is one page covering everything a War needs: title, category, visibility (with a
+**Editing** is one page covering everything a War needs (a contestant's bio is written with formatting controls and a preview of how it will render; saving confirms with a brief notice, and a failed image removal or reorder shows an error): title, category, visibility (with a
 one-line hint that unlisted means hidden from public lists but open to anyone with the link), theme,
 end date, share image, each contestant's name, bio, and images (add, remove, reorder, up to
 the per-contestant cap), **Publish/Unpublish**, **Clear Votes**, and **Delete**. There is no
@@ -1410,7 +1415,9 @@ therefore updating the stored secret and triggering any deploy.
 
 Every value with a localhost-shaped default **must have a startup guard that refuses to boot
 when it is left at that default**, so a deployment can never silently fall back to a local URL
-and redirect real users there after sign-in.
+and redirect real users there after sign-in. The same guard refuses to boot when a signing
+secret, the internal-task secret or the registered UI origins are left at their defaults, or
+when a sign-in provider's credentials are missing.
 
 Known limitation: platform-encrypted variables give encryption at rest but no versioning,
 per-component access policy, or audit trail. A dedicated secrets manager is deferred.
@@ -1485,7 +1492,7 @@ preview environments, and scheduled tasks beyond expiry reconciliation.
 
 Behaviour is specified in the sections above. Its executable expression lives with the code
 that implements it, never in this document — see `AGENTS.md`'s Specs section for where each
-project's executable Gherkin lives, and `PROGRESS.md` for what is built versus still pending.
+project's executable Gherkin lives.
 
 Where a test and this document disagree, **this document is the contract** and the test is
 wrong.
