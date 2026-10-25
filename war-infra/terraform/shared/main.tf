@@ -69,27 +69,18 @@ resource "digitalocean_container_registry" "war" {
 
 # ── Zone-wide Cloudflare settings ─────────────────────────────────────────────
 
-resource "cloudflare_zone_settings_override" "war" {
-  zone_id = var.cloudflare_zone_id
+# The zone settings stay live on Cloudflare; Terraform stops tracking them here
+# so the provider v5 upgrade can import each setting as its own resource.
+# Values at release: ssl strict (App Platform and Spaces present valid
+# certificates), always_use_https on, automatic_https_rewrites on,
+# min_tls_version 1.2, tls_1_3 on, browser_cache_ttl 0 (respect origin
+# Cache-Control; assets are content-hashed and immutable), HSTS enabled,
+# include_subdomains, max_age 31536000, preload false.
+removed {
+  from = cloudflare_zone_settings_override.war
 
-  settings {
-    # Full (strict) — App Platform and Spaces both present valid certificates,
-    # so there is no reason to accept an unvalidated origin.
-    ssl                      = "strict"
-    always_use_https         = "on"
-    automatic_https_rewrites = "on"
-    min_tls_version          = "1.2"
-    tls_1_3                  = "on"
-
-    # Assets are content-hashed and immutable; let the edge honour that.
-    browser_cache_ttl = 0 # respect origin Cache-Control
-
-    security_header {
-      enabled            = true
-      include_subdomains = true
-      max_age            = 31536000
-      preload            = false
-    }
+  lifecycle {
+    destroy = false
   }
 }
 
