@@ -65,26 +65,32 @@ fails_naming_empty_var() {
     [ ! -e "$dir/output" ]
 }
 
-renders_real_templates_completely() {
+# The variables .github/workflows/app.yml sets in its "Render app spec" steps.
+# Keep in sync with that workflow.
+app_variables='FACEBOOK_CLIENT_ID FACEBOOK_CLIENT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET IMAGE_TAG INTERNAL_TASK_TOKEN JWT_SECRET MICROSOFT_CLIENT_ID MICROSOFT_CLIENT_SECRET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY TWITTER_CLIENT_ID TWITTER_CLIENT_SECRET'
+
+template_variables() {
+  grep -oE '\$\{[A-Z][A-Z0-9_]*\}' "$1" | sed 's/^..//; s/.$//' | sort -u | paste -sd ' ' -
+}
+
+renders_template_completely() {
   # // Arrange
-  local dir template placeholder name
+  local template=$1 dir name
+  local -a vars=()
   dir=$(mktemp -d "$fixtures/case.XXXXXX")
-  for template in war-infra/platform/staging.yaml war-infra/platform/production.yaml; do
-    while IFS= read -r placeholder; do
-      name=${placeholder:2:${#placeholder}-3}
-      export "$name=dummy"
-    done < <(grep -oE '\$\{[A-Z][A-Z0-9_]*\}' "$template" | sort -u)
-    # // Act
-    bash "$renderer" "$template" "$dir/output" || return 1
-    # // Assert
-    if grep -qE '\$\{[A-Z]' "$dir/output"; then return 1; fi
-    grep -Fq '"$DATABASE_CA_CERT"' "$dir/output" || return 1
-  done
+  for name in $app_variables; do vars+=("$name=dummy"); done
+  # // Act
+  env -i PATH="$PATH" "${vars[@]}" bash "$renderer" "$template" "$dir/output" || return 1
+  # // Assert
+  [ "$(template_variables "$template")" = "$app_variables" ] &&
+    ! grep -qE '\$\{[A-Z]' "$dir/output" &&
+    grep -Fq '"$DATABASE_CA_CERT"' "$dir/output"
 }
 
 check substitutes_upper_placeholders substitutes_upper_placeholders
 check leaves_bare_dollar_vars leaves_bare_dollar_vars
 check leaves_platform_bindings leaves_platform_bindings
 check fails_naming_empty_var fails_naming_empty_var
-check renders_real_templates_completely renders_real_templates_completely
+check renders_staging_template_completely renders_template_completely war-infra/platform/staging.yaml
+check renders_production_template_completely renders_template_completely war-infra/platform/production.yaml
 [ "$failures" -eq 0 ]
