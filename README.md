@@ -473,8 +473,8 @@ purge: `/assets/*` is `public, max-age=31536000, immutable` (hashed filenames) a
 shell is `max-age=0, must-revalidate`.
 
 **Rollback.** Re-run the deploy job of an earlier successful run (it redeploys that run's
-`ui-default-dist` artefact and app spec), or use Cloudflare's Worker version rollback for the
-UI.
+`ui-default-dist` artefact and app spec). The artefact is kept for 14 days; past that, use
+Cloudflare's Worker version rollback for the UI, or re-run the pipeline on the old commit.
 
 ### Routing and Cloudflare Workers
 
