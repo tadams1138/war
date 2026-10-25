@@ -42,6 +42,19 @@ ingress:
         name: war-api
         preserve_path_prefix: true # forwarded as-is, no rewrite
 
+    - match:
+        path:
+          prefix: /ui/default
+      component:
+        name: war-ui-default
+        rewrite: / # strip the prefix
+
+    - match:
+        path:
+          prefix: /
+      component:
+        name: war-ui-default # catch-all
+
 services:
   - name: war-api
     instance_size_slug: basic-xxs
@@ -174,6 +187,32 @@ services:
         operator: GREATER_THAN
         value: 3
         window: TEN_MINUTES
+
+static_sites:
+  - name: war-ui-default
+    github:
+      repo: tadams1138/war
+      branch: master
+      deploy_on_push: false # deploys are pipeline-triggered, never on push
+
+    # The UI is one project directory in this repository, so the build context is that
+    # subdirectory rather than the repository root. build_command and
+    # output_dir below are both relative to it, so `dist` still means
+    # war-ui-default/dist.
+    source_dir: war-ui-default
+
+    build_command: npm run build
+    output_dir: dist
+
+    # Returns index.html with HTTP 200 for unmatched paths — this is the
+    # platform half of the SPA fallback rule (spec). Custom UIs get the
+    # same behaviour from the edge Worker instead.
+    catchall_document: index.html
+
+    envs:
+      - key: VITE_API_BASE_URL
+        scope: BUILD_TIME
+        value: https://staging.war.tmad.dev/api/v1
 
 # Runs before the new revision receives traffic, while the previous one is still
 # serving. A non-zero exit aborts the deployment (spec), which is why the
