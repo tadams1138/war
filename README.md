@@ -474,9 +474,14 @@ first. There is no edge cache purge: `/assets/*` is `public, max-age=31536000, i
 live in `war-infra/terraform/ui/asset-headers` (`_headers` syntax), passed to the Worker's
 asset config rather than shipped in the build, so they are never served as a file.
 
-**Rollback.** Re-run the deploy job of an earlier successful run (it redeploys that run's
-`ui-default-dist` artefact and app spec). The artefact is kept for 14 days; past that, use
-Cloudflare's Worker version rollback for the UI, or re-run the pipeline on the old commit.
+**Rollback.** Re-run the deploy jobs of an earlier successful run. They redeploy only the
+sides that run changed (its `ui-default-dist` artefact, its app spec, or both), so re-running
+a run that changed both also rolls back the API. To roll back the UI alone, re-run only that
+run's UI deploy job(s); GitHub re-runs a job's dependents with it, and the app job depends on
+the UI job, so this keeps the API untouched only when that run did not change the API (pick a
+UI-only run, or use the Worker version rollback below). The artefact is kept for 14 days;
+past that, use Cloudflare's Worker version rollback for the UI, or re-run the pipeline on the
+old commit.
 
 ### Routing and Cloudflare Workers
 
