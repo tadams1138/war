@@ -424,8 +424,8 @@ environment must provide is in spec sections 12.1 and 12.2.
   as waiting for App Platform ingress to be ready.
 - `modules/`: `compute/` (the App Platform app and its initial spec), `data/` (PostgreSQL
   cluster with a connection pooler), `storage/` (Spaces buckets for media, custom UIs and
-  state), `edge/` (Cloudflare DNS, TLS, WAF rules, rate limiting, Worker routes, including the default UI's `/*` route) and
-  `scheduler/` (Cloudflare cron triggers and Worker bindings).
+  state), `edge/` (Cloudflare DNS, TLS, WAF rules, rate limiting, and the media and custom-UI
+  Worker routes; the default UI's `/*` route is in `ui/`) and `scheduler/` (Cloudflare cron triggers and Worker bindings).
 
 `infra.yml` is gated as spec section 12.5 describes; the shared apply waits on the
 `infra-shared` GitHub Environment's reviewer and the production apply on `production`'s. To
