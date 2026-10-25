@@ -466,7 +466,7 @@ whose API CI did not run in that run, fails with an error; run the workflow manu
 The default UI deploys independently of the API. `ui-ci` builds it once and uploads the
 `ui-default-dist` artefact; each environment's UI deploy job downloads that exact build and
 applies `war-infra/terraform/ui`, so staging and production serve the same bytes. The app
-spec (the API, plus the interim static site below) is applied by a separate app deploy job.
+spec (API only; App Platform serves just `/api/v1`) is applied by a separate app deploy job.
 Each side's jobs run only when its own inputs changed. On staging the app job waits for the
 UI job and goes ahead unless it failed, so the UI is live and smoke-tested first; in
 production the two jobs are independent, so they wait at the gate together and one approval
@@ -474,13 +474,6 @@ covers both. There is no edge cache purge: `/assets/*` is `public, max-age=31536
 (hashed filenames) and the HTML shell is `max-age=0, must-revalidate`. The asset header rules
 live in `war-infra/terraform/ui/asset-headers` (`_headers` syntax), passed to the Worker's
 asset config rather than shipped in the build, so they are never served as a file.
-
-**Interim: the App Platform static site stays until the UI Worker is live.** The app spec
-still builds the default UI as an App Platform static site, with its `/ui/default` and `/`
-ingress, as the fallback during the rollout: until `infra.yml` destroys the old link-preview
-Worker, its `/wars/*` route fetches the shell from App Platform's `/`. A follow-up change
-removes the static site, that ingress and the `/ui/default` passthrough once the UI Worker
-serves production.
 
 **Rollback.** Re-run the deploy jobs of an earlier successful run. They redeploy only the
 sides that run changed (its `ui-default-dist` artefact, its app spec, or both), so re-running
@@ -496,7 +489,6 @@ old commit.
 2. Workers dispatch to origins:
    - `/api/v1/*`: App Platform API (prefix preserved)
    - `/ui/{slug}/*`: custom UI bucket
-   - `/ui/default/*`: App Platform's static site, prefix stripped (interim, see above)
    - `/media/*`: media bucket (cached, prefix stripped)
 3. Internal endpoints (`/api/v1/internal/*`) are blocked on the public hostname and reachable
    only from the scheduler.
@@ -505,7 +497,7 @@ old commit.
 
 | Worker | Purpose |
 |---|---|
-| `ui-router.js` | Routes custom UI requests to the shared bucket by slug, returning the shell with 200 for SPA deep links; passes `/ui/default/*` through to App Platform (interim) |
+| `ui-router.js` | Routes custom UI requests to the shared bucket by slug, returning the shell with 200 for SPA deep links |
 | `ui-default.js` | Serves the default UI's static assets and injects link-preview tags on `/wars/:id` |
 | `media-router.js` | Caches and serves media, stripping the `/media/` prefix |
 | `scheduled-tasks.js` | Invoked by Cloudflare cron; dispatches scheduled operations to internal API endpoints |

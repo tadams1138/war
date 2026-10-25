@@ -25,12 +25,6 @@ export default {
 
     const slug = segments[1]
 
-    // /ui/default/* is served by App Platform, not from storage. The route
-    // pattern cannot express the exclusion, so it is enforced here.
-    if (slug === 'default') {
-      return fetch(request)
-    }
-
     // The slug reaches storage as a key prefix. Validate it for the same reason
     // the deploy pipeline does: a traversal sequence would read across into
     // another brand's bundle in the shared bucket.
