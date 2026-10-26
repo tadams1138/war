@@ -9,8 +9,89 @@ import { expect, type Page } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { test } from './fixtures'
 import type { FieldRef } from '../support/fields'
+import { buildVideoMediaItem } from '../../../src/mocks/fixtures'
+import { warDetail } from '../support/editWar'
+import { API, waitForCallLog } from '../support/mocking'
 
-const { When, Then } = createBdd(test, { tags: '@edit-war' })
+const { Given, When, Then } = createBdd(test, { tags: '@edit-war' })
+
+const originalVideo = () => buildVideoMediaItem({ id: 'original-video', provider: 'youtube', video_id: 'original-id' })
+const attachedVideo = () => buildVideoMediaItem({ id: 'attached-video', provider: 'youtube', video_id: 'abc123', start_seconds: 5, end_seconds: 20, duration_seconds: 15 })
+const replacementVideo = () => buildVideoMediaItem({ id: 'replacement-video', provider: 'vimeo', video_id: '123456', start_seconds: 0, end_seconds: 15, duration_seconds: 15 })
+
+Given(/^that War uses video mode( with an attached video)?$/, async ({ world }, existing: string | undefined) => {
+  // Arrange
+  const war = warDetail(world)
+  war.media_mode = 'video' as typeof war.media_mode
+  war.contestants[0]!.media = existing ? [originalVideo()] : []
+  const id = war.contestants[0]!.id
+  world.queue({
+    method: existing ? 'PUT' : 'POST',
+    path: `${API}/wars/${war.id}/contestants/${id}/videos`,
+    responses: [{ status: 201, body: existing ? replacementVideo() : attachedVideo() }],
+  })
+})
+
+Given('the API rejects replacement video validation', async ({ world }) => {
+  // Arrange
+  const recipe = world.recipes.find((item) => item.method === 'PUT' && item.path.endsWith('/videos'))!
+  recipe.responses = [{ status: 422, body: { error: 'This video cannot be embedded' } }]
+})
+
+When('they enter video URL {string} with start {int} and end {int}', async ({ page }, url: string, start: number, end: number) => {
+  // Act
+  await page.getByLabel('Video URL').fill(url)
+  await page.getByLabel('Start seconds (optional)').fill(String(start))
+  await page.getByLabel('End seconds (optional)').fill(String(end))
+})
+
+When('they attach the video', async ({ page }) => {
+  // Act
+  await page.getByRole('button', { name: 'Attach video' }).click()
+})
+
+When('they replace the video', async ({ page }) => {
+  // Act
+  await page.getByRole('button', { name: 'Replace video' }).click()
+})
+
+Then('the video clip is sent to the API', async ({ page }) => {
+  // Assert
+  const calls = await waitForCallLog(page, (log) => log.some((call) => call.method === 'POST' && call.url.endsWith('/videos')))
+  expect(JSON.parse(calls.find((call) => call.method === 'POST' && call.url.endsWith('/videos'))!.body!)).toEqual({ url: 'https://youtu.be/abc123', start_seconds: 5, end_seconds: 20 })
+})
+
+Then('the attached video is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('edit-war-current-video')).toContainText('abc123')
+})
+
+Then('the replacement is sent to the API without deleting the old video', async ({ page }) => {
+  // Assert
+  const calls = await waitForCallLog(page, (log) => log.some((call) => call.method === 'PUT' && call.url.endsWith('/videos')))
+  expect(calls.some((call) => call.method === 'DELETE' && call.url.includes('/media/'))).toBe(false)
+  expect(JSON.parse(calls.find((call) => call.method === 'PUT' && call.url.endsWith('/videos'))!.body!)).toEqual({ url: 'https://vimeo.com/123456', start_seconds: 0, end_seconds: 15 })
+})
+
+Then('the replacement video is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('edit-war-current-video')).toContainText('123456')
+})
+
+Then('the original video remains visible', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('edit-war-current-video')).toContainText('original-id')
+})
+
+Then('a video validation error is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('edit-war-video-error')).toBeVisible()
+})
+
+Then('the video publication requirement is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('publish-requirements')).toContainText('Add a video to every contestant')
+})
 
 const sections = (page: Page) => page.getByRole('navigation', { name: 'War sections' })
 const section = (page: Page, name: string) => sections(page).getByRole('button', { name, exact: true })

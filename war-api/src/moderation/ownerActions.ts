@@ -6,6 +6,7 @@ export type OwnerAction =
   | 'edit_contestant'
   | 'remove_contestant'
   | 'add_image'
+  | 'add_video'
   | 'reorder_images'
   | 'remove_image'
   | 'publish_war'
@@ -20,6 +21,7 @@ export const OWNER_ACTIONS: readonly OwnerAction[] = [
   'edit_contestant',
   'remove_contestant',
   'add_image',
+  'add_video',
   'reorder_images',
   'remove_image',
   'publish_war',

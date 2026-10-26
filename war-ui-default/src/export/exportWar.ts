@@ -8,6 +8,11 @@ import type { ContestantDetail, WarDetailResponse } from '../api/client'
 import { largestVariant } from '../utils/media'
 import type { WarExportContestant, WarExportFile, WarExportMedia } from './warExportFile'
 
+function exportVideo(item: ContestantDetail['media'][number]): WarExportMedia {
+  const video = item as typeof item & { provider: 'youtube' | 'vimeo'; video_id: string; start_seconds: number; end_seconds: number | null }
+  return { kind: 'video', provider: video.provider, video_id: video.video_id, start_seconds: video.start_seconds, end_seconds: video.end_seconds }
+}
+
 export type FetchBinary = (url: string) => Promise<Uint8Array>
 
 function extensionFromUrl(url: string): string {
@@ -22,6 +27,10 @@ async function exportContestantMedia(
 ): Promise<WarExportMedia[]> {
   const media: WarExportMedia[] = []
   for (const item of contestant.media) {
+    if (item.kind === 'video') {
+      media.push(exportVideo(item))
+      continue
+    }
     const variant = largestVariant(item)
     const path = `media/${contestant.id}/${item.id}.${extensionFromUrl(variant.url)}`
     files[path] = await fetchBinary(variant.url)
@@ -51,6 +60,7 @@ export async function buildWarExportZip(war: WarDetailResponse, fetchBinary: Fet
   }
 
   const warExport: WarExportFile = {
+    media_mode: war.media_mode,
     title: war.title,
     category: war.category,
     visibility: war.visibility,

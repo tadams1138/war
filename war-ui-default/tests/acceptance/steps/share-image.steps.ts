@@ -30,6 +30,16 @@ Given('a draft War with {int} contestant(s) with an image', async ({ page, world
   world.queue(ok('GET', `${API}/wars/${id}`, buildWarDetail({ id, status: 'draft', contestants })))
 })
 
+Given('a draft War with two video contestants', async ({ world }) => {
+  // Arrange
+  const id = world.nextWarId()
+  const contestants = [1, 2].map((index) => buildContestant({
+    id: `c-${index}`,
+    media: [buildMediaItem({ id: `video-${index}`, kind: 'video', variants: [] })],
+  }))
+  world.queue(ok('GET', `${API}/wars/${id}`, buildWarDetail({ id, status: 'draft', media_mode: 'video', contestants })))
+})
+
 When('they choose a share image file', async ({ page }) => {
   // Act
   await page.getByTestId('edit-war-share-image-input').setInputFiles({ name: 'share.png', mimeType: 'image/png', buffer: TINY_PNG })

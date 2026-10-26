@@ -18,8 +18,8 @@ import { pickTwoRandom } from '../utils/pickTwoRandom'
 const WIDTH = 1200
 const HEIGHT = 630
 
-function qualifies(contestant: ContestantDetail): boolean {
-  return contestant.media.length > 0
+export function hasShareImageSource(contestant: ContestantDetail): boolean {
+  return contestant.media.some((media) => media.kind === 'image' && media.variants.length > 0)
 }
 
 async function loadImage(url: string): Promise<HTMLImageElement> {
@@ -141,7 +141,7 @@ const FONT_LOAD_SPEC_BY_THEME: Record<string, string> = {
  * function failing silently.
  */
 export async function generateShareImage(war: WarDetailResponse): Promise<Blob | null> {
-  const qualifying = war.contestants.filter(qualifies)
+  const qualifying = war.contestants.filter(hasShareImageSource)
   if (qualifying.length < 2) return null
 
   const [left, right] = pickTwoRandom(qualifying)

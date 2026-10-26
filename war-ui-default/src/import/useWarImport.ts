@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   addContestant,
+  attachContestantVideo,
   createWar,
   uploadContestantImages,
   uploadShareImage as apiUploadShareImage,
@@ -26,6 +27,7 @@ function toCreateWarPayload(metadata: Parameters<ImportApi['createWar']>[0]): Cr
     visibility: metadata.visibility as CreateWarPayload['visibility'],
     theme: metadata.theme as CreateWarPayload['theme'],
     ends_at: metadata.ends_at,
+    media_mode: metadata.media_mode,
   }
 }
 
@@ -34,6 +36,9 @@ const realImportApi: ImportApi = {
   addContestant: (warId, payload) => addContestant(warId, { name: payload.name, bio: payload.bio }),
   uploadImage: async (warId, contestantId, file) => {
     await uploadContestantImages(warId, contestantId, [file])
+  },
+  attachVideo: async (warId, contestantId, payload) => {
+    await attachContestantVideo(warId, contestantId, payload)
   },
   uploadShareImage: async (warId, file) => {
     await apiUploadShareImage(warId, file)

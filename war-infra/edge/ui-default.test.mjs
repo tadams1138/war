@@ -81,6 +81,19 @@ test('share page drops the shell\'s ETag', async () => {
   assert.equal(res.headers.get('etag'), null)
 })
 
+test('share page keeps the static shell video frame policy', async () => {
+  // Arrange
+  const policy = 'frame-src https://www.youtube-nocookie.com https://player.vimeo.com'
+  stubApi(async () => Response.json({ title: 'Video War' }))
+  const shell = new Response(SHELL, {
+    headers: { 'content-type': 'text/html', 'content-security-policy': policy },
+  })
+  // Act
+  const response = await worker.fetch(req('/wars/video-war'), envWith(shell))
+  // Assert
+  assert.equal(response.headers.get('content-security-policy'), policy)
+})
+
 test('no share image means no image tags', async () => {
   // Arrange
   stubApi(async () => Response.json({ title: 'T' }))

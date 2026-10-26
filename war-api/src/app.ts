@@ -32,6 +32,7 @@ export interface AppDeps {
   providers: ReadonlyMap<string, OAuthProvider>;
   storage: ObjectStorage;
   config: AppConfig;
+  metadataFetch?: typeof fetch;
 }
 
 const API_PREFIX = '/api/v1';
@@ -105,6 +106,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         storage: deps.storage,
         publicBaseUrl: deps.config.s3.publicBaseUrl,
         rateLimiter: imageUploadRateLimiter,
+        youtubeApiKey: deps.config.youtubeApiKey,
+        metadataFetch: deps.metadataFetch ?? fetch,
       });
       registerMatchupsRoutes(instance, {
         db: deps.db,

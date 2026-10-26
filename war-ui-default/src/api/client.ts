@@ -32,6 +32,7 @@ type VoteForbiddenBody =
 // war-api validates these request bodies by hand (no `schema.body`), so the
 // generated document has nothing to derive them from.
 export interface CreateWarPayload {
+  media_mode?: 'image' | 'video'
   title?: string
   category?: string | null
   visibility?: 'public' | 'unlisted'
@@ -41,6 +42,11 @@ export interface CreateWarPayload {
 export interface AddContestantPayload {
   name: string
   bio?: string | null
+}
+export interface ContestantVideoPayload {
+  url: string
+  start_seconds?: number
+  end_seconds?: number
 }
 // GET /wars/:id/my-progress has no documented response schema either.
 export interface VoteProgress {
@@ -290,6 +296,14 @@ export async function uploadContestantImages(warId: string, contestantId: string
     results.push(await json<UploadedImage>(`/wars/${warId}/contestants/${contestantId}/images`, formInit(file)))
   }
   return results
+}
+
+export function attachContestantVideo(warId: string, contestantId: string, payload: ContestantVideoPayload): Promise<MediaItem> {
+  return json(`/wars/${warId}/contestants/${contestantId}/videos`, jsonInit('POST', payload), classifyEditForbidden)
+}
+
+export function replaceContestantVideo(warId: string, contestantId: string, payload: ContestantVideoPayload): Promise<MediaItem> {
+  return json(`/wars/${warId}/contestants/${contestantId}/videos`, jsonInit('PUT', payload), classifyEditForbidden)
 }
 
 export function uploadShareImage(warId: string, file: File | Blob): Promise<WarSummary> {

@@ -30,6 +30,18 @@ async function serialize(schema: object, fixture: unknown): Promise<string> {
 }
 
 describe('response body schemas serialize every field', () => {
+  it('MediaItemView: video fields and poster survive serialization', async () => {
+    // Arrange
+    const fixture: MediaItemView = {
+      kind: 'video', id: 'a5b1e2c4-1111-4a11-8a11-000000000009', display_order: 0,
+      aspect_ratio: null, variants: [], provider: 'youtube', video_id: 'abc12345678',
+      start_seconds: 5, end_seconds: 20, duration_seconds: 15, poster_url: 'https://i.ytimg.com/vi/abc12345678/hqdefault.jpg',
+    };
+    // Act
+    const body = await serialize(mediaItemSchema, fixture);
+    // Assert
+    expect(body).toBe(JSON.stringify(fixture));
+  });
   it('MediaItemView: every field, non-null aspect_ratio', async () => {
     // Arrange
     const fixture: MediaItemView = {

@@ -30,6 +30,7 @@
 # deploy, same mechanism as ${IMAGE_TAG}:
 #   JWT_SECRET, INTERNAL_TASK_TOKEN,
 #   GOOGLE_CLIENT_SECRET, MICROSOFT_CLIENT_SECRET, FACEBOOK_CLIENT_SECRET, TWITTER_CLIENT_SECRET   secrets
+#   YOUTUBE_API_KEY   per-environment secret (YouTube Data API v3)
 #   GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID, FACEBOOK_CLIENT_ID, TWITTER_CLIENT_ID   variables (not secrets)
 #   SPACES_ACCESS_KEY_ID, SPACES_SECRET_ACCESS_KEY   secrets (same Spaces
 #     credentials used elsewhere; substituted into the spec's S3_* keys)
@@ -460,7 +461,9 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Test render-spec.sh
-        run: bash war-infra/scripts/render-spec.test.sh
+        run: |
+          bash war-infra/scripts/render-spec.test.sh
+          bash war-infra/scripts/smoke-video-policy.test.sh
 
       - uses: actions/setup-node@v7
         with:
@@ -674,6 +677,7 @@ jobs:
           S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
           MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
           FACEBOOK_CLIENT_ID: ${{ vars.FACEBOOK_CLIENT_ID }}
@@ -790,6 +794,7 @@ jobs:
           S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           MICROSOFT_CLIENT_ID: ${{ vars.MICROSOFT_CLIENT_ID }}
           MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
           FACEBOOK_CLIENT_ID: ${{ vars.FACEBOOK_CLIENT_ID }}

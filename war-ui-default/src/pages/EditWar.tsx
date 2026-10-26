@@ -48,6 +48,14 @@ function lacksContestantsToPublish(contestants: ContestantDetail[]): boolean {
   return contestants.length < MIN_CONTESTANTS_TO_PUBLISH
 }
 
+function publishRequirement(war: WarDetailResponse): string | null {
+  if (lacksContestantsToPublish(war.contestants)) return `To publish this War, add at least ${MIN_CONTESTANTS_TO_PUBLISH} contestants.`
+  if (war.media_mode === 'video' && war.contestants.some((contestant) => contestant.media[0]?.kind !== 'video')) {
+    return 'Add a video to every contestant before publishing this War.'
+  }
+  return null
+}
+
 export function EditWar() {
   const { id: warId } = useParams<{ id: string }>()
   const safeWarId = warId ?? ''
@@ -158,7 +166,7 @@ function PublishToggleButton({
 }) {
   if (war.status === 'closed') return null
   const isDraft = war.status === 'draft'
-  const disabled = publishing || (isDraft && lacksContestantsToPublish(war.contestants))
+  const disabled = publishing || (isDraft && publishRequirement(war) !== null)
   return (
     <button type="button" className="button" data-testid="publish-toggle-submit" disabled={disabled} onClick={onClick}>
       {isDraft ? 'Publish War' : 'Unpublish War'}
@@ -167,11 +175,11 @@ function PublishToggleButton({
 }
 
 function PublishStatus({ war, publishDetails }: { war: WarDetailResponse; publishDetails: string[] | null }) {
-  const needsContestants = war.status === 'draft' && lacksContestantsToPublish(war.contestants)
+  const requirement = war.status === 'draft' ? publishRequirement(war) : null
   return (
     <>
-      {needsContestants && (
-        <p data-testid="publish-requirements">To publish this War, add at least {MIN_CONTESTANTS_TO_PUBLISH} contestants.</p>
+      {requirement && (
+        <p data-testid="publish-requirements">{requirement}</p>
       )}
       {war.status === 'closed' && <p data-testid="publish-closed-note">This War has closed and can no longer be published or unpublished.</p>}
       {publishDetails && (
@@ -347,6 +355,9 @@ function SelectedContestantEditor({
         onDraftChange={(draft) => editWar.drafts.setContestantDraft(contestant.id, draft)}
         error={state.contestantErrors[contestant.id] ?? null}
         imageNotice={state.imageErrors[contestant.id] ?? null}
+        mediaMode={state.war.media_mode as 'image' | 'video'}
+        videoError={state.videoErrors[contestant.id] ?? null}
+        onSaveVideo={(payload, replace) => editWar.saveVideo(contestant.id, payload, replace)}
         onSave={(payload: PatchContestantPayload) => editWar.saveContestant(contestant.id, payload)}
         onRemove={() => onRequestRemove(contestant)}
         onAddImages={(files) => void editWar.addImages(contestant.id, files)}

@@ -26,15 +26,18 @@ interface MatchupViewProps {
   onSelect: (contestantId: string) => void
   progressBar: ReactNode
   errorMessage: ReactNode
+  videoCards?: { left: ReactNode; right: ReactNode }
+  playbackControl?: ReactNode
 }
 
-function WideMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage, viewportClass }: MatchupPieces) {
+function WideMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage, viewportClass, playbackControl }: MatchupPieces) {
   return (
     <>
       <div className={viewportClass} data-testid="vote-layout">
         <div className="vote-progress">
           {progressBar}
           {errorMessage}
+          {playbackControl}
         </div>
         <div className="matchup-cards" data-testid="matchup-view">
           {leftCard}
@@ -52,12 +55,13 @@ function WideMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progress
 
 // Always the full-height block, media or not: each bio already sits beside its
 // card here, and a long one must scroll within its own area (war-spec.md §10.3).
-function NarrowMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage }: MatchupPieces) {
+function NarrowMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage, playbackControl }: MatchupPieces) {
   return (
     <div className="vote-viewport" data-testid="vote-layout">
       <div className="vote-progress">
         {progressBar}
         {errorMessage}
+        {playbackControl}
       </div>
       <div className="matchup-view" data-testid="matchup-view">
         <div className="matchup-row">
@@ -83,6 +87,7 @@ interface MatchupPieces {
   progressBar: ReactNode
   errorMessage: ReactNode
   viewportClass: string
+  playbackControl?: ReactNode
 }
 
 // Wide layout only: with no media on either side the cards are only a name and a Vote button, so
@@ -93,13 +98,20 @@ function viewportClassFor(matchup: MatchupViewProps['matchup']): string {
   return mediaFree ? 'vote-viewport vote-viewport--compact' : 'vote-viewport'
 }
 
-export function MatchupView({ matchup, votingInFlight, onSelect, progressBar, errorMessage }: MatchupViewProps) {
+function cardContent(side: 'left' | 'right', props: MatchupViewProps): ReactNode {
+  const custom = props.videoCards?.[side]
+  if (custom) return custom
+  return <ContestantCard key={props.matchup[side].id} contestant={props.matchup[side]} disabled={props.votingInFlight} onVote={props.onSelect} />
+}
+
+export function MatchupView(props: MatchupViewProps) {
+  const { matchup, progressBar, errorMessage, playbackControl } = props
   const narrow = useNarrowViewport()
 
   const pieces: MatchupPieces = {
     leftCard: (
       <div className="matchup-card" data-testid="matchup-card-left">
-        <ContestantCard key={matchup.left.id} contestant={matchup.left} disabled={votingInFlight} onVote={onSelect} />
+        {cardContent('left', props)}
       </div>
     ),
     vsBadge: (
@@ -109,7 +121,7 @@ export function MatchupView({ matchup, votingInFlight, onSelect, progressBar, er
     ),
     rightCard: (
       <div className="matchup-card" data-testid="matchup-card-right">
-        <ContestantCard key={matchup.right.id} contestant={matchup.right} disabled={votingInFlight} onVote={onSelect} />
+        {cardContent('right', props)}
       </div>
     ),
     leftBio: (
@@ -125,6 +137,7 @@ export function MatchupView({ matchup, votingInFlight, onSelect, progressBar, er
     progressBar,
     errorMessage,
     viewportClass: viewportClassFor(matchup),
+    playbackControl,
   }
 
   return narrow ? <NarrowMatchup {...pieces} /> : <WideMatchup {...pieces} />

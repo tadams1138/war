@@ -14,9 +14,11 @@ export interface ValidationError {
   kind: 'validationError';
   errors: string[];
 }
+export interface Conflict { kind: 'conflict'; error: string }
+export interface Unavailable { kind: 'unavailable'; error: string }
 
 /** The common case: not found / not owned / invalid input. */
-export type MutationFailure = NotFound | Forbidden | ValidationError;
+export type MutationFailure = NotFound | Forbidden | ValidationError | Conflict | Unavailable;
 
 /** A common shape for mutation results shared across domain services. The
  * failure set defaults to the common case but is a parameter, so a service

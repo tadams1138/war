@@ -36,6 +36,19 @@ function stubCanvas() {
 }
 
 describe('generateShareImage', () => {
+  it('does not treat video references as images for share-image generation', async () => {
+    // Arrange
+    const video = buildMediaItem({ id: 'video-1', kind: 'video', variants: [] })
+    const war = buildWarDetail({
+      media_mode: 'video',
+      contestants: [buildContestant({ media: [video] }), buildContestant({ media: [video] })],
+    })
+    // Act
+    const result = await generateShareImage(war)
+    // Assert
+    expect(result).toBeNull()
+  })
+
   beforeEach(() => {
     stubCanvas()
     // jsdom implements neither HTMLImageElement.decode() nor the Font

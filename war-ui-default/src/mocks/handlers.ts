@@ -2,7 +2,7 @@
 // Acceptance scenarios override just the endpoints they care about via
 // scenarios.ts recipes; anything else falls through to these.
 import { HttpResponse, http } from 'msw'
-import { buildContestant, buildMatchupResponse, buildRankingsResponse, buildWarDetail, buildWarSummary } from './fixtures'
+import { buildContestant, buildMatchupResponse, buildRankingsResponse, buildVideoMediaItem, buildWarDetail, buildWarSummary } from './fixtures'
 
 const wars = [
   buildWarSummary({ id: 'war-1', title: 'Miss Universe 2026', category: 'Pageant' }),
@@ -49,6 +49,12 @@ export const handlers = [
   http.post('/api/v1/wars/:id/join', () => new HttpResponse(null, { status: 204 })),
 
   http.get('/api/v1/wars/:id/matchups/next', () => HttpResponse.json(buildMatchupResponse())),
+
+  http.post('/api/v1/wars/:id/contestants/:cId/videos', () => HttpResponse.json(buildVideoMediaItem({ id: 'attached-video', provider: 'youtube', video_id: 'abc123' }), { status: 201 })),
+
+  http.put('/api/v1/wars/:id/contestants/:cId/videos', () => HttpResponse.json(buildVideoMediaItem({ id: 'replacement-video', provider: 'vimeo', video_id: '123456' }), { status: 201 })),
+
+  http.delete('/api/v1/wars/:id/contestants/:cId/media/:mId', () => new HttpResponse(null, { status: 204 })),
 
   http.post('/api/v1/wars/:id/matchups/:matchupId/vote', () => HttpResponse.json({ vote_id: 'vote-1' }, { status: 201 })),
 

@@ -21,6 +21,7 @@ export interface OAuthClientConfig {
 }
 
 export interface AppConfig {
+  youtubeApiKey?: string;
   port: number;
   databaseUrl: string;
   uiOrigins: string[];
@@ -92,6 +93,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const apiBaseUrl = envOr(env.PUBLIC_BASE_URL, defaultPublicBaseUrl(port));
 
   return {
+    youtubeApiKey: env.YOUTUBE_API_KEY,
     port,
     databaseUrl: envOr(env.DATABASE_URL, ''),
     uiOrigins: parseUiOrigins(env.UI_ORIGINS),

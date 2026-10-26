@@ -6,7 +6,7 @@
 import { useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import type { MediaItem } from '../api/client'
-import { byDisplayOrder, srcSetFor } from '../utils/media'
+import { byDisplayOrder, mediaDisplayUrl, srcSetFor } from '../utils/media'
 import { exceedsSwipeThreshold, swipeDirection } from '../utils/swipe'
 
 interface ImageCarouselProps {
@@ -184,7 +184,7 @@ export function ImageCarousel({ media, disabled, onTap, children, ariaLabel, fil
         {sorted.map((item, index) => (
           <div key={item.id} className="carousel-frame" data-active={index === currentIndex} style={frameStyle(item, fillHeight)}>
             {visited.has(index) && (
-              <img data-testid="carousel-image" alt="" src={item.variants[0]?.url} srcSet={srcSetFor(item)} sizes="50vw" />
+              <img data-testid="carousel-image" alt="" src={mediaDisplayUrl(item)} srcSet={srcSetFor(item)} sizes="50vw" />
             )}
           </div>
         ))}

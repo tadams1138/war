@@ -5,6 +5,8 @@ import type { ContestantDetail } from '../api/client'
 import { BioEditor } from '../bio/BioEditor'
 import { byDisplayOrder } from '../utils/media'
 import type { ContestantDraft, ImageNotice } from './useEditWar'
+import { ContestantVideoEditor } from './ContestantVideoEditor'
+import type { ContestantVideoPayload } from '../api/client'
 
 // Mirrors war-api's own per-contestant cap
 // (war-api/src/contestants/imageUploadService.ts) -- a UX convenience only,
@@ -17,6 +19,9 @@ interface EditWarContestantProps {
   onDraftChange: (draft: ContestantDraft) => void
   error: string | null
   imageNotice: ImageNotice | null
+  mediaMode: 'image' | 'video'
+  videoError: string | null
+  onSaveVideo: (payload: ContestantVideoPayload, replace: boolean) => Promise<void>
   onSave: (payload: { name: string; bio: string | null }) => Promise<void>
   onRemove: () => void
   onAddImages: (files: File[]) => void
@@ -30,6 +35,9 @@ export function EditWarContestant({
   onDraftChange,
   error,
   imageNotice,
+  mediaMode,
+  videoError,
+  onSaveVideo,
   onSave,
   onRemove,
   onAddImages,
@@ -82,14 +90,14 @@ export function EditWarContestant({
           Save
         </button>
       </form>
-      <ContestantImageGallery
+      {mediaMode === 'video' ? <ContestantVideoEditor media={sortedMedia[0]} error={videoError} onSave={onSaveVideo} /> : <><ContestantImageGallery
         contestantName={contestant.name}
         sortedMedia={sortedMedia}
         onRemoveImage={onRemoveImage}
         onMoveImageUp={onMoveImageUp}
       />
       <ImageNoticeMessage notice={imageNotice} />
-      <AddImageControl imageCount={sortedMedia.length} onAddImages={onAddImages} waiting={imageNotice?.kind === 'wait'} />
+      <AddImageControl imageCount={sortedMedia.length} onAddImages={onAddImages} waiting={imageNotice?.kind === 'wait'} /></>}
     </li>
   )
 }

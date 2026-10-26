@@ -35,6 +35,7 @@ export async function makeModerator(db: Kysely<Database>, seed: string): Promise
 }
 
 export interface DraftWarOptions {
+  mediaMode?: 'image' | 'video';
   /** `null` creates a War with no title -- distinct from omitting the option, which defaults to 'Test War'. */
   title?: string | null;
   visibility?: string;
@@ -55,7 +56,7 @@ export async function makeDraftWar(db: Kysely<Database>, creatorId: string, opti
     title: options.title === undefined ? 'Test War' : options.title,
     category: null,
     visibility: withDefault(options.visibility, 'public'),
-    mediaMode: 'image',
+    mediaMode: withDefault(options.mediaMode, 'image'),
     theme: withDefault(options.theme, 'arcade'),
     endsAt: withDefault(options.endsAt, null),
   });

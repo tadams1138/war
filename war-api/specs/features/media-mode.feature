@@ -38,8 +38,20 @@ Feature: Media Mode
     When it is attached to a contestant
     Then the media record stores a duration of 20 seconds
 
+  Scenario: A contestant holds only one video
+    Given a contestant with a video
+    When another video is attached to the same contestant
+    Then the response status is 409
+    And the original video remains attached
+
+  Scenario: Replacing a video preserves the original when validation fails
+    Given a contestant with a video
+    When replacement with an unsupported provider is attempted
+    Then the response status is 422
+    And the original video remains attached
+
   Scenario: Video responses carry an identity, never an embed URL
     Given a contestant with a video
-    When any endpoint returns that contestant
+    When the War detail endpoint returns that contestant
     Then the media object names a provider and a video id
     And it contains no embed URL

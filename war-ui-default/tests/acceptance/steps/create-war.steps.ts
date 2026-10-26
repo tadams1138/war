@@ -10,6 +10,18 @@ const { Given, When, Then } = createBdd(test, { tags: '@create-war' })
 
 const RETRY_AFTER_SECONDS = 1
 
+Then('guidance recommends few contestants for video Wars', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('video-war-guidance')).toContainText('few contestants')
+})
+
+Then('a video draft War is created via the API', async ({ page }) => {
+  // Assert
+  const calls = await waitForCallLog(page, (log) => log.some((call) => call.method === 'POST' && call.url.endsWith('/wars')))
+  const create = calls.find((call) => call.method === 'POST' && call.url.endsWith('/wars'))!
+  expect(JSON.parse(create.body!)).toEqual({ media_mode: 'video' })
+})
+
 Given('the API rate limits the first creation request for 1 second, then accepts the retry', async ({ world }) => {
   // Arrange
   world.retryAfterSeconds = RETRY_AFTER_SECONDS

@@ -14,6 +14,7 @@ import type { Theme } from '../theme/themeCookie'
 import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { useVoteSession } from '../vote/useVoteSession'
+import { VideoMatchup } from '../video/VideoMatchup'
 
 // Scrolls the tap-to-vote block to the top of the viewport once, the first
 // time a matchup is ready (war-spec.md 10.3: "the page opens scrolled to
@@ -46,6 +47,10 @@ function initialTheme(warState: AsyncResourceState<WarDetailResponse>): Theme {
   return warState.status === 'loaded' ? warState.value.theme : FALLBACK_THEME
 }
 
+function matchupComponentFor(warState: AsyncResourceState<WarDetailResponse>) {
+  return warState.status === 'loaded' && (warState.value.media_mode as string) === 'video' ? VideoMatchup : MatchupView
+}
+
 // Finishing every matchup -- whether by just casting the last vote, or by
 // arriving at the vote page (fresh, or back from signing in) having already
 // done so -- sends the voter straight to the War's results page (war-spec.md
@@ -67,6 +72,7 @@ export function VoteMode() {
   usePublishTheme(safeWarId, theme, setTheme)
   useScrollToVoteViewportOnce(state.phase === 'active')
   useRedirectWhenCompleted(warId, state.phase === 'completed')
+  const MatchupComponent = matchupComponentFor(warState)
 
   if (state.phase === 'loading') return <LoadingMessage />
   if (state.phase === 'error') return <ErrorMessage message={state.message} />
@@ -74,7 +80,8 @@ export function VoteMode() {
 
   return (
     <main data-theme={theme}>
-      <MatchupView
+      <MatchupComponent
+        key={state.matchup.id}
         matchup={state.matchup}
         votingInFlight={state.votingInFlight}
         onSelect={selectContestant}

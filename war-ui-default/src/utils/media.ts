@@ -19,3 +19,7 @@ export function largestVariant(item: MediaItem): MediaItem['variants'][number] {
 export function srcSetFor(item: MediaItem): string {
   return item.variants.map((variant) => `${variant.url} ${variant.width}w`).join(', ')
 }
+
+export function mediaDisplayUrl(item: MediaItem): string | undefined {
+  return item.kind === 'video' ? item.poster_url ?? undefined : item.variants[0]?.url
+}

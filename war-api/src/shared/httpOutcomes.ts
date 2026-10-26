@@ -1,8 +1,8 @@
 import type { FastifyReply } from 'fastify';
-import type { Forbidden, NotFound, NotPublished, ValidationError } from './outcomes.js';
+import type { Forbidden, NotFound, NotPublished, ValidationError, Conflict, Unavailable } from './outcomes.js';
 
 /** Every non-'ok' outcome kind a domain service returns. */
-export type HttpFailure = NotFound | Forbidden | NotPublished | ValidationError;
+export type HttpFailure = NotFound | Forbidden | NotPublished | ValidationError | Conflict | Unavailable;
 
 /** The response body JSON Schema for the `{ "error": string }` shape that failure responses use. */
 export const errorResponseSchema = {
@@ -39,6 +39,8 @@ const STATUS_BY_KIND: Record<HttpFailure['kind'], number> = {
   forbidden: 403,
   notPublished: 403,
   validationError: 422,
+  conflict: 409,
+  unavailable: 503,
 };
 
 const MESSAGE_BY_KIND: Record<HttpFailure['kind'], string> = {
@@ -46,6 +48,8 @@ const MESSAGE_BY_KIND: Record<HttpFailure['kind'], string> = {
   forbidden: 'forbidden',
   notPublished: 'War is not published',
   validationError: 'validation error',
+  conflict: 'conflict',
+  unavailable: 'service unavailable',
 };
 
 /**
@@ -55,6 +59,7 @@ const MESSAGE_BY_KIND: Record<HttpFailure['kind'], string> = {
 export function failureResponse(outcome: HttpFailure): { status: number; body: { error: string; details?: string[] } } {
   const body: { error: string; details?: string[] } = { error: MESSAGE_BY_KIND[outcome.kind] };
   if (outcome.kind === 'validationError') body.details = outcome.errors;
+  if (outcome.kind === 'conflict' || outcome.kind === 'unavailable') body.error = outcome.error;
   return { status: STATUS_BY_KIND[outcome.kind], body };
 }
 
