@@ -1,4 +1,4 @@
-# 3 — Apple sign-in
+# 2 — Apple sign-in
 
 ## Summary
 Add Apple as a sign-in provider alongside Google, Microsoft, Facebook and Twitter/X.
