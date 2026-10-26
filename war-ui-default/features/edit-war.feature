@@ -39,6 +39,32 @@ Feature: Edit War
     Then the title shows "Unsaved Title"
     And the category shows "Unsaved Category"
 
+  Scenario: Unsaved contestant edits survive switching to another pane and back
+    Given a draft War
+    And that War has contestants:
+      | name  | bio       |
+      | Ada   | Ada bio   |
+      | Grace | Grace bio |
+    And an authenticated voter
+    And they are on that War's Edit page
+    When they select "Ada" in the sections list
+    And they change the contestant's name to "Ada X"
+    And they change the contestant's bio to "Unsaved bio"
+    And they select "Grace" in the sections list
+    And they select "Ada" in the sections list
+    Then the contestant's name shows "Ada X"
+    And the contestant's bio shows "Unsaved bio"
+
+  Scenario: An unsaved new contestant survives switching to another pane and back
+    Given a draft War
+    And an authenticated voter
+    And they are on that War's Edit page
+    When they select "+ Add contestant" in the sections list
+    And they change the new contestant's name to "Mae"
+    And they select "Metadata" in the sections list
+    And they select "+ Add contestant" in the sections list
+    Then the new contestant's name shows "Mae"
+
   Scenario: Switching contestants shows fresh field values, not a leftover selection
     Given a draft War
     And that War has contestants:

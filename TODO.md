@@ -13,8 +13,6 @@ deleted, and the implemented behavior is described in the spec.
 - **7** — [SSRF and DNS-rebinding protection](TODO/7-ssrf-and-dns-rebinding-protection.md)
 - **8** — [Turn on per-address rate limits (TRUST_PROXY_HOPS)](TODO/8-turn-on-per-address-rate-limits-trust-proxy-hops.md)
 - **9** — [Build admin indexes without locking writes (CONCURRENTLY)](TODO/9-build-admin-indexes-without-locking-writes-concurrently.md)
-- **10** — [Keep unsaved contestant edits when switching panes](TODO/10-keep-unsaved-contestant-edits-when-switching-panes.md)
 - **11** — [Restore Facebook sign-in](TODO/11-restore-facebook-sign-in.md)
 - **12** — [Clean up orphaned storage objects](TODO/12-clean-up-orphaned-storage-objects.md)
 - **13** — [Cover the untested paths](TODO/13-cover-the-untested-paths.md)
-- **14** — [Seed the first Admin on production](TODO/14-seed-the-first-admin-on-production.md)

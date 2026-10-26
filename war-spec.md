@@ -1105,9 +1105,10 @@ one-line hint that unlisted means hidden from public lists but open to anyone wi
 end date, share image, each contestant's name, bio, and images (add, remove, reorder, up to
 the per-contestant cap), **Publish/Unpublish**, **Clear Votes**, and **Delete**. There is no
 fixed order to walk, and none of it is gated by status — a War the creator finished voting on
-is exactly as editable as one they just created. Unsaved changes to the War's own details are
-kept while the creator moves between those details and the War's contestants on the page. They
-are discarded only when the creator leaves the page without saving. A contestant's bio is
+is exactly as editable as one they just created. Unsaved changes to the War's own details,
+to any contestant's name and bio, and to the add-contestant form are kept while the creator
+moves between those sections on the page. They are discarded only when the creator leaves the
+page without saving (a contestant's unsaved changes also end once that contestant is saved). A contestant's bio is
 written with formatting controls and a preview of how it will render. Saving confirms with a
 brief notice, and a failed image removal or reorder shows an error. It is reachable from the creator's own My Wars
 card or War detail page, and for an Admin from any War's detail page, and only for those: opened
