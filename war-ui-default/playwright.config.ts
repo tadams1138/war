@@ -6,6 +6,12 @@ import { defineBddProject } from 'playwright-bdd'
 // window.__coverage__ into .nyc_output/.
 const coverage = process.env.COVERAGE === '1'
 
+// The mock build's MSW service worker fetches the page's unmocked requests
+// itself, out of reach of page.route. This makes Playwright route those too, so
+// the video steps can stand in for the providers' scripts and frames
+// (support/fakeVideoProviders.ts) and run the real player adapters.
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1'
+
 export default defineConfig({
   globalSetup: coverage ? './tests/acceptance/coverageSetup.ts' : undefined,
   projects: [

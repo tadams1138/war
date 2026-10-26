@@ -49,8 +49,6 @@ declare global {
     YT?: { Player: new (host: HTMLElement, options: object) => YouTubePlayer }
     onYouTubeIframeAPIReady?: () => void
     Vimeo?: { Player: new (host: HTMLElement, options?: object) => VimeoPlayer }
-    __mockVideoBehavior?: Record<string, 'blocked-once' | 'unavailable'>
-    __mockVideoStats?: { created: number; destroyed: number }
   }
 }
 
@@ -194,33 +192,8 @@ async function createVimeo(host: HTMLElement, media: VideoMedia, events: PlayerE
   }
 }
 
-function createMockPlayer(host: HTMLElement, media: VideoMedia, events: PlayerEvents): VideoPlayer {
-  window.__mockVideoStats ??= { created: 0, destroyed: 0 }
-  window.__mockVideoStats.created += 1
-  const finish = document.createElement('button')
-  finish.type = 'button'
-  finish.textContent = 'Finish video'
-  finish.addEventListener('click', events.ended)
-  host.append(finish)
-  return {
-    play: async () => {
-      const behavior = window.__mockVideoBehavior?.[media.video_id]
-      if (behavior === 'blocked-once') {
-        delete window.__mockVideoBehavior?.[media.video_id]
-        throw new AutoplayBlockedError('Autoplay blocked')
-      }
-      if (behavior === 'unavailable') {
-        events.unavailable()
-        throw new VideoUnavailableError('Video unavailable')
-      }
-    },
-    destroy: () => { finish.remove(); window.__mockVideoStats!.destroyed += 1 },
-  }
-}
-
 export async function createVideoPlayer(host: HTMLElement, media: VideoMedia, events: PlayerEvents): Promise<VideoPlayer> {
   if (!validVideo(media)) throw new Error('Invalid video identifier')
-  if (import.meta.env.VITE_API_MOCKING === 'enabled') return createMockPlayer(host, media, events)
   if (media.provider === 'youtube') return createYouTube(host, media, events)
   if (media.provider === 'vimeo') return createVimeo(host, media, events)
   throw new Error('Unsupported video provider')

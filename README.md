@@ -250,7 +250,7 @@ feature's tag, and `-g` still matches the title).
 | `steps/parameters.ts` | The custom parameter types, registered by `fixtures.ts` (below) |
 | `steps/shared*.steps.ts` | Untagged steps whose text means the same in every feature: `shared.steps.ts` (general), `shared-nav` (identity menu and name), `shared-calls` (API calls, `{call}`), `shared-lists` (Admin Dashboard lists, `{list}`), `shared-bio` (rendered bios, `{bio}`), `shared-layout` (where controls sit and how they look) |
 | `steps/<feature>.steps.ts` | One feature's steps, scoped by that feature's tag |
-| `support/` | Helpers and the registries behind the parameter types: `pageNames`, `calls`, `lists`, `fields`, `cards`, `bios`, `roles`, `screens`, `providers`; and `mocking`, `recipes`, `pages`, `editWar`, `results`, `adminRecords`, `adminFixtures`, `exportArchive` |
+| `support/` | Helpers and the registries behind the parameter types: `pageNames`, `calls`, `lists`, `fields`, `cards`, `bios`, `roles`, `screens`, `providers`; `fakeVideoProviders` (stand-ins for the YouTube and Vimeo scripts and frames, routed in by Playwright so the real player adapters run; `playwright.config.ts` enables routing of the MSW service worker's requests); and `mocking`, `recipes`, `pages`, `editWar`, `results`, `adminRecords`, `adminFixtures`, `exportArchive` |
 
 ### Writing conventions
 

@@ -1,14 +1,19 @@
 import { expect } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildMatchupResponse, buildVideoMatchupResponse, buildVideoMediaItem, buildWarDetail } from '../../../src/mocks/fixtures'
+import { blockVideoScripts, endVideo, installFakeVideoProviders, reachClipEnd, setVideoBehavior, videoStats } from '../support/fakeVideoProviders'
 import { API } from '../support/mocking'
 import { ok, reply } from '../support/recipes'
-import { test } from './fixtures'
+import type { Side } from '../support/screens'
+import { test, type World } from './fixtures'
 
 const { Given, When, Then } = createBdd(test, { tags: '@video-mode' })
 
-Given('a matchup in a video War', async ({ world }) => {
+const videoId = (world: World, side: Side): string => world.matchup![side].media[0].video_id!
+
+Given('a matchup in a video War', async ({ page, world }) => {
   // Arrange
+  await installFakeVideoProviders(page)
   const id = world.nextWarId()
   const matchup = buildMatchupResponse()
   world.matchupResponse = matchup
@@ -38,9 +43,9 @@ Then('the left video plays first', async ({ page }) => {
   await expect(page.getByTestId('matchup-card-right').getByTestId('contestant-card')).toHaveAttribute('data-video-state', 'poster')
 })
 
-When('the left video ends', async ({ page }) => {
+When('the {side} video ends', async ({ page, world }, side: Side) => {
   // Act
-  await page.getByTestId('matchup-card-left').getByRole('button', { name: 'Finish video' }).evaluate((button: HTMLButtonElement) => button.click())
+  await endVideo(page, videoId(world, side))
 })
 
 Then('the right video begins', async ({ page }) => {
@@ -53,31 +58,26 @@ Then('neither card is selectable', async ({ page }) => {
   await expect(page.getByTestId('contestant-card').filter({ has: page.getByRole('button', { name: /Vote for/ }) })).toHaveCount(0)
 })
 
-When('the right video finishes', async ({ page }) => {
-  // Act
-  await page.getByTestId('matchup-card-right').getByRole('button', { name: 'Finish video' }).evaluate((button: HTMLButtonElement) => button.click())
-})
-
 Then('both cards become selectable', async ({ page }) => {
   // Assert
   await expect(page.getByRole('button', { name: /Vote for/ })).toHaveCount(2)
 })
 
-Given('the browser refuses to autoplay the right video', async ({ page }) => {
+Given('the browser refuses to autoplay the {side} video', async ({ page, world }, side: Side) => {
   // Arrange
-  await page.evaluate(() => { (window as unknown as { __mockVideoBehavior: Record<string, string> }).__mockVideoBehavior = { '123456': 'blocked-once' } })
+  await setVideoBehavior(page, videoId(world, side), 'blocked-once')
 })
 
-Then('a play control is shown on the right card', async ({ page }) => {
+Then('a play control is shown on the {side} card', async ({ page }, side: Side) => {
   // Assert
-  await expect(page.getByTestId('matchup-card-right').getByRole('button', { name: 'Play right video' })).toBeVisible()
+  await expect(page.getByTestId(`matchup-card-${side}`).getByRole('button', { name: `Play ${side} video` })).toBeVisible()
 })
 
-Then('the voter can start the right video manually', async ({ page }) => {
+Then('the voter can start the {side} video manually', async ({ page }, side: Side) => {
   // Act
-  await page.getByTestId('matchup-card-right').getByRole('button', { name: 'Play right video' }).click()
+  await page.getByTestId(`matchup-card-${side}`).getByRole('button', { name: `Play ${side} video` }).click()
   // Assert
-  await expect(page.getByTestId('matchup-card-right').getByTestId('contestant-card')).toHaveAttribute('data-video-state', 'playing')
+  await expect(page.getByTestId(`matchup-card-${side}`).getByTestId('contestant-card')).toHaveAttribute('data-video-state', 'playing')
 })
 
 When('the voter replays the pair', async ({ page }) => {
@@ -95,14 +95,29 @@ Given('the right contestant has no video', async ({ world }) => {
   world.matchupResponse!.matchup.right.media = []
 })
 
-Then('an unavailable state is shown on the right card', async ({ page }) => {
+Then('an unavailable state is shown on the {side} card', async ({ page }, side: Side) => {
   // Assert
-  await expect(page.getByTestId('matchup-card-right').getByRole('status')).toHaveText('Video unavailable')
+  await expect(page.getByTestId(`matchup-card-${side}`).getByRole('status')).toHaveText('Video unavailable')
 })
 
-Given('the right video has been made private', async ({ page }) => {
+Given('the {side} video has been made private', async ({ page, world }, side: Side) => {
   // Arrange
-  await page.evaluate(() => { (window as unknown as { __mockVideoBehavior: Record<string, string> }).__mockVideoBehavior = { '123456': 'unavailable' } })
+  await setVideoBehavior(page, videoId(world, side), 'unavailable')
+})
+
+Given('the videos are clips ending after 5 seconds', async ({ world }) => {
+  // Arrange
+  for (const side of ['left', 'right'] as const) world.matchup![side].media[0].end_seconds = 5
+})
+
+When('the {side} clip reaches its end time', async ({ page, world }, side: Side) => {
+  // Act
+  await reachClipEnd(page, videoId(world, side), 5)
+})
+
+Given('the video players cannot be loaded', async ({ page }) => {
+  // Arrange
+  await blockVideoScripts(page)
 })
 
 Given('a later video matchup', async ({ world }) => {
@@ -112,15 +127,23 @@ Given('a later video matchup', async ({ world }) => {
   next.matchup.left.name = 'Third'
   next.matchup.right.name = 'Fourth'
   next.progress.voted = 1
+  next.matchup.left.media = [buildVideoMediaItem({ id: 'later-left', provider: 'youtube', video_id: 'later-left-id' })]
+  next.matchup.right.media = [buildVideoMediaItem({ id: 'later-right', provider: 'vimeo', video_id: '654321' })]
+  world.matchupResponse!.prefetch = { matchup_id: next.matchup.id, media: [...next.matchup.left.media, ...next.matchup.right.media] }
   world.matchupCalls.push({ status: 200, body: next })
+})
+
+Then("the later matchup's video posters were fetched ahead", async ({ world }) => {
+  // Assert
+  await expect.poll(() => world.requestedUrls.some((url) => url.includes('later-left-poster'))).toBe(true)
+  expect(world.requestedUrls.some((url) => url.includes('later-right-poster'))).toBe(true)
 })
 
 Then('the previous players are destroyed before the next pair starts', async ({ page }) => {
   // Assert
-  await expect.poll(async () => page.evaluate(() => window.__mockVideoStats?.destroyed)).toBe(2)
+  await expect.poll(async () => (await videoStats(page)).destroyed).toBe(2)
   await expect(page.getByTestId('video-poster')).toHaveCount(2)
-  await expect(page.getByRole('button', { name: 'Finish video' })).toHaveCount(0)
-  expect(await page.evaluate(() => window.__mockVideoStats?.created)).toBe(2)
+  expect((await videoStats(page)).created).toBe(2)
 })
 
 Then('the next video matchup is shown', async ({ page }) => {
