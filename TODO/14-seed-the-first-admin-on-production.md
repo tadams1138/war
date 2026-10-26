@@ -1,4 +1,4 @@
-# 15 — Seed the first Admin on production
+# 14 — Seed the first Admin on production
 
 ## Summary
 Owner action: grant the first Admin role on the production environment.

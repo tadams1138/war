@@ -27,4 +27,4 @@ Build the registry of custom UIs and the shared runtime artifact they depend on 
 
 ## Dependencies
 - #6 (the registry-related routing scenarios have no runner).
-- #8 touches the same edge routing (`ui_router` and `/ui/*`).
+- The default UI Worker (`war-infra/edge/ui-default.js`, route `/*`) shares the edge routing; `/ui/*` stays with `ui_router`.

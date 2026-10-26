@@ -1,4 +1,4 @@
-# 10 — Build admin indexes without locking writes (CONCURRENTLY)
+# 9 — Build admin indexes without locking writes (CONCURRENTLY)
 
 ## Summary
 Admin indexes are built without `CONCURRENTLY`, so each build locks writes to its table.

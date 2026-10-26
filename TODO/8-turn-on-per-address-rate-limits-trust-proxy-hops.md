@@ -1,4 +1,4 @@
-# 9 — Turn on per-address rate limits (TRUST_PROXY_HOPS)
+# 8 — Turn on per-address rate limits (TRUST_PROXY_HOPS)
 
 ## Summary
 Per-address rate limits are off because `TRUST_PROXY_HOPS` is not set. Verify the real hop
