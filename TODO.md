@@ -4,7 +4,6 @@ Work not yet done. Details for each item are in `TODO/<number>-<title>.md`.
 When an item is fully implemented it is removed from this list, its detail file is
 deleted, and the implemented behavior is described in the spec.
 
-- **1** — [Video matchups](TODO/1-video-matchups.md)
 - **2** — [Custom UI registry and shared runtime](TODO/2-custom-ui-registry-and-shared-runtime.md)
 - **3** — [Apple sign-in](TODO/3-apple-sign-in.md)
 - **5** — [Monitoring and alerting](TODO/5-monitoring-and-alerting.md)
