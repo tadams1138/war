@@ -2,7 +2,7 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 import { findContestantsByIds } from '../contestants/contestantsRepository.js';
 import { listMediaByContestants } from '../contestants/contestantMediaRepository.js';
-import { presentMedia, type MediaItemView } from '../contestants/mediaPresenter.js';
+import { presentMedia, presentPrefetchMedia, type MediaItemView } from '../contestants/mediaPresenter.js';
 import { matchupContestantViewSchema, type MatchupContestantView } from '../contestants/contestantPresenter.js';
 import type { ContestantMedia } from '../contestants/contestantMediaRepository.js';
 import type { Contestant } from '../contestants/contestantsRepository.js';
@@ -94,8 +94,8 @@ function buildPrefetch(
   return {
     matchup_id: upcoming.id,
     media: [
-      ...presentMedia(mediaByContestant.get(upcoming.contestantAId) ?? [], publicBaseUrl),
-      ...presentMedia(mediaByContestant.get(upcoming.contestantBId) ?? [], publicBaseUrl),
+      ...presentPrefetchMedia(mediaByContestant.get(upcoming.contestantAId) ?? [], publicBaseUrl),
+      ...presentPrefetchMedia(mediaByContestant.get(upcoming.contestantBId) ?? [], publicBaseUrl),
     ],
   };
 }

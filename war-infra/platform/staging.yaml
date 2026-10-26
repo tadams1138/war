@@ -148,6 +148,10 @@ services:
         scope: RUN_TIME
         type: SECRET
         value: ${GOOGLE_CLIENT_SECRET}
+      - key: YOUTUBE_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: ${YOUTUBE_API_KEY}
       - key: MICROSOFT_CLIENT_SECRET
         scope: RUN_TIME
         type: SECRET

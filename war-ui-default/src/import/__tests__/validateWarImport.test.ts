@@ -29,6 +29,67 @@ function zipFrom(files: Record<string, Uint8Array | string>): Uint8Array {
 }
 
 describe('validateWarImport', () => {
+  it('accepts a video War reference without a media file', () => {
+    // Arrange
+    const zip = zipFrom({ 'war.json': JSON.stringify(validWarJson({ media_mode: 'video', contestants: [{ name: 'Ada', bio: null, media: [{ kind: 'video', provider: 'vimeo', video_id: '123456', start_seconds: 2, end_seconds: 12 }] }] })) })
+
+    // Act
+    const result = validateWarImport(zip)
+
+    // Assert
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.data.metadata.media_mode).toBe('video')
+  })
+
+  it('rejects a video archive with an unlisted provider before creating a War', () => {
+    // Arrange
+    const zip = zipFrom({ 'war.json': JSON.stringify(validWarJson({ media_mode: 'video', contestants: [{ name: 'Ada', bio: null, media: [{ kind: 'video', provider: 'evil', video_id: '123456', start_seconds: 0, end_seconds: 10 }] }] })) })
+
+    // Act
+    const result = validateWarImport(zip)
+
+    // Assert
+    expect(result.ok).toBe(false)
+  })
+
+  it('rejects video media in an image War archive', () => {
+    // Arrange
+    const zip = zipFrom({ 'war.json': JSON.stringify(validWarJson({ contestants: [{ name: 'Ada', bio: null, media: [{ kind: 'video', provider: 'vimeo', video_id: '123456', start_seconds: 0, end_seconds: 10 }] }] })) })
+
+    // Act
+    const result = validateWarImport(zip)
+
+    // Assert
+    expect(result.ok).toBe(false)
+  })
+
+  it('rejects multiple video clips for one contestant', () => {
+    // Arrange
+    const clip = { kind: 'video', provider: 'vimeo', video_id: '123456', start_seconds: 0, end_seconds: 10 }
+    const zip = zipFrom({ 'war.json': JSON.stringify(validWarJson({ media_mode: 'video', contestants: [{ name: 'Ada', bio: null, media: [clip, clip] }] })) })
+
+    // Act
+    const result = validateWarImport(zip)
+
+    // Assert
+    expect(result.ok).toBe(false)
+  })
+
+  it.each([
+    ['an incomplete YouTube identifier', { provider: 'youtube', video_id: 'a', start_seconds: 0, end_seconds: 10 }],
+    ['a nonnumeric Vimeo identifier', { provider: 'vimeo', video_id: 'not-numeric', start_seconds: 0, end_seconds: 10 }],
+    ['a fractional clip start', { provider: 'vimeo', video_id: '123456', start_seconds: 1.5, end_seconds: 10 }],
+    ['a clip longer than one minute', { provider: 'vimeo', video_id: '123456', start_seconds: 0, end_seconds: 61 }],
+  ])('rejects %s in a video archive', (_description, video) => {
+    // Arrange
+    const zip = zipFrom({ 'war.json': JSON.stringify(validWarJson({ media_mode: 'video', contestants: [{ name: 'Ada', bio: null, media: [{ kind: 'video', ...video }] }] })) })
+
+    // Act
+    const result = validateWarImport(zip)
+
+    // Assert
+    expect(result.ok).toBe(false)
+  })
   it('accepts a well-formed export and returns its parsed metadata and contestants', () => {
     // Arrange
     const zip = zipFrom({

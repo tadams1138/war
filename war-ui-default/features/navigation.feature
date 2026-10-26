@@ -94,6 +94,7 @@ Feature: Navigation
     And an authenticated voter
     When they open the identity menu
     And they select "Start a War" from the identity menu
+    And they choose image mode
     Then they are redirected to that War's Edit page
     And the identity menu is closed
 

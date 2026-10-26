@@ -2,7 +2,7 @@
 
 **Status:** Living specification. `TODO.md` lists only the work not yet done.
 
-Sections marked **Planned — not yet built** (§6.5, §9.2, §11, §12.7) describe designed
+Sections marked **Planned — not yet built** (§6.5, §11, §12.7) describe designed
 behaviour with no implementation yet; everything else is built.
 
 This is the complete functional specification for the War platform. It describes *what the
@@ -324,9 +324,10 @@ War is created as a draft owned by the authenticated voter and can be filled in 
 **Publishing is visibility, not a one-time step.** Only the creator, or an Admin, may toggle it — **Publish**
 and **Unpublish** are the two directions of one reversible switch, at any time — `draft` and
 `published` are reversible states, not a one-way gate. Publishing requires at least two
-contestants; unpublishing requires nothing and does not touch any matchup, vote, or contestant.
-A contestant may be published with no media at all — voting and rankings render whatever media
-(if any) a contestant has, same as every other optional field. `closed` remains the one true
+contestants; in video mode, every contestant must also have a validated video. A failed
+publication leaves the War draft. Unpublishing requires nothing and does not touch any
+matchup, vote, or contestant. In image mode a contestant may be published with no media at
+all — voting and rankings render whatever media (if any) a contestant has. `closed` remains the one true
 terminal state, reached only by its end date passing (§4.1, "Effective status") — nothing in this
 reversible toggle affects it, and nothing reverses it: a closed War can be neither published nor
 unpublished.
@@ -393,7 +394,8 @@ if the War is in video mode, if no file is present, if the limit is exceeded, or
 are not a readable image. New images append; ordering is editable at any time (§6.1).
 
 **Video.** Exactly one per contestant, rejected if the War is in image mode or the contestant
-already has one. See §9.2 for validation.
+already has one. A creator can replace a video, with the previous one retained until its
+replacement has passed validation. See §9.2 for validation.
 
 ### 6.3 Matchups and voting
 
@@ -777,9 +779,6 @@ two orders of magnitude smaller than an unprocessed upload.
 
 ### 9.2 Embedded video
 
-**Planned — not yet built.** Image mode is the only media mode implemented; the rules below
-(and video presentation in §10.3) are the target design.
-
 In video mode a contestant is one short video hosted **elsewhere**. The platform stores a
 reference and never stores, transcodes, or serves video bytes.
 
@@ -797,8 +796,19 @@ parsed against the allow-list, the video is resolved through the provider's meta
 player URL from its own allow-list, so a compromised or mistaken stored value cannot cause an
 arbitrary third-party frame to load.
 
-An optional clip window lets a creator point at a segment of a longer video; both providers
-enforce it natively.
+YouTube metadata is resolved through YouTube Data API v3, including duration, privacy, and
+embedding permission. Attaching a YouTube video requires a configured API key; a missing key
+or an unavailable metadata service produces a clear temporary-service error and saves nothing.
+Vimeo metadata is resolved through oEmbed; private, missing, or unembeddable videos are
+rejected. Metadata requests have a short timeout and never fetch an arbitrary submitted host.
+The API supplies an optional poster image for every video reference; clients do not derive
+poster addresses.
+
+An optional clip window lets a creator point at a segment of a longer video. Playback begins
+at the chosen start and stops at the chosen end. Bounds are whole, nonnegative seconds:
+the start must precede the full duration, and an end must follow the start without exceeding
+that duration. Effective duration is end minus start when an end is supplied; without an
+end, validation and the stored duration use the full video length.
 
 | Limit | Value |
 |---|---|
@@ -845,7 +855,7 @@ against, so those tests exercise real shapes rather than believed ones.
 | Home | Browse published public Wars | No |
 | War detail | Overview and results — one merged, rank-ordered list, not a gallery plus a separate leaderboard; any published War, listed or unlisted | No |
 | Vote | Binary matchup voting | Yes |
-| Start a War | Creates an empty draft War and forwards to its Edit page | Yes |
+| Start a War | Asks for the media mode, creates an empty draft War and forwards to its Edit page | Yes |
 | Edit War | Metadata, contestants and media, Publish/Unpublish, Clear Votes, and Delete, for any War the voter created, or any War at all for an Admin, any status | Yes |
 | My Wars | The voter's own Wars, every status | Yes |
 | Admin Dashboard | Every War and Voter, moderation actions, role assignment, the moderation log (§6.7); Moderator or Admin, each seeing only its own panels | Yes |
@@ -970,7 +980,7 @@ users, and the card remains a single tab stop. Non-primary images load lazily �
 cards' full sets would multiply per-matchup transfer roughly tenfold for images most voters
 never look at.
 
-**In video mode** (planned, §9.2) the two cards hold players and play one after the other: both start paused
+**In video mode** (§9.2) the two cards hold players and play one after the other: both start paused
 showing posters, the voter presses play once for the pair, the first plays, the second starts
 automatically, and both cards become selectable when it ends. Because side assignment is
 already randomised per voter and recorded, which video plays first is randomised too and
@@ -1028,19 +1038,21 @@ cast every vote. In its place, at the top of the page, that voter sees a one-lin
 
 **Export**, available to a War's creator (and any Admin) on both its results page and its edit page regardless
 of status, downloads a personal backup of the War's definition — title, category, visibility,
-theme, share image, and each contestant's name, bio, and images — as a single file the creator can keep. It
+theme, media mode, share image, and each contestant's name, bio, and media — as a single file the creator can keep. It
 carries no votes, rankings, or win counts; it exists to let a creator recreate a War, not to
-report on one.
+report on one. Image media includes the image files; video media includes only its provider,
+identifier, and clip window, with no video bytes or poster download.
 
 **Import** reverses Export. Given a previously exported file, it creates a brand-new draft
-War — metadata, share image, contestants, and their images — owned by the importing voter, entirely
+War — metadata, share image, contestants, and their media — owned by the importing voter, entirely
 independent of whatever War the export came from; nothing about the original is referenced or
 affected. The file is validated in full before anything is created: a malformed or incomplete
 file is rejected with one clear message and creates nothing at all. Once the new draft exists,
 any later failure (a contestant, an image) leaves it in place with its error shown, rather than
 discarding what already succeeded — the creator lands on its Edit page and finishes repairing
 it by hand, the same way a draft abandoned right after Start a War is already just findable,
-never lost.
+never lost. Older image-only backups remain importable. Imported videos are revalidated
+through the same attachment rules, because provider availability may have changed since export.
 
 **War cards** summarise a War: title, category, status, contestant count, creator's name where
 known, and time remaining where an end date is set, topped by its share image when it has one
@@ -1086,8 +1098,9 @@ an authenticated voter — an anonymous visitor who taps it is redirected to sig
 that destination and returned to it afterward, the same rule §10.1 states for any protected
 route.
 
-**Start a War** creates an empty draft immediately — no fields collected up front — and forwards
-straight to that draft's Edit page. There is no separate creation wizard and no review step;
+**Start a War** asks one question — the media mode (§4.3), which cannot change later — then
+creates an empty draft and forwards straight to that draft's Edit page. Choosing video shows a
+short note steering the creator toward few contestants and short clips (§9.2). There is no separate creation wizard and no review step;
 everything about a draft, including publishing it, happens on the one page. Partway
 abandonment (navigating away before the draft has a title, contestants, or is published) leaves
 an unreachable-but-findable draft behind at no cost — My Wars finds it again.
@@ -1102,8 +1115,11 @@ one: Start a War, and Import a War (above).
 
 **Editing** is one page covering everything a War needs: title, category, visibility (with a
 one-line hint that unlisted means hidden from public lists but open to anyone with the link), theme,
-end date, share image, each contestant's name, bio, and images (add, remove, reorder, up to
-the per-contestant cap), **Publish/Unpublish**, **Clear Votes**, and **Delete**. There is no
+end date, share image, each contestant's name, bio, and mode-appropriate media: images
+(add, remove, reorder, up to the per-contestant cap), or one video attached or replaced by
+URL with an optional clip window. Video Wars are created with an explicit mode choice and
+a short recommendation to use few contestants. Editing also offers **Publish/Unpublish**,
+**Clear Votes**, and **Delete**. There is no
 fixed order to walk, and none of it is gated by status — a War the creator finished voting on
 is exactly as editable as one they just created. Unsaved changes to the War's own details,
 to any contestant's name and bio, and to the add-contestant form are kept while the creator
@@ -1142,7 +1158,7 @@ visually distinguished from ordinary actions so a creator never mistakes a destr
 for a routine one.
 
 **Publish** and **Unpublish** are the two directions of one toggle (§6.1). Publish is disabled with an inline reason until the War meets the API's own
-requirement (at least two contestants) — a client-side mirror of a rule the API enforces
+requirements (at least two contestants, and a video for each contestant in video mode) — a client-side mirror of rules the API enforces
 regardless, so a creator sees why before attempting it rather than only after a rejected
 request. Unpublish requires nothing. Either action asks for confirmation first, naming what
 changes (who can now reach it, or who no longer can). Confirming Publish takes the creator

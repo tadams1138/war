@@ -562,6 +562,27 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
+  Scenario('The video attachment endpoint declares clip input and video output', ({ When, Then, And }) => {
+    When('a client fetches the OpenAPI document', async () => {
+      // Act
+      ({ response, document } = await fetchDocument(harness));
+    });
+    Then('POST and PUT video attachments require a URL', () => {
+      // Assert
+      const path = '/wars/{id}/contestants/{cId}/videos';
+      for (const method of ['post', 'put']) {
+        const schema = requestBodySchema(document, path, method);
+        expect(schema.required).toContain('url');
+        expect(Object.keys(schema.properties ?? {})).toEqual(expect.arrayContaining(['url', 'start_seconds', 'end_seconds']));
+      }
+    });
+    And('the video response schema declares provider identity, clip, and poster fields', () => {
+      // Assert
+      const schema = responseSchema(document, '/wars/{id}/contestants/{cId}/videos', 'post', '201');
+      expect(Object.keys(schema.properties ?? {})).toEqual(expect.arrayContaining(['provider', 'video_id', 'start_seconds', 'end_seconds', 'duration_seconds', 'poster_url']));
+    });
+  });
+
   Scenario("The publish endpoint's response schemas cover its status variations", ({ When, Then, And }) => {
     When('a client fetches the OpenAPI document', async () => {
       // Act

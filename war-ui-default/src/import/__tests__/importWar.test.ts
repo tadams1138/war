@@ -28,12 +28,29 @@ function fakeApi(overrides: Partial<ImportApi> = {}): ImportApi {
     createWar: vi.fn().mockResolvedValue({ id: 'war-new' }),
     addContestant: vi.fn().mockResolvedValue({ id: 'contestant-new' }),
     uploadImage: vi.fn().mockResolvedValue(undefined),
+    attachVideo: vi.fn().mockResolvedValue(undefined),
     uploadShareImage: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
 }
 
 describe('importWar', () => {
+  it('creates a video War and attaches a referenced clip through the video API', async () => {
+    // Arrange
+    const data = validatedImport({
+      metadata: { ...validatedImport().metadata, media_mode: 'video' },
+      contestants: [{ name: 'Ada', bio: null, media: [{ kind: 'video', provider: 'vimeo', video_id: '123456', start_seconds: 2, end_seconds: 12 }] }],
+    })
+    const api = fakeApi()
+
+    // Act
+    await importWar(data, {}, api)
+
+    // Assert
+    expect(api.createWar).toHaveBeenCalledWith(expect.objectContaining({ media_mode: 'video' }))
+    expect(api.attachVideo).toHaveBeenCalledWith('war-new', 'contestant-new', { url: 'https://vimeo.com/123456', start_seconds: 2, end_seconds: 12 })
+    expect(api.uploadImage).not.toHaveBeenCalled()
+  })
   it("creates the War, then each contestant, then uploads each contestant's images in order", async () => {
     // Arrange
     const data = validatedImport()

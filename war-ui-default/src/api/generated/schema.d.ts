@@ -467,7 +467,7 @@ export interface paths {
                             /** @enum {string} */
                             visibility: "public" | "unlisted";
                             /** @enum {string} */
-                            media_mode: "image";
+                            media_mode: "image" | "video";
                             /** @enum {string} */
                             theme: "arcade" | "fight_card" | "scrapbook";
                             /** Format: date-time */
@@ -1018,6 +1018,194 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wars/{id}/contestants/{cId}/videos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    cId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        url: string;
+                        start_seconds?: number;
+                        end_seconds?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaItem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            details: string[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error?: string;
+                        };
+                    };
+                };
+            };
+        };
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    cId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        url: string;
+                        start_seconds?: number;
+                        end_seconds?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaItem"];
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            details: string[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error?: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/wars/{id}/contestants": {
         parameters: {
             query?: never;
@@ -1248,6 +1436,17 @@ export interface paths {
                     content: {
                         "application/json": {
                             error: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error?: string;
                         };
                     };
                 };
@@ -2670,11 +2869,18 @@ export interface components {
     schemas: {
         MediaItem: {
             /** @enum {string} */
-            kind: "image";
+            kind: "image" | "video";
             /** Format: uuid */
             id: string;
             display_order: number;
             aspect_ratio: null | number;
+            /** @enum {string} */
+            provider?: "youtube" | "vimeo";
+            video_id?: string;
+            start_seconds?: number;
+            end_seconds?: null | number;
+            duration_seconds?: number;
+            poster_url?: null | string;
             variants: {
                 width: number;
                 url: string;
@@ -2690,7 +2896,7 @@ export interface components {
             /** @enum {string} */
             visibility: "public" | "unlisted";
             /** @enum {string} */
-            media_mode: "image";
+            media_mode: "image" | "video";
             /** @enum {string} */
             theme: "arcade" | "fight_card" | "scrapbook";
             /** Format: date-time */

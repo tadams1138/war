@@ -1,10 +1,11 @@
 @create-war
 Feature: Create War
 
-  Scenario: Creating a War immediately creates an empty draft and forwards to its Edit page
+  Scenario: Creating an image War creates an empty draft and forwards to its Edit page
     Given the API creates an empty draft War
     And an authenticated voter
     When they open the Start a War page
+    And they choose image mode
     Then an empty draft War is created via the API
     And they are redirected to that War's Edit page
 
@@ -12,6 +13,7 @@ Feature: Create War
     Given the API rate limits the first creation request for 1 second, then accepts the retry
     And an authenticated voter
     When they open the Start a War page
+    And they choose image mode
     Then a wait is shown, using the supplied delay, not an error
     And creation retries on its own once the supplied delay passes
 
@@ -23,7 +25,17 @@ Feature: Create War
     Given the API rejects the first creation request, then accepts the retry
     And an authenticated voter
     When they open the Start a War page
+    And they choose image mode
     Then an error is shown on the Start a War page
     And a retry control is offered
     When they use the retry control
     Then they are redirected to that War's Edit page
+
+  Scenario: Creating a video War shows guidance and creates a video draft
+    Given the API creates an empty draft War
+    And an authenticated voter
+    When they open the Start a War page
+    Then guidance recommends few contestants for video Wars
+    When they choose video mode
+    Then a video draft War is created via the API
+    And they are redirected to that War's Edit page

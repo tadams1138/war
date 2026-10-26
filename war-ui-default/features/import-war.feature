@@ -1,6 +1,14 @@
 @import-war
 Feature: Import a War
 
+  Scenario: Importing a video War recreates its mode and clip
+    Given the API accepts an imported War
+    And the API accepts the imported video clip
+    And an authenticated voter
+    And they are on the Import page
+    When they choose a valid video War export file
+    Then a video War and its clip are created from it
+
   Scenario: Selecting a valid export file creates a new draft and opens its Edit page
     Given the API accepts an imported War
     And an authenticated voter

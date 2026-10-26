@@ -5,7 +5,7 @@
 // orchestration is testable without a network, mirroring exportWar.ts's
 // injected `fetchBinary`.
 import { toUserMessage } from '../api/errors'
-import type { WarExportContestant } from '../export/warExportFile'
+import type { WarExportContestant, WarExportVideoMedia } from '../export/warExportFile'
 import type { ValidatedWarImport } from './validateWarImport'
 
 interface CreatedWar {
@@ -23,15 +23,28 @@ export interface ImportApi {
     visibility: string
     theme: string
     ends_at: string | null
+    media_mode?: 'image' | 'video'
   }) => Promise<CreatedWar>
   addContestant: (warId: string, payload: { name: string; bio: string | null }) => Promise<CreatedContestant>
   uploadImage: (warId: string, contestantId: string, file: File) => Promise<void>
+  attachVideo: (warId: string, contestantId: string, payload: { url: string; start_seconds: number; end_seconds?: number }) => Promise<void>
   uploadShareImage: (warId: string, file: File) => Promise<void>
 }
 
 export interface ImportResult {
   warId: string | null
   error: string | null
+}
+
+function warPayload(metadata: ValidatedWarImport['metadata']): Parameters<ImportApi['createWar']>[0] {
+  const payload = {
+    title: metadata.title,
+    category: metadata.category,
+    visibility: metadata.visibility,
+    theme: metadata.theme,
+    ends_at: metadata.ends_at,
+  }
+  return metadata.media_mode === 'video' ? { ...payload, media_mode: 'video' } : payload
 }
 
 function fileNameFor(path: string): string {
@@ -58,6 +71,18 @@ function fileFromZip(path: string, files: Record<string, Uint8Array>): File {
   return new File([bytes as Uint8Array<ArrayBuffer>], fileNameFor(path), { type: mimeTypeFor(path) })
 }
 
+function videoUrl(media: WarExportVideoMedia): string {
+  return media.provider === 'youtube'
+    ? `https://www.youtube.com/watch?v=${media.video_id}`
+    : `https://vimeo.com/${media.video_id}`
+}
+
+function videoPayload(media: WarExportVideoMedia): { url: string; start_seconds: number; end_seconds?: number } {
+  const payload: { url: string; start_seconds: number; end_seconds?: number } = { url: videoUrl(media), start_seconds: media.start_seconds }
+  if (media.end_seconds !== null) payload.end_seconds = media.end_seconds
+  return payload
+}
+
 async function importContestant(
   warId: string,
   contestant: WarExportContestant,
@@ -66,15 +91,16 @@ async function importContestant(
 ): Promise<void> {
   const created = await api.addContestant(warId, { name: contestant.name, bio: contestant.bio })
   for (const media of contestant.media) {
-    await api.uploadImage(warId, created.id, fileFromZip(media.path, files))
+    if (media.kind === 'video') await api.attachVideo(warId, created.id, videoPayload(media))
+    else await api.uploadImage(warId, created.id, fileFromZip(media.path, files))
   }
 }
 
 export async function importWar(validated: ValidatedWarImport, files: Record<string, Uint8Array>, api: ImportApi): Promise<ImportResult> {
-  const { share_image, ...createWarPayload } = validated.metadata
+  const { share_image } = validated.metadata
   let warId: string
   try {
-    const war = await api.createWar(createWarPayload)
+    const war = await api.createWar(warPayload(validated.metadata))
     warId = war.id
   } catch (error) {
     return { warId: null, error: toUserMessage(error) }

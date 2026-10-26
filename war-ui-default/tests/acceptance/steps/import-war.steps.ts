@@ -32,6 +32,27 @@ Given('the API accepts an imported War', async ({ world }) => {
   )
 })
 
+Given('the API accepts the imported video clip', async ({ world }) => {
+  // Arrange
+  world.queue(reply('POST', `${API}/wars/${WAR_ID}/contestants/c-imported/videos`, 201, { id: 'video-1' }))
+})
+
+When('they choose a valid video War export file', async ({ page }) => {
+  // Act
+  const zip = zipBuffer({ 'war.json': validWarJson({
+    media_mode: 'video',
+    contestants: [{ name: 'Ada', bio: null, media: [{ kind: 'video', provider: 'vimeo', video_id: '123456', start_seconds: 2, end_seconds: 12 }] }],
+  }) })
+  await page.getByTestId('import-war-input').setInputFiles({ name: 'video-export.zip', mimeType: 'application/zip', buffer: zip })
+})
+
+Then('a video War and its clip are created from it', async ({ page }) => {
+  // Assert
+  const log = await waitForCallLog(page, (calls) => posted(calls, `/wars/${WAR_ID}/contestants/c-imported/videos`).length > 0)
+  expect(posted(log, '/wars')).toEqual([expect.objectContaining({ media_mode: 'video' })])
+  expect(posted(log, `/wars/${WAR_ID}/contestants/c-imported/videos`)).toEqual([{ url: 'https://vimeo.com/123456', start_seconds: 2, end_seconds: 12 }])
+})
+
 When('they choose a valid War export file', async ({ page }) => {
   // Act
   const zip = zipBuffer({ 'war.json': validWarJson(), 'media/c-1/m-1.jpg': new Uint8Array([1, 2, 3]) })

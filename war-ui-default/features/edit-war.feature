@@ -1,6 +1,61 @@
 @edit-war
 Feature: Edit War
 
+  Scenario: A video War lets a creator attach a clip by URL
+    Given a draft War
+    And that War has contestants:
+      | name |
+      | Ada  |
+    And that War uses video mode
+    And an authenticated voter
+    And they are on that War's Edit page
+    When they select "Ada" in the sections list
+    And they enter video URL "https://youtu.be/abc123" with start 5 and end 20
+    And they attach the video
+    Then the video clip is sent to the API
+    And the attached video is shown
+
+  Scenario: A creator can replace an attached video without removing it first
+    Given a draft War
+    And that War has contestants:
+      | name |
+      | Ada  |
+    And that War uses video mode with an attached video
+    And an authenticated voter
+    And they are on that War's Edit page
+    When they select "Ada" in the sections list
+    And they enter video URL "https://vimeo.com/123456" with start 0 and end 15
+    And they replace the video
+    Then the replacement is sent to the API without deleting the old video
+    And the replacement video is shown
+
+  Scenario: A rejected replacement keeps the original video visible
+    Given a draft War
+    And that War has contestants:
+      | name |
+      | Ada  |
+    And that War uses video mode with an attached video
+    And the API rejects replacement video validation
+    And an authenticated voter
+    And they are on that War's Edit page
+    When they select "Ada" in the sections list
+    And they enter video URL "https://vimeo.com/123456" with start 0 and end 15
+    And they replace the video
+    Then the original video remains visible
+    And a video validation error is shown
+
+  Scenario: A video War cannot be published while a contestant lacks a video
+    Given a draft War
+    And that War has contestants:
+      | name  |
+      | Ada   |
+      | Grace |
+    And that War uses video mode with an attached video
+    And an authenticated voter
+    When they open that War's Edit page
+    Then the "Publish War" button is disabled
+    And the video publication requirement is shown
+
   Scenario: Metadata is shown by default
     Given a draft War
     And that War has contestants:

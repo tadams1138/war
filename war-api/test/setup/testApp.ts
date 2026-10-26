@@ -85,12 +85,13 @@ export interface TestHarness {
   jwtFor: (voterId: string) => Promise<string>;
 }
 
-export async function buildTestHarness(): Promise<TestHarness> {
+export async function buildTestHarness(metadataFetch?: typeof fetch): Promise<TestHarness> {
   await closeAllApps();
   const db = await getTestDb();
   const { config, google, microsoft, providers, storage } = buildCommonDeps();
+  config.youtubeApiKey = 'test-key';
 
-  const app = trackApp(await buildApp({ db, providers, storage, config }));
+  const app = trackApp(await buildApp({ db, providers, storage, config, metadataFetch }));
 
   return {
     app,

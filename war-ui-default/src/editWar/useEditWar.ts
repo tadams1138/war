@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   addContestant as addContestantApi,
+  attachContestantVideo,
   clearVotes as clearVotesApi,
   deleteContestant as deleteContestantApi,
   deleteContestantMedia,
@@ -12,10 +13,12 @@ import {
   patchWar,
   publishWar,
   reorderContestantMedia,
+  replaceContestantVideo,
   unpublishWar,
   uploadContestantImages,
   uploadShareImage as uploadShareImageApi,
   type ContestantDetail,
+  type ContestantVideoPayload,
   type MediaItem,
   type PatchContestantPayload,
   type PatchWarPayload,
@@ -60,6 +63,7 @@ export interface EditWarLoadedState {
   // rate-limited upload is a wait, not an error, and the two must never
   // clobber each other.
   imageErrors: Record<string, ImageNotice | null>
+  videoErrors: Record<string, string | null>
   // Set on a successful metadata or contestant save; Toast owns clearing
   // its own visibility, so this never needs to be reset back to null.
   toast: string | null
@@ -82,6 +86,7 @@ export interface EditWarActions {
   addImages: (contestantId: string, files: File[]) => Promise<void>
   removeImage: (contestantId: string, mediaId: string) => Promise<void>
   moveImageUp: (contestantId: string, mediaId: string) => Promise<void>
+  saveVideo: (contestantId: string, payload: ContestantVideoPayload, replace: boolean) => Promise<void>
   publish: () => Promise<void>
   unpublish: () => Promise<void>
   clearVotes: () => Promise<void>
@@ -114,6 +119,7 @@ const patch = (changes: Partial<EditWarLoadedState>): Update => (prev) => ({ ...
 const setWar = (war: (prev: WarDetailResponse) => WarDetailResponse, changes: Partial<EditWarLoadedState> = {}): Update => (prev) => ({ ...prev, ...changes, war: war(prev.war) })
 const setContestantError = (id: string, message: string | null): Update => (prev) => ({ ...prev, contestantErrors: { ...prev.contestantErrors, [id]: message } })
 const setImageNotice = (id: string, notice: ImageNotice | null): Update => (prev) => ({ ...prev, imageErrors: { ...prev.imageErrors, [id]: notice } })
+const setVideoError = (id: string, error: string | null): Update => (prev) => ({ ...prev, videoErrors: { ...prev.videoErrors, [id]: error } })
 
 export function useEditWar(
   warId: string | undefined,
@@ -148,6 +154,7 @@ export function useEditWar(
         addContestantError: null,
         contestantErrors: {},
         imageErrors: {},
+        videoErrors: {},
         toast: null,
         publishing: false,
         publishDetails: null,
@@ -280,6 +287,20 @@ export function useEditWar(
     )
   }
 
+  const saveVideo = async (contestantId: string, payload: ContestantVideoPayload, replace: boolean): Promise<void> => {
+    await mutate(
+      setVideoError(contestantId, null),
+      (id) => replace ? replaceContestantVideo(id, contestantId, payload) : attachContestantVideo(id, contestantId, payload),
+      (error) => setVideoError(contestantId, toUserMessage(error)),
+      (media) => setWar((war) => ({
+        ...war,
+        contestants: war.contestants.map((contestant) => contestant.id === contestantId
+          ? { ...contestant, media: [media] }
+          : contestant),
+      }), { toast: replace ? 'Video replaced' : 'Video attached' }),
+    )
+  }
+
   // Mirrors useVoteSession's applyRateLimit: shows the wait (war-spec.md
   // §10.5, never an error) and clears itself once the delay passes, no
   // action required from the creator.
@@ -336,6 +357,7 @@ export function useEditWar(
     addImages,
     removeImage,
     moveImageUp,
+    saveVideo,
     publish,
     unpublish,
     clearVotes,

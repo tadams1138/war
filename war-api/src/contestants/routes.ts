@@ -9,7 +9,9 @@ import { rateLimitByVoter, rateLimitedResponseSchema, type RateLimiter } from '.
 import type { ObjectStorage } from './storage.js';
 import { callerOf } from '../wars/warAccess.js';
 import { addContestant, patchContestant, removeContestant } from './contestantsService.js';
-import { addContestantImage, reorderContestantMedia, removeContestantMedia } from './mediaService.js';
+import { addContestantImage, attachContestantVideo, reorderContestantMedia, removeContestantMedia } from './mediaService.js';
+import type { VideoInput } from './videoMetadata.js';
+import { presentMedia } from './mediaPresenter.js';
 import { listMediaByContestant } from './contestantMediaRepository.js';
 import { presentContestant } from './contestantPresenter.js';
 import { readUploadedFile, sendNoFileUploaded, uploadErrorResponseSchema } from './uploadRequest.js';
@@ -21,6 +23,8 @@ export interface ContestantsRouteDeps {
   publicBaseUrl: string;
   /** Per-voter image-upload limit (§8.4: 100/hour). */
   rateLimiter: RateLimiter;
+  youtubeApiKey?: string;
+  metadataFetch: typeof fetch;
 }
 
 /** The `201` body of an image upload: only the assigned id and order, since the caller already holds the file. */
@@ -35,6 +39,25 @@ const imageUploadResponseSchema = {
 
 export function registerContestantsRoutes(app: FastifyInstance, deps: ContestantsRouteDeps): void {
   const { db, auth } = deps;
+
+  const videoRouteSchema = {
+    body: {
+      type: 'object', required: ['url'], additionalProperties: false,
+      properties: { url: { type: 'string' }, start_seconds: { type: 'integer', minimum: 0 }, end_seconds: { type: 'integer', minimum: 1 } },
+    },
+    response: { 201: { $ref: 'MediaItem#' }, ...editFailureResponses, 409: { type: 'object', properties: { error: { type: 'string' } } }, 503: { type: 'object', properties: { error: { type: 'string' } } } },
+  };
+
+  for (const method of ['post', 'put'] as const) {
+    app[method]<{ Params: { id: string; cId: string }; Body: VideoInput }>(
+      '/wars/:id/contestants/:cId/videos',
+      { ...reportSchemaViolations, ...bearerAuthRoute(auth, videoRouteSchema, [rejectInvalidBody]) },
+      async (request, reply) => {
+        const outcome = await attachContestantVideo(db, request.params.id, request.params.cId, callerOf(request), request.body, deps.youtubeApiKey, deps.metadataFetch, method === 'put');
+        return sendOutcome(reply, outcome, (value) => reply.code(201).send(presentMedia([value], deps.publicBaseUrl)[0]));
+      },
+    );
+  }
 
   app.post<{ Params: { id: string }; Body: { name: string; bio?: string | null } }>(
     '/wars/:id/contestants',
@@ -112,6 +135,7 @@ export function registerContestantsRoutes(app: FastifyInstance, deps: Contestant
           201: imageUploadResponseSchema,
           ...failureResponses,
           422: uploadErrorResponseSchema,
+          409: { type: 'object', properties: { error: { type: 'string' } } },
           429: rateLimitedResponseSchema,
         },
       },

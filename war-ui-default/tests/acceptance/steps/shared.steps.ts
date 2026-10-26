@@ -199,6 +199,12 @@ Given('they are on {page}', async ({ page, world }, target: PageRef) => {
   await open(page, world, target)
 })
 
+// Start a War asks for the media mode before creating the draft.
+When(/^they choose (image|video) mode$/, async ({ page }, mode: string) => {
+  // Act
+  await page.getByRole('button', { name: `Create ${mode} War` }).click()
+})
+
 When('they open {page}', async ({ page, world }, target: PageRef) => {
   // Act
   await open(page, world, target)

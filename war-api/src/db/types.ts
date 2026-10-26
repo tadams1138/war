@@ -72,6 +72,7 @@ export interface ContestantMediaTable {
   width: number | null;
   height: number | null;
   provider: string | null;
+  video_id: string | null;
   start_seconds: number | null;
   end_seconds: number | null;
   duration_seconds: Generated<number>;

@@ -32,6 +32,37 @@ export function buildMediaItem(overrides: Partial<MediaItem> & { id: string }): 
   }
 }
 
+export function buildVideoMediaItem(overrides: { id: string; provider: 'youtube' | 'vimeo'; video_id: string; start_seconds?: number; end_seconds?: number | null; duration_seconds?: number; poster_url?: string | null }): MediaItem {
+  return {
+    kind: 'video',
+    display_order: 0,
+    aspect_ratio: null,
+    variants: [],
+    start_seconds: 0,
+    end_seconds: null,
+    duration_seconds: 12,
+    poster_url: `https://cdn.example.test/${overrides.id}-poster.jpg`,
+    ...overrides,
+  } as unknown as MediaItem
+}
+
+export function buildVideoMatchupResponse(): NextMatchupResponse {
+  const response = buildMatchupResponse()
+  response.matchup.left.media = [buildVideoMediaItem({ id: 'left-video', provider: 'youtube', video_id: 'left-id' })]
+  response.matchup.right.media = [buildVideoMediaItem({ id: 'right-video', provider: 'vimeo', video_id: '123456' })]
+  return response
+}
+
+export function buildVideoWarDetail(): WarDetailResponse {
+  return buildWarDetail({
+    media_mode: 'video',
+    contestants: [
+      buildContestant({ id: 'contestant-left', media: [buildVideoMediaItem({ id: 'left-video', provider: 'youtube', video_id: 'left-id' })] }),
+      buildContestant({ id: 'contestant-right', media: [buildVideoMediaItem({ id: 'right-video', provider: 'vimeo', video_id: '123456' })] }),
+    ],
+  })
+}
+
 export function buildContestant(overrides: Partial<ContestantDetail> = {}): ContestantDetail {
   return {
     id: overrides.id ?? 'contestant-1',

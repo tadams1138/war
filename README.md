@@ -250,7 +250,7 @@ feature's tag, and `-g` still matches the title).
 | `steps/parameters.ts` | The custom parameter types, registered by `fixtures.ts` (below) |
 | `steps/shared*.steps.ts` | Untagged steps whose text means the same in every feature: `shared.steps.ts` (general), `shared-nav` (identity menu and name), `shared-calls` (API calls, `{call}`), `shared-lists` (Admin Dashboard lists, `{list}`), `shared-bio` (rendered bios, `{bio}`), `shared-layout` (where controls sit and how they look) |
 | `steps/<feature>.steps.ts` | One feature's steps, scoped by that feature's tag |
-| `support/` | Helpers and the registries behind the parameter types: `pageNames`, `calls`, `lists`, `fields`, `cards`, `bios`, `roles`, `screens`, `providers`; and `mocking`, `recipes`, `pages`, `editWar`, `results`, `adminRecords`, `adminFixtures`, `exportArchive` |
+| `support/` | Helpers and the registries behind the parameter types: `pageNames`, `calls`, `lists`, `fields`, `cards`, `bios`, `roles`, `screens`, `providers`; `fakeVideoProviders` (stand-ins for the YouTube and Vimeo scripts and frames, routed in by Playwright so the real player adapters run; `playwright.config.ts` enables routing of the MSW service worker's requests); and `mocking`, `recipes`, `pages`, `editWar`, `results`, `adminRecords`, `adminFixtures`, `exportArchive` |
 
 ### Writing conventions
 
@@ -531,11 +531,23 @@ Required GitHub Actions secrets (per repository):
 | `INTERNAL_TASK_TOKEN` | terraform scheduler, API config | Authorises internal endpoints |
 | `JWT_SECRET` | API config | Session token signing (substituted into the platform spec) |
 | `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_SECRET`, `FACEBOOK_CLIENT_SECRET`, `TWITTER_CLIENT_SECRET` | API config | OAuth provider client secrets |
+| `YOUTUBE_API_KEY` | API config | YouTube Data API v3 metadata checks |
 | `DOCKERHUB_TOKEN` | API and bootstrap pipelines | Authenticated image pulls (avoids the anonymous rate limit on shared runners) |
 
 The `staging` and `production` GitHub Environments each carry `DO_APP_ID` and
 `PUBLIC_BASE_URL`; `production` has the required reviewer. Repository secrets and variables
 are also listed in the header of [`app.yml`](.github/workflows/app.yml).
+
+For video attachments, enable **YouTube Data API v3** in a Google Cloud project and create
+an API key under **APIs & Services → Credentials**. Restrict the key to YouTube Data API v3.
+Store it as the repository secret `YOUTUBE_API_KEY`, shared by both environments like the
+other secrets above; the app pipeline injects it into the API as an encrypted runtime variable.
+For local development, set the same environment variable before starting the API. The key
+is optional at boot, but YouTube attachments return a configuration error when it is absent.
+Vimeo attachments use public oEmbed metadata and need no key.
+
+The default UI shell permits frames only from the YouTube no-cookie and Vimeo player
+origins. Share pages preserve that policy, and the UI smoke test checks both responses.
 
 Required GitHub Actions variables:
 

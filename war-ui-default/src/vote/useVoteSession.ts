@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { castVote, getNextMatchup, joinWar, type NextMatchupResponse } from '../api/client'
 import { ApiError, isRateLimited, toUserMessage } from '../api/errors'
+import { prefetchMatchupMedia } from './prefetch'
 
 type Matchup = NextMatchupResponse['matchup']
 type Progress = NextMatchupResponse['progress']
@@ -37,6 +38,10 @@ function isActionable(state: VoteSessionState): state is ActiveState {
   return state.phase === 'active' && !state.votingInFlight
 }
 
+function prefetchNext(next: NextMatchupResponse): void {
+  if (next.prefetch) prefetchMatchupMedia(next.prefetch.media)
+}
+
 export function useVoteSession(warId: string | undefined): VoteSession {
   const [state, setState] = useState<VoteSessionState>({ phase: 'loading' })
   // Guards every setState below against firing after unmount — the join
@@ -53,6 +58,7 @@ export function useVoteSession(warId: string | undefined): VoteSession {
         setState({ phase: 'completed' })
         return
       }
+      prefetchNext(next)
       setState({
         phase: 'active',
         matchup: next.matchup,

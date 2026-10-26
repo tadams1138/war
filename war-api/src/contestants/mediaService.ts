@@ -5,7 +5,8 @@ import { asOwnerAction, loadOwnedWar, type Caller, type OwnedWarOutcome } from '
 import { cleanUpUnlessSaved, deleteMediaObjects, imageMediaPrefixes } from '../wars/warMediaStorage.js';
 import type { MutationOutcome } from '../shared/outcomes.js';
 import { findContestantById } from './contestantsRepository.js';
-import { createImageMedia, deleteMedia, findMediaById, setDisplayOrder, type ContestantMedia } from './contestantMediaRepository.js';
+import { createImageMedia, createVideoMedia, deleteMedia, findMediaById, listMediaByContestant, setDisplayOrder, type ContestantMedia } from './contestantMediaRepository.js';
+import { resolveVideo, type VideoInput } from './videoMetadata.js';
 import { MAX_IMAGES_PER_CONTESTANT, storeContestantImage } from './imageUploadService.js';
 import type { ObjectStorage } from './storage.js';
 
@@ -56,6 +57,7 @@ export type AddImageOutcome = MutationOutcome<ContestantMedia>;
 export async function addContestantImage(db: Kysely<Database>, storage: ObjectStorage, log: FastifyBaseLogger, input: AddImageInput): Promise<AddImageOutcome> {
   const guard = await guardOwnedContestant(db, input.warId, input.contestantId, input.caller);
   if (guard.kind !== 'ok') return guard;
+  if (guard.war.mediaMode !== 'image') return { kind: 'conflict', error: 'image uploads require image mode' };
 
   const stored = await storeContestantImage(db, storage, {
     contestantId: input.contestantId,
@@ -78,6 +80,31 @@ export async function addContestantImage(db: Kysely<Database>, storage: ObjectSt
       return { kind: 'ok', value: await createImageMedia(trx, stored.value) };
     }),
   );
+}
+
+export async function attachContestantVideo(
+  db: Kysely<Database>, warId: string, contestantId: string, caller: Caller, input: VideoInput,
+  youtubeApiKey: string | undefined, fetcher: typeof fetch, replace: boolean,
+): Promise<MutationOutcome<ContestantMedia>> {
+  const guard = await guardOwnedContestant(db, warId, contestantId, caller);
+  if (guard.kind !== 'ok') return guard;
+  if (guard.war.mediaMode !== 'video') return { kind: 'conflict', error: 'video attachment requires video mode' };
+  const existing = (await listMediaByContestant(db, contestantId)).find((media) => media.kind === 'video');
+  if (alreadyAttached(existing, replace)) return { kind: 'conflict', error: 'contestant already has a video' };
+  const resolved = await resolveVideo(input, youtubeApiKey, fetcher);
+  if (resolved.kind !== 'ok') return resolved;
+  return asOwnerAction<ContestantMedia>(db, warId, caller, 'add_video', async (trx) => {
+    await trx.selectFrom('contestants').select('id').where('id', '=', contestantId).forUpdate().executeTakeFirst();
+    if (!(await contestantBelongsToWar(trx, warId, contestantId))) return { kind: 'notFound' };
+    const previous = (await listMediaByContestant(trx, contestantId)).find((media) => media.kind === 'video');
+    if (alreadyAttached(previous, replace)) return { kind: 'conflict', error: 'contestant already has a video' };
+    if (previous) await deleteMedia(trx, previous.id);
+    return { kind: 'ok', value: await createVideoMedia(trx, contestantId, resolved.value) };
+  });
+}
+
+function alreadyAttached(existing: ContestantMedia | undefined, replace: boolean): boolean {
+  return existing !== undefined && !replace;
 }
 
 export async function reorderContestantMedia(

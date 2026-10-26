@@ -1,7 +1,8 @@
 import type { FastifyBaseLogger } from 'fastify';
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import type { Database } from '../db/types.js';
 import { listContestantsByWar, recomputeContestantCounters } from '../contestants/contestantsRepository.js';
+import { listMediaByContestants } from '../contestants/contestantMediaRepository.js';
 import { validateImageUpload } from '../contestants/imageProcessing.js';
 import type { ObjectStorage } from '../contestants/storage.js';
 import { deleteVotesForWar } from '../votes/votesRepository.js';
@@ -68,7 +69,7 @@ function themeError(theme: unknown): string | null {
 }
 
 function mediaModeError(mediaMode: string): string | null {
-  return mediaMode === 'image' ? null : 'media_mode must be "image"';
+  return mediaMode === 'image' || mediaMode === 'video' ? null : 'media_mode must be "image" or "video"';
 }
 
 function optionalTitleError(title: string | null | undefined): string | null {
@@ -207,9 +208,18 @@ export async function publishWar(db: Kysely<Database>, warId: string, caller: Ca
     if (contestants.length < 2) {
       return { kind: 'validationError', errors: ['a War needs at least 2 contestants to publish'] };
     }
+    if (!(await mediaReadyForPublish(trx, war.mediaMode, contestants.map((contestant) => contestant.id)))) {
+      return { kind: 'validationError', errors: ['every contestant needs one video to publish'] };
+    }
 
     return { kind: 'ok', value: await setWarStatus(trx, warId, 'published') };
   });
+}
+
+async function mediaReadyForPublish(trx: Transaction<Database>, mediaMode: string, contestantIds: string[]): Promise<boolean> {
+  if (mediaMode !== 'video') return true;
+  const media = await listMediaByContestants(trx, contestantIds);
+  return contestantIds.every((id) => media.get(id)?.filter((item) => item.kind === 'video').length === 1);
 }
 
 /** published → draft requires nothing and touches no matchup, vote or contestant; draft → draft is idempotent. */

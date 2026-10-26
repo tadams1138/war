@@ -95,6 +95,11 @@ Feature: OpenAPI Contract
     When a client fetches the OpenAPI document
     Then the POST /api/v1/wars/{id}/contestants/{cId}/images 201 response schema requires "id" and "display_order"
 
+  Scenario: The video attachment endpoint declares clip input and video output
+    When a client fetches the OpenAPI document
+    Then POST and PUT video attachments require a URL
+    And the video response schema declares provider identity, clip, and poster fields
+
   Scenario: The publish endpoint's response schemas cover its status variations
     When a client fetches the OpenAPI document
     Then the POST /api/v1/wars/{id}/publish 200 response schema requires "id", "title", and "status"

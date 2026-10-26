@@ -138,6 +138,8 @@ case "$TARGET" in
 
     status "/"                200 "home page responds"
     header "/"                content-type "text/html" "home page returns HTML"
+    header "/"                content-security-policy "frame-src https://www.youtube-nocookie.com https://player.vimeo.com" "shell restricts video frame-src"
+    header "/wars/smoke-test-nonexistent" content-security-policy "frame-src https://www.youtube-nocookie.com https://player.vimeo.com" "share page keeps video frame-src"
 
     # SPA deep links must return index.html with 200, not 404.
     status "/wars/smoke-test-nonexistent/vote" 200 "SPA deep link returns 200"

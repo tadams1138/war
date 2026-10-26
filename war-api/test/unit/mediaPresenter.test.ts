@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { presentMedia } from '../../src/contestants/mediaPresenter.js';
+import { presentMedia, presentPrefetchMedia } from '../../src/contestants/mediaPresenter.js';
 import type { ContestantMedia } from '../../src/contestants/contestantMediaRepository.js';
 
 function media(overrides: Partial<ContestantMedia>): ContestantMedia {
@@ -18,6 +18,14 @@ function media(overrides: Partial<ContestantMedia>): ContestantMedia {
 }
 
 describe('presentMedia', () => {
+  it('prefetches video poster without player identity or clip data', () => {
+    // Arrange
+    const video = media({ kind: 'video', storageKey: null, provider: 'youtube', videoId: 'abc12345678', startSeconds: 2, endSeconds: 10, durationSeconds: 8, posterUrl: 'https://poster.test/video.jpg' });
+    // Act
+    const result = presentPrefetchMedia([video], 'https://cdn.test');
+    // Assert
+    expect(result).toEqual([{ kind: 'video', id: 'media-1', display_order: 0, aspect_ratio: null, variants: [], poster_url: 'https://poster.test/video.jpg' }]);
+  });
   it('includes only variant widths the source is wide enough for', () => {
     // Arrange
     const items = [media({ width: 600, height: 450 })];

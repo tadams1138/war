@@ -1,6 +1,6 @@
 import { strFromU8, unzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
-import { buildContestant, buildMediaItem, buildWarDetail } from '../../mocks/fixtures'
+import { buildContestant, buildMediaItem, buildVideoMediaItem, buildWarDetail } from '../../mocks/fixtures'
 import { buildWarExportZip } from '../exportWar'
 
 async function fakeFetchBinary(): Promise<Uint8Array> {
@@ -12,6 +12,25 @@ function readJson(files: Record<string, Uint8Array>): Record<string, unknown> {
 }
 
 describe('buildWarExportZip', () => {
+  it('backs up a video clip as a reference without fetching video or poster bytes', async () => {
+    // Arrange
+    const video = buildVideoMediaItem({ id: 'v-1', provider: 'youtube', video_id: 'abc123', start_seconds: 5, end_seconds: 20, duration_seconds: 15 })
+    const war = buildWarDetail({ media_mode: 'video' as never, contestants: [buildContestant({ id: 'c-1', media: [video] })] })
+    const fetched: string[] = []
+    const fetchBinary = async (url: string) => { fetched.push(url); return fakeFetchBinary() }
+
+    // Act
+    const files = unzipSync(await buildWarExportZip(war, fetchBinary))
+    const json = readJson(files)
+
+    // Assert
+    expect(json.media_mode).toBe('video')
+    expect((json.contestants as { media: unknown[] }[])[0]!.media).toEqual([{
+      kind: 'video', provider: 'youtube', video_id: 'abc123', start_seconds: 5, end_seconds: 20,
+    }])
+    expect(fetched).toEqual([])
+    expect(Object.keys(files)).toEqual(['war.json'])
+  })
   it('includes War metadata in war.json', async () => {
     // Arrange
     const war = buildWarDetail({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildMediaItem } from '../../mocks/fixtures'
-import { byDisplayOrder, primaryMedia, srcSetFor } from '../media'
+import { byDisplayOrder, mediaDisplayUrl, primaryMedia, srcSetFor } from '../media'
+import { buildVideoMediaItem } from '../../mocks/fixtures'
 
 describe('byDisplayOrder', () => {
   it('sorts media by display_order regardless of array order', () => {
@@ -53,6 +54,19 @@ describe('primaryMedia', () => {
 
     // Assert
     expect(primary).toBeUndefined()
+  })
+})
+
+describe('mediaDisplayUrl', () => {
+  it('uses the API poster for a video', () => {
+    // Arrange
+    const video = buildVideoMediaItem({ id: 'video-1', provider: 'youtube', video_id: 'abc123', poster_url: 'https://cdn.example.test/poster.jpg' })
+
+    // Act
+    const url = mediaDisplayUrl(video)
+
+    // Assert
+    expect(url).toBe('https://cdn.example.test/poster.jpg')
   })
 })
 

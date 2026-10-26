@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { PatchWarPayload, WarDetailResponse } from '../api/client'
 import { THEME_LABELS, THEMES, type Theme } from '../theme/themeCookie'
-import { generateShareImage } from './generateShareImage'
+import { generateShareImage, hasShareImageSource } from './generateShareImage'
 
 interface EditWarMetadataFormProps {
   war: WarDetailResponse
@@ -115,7 +115,7 @@ export function EditWarMetadataForm({ war, error, saving, onSave, onUploadShareI
     })
   }
 
-  const qualifyingContestants = war.contestants.filter((c) => c.media.length > 0).length
+  const qualifyingContestants = war.contestants.filter(hasShareImageSource).length
   const canGenerate = qualifyingContestants >= 2
 
   async function handleGenerate() {

@@ -15,6 +15,12 @@ export interface ContestantMedia {
    * null for rows predating this column — the presenter falls back to
    * filtering today's config for those. */
   variantWidths: number[] | null;
+  provider?: string | null;
+  videoId?: string | null;
+  startSeconds?: number | null;
+  endSeconds?: number | null;
+  durationSeconds?: number;
+  posterUrl?: string | null;
 }
 
 function toMedia(row: Selectable<ContestantMediaTable>): ContestantMedia {
@@ -28,6 +34,12 @@ function toMedia(row: Selectable<ContestantMediaTable>): ContestantMedia {
     width: row.width,
     height: row.height,
     variantWidths: row.variant_widths,
+    provider: row.provider,
+    videoId: row.video_id,
+    startSeconds: row.start_seconds,
+    endSeconds: row.end_seconds,
+    durationSeconds: row.duration_seconds,
+    posterUrl: row.poster_url,
   };
 }
 
@@ -57,6 +69,16 @@ export async function createImageMedia(db: Kysely<Database>, input: CreateImageM
     })
     .returningAll()
     .executeTakeFirstOrThrow();
+  return toMedia(row);
+}
+
+export async function createVideoMedia(db: Kysely<Database>, contestantId: string, video: import('./videoMetadata.js').VideoMetadata): Promise<ContestantMedia> {
+  const row = await db.insertInto('contestant_media').values({
+    id: newId(), contestant_id: contestantId, kind: 'video', display_order: 0,
+    storage_key: null, original_ext: null, width: null, height: null, variant_widths: null,
+    provider: video.provider, video_id: video.videoId, start_seconds: video.startSeconds,
+    end_seconds: video.endSeconds, duration_seconds: video.durationSeconds, poster_url: video.posterUrl, title: null,
+  }).returningAll().executeTakeFirstOrThrow();
   return toMedia(row);
 }
 

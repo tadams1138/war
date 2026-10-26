@@ -33,6 +33,13 @@ Feature: Share Image
     Then the generate control is disabled
     And an explanation is shown
 
+  Scenario: Video references do not enable image generation
+    Given a draft War with two video contestants
+    And an authenticated voter
+    When they open that War's Edit page
+    Then the generate control is disabled
+    And an explanation is shown
+
   Scenario: A War card shows its share image when the War has one
     Given the API lists these Wars:
       | title     | status | share image                        |
