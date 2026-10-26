@@ -1,4 +1,4 @@
-# 14 — Cover the untested paths
+# 13 — Cover the untested paths
 
 ## Summary
 Add tests for three paths nothing covers today.

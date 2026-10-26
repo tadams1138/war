@@ -1,4 +1,4 @@
-# 11 — Keep unsaved contestant edits when switching panes
+# 10 — Keep unsaved contestant edits when switching panes
 
 ## Summary
 Unsaved name and bio edits in a contestant's editor, and in the add-contestant form, are

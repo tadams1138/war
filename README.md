@@ -598,7 +598,7 @@ Rules not visible in code, each learned through production incidents:
    to end with each provider, then production.
 2. **Provider verification** is a manual step in each provider's console: Microsoft needs
    publisher/domain verification and Twitter/X a developer app review. Google, Microsoft and
-   Twitter/X are done; Facebook is not (see [`TODO/12-restore-facebook-sign-in.md`](TODO/12-restore-facebook-sign-in.md)).
+   Twitter/X are done; Facebook is not (see [`TODO/11-restore-facebook-sign-in.md`](TODO/11-restore-facebook-sign-in.md)).
 3. **Seed the first Admin**, once per environment, after that environment's deploy has run
    (it needs the roles migration) and the owner has signed in once. Nothing else grants the
    role, since granting is Admin-only (spec 6.7). Run from the repository root with dev

@@ -1,4 +1,4 @@
-# 12 — Restore Facebook sign-in
+# 11 — Restore Facebook sign-in
 
 ## Summary
 Show Facebook as a sign-in option in the UI again.
