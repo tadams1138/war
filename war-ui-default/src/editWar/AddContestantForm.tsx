@@ -3,16 +3,20 @@
 import { useState, type FormEvent } from 'react'
 import type { ContestantDetail } from '../api/client'
 import { BioEditor } from '../bio/BioEditor'
+import type { ContestantDraft } from './useEditWar'
 
 interface AddContestantFormProps {
+  draft: ContestantDraft
+  onDraftChange: (draft: ContestantDraft) => void
   error: string | null
   onAdd: (name: string, bio: string | null) => Promise<ContestantDetail | null>
   onAdded: (contestant: ContestantDetail) => void
 }
 
-export function AddContestantForm({ error, onAdd, onAdded }: AddContestantFormProps) {
-  const [name, setName] = useState('')
-  const [bio, setBio] = useState('')
+export function AddContestantForm({ draft, onDraftChange, error, onAdd, onAdded }: AddContestantFormProps) {
+  const { name, bio } = draft
+  const setName = (value: string) => onDraftChange({ ...draft, name: value })
+  const setBio = (value: string) => onDraftChange({ ...draft, bio: value })
   const [nameRequiredError, setNameRequiredError] = useState<string | null>(null)
 
   async function handleSubmit(event: FormEvent) {

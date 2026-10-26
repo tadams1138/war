@@ -313,6 +313,8 @@ function EditWarDetailPane({
       </div>
       {selected === 'add' && (
         <AddContestantForm
+          draft={editWar.drafts.addDraft}
+          onDraftChange={editWar.drafts.setAddDraft}
           error={state.addContestantError}
           onAdd={editWar.addContestant}
           onAdded={(contestant) => onSelect(contestant.id)}
@@ -341,6 +343,8 @@ function SelectedContestantEditor({
       <EditWarContestant
         key={contestant.id}
         contestant={contestant}
+        draft={editWar.drafts.draftFor(contestant)}
+        onDraftChange={(draft) => editWar.drafts.setContestantDraft(contestant.id, draft)}
         error={state.contestantErrors[contestant.id] ?? null}
         imageNotice={state.imageErrors[contestant.id] ?? null}
         onSave={(payload: PatchContestantPayload) => editWar.saveContestant(contestant.id, payload)}

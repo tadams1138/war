@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react'
 import type { ContestantDetail } from '../api/client'
 import { BioEditor } from '../bio/BioEditor'
 import { byDisplayOrder } from '../utils/media'
-import type { ImageNotice } from './useEditWar'
+import type { ContestantDraft, ImageNotice } from './useEditWar'
 
 // Mirrors war-api's own per-contestant cap
 // (war-api/src/contestants/imageUploadService.ts) -- a UX convenience only,
@@ -13,6 +13,8 @@ const MAX_IMAGES_PER_CONTESTANT = 10
 
 interface EditWarContestantProps {
   contestant: ContestantDetail
+  draft: ContestantDraft
+  onDraftChange: (draft: ContestantDraft) => void
   error: string | null
   imageNotice: ImageNotice | null
   onSave: (payload: { name: string; bio: string | null }) => Promise<void>
@@ -24,6 +26,8 @@ interface EditWarContestantProps {
 
 export function EditWarContestant({
   contestant,
+  draft,
+  onDraftChange,
   error,
   imageNotice,
   onSave,
@@ -32,8 +36,9 @@ export function EditWarContestant({
   onRemoveImage,
   onMoveImageUp,
 }: EditWarContestantProps) {
-  const [name, setName] = useState(contestant.name)
-  const [bio, setBio] = useState(contestant.bio ?? '')
+  const { name, bio } = draft
+  const setName = (value: string) => onDraftChange({ ...draft, name: value })
+  const setBio = (value: string) => onDraftChange({ ...draft, bio: value })
   const [saving, setSaving] = useState(false)
   const [nameRequiredError, setNameRequiredError] = useState<string | null>(null)
   const sortedMedia = byDisplayOrder(contestant.media)

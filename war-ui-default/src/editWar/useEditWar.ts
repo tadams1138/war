@@ -30,6 +30,23 @@ export interface ImageNotice {
   kind: 'error' | 'wait'
 }
 
+// Unsaved name/bio text of a contestant editor or of the add form. Kept here,
+// outside the loaded state, so it survives switching panes (the editors
+// unmount) and quiet refetches.
+export interface ContestantDraft {
+  name: string
+  bio: string
+}
+
+const EMPTY_DRAFT: ContestantDraft = { name: '', bio: '' }
+
+export interface EditWarDrafts {
+  draftFor: (contestant: ContestantDetail) => ContestantDraft
+  addDraft: ContestantDraft
+  setContestantDraft: (contestantId: string, draft: ContestantDraft) => void
+  setAddDraft: (draft: ContestantDraft) => void
+}
+
 export interface EditWarLoadedState {
   status: 'loaded'
   war: WarDetailResponse
@@ -101,8 +118,17 @@ const setImageNotice = (id: string, notice: ImageNotice | null): Update => (prev
 export function useEditWar(
   warId: string | undefined,
   onPublished?: (war: WarSummary) => void,
-): { state: EditWarState } & EditWarActions {
+): { state: EditWarState; drafts: EditWarDrafts } & EditWarActions {
   const [state, setState] = useState<EditWarState>({ status: 'loading' })
+  const [contestantDrafts, setContestantDrafts] = useState<Record<string, ContestantDraft>>({})
+  const [addDraft, setAddDraft] = useState<ContestantDraft>(EMPTY_DRAFT)
+  const setContestantDraft = (contestantId: string, draft: ContestantDraft): void =>
+    setContestantDrafts((prev) => ({ ...prev, [contestantId]: draft }))
+  const clearContestantDraft = (contestantId: string): void =>
+    setContestantDrafts((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => id !== contestantId)))
+  // The unsaved draft if there is one, else the contestant as last saved.
+  const draftFor = (contestant: ContestantDetail): ContestantDraft =>
+    contestantDrafts[contestant.id] ?? { name: contestant.name, bio: contestant.bio ?? '' }
   // Keyed by contestant id, like imageErrors -- each contestant's rate-limit
   // wait clears itself independently on its own timer.
   const imageWaitTimersRef = useRef<Record<string, number>>({})
@@ -175,12 +201,13 @@ export function useEditWar(
       ...war,
       contestants: war.contestants.map((c) => (c.id === contestantId ? contestant : c)),
     })
-    await mutate(
+    const result = await mutate(
       setContestantError(contestantId, null),
       (id) => patchContestant(id, contestantId, payload),
       (error) => setContestantError(contestantId, toUserMessage(error)),
       (contestant) => setWar((war) => replace(war, contestant), { toast: 'Contestant saved' }),
     )
+    if (result) clearContestantDraft(contestantId)
   }
 
   const addContestant = async (name: string, bio: string | null): Promise<ContestantDetail | null> => {
@@ -190,6 +217,7 @@ export function useEditWar(
       (error) => patch({ addContestantError: toUserMessage(error) }),
       (contestant) => setWar((war) => ({ ...war, contestants: [...war.contestants, contestant] })),
     )
+    if (result) setAddDraft(EMPTY_DRAFT)
     return result?.value ?? null
   }
 
@@ -299,6 +327,7 @@ export function useEditWar(
 
   return {
     state,
+    drafts: { draftFor, addDraft, setContestantDraft, setAddDraft },
     saveMetadata,
     uploadShareImage,
     saveContestant,
