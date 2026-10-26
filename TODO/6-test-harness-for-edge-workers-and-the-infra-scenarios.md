@@ -20,7 +20,7 @@ scenarios.
   Move scenarios out of `pending/` as they gain bindings. Nothing decided.
 
 ## Dependencies
-- Helps #2 and #8, which change the routing the scenarios describe.
+- Helps #2, which changes the routing the scenarios describe.
 
 ## Open questions
 - Which runtime and runner, and whether scenarios run against a local emulation or deployed

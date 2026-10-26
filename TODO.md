@@ -11,7 +11,6 @@ deleted, and the implemented behavior is described in the spec.
 - **5** — [Monitoring and alerting](TODO/5-monitoring-and-alerting.md)
 - **6** — [Test harness for Edge Workers and the infra scenarios](TODO/6-test-harness-for-edge-workers-and-the-infra-scenarios.md)
 - **7** — [SSRF and DNS-rebinding protection](TODO/7-ssrf-and-dns-rebinding-protection.md)
-- **8** — [Build the default UI once and promote it](TODO/8-build-the-default-ui-once-and-promote-it.md)
 - **9** — [Turn on per-address rate limits (TRUST_PROXY_HOPS)](TODO/9-turn-on-per-address-rate-limits-trust-proxy-hops.md)
 - **10** — [Build admin indexes without locking writes (CONCURRENTLY)](TODO/10-build-admin-indexes-without-locking-writes-concurrently.md)
 - **11** — [Keep unsaved contestant edits when switching panes](TODO/11-keep-unsaved-contestant-edits-when-switching-panes.md)
