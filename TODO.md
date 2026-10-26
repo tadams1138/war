@@ -7,7 +7,6 @@ deleted, and the implemented behavior is described in the spec.
 - **1** — [Video matchups](TODO/1-video-matchups.md)
 - **2** — [Custom UI registry and shared runtime](TODO/2-custom-ui-registry-and-shared-runtime.md)
 - **3** — [Apple sign-in](TODO/3-apple-sign-in.md)
-- **4** — [Link several sign-in providers to one voter](TODO/4-link-several-sign-in-providers-to-one-voter.md)
 - **5** — [Monitoring and alerting](TODO/5-monitoring-and-alerting.md)
 - **6** — [Test harness for Edge Workers and the infra scenarios](TODO/6-test-harness-for-edge-workers-and-the-infra-scenarios.md)
 - **7** — [SSRF and DNS-rebinding protection](TODO/7-ssrf-and-dns-rebinding-protection.md)
