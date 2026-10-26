@@ -1,4 +1,4 @@
-# 5 — Monitoring and alerting
+# 3 — Monitoring and alerting
 
 ## Summary
 Add operational monitoring beyond the App Platform alerts. War-spec.md §12.7 describes the

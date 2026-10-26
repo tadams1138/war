@@ -1,4 +1,4 @@
-# 12 — Clean up orphaned storage objects
+# 9 — Clean up orphaned storage objects
 
 ## Summary
 Storage cleanup after a delete, Remove or Ban is best effort: a storage failure is logged and

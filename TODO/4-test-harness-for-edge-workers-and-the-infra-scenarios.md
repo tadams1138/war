@@ -1,4 +1,4 @@
-# 6 — Test harness for Edge Workers and the infra scenarios
+# 4 — Test harness for Edge Workers and the infra scenarios
 
 ## Summary
 Build a test harness for the Cloudflare Workers and a runner for `war-infra`'s Gherkin
@@ -20,7 +20,7 @@ scenarios.
   Move scenarios out of `pending/` as they gain bindings. Nothing decided.
 
 ## Dependencies
-- Helps #2, which changes the routing the scenarios describe.
+- Helps #1, which changes the routing the scenarios describe.
 
 ## Open questions
 - Which runtime and runner, and whether scenarios run against a local emulation or deployed

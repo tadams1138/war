@@ -1,4 +1,4 @@
-# 2 — Custom UI registry and shared runtime
+# 1 — Custom UI registry and shared runtime
 
 ## Summary
 Build the registry of custom UIs and the shared runtime artifact they depend on (war-spec.md
@@ -26,5 +26,5 @@ Build the registry of custom UIs and the shared runtime artifact they depend on 
   war-spec.md.
 
 ## Dependencies
-- #6 (the registry-related routing scenarios have no runner).
+- #4 (the registry-related routing scenarios have no runner).
 - The default UI Worker (`war-infra/edge/ui-default.js`, route `/*`) shares the edge routing; `/ui/*` stays with `ui_router`.

@@ -1,4 +1,4 @@
-# 7 — SSRF and DNS-rebinding protection
+# 5 — SSRF and DNS-rebinding protection
 
 ## Summary
 Only needed if the API fetches a user-supplied URL again. Nothing fetches one today, so no
@@ -17,7 +17,7 @@ DNS-rebinding guard from git history rather than rewriting them.
 - `ipGuard.ts` held a table of blocked IPv4 ranges (loopback, private, link-local, carrier-grade
   NAT, reserved and benchmark blocks, multicast, broadcast), blocked IPv6 prefixes, and the IPv6
   prefixes that embed an IPv4 address.
-- Possible triggers: URL-attached videos for #1, or fetching a remote image on import.
+- Possible trigger: fetching a remote image on import. Video attachment calls only the fixed YouTube and Vimeo metadata hosts, so it is not one.
 
 ## Open questions
 - Whether any planned feature will fetch user-supplied URLs server-side; if not, this stays
