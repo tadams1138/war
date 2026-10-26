@@ -1,25 +1,27 @@
-// Open Graph / Twitter Card tag injector — see war-spec.md
+// Default UI Worker -- serves the static SPA (Workers static assets) and adds
+// per-War link-preview (Open Graph / Twitter Card) tags -- see war-spec.md
 //
-// Bound to /wars/* on the zone. This is a fully static SPA (spec) — every
-// route serves the identical index.html and fills its <title>/content in
-// client-side JavaScript, which a link-preview crawler (Facebook, Twitter/X,
-// Slack, Teams, iMessage) never executes. Without this Worker, pasting any
-// War's URL anywhere produces the same generic (or blank) preview regardless
-// of which War it is.
+// The SPA is fully static: every route serves the identical index.html and
+// fills its <title>/content in client-side JavaScript, which a link-preview
+// crawler (Facebook, Twitter/X, Slack, Teams, iMessage) never executes.
+// Without this Worker, pasting any War's URL anywhere produces the same
+// generic (or blank) preview regardless of which War it is.
 //
-// Only the War's own share page, /wars/:id (exactly one segment, no further
-// path), gets real per-War tags — every other route under /wars/ (new,
-// import, :id/edit, :id/vote, ...) passes straight through untouched, same
-// as ui-router.js's own /ui/default/* passthrough. A single-segment id that
-// isn't actually a War (a bad link, or one of the two reserved words below)
-// falls back to generic tags rather than erroring — the underlying page
-// still renders exactly as it would have without this Worker either way.
+// Runs first on /wars/* (run_worker_first). Elsewhere the assets runtime
+// answers without invoking this script when a file matches, or when a
+// browser navigation gets the SPA shell; a non-navigation request that
+// matches no file (a crawler, curl, a missing /robots.txt) still reaches it,
+// and gets the shell from env.ASSETS like any other non-share path.
 //
-// No origin binding needed, unlike media-router.js/ui-router.js: this
-// Worker never changes hostname, so a bare fetch(request) (unmatched paths)
-// or a same-origin relative fetch (the API call) both resolve through the
-// zone's own DNS record straight to App Platform, which already serves both
-// the API and the static UI from one origin (spec).
+// Only the War's own share page, /wars/:id (exactly one segment, not "new"
+// or "import"), gets real per-War tags -- every other path passes straight
+// through to the assets binding untouched. A single-segment id that isn't
+// actually a War falls back to generic tags rather than erroring.
+//
+// The ASSETS binding replaces the old same-origin shell fetch: the shell
+// (index.html) now comes from env.ASSETS.fetch(request) instead of an
+// origin fetch through the zone. The API call is still a same-origin
+// relative fetch.
 
 const RESERVED_SEGMENTS = new Set(['new', 'import'])
 
@@ -74,7 +76,7 @@ async function tagsForWar(warId, pageUrl) {
     })
   } catch {
     // A bad id, a deleted War, or the API being briefly unreachable all
-    // land here — the page underneath still renders (or shows its own
+    // land here -- the page underneath still renders (or shows its own
     // not-found state) exactly as it would without this Worker; only the
     // crawler-facing tags fall back to something generic instead of
     // per-War.
@@ -82,30 +84,36 @@ async function tagsForWar(warId, pageUrl) {
   }
 }
 
+// The War id for a share page (/wars/:id), or null for any other path.
+function shareWarId(pathname) {
+  const segments = pathname.split('/').filter(Boolean)
+  const isSharePage = segments.length === 2 && segments[0] === 'wars' && !RESERVED_SEGMENTS.has(segments[1])
+  return isSharePage ? segments[1] : null
+}
+
+function isHtml(response) {
+  return (response.headers.get('content-type') ?? '').includes('text/html')
+}
+
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url)
-    const segments = url.pathname.split('/').filter(Boolean)
-    const isDetailPage = segments.length === 2 && segments[0] === 'wars' && !RESERVED_SEGMENTS.has(segments[1])
-
-    if (!isDetailPage) {
-      return fetch(request)
+    const warId = shareWarId(url.pathname)
+    const shellResponse = await env.ASSETS.fetch(request)
+    if (warId === null || !isHtml(shellResponse)) {
+      return shellResponse
     }
 
-    const originResponse = await fetch(request)
-    if (!originResponse.headers.get('content-type')?.includes('text/html')) {
-      return originResponse
-    }
-
-    const tags = await tagsForWar(segments[1], url)
-    const rewritten = new HTMLRewriter().on('head', new HeadInjector(tags)).transform(originResponse)
+    const tags = await tagsForWar(warId, url)
+    const rewritten = new HTMLRewriter().on('head', new HeadInjector(tags)).transform(shellResponse)
 
     // index.html must never be edge-cached or a deploy would not be picked
-    // up (ui-router.js's shell() sets the same header for the same reason)
-    // -- true here too, since this response *is* that same shell, tags
-    // included.
+    // up -- true here too, since this response *is* that same shell, tags
+    // included. The shell's ETag goes too: this body is per-War, not the
+    // shared index.html it names.
     const headers = new Headers(rewritten.headers)
     headers.set('cache-control', 'no-store')
+    headers.delete('etag')
     return new Response(rewritten.body, { status: rewritten.status, headers })
   },
 }

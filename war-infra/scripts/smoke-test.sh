@@ -78,6 +78,20 @@ body_contains() {
   fi
 }
 
+# body_lacks <path> <substring> <description>
+body_lacks() {
+  local path="$1" unwanted="$2" desc="$3" body rc=0
+  # Fetch first: an empty body from a failed request must not count as a pass.
+  body="$(curl -sS --max-time "$CURL_TIMEOUT" "${BASE_URL}${path}" 2>/dev/null)" || rc=$?
+  if (( rc != 0 )); then
+    fail "$desc — request failed (curl exit $rc, ${BASE_URL}${path})"
+  elif grep -qF -- "$unwanted" <<< "$body"; then
+    fail "$desc — response unexpectedly contained '$unwanted' (${BASE_URL}${path})"
+  else
+    pass "$desc"
+  fi
+}
+
 # Deployments propagate through the edge, so give the target a moment to answer
 # before asserting anything. Avoids flaky failures on an otherwise good deploy.
 await_ready() {
@@ -128,26 +142,30 @@ case "$TARGET" in
     # SPA deep links must return index.html with 200, not 404.
     status "/wars/smoke-test-nonexistent/vote" 200 "SPA deep link returns 200"
 
-    # index.html must not go meaningfully stale after a deploy, but
-    # unlike the custom-UI stack below (which we fully control and holds to
-    # a strict no-store), App Platform's static-site hosting has a fixed,
-    # non-configurable Cache-Control — public, max-age=10, s-maxage=86400 —
-    # with no app spec field to override it. s-maxage is currently inert:
-    # Cloudflare's default cache level doesn't cache HTML without an
-    # explicit "Cache Everything" rule, which nothing here adds, and no
-    # other shared cache sits in the path (see terraform/shared/main.tf's
-    # cache ruleset comment — if that ever changes, this check needs
-    # revisiting). What a browser actually bounds by is max-age=10, which
-    # self-heals on the next real navigation — accept no-store or any short
-    # bounded max-age, not literally no-store only.
+    # The default UI is a Worker with static assets: HTML is revalidated on
+    # every request, fingerprinted assets are cached forever.
     cc_value="$(curl -sSI --max-time "$CURL_TIMEOUT" "${BASE_URL}/" 2>/dev/null \
                 | tr -d '\r' | awk -F': ' 'tolower($1)=="cache-control"{print $2; exit}')"
-    max_age="$(printf '%s' "$cc_value" | grep -oE 'max-age=[0-9]+' | head -1 | cut -d= -f2)"
-    if [[ "$cc_value" == *"no-store"* ]] || { [[ -n "$max_age" ]] && (( max_age <= 60 )); }; then
-      pass "index.html is not meaningfully cached (cache-control: ${cc_value:-<absent>})"
+    # max-age=0 as a whole directive only: s-maxage=0 must not match.
+    if [[ "$cc_value" == *"no-store"* || "$cc_value" =~ (^|[ ,])max-age=0([ ,]|$) ]]; then
+      pass "index.html is not cached (cache-control: ${cc_value:-<absent>})"
     else
       fail "index.html cache-control too permissive — got '${cc_value:-<absent>}'"
     fi
+
+    asset_path="$(curl -sS --max-time "$CURL_TIMEOUT" "${BASE_URL}/" 2>/dev/null \
+                  | grep -oE '/assets/[^"'"'"' <>)]+' | head -1 || true)"
+    if [[ -n "$asset_path" ]]; then
+      header "$asset_path" cache-control "immutable" "hashed asset is cached immutably"
+    else
+      fail "no /assets/ URL found in the home page"
+    fi
+
+    # Link-preview tags are injected on the share page only.
+    body_contains "/wars/smoke-test-nonexistent" 'property="og:title"' \
+      "War share page carries link-preview tags"
+    body_lacks "/wars/smoke-test-nonexistent/vote" 'og:title' \
+      "War vote page does not carry link-preview tags"
     ;;
 
   ui)

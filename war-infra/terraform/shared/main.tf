@@ -256,12 +256,12 @@ resource "cloudflare_ruleset" "cache" {
   # thinking it's what makes media caching work.
   #
   # No rule here for the default UI's HTML either, and it needs to stay that
-  # way: Cache Level defaults to not caching HTML at all without an explicit
-  # "Cache Everything" rule, which is what makes App Platform's fixed,
-  # non-configurable s-maxage=86400 on that static site currently inert (see
-  # scripts/smoke-test.sh's ui-default cache-control check). Adding a "cache
-  # everything" rule here for performance later would make that s-maxage
-  # start mattering — revisit the smoke test's tolerance at the same time.
+  # way: the default UI's Worker serves it from Workers assets with
+  # max-age=0, must-revalidate, and Cache Level defaults to not caching HTML
+  # at all without an explicit "Cache Everything" rule. Adding one here for
+  # performance later would override that and could serve a stale index.html
+  # after a deploy — revisit scripts/smoke-test.sh's ui-default cache-control
+  # check at the same time.
   rules = [
     {
       description = "Bypass cache for the API, except where it opts in"

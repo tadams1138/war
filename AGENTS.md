@@ -82,6 +82,8 @@ calling `playwright test` directly runs stale generated tests.
 - validate: `terraform -chdir=war-infra/terraform/envs/staging init -backend=false` then `terraform -chdir=war-infra/terraform/envs/staging validate`
 - plan: `terraform -chdir=war-infra/terraform/envs/staging plan`
 - deploy script tests (render-spec.sh): `bash war-infra/scripts/render-spec.test.sh`
+- edge Worker tests: `node --test war-infra/edge/*.test.mjs`
+- UI root validate: `terraform -chdir=war-infra/terraform/ui init -backend=false` then `terraform -chdir=war-infra/terraform/ui validate`
 
 `terraform`'s `-chdir` flag and `npm`'s `--prefix` exist precisely so a subdirectory
 can be reached without `cd`. Permission rules match on a command's leading text, so
