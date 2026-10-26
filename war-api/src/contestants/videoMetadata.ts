@@ -103,7 +103,7 @@ function clipDuration(input: VideoInput, fullDuration: number | null | undefined
   if (!validDuration(fullDuration)) return invalid('video duration is unavailable');
   const { start, end } = windowBounds(input, fullDuration);
   if (!validWindow(start, end, fullDuration)) return invalid('invalid clip window');
-  const duration = input.end_seconds === undefined ? fullDuration : end - start;
+  const duration = end - start;
   if (duration > 60) return invalid('video clip must be at most 60 seconds');
   return { kind: 'ok', value: duration };
 }

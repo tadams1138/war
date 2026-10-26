@@ -61,13 +61,15 @@ describe('video metadata', () => {
     expect(result.kind).toBe('unavailable');
   });
 
-  it('checks the full provider duration when no end is given', async () => {
+  it('measures from the clip start to the video end when no end is given', async () => {
     // Arrange
-    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ duration: 300, thumbnail_url: 'https://i.vimeocdn.com/video/123.jpg' }), { status: 200 }));
+    const fetcher = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ duration: 300, thumbnail_url: 'https://i.vimeocdn.com/video/123.jpg' }), { status: 200 }));
     // Act
-    const result = await resolveVideo({ url: 'https://vimeo.com/123456', start_seconds: 250 }, undefined, fetcher);
+    const tail = await resolveVideo({ url: 'https://vimeo.com/123456', start_seconds: 250 }, undefined, fetcher);
+    const long = await resolveVideo({ url: 'https://vimeo.com/123456', start_seconds: 200 }, undefined, fetcher);
     // Assert
-    expect(result.kind).toBe('validationError');
+    expect(tail).toMatchObject({ kind: 'ok', value: { startSeconds: 250, endSeconds: null, durationSeconds: 50 } });
+    expect(long.kind).toBe('validationError');
   });
 
   it('treats YouTube quota or key refusal as unavailable', async () => {
