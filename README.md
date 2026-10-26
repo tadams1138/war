@@ -531,7 +531,7 @@ Required GitHub Actions secrets (per repository):
 | `INTERNAL_TASK_TOKEN` | terraform scheduler, API config | Authorises internal endpoints |
 | `JWT_SECRET` | API config | Session token signing (substituted into the platform spec) |
 | `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_SECRET`, `FACEBOOK_CLIENT_SECRET`, `TWITTER_CLIENT_SECRET` | API config | OAuth provider client secrets |
-| `YOUTUBE_API_KEY` | API config | YouTube Data API v3 metadata checks; store separately in both GitHub Environments |
+| `YOUTUBE_API_KEY` | API config | YouTube Data API v3 metadata checks |
 | `DOCKERHUB_TOKEN` | API and bootstrap pipelines | Authenticated image pulls (avoids the anonymous rate limit on shared runners) |
 
 The `staging` and `production` GitHub Environments each carry `DO_APP_ID` and
@@ -540,8 +540,8 @@ are also listed in the header of [`app.yml`](.github/workflows/app.yml).
 
 For video attachments, enable **YouTube Data API v3** in a Google Cloud project and create
 an API key under **APIs & Services → Credentials**. Restrict the key to YouTube Data API v3.
-Store it as the GitHub environment secret `YOUTUBE_API_KEY` in **both** `staging` and
-`production`; the app pipeline injects it into the API as an encrypted runtime variable.
+Store it as the repository secret `YOUTUBE_API_KEY`, shared by both environments like the
+other secrets above; the app pipeline injects it into the API as an encrypted runtime variable.
 For local development, set the same environment variable before starting the API. The key
 is optional at boot, but YouTube attachments return a configuration error when it is absent.
 Vimeo attachments use public oEmbed metadata and need no key.
