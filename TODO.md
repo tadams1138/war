@@ -16,4 +16,3 @@ deleted, and the implemented behavior is described in the spec.
 - **11** — [Restore Facebook sign-in](TODO/11-restore-facebook-sign-in.md)
 - **12** — [Clean up orphaned storage objects](TODO/12-clean-up-orphaned-storage-objects.md)
 - **13** — [Cover the untested paths](TODO/13-cover-the-untested-paths.md)
-- **14** — [Seed the first Admin on production](TODO/14-seed-the-first-admin-on-production.md)
