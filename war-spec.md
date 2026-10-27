@@ -815,9 +815,13 @@ end, validation and the stored duration use the full video length.
 | Maximum effective duration | 60 seconds |
 | Recommended | ≤ 20 seconds |
 
+A video rejected while being attached or replaced shows the creator the API's own validation
+message, never generic error copy — a clip over the maximum, for example, tells the creator
+that its duration must not exceed 60 seconds.
+
 **Video changes the economics of the platform.** An image matchup takes about three seconds
-to decide; a video matchup takes twice the video length, because both must play. At twenty
-seconds each that is about forty seconds per matchup — a 23-contestant War is roughly thirteen
+to decide; a video matchup takes up to twice the video length, since voters may vote or skip
+early. At twenty seconds each that is about forty seconds per matchup — a 23-contestant War is roughly thirteen
 minutes in image mode and nearly three hours in video mode.
 
 Partial completion is already expected, so this breaks nothing, but a video War gathers votes

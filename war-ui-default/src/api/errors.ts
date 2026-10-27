@@ -20,9 +20,9 @@ export class ApiError extends Error {
   // The `{ error, details }` shape's `details` array, when the failing
   // response carried one. Populated only for a 'validation' reason whose
   // body actually has it — most callers ignore this and use `message`
-  // instead (the generic 422 copy); Edit War's Publish action
-  // (src/editWar/useEditWar.ts) is the one deliberate exception that
-  // surfaces it verbatim.
+  // instead (the generic 422 copy); Edit War's Publish and video save actions
+  // (src/editWar/useEditWar.ts) are the deliberate exceptions that surface
+  // it verbatim.
   readonly details?: string[]
 
   constructor(reason: ApiErrorReason, status: number, message: string, retryAfterSeconds?: number, details?: string[]) {

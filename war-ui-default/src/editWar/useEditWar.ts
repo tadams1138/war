@@ -93,12 +93,12 @@ export interface EditWarActions {
 }
 
 /**
- * The Publish/Unpublish action's own error copy (war-spec.md's deliberate
- * exception to its generic 422 copy): the API's `details` array verbatim
- * when the failure actually carries one, falling back to the generic
- * message otherwise.
+ * The error copy for Publish/Unpublish and for attaching or replacing a video
+ * (war-spec.md's deliberate exceptions to its generic 422 copy): the API's
+ * `details` array verbatim when the failure actually carries one, falling
+ * back to the generic message otherwise.
  */
-function detailsFromPublishError(error: unknown): string[] {
+function validationDetails(error: unknown): string[] {
   if (error instanceof ApiError && error.reason === 'validation' && error.details) {
     return error.details
   }
@@ -291,7 +291,7 @@ export function useEditWar(
     await mutate(
       setVideoError(contestantId, null),
       (id) => replace ? replaceContestantVideo(id, contestantId, payload) : attachContestantVideo(id, contestantId, payload),
-      (error) => setVideoError(contestantId, toUserMessage(error)),
+      (error) => setVideoError(contestantId, validationDetails(error).join(' ')),
       (media) => setWar((war) => ({
         ...war,
         contestants: war.contestants.map((contestant) => contestant.id === contestantId
@@ -321,7 +321,7 @@ export function useEditWar(
     await mutate(keep, thenReload((id) => uploadShareImageApi(id, blob)), (error) => patch({ metadataError: toUserMessage(error) }))
   }
 
-  const publishFailed = (error: unknown): Update => patch({ publishing: false, publishDetails: detailsFromPublishError(error) })
+  const publishFailed = (error: unknown): Update => patch({ publishing: false, publishDetails: validationDetails(error) })
   const startPublishing = patch({ publishing: true, publishDetails: null })
 
   const publish = async (): Promise<void> => {
