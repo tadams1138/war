@@ -11,6 +11,7 @@ interface FakeVideo {
   times: Record<string, number>
   created: number
   destroyed: number
+  events: string[]
   players: Record<string, { end(): void; tick?(seconds: number): void }>
 }
 
@@ -19,7 +20,7 @@ declare global {
 }
 
 const STATE_SCRIPT = `
-window.__fakeVideo = { behavior: {}, times: {}, created: 0, destroyed: 0, players: {} };
+window.__fakeVideo = { behavior: {}, times: {}, created: 0, destroyed: 0, events: [], players: {} };
 `
 
 const YOUTUBE_SCRIPT = `
@@ -29,7 +30,7 @@ const YOUTUBE_SCRIPT = `
   window.YT = { Player: function (iframe, options) {
     var id = idOf(iframe);
     var events = options.events;
-    fake.created += 1;
+    fake.created += 1; fake.events.push('created:' + id);
     fake.times[id] = fake.times[id] || 0;
     fake.players[id] = { end: function () { events.onStateChange({ data: 0 }); } };
     setTimeout(function () { events.onReady(); }, 0);
@@ -42,7 +43,7 @@ const YOUTUBE_SCRIPT = `
     this.pauseVideo = function () {};
     this.getCurrentTime = function () { return fake.times[id]; };
     this.seekTo = function (seconds) { fake.times[id] = seconds; };
-    this.destroy = function () { fake.destroyed += 1; };
+    this.destroy = function () { fake.destroyed += 1; fake.events.push('destroyed:' + id); };
   } };
   window.onYouTubeIframeAPIReady();
 })();
@@ -55,7 +56,7 @@ const VIMEO_SCRIPT = `
     var id = new URL(iframe.src).pathname.split('/').pop();
     var handlers = {};
     function emit(name, payload) { (handlers[name] || []).forEach(function (handler) { handler(payload); }); }
-    fake.created += 1;
+    fake.created += 1; fake.events.push('created:' + id);
     fake.times[id] = fake.times[id] || 0;
     fake.players[id] = { end: function () { emit('ended'); } };
     this.on = function (name, handler) { (handlers[name] = handlers[name] || []).push(handler); };
@@ -71,7 +72,7 @@ const VIMEO_SCRIPT = `
       if (behavior === 'unavailable') { emit('error'); return Promise.reject(new Error('Video unavailable')); }
       return Promise.resolve();
     };
-    this.destroy = function () { fake.destroyed += 1; return Promise.resolve(); };
+    this.destroy = function () { fake.destroyed += 1; fake.events.push('destroyed:' + id); return Promise.resolve(); };
     fake.players[id].tick = function (seconds) { fake.times[id] = seconds; emit('timeupdate', { seconds: seconds }); };
   } };
 })();
@@ -91,7 +92,8 @@ export async function installFakeVideoProviders(page: Page): Promise<void> {
 }
 
 export async function setVideoBehavior(page: Page, videoId: string, behavior: VideoBehavior): Promise<void> {
-  await page.evaluate(([id, value]) => { window.__fakeVideo!.behavior[id] = value as VideoBehavior }, [videoId, behavior])
+  await page.addInitScript(([id, value]) => { window.__fakeVideo!.behavior[id] = value as VideoBehavior }, [videoId, behavior])
+  await page.evaluate(([id, value]) => { if (window.__fakeVideo) window.__fakeVideo.behavior[id] = value as VideoBehavior }, [videoId, behavior])
 }
 
 export async function endVideo(page: Page, videoId: string): Promise<void> {
@@ -99,8 +101,8 @@ export async function endVideo(page: Page, videoId: string): Promise<void> {
   await page.evaluate((id) => window.__fakeVideo!.players[id].end(), videoId)
 }
 
-export async function videoStats(page: Page): Promise<{ created: number; destroyed: number }> {
-  return page.evaluate(() => ({ created: window.__fakeVideo!.created, destroyed: window.__fakeVideo!.destroyed }))
+export async function videoStats(page: Page): Promise<{ created: number; destroyed: number; events: string[] }> {
+  return page.evaluate(() => ({ created: window.__fakeVideo!.created, destroyed: window.__fakeVideo!.destroyed, events: window.__fakeVideo!.events }))
 }
 
 export async function blockVideoScripts(page: Page): Promise<void> {
