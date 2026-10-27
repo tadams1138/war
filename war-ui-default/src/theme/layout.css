@@ -530,7 +530,8 @@ label {
 .video-poster {
   object-fit: contain;
 }
-.video-poster[hidden] {
+.video-poster[hidden],
+.video-player[hidden] {
   display: none;
 }
 /* The right poster doubles as a skip control while the left video plays. */
@@ -540,9 +541,6 @@ label {
 }
 .video-poster-button .video-poster {
   height: 100%;
-}
-.video-card[data-video-state='poster'] .video-player {
-  display: none;
 }
 .video-player iframe {
   width: 100%;

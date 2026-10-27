@@ -161,3 +161,21 @@ Feature: Video Mode
     When the voter replays the pair
     Then an unavailable state is shown on the left card
     And the right video begins
+
+  Scenario: Finished videos show only their players, not their posters
+    Given a matchup in a video War
+    And an authenticated voter
+    When they open that War's vote page
+    And the left video ends
+    And the right video ends
+    Then the left card shows only its player
+    And the right card shows only its player
+
+  Scenario: A skipped first video shows only its poster
+    Given a matchup in a video War
+    And an authenticated voter
+    When they open that War's vote page
+    Then the left video plays first
+    When the voter skips the first video
+    Then the left card shows only its poster
+    And the right card shows only its player

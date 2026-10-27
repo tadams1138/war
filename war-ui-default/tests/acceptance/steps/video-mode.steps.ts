@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { buildMatchupResponse, buildVideoMatchupResponse, buildVideoMediaItem, buildWarDetail } from '../../../src/mocks/fixtures'
 import { blockVideoScripts, endVideo, installFakeVideoProviders, reachClipEnd, setVideoBehavior, videoStats } from '../support/fakeVideoProviders'
@@ -267,4 +267,18 @@ Then('no playback log is shown', async ({ page }) => {
 Then('the playback log records the left video playing', async ({ page }) => {
   // Assert
   await expect(page.getByTestId('video-debug-log')).toContainText('left state playing')
+})
+
+const card = (page: Page, side: Side) => page.getByTestId(`matchup-card-${side}`).getByTestId('contestant-card')
+
+Then('the {side} card shows only its player', async ({ page }, side: Side) => {
+  // Assert
+  await expect(card(page, side).locator('.video-player iframe')).toBeVisible()
+  await expect(card(page, side).getByTestId('video-poster')).toBeHidden()
+})
+
+Then('the {side} card shows only its poster', async ({ page }, side: Side) => {
+  // Assert
+  await expect(card(page, side).getByTestId('video-poster')).toBeVisible()
+  await expect(card(page, side).locator('.video-player')).toBeHidden()
 })

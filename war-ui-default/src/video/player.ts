@@ -147,7 +147,7 @@ async function createYouTube(host: HTMLElement, media: VideoMedia, events: Playe
       onStateChange: (event: { data: number }) => handleState(event.data),
       onPlaybackQualityChange: (event: { data: string }) => videoDebug(`${label} quality ${event.data} at ${at()}s`),
       onAutoplayBlocked: () => { videoDebug(`${label} autoplay blocked`); rejectPlay?.(new AutoplayBlockedError('Autoplay blocked')) },
-      onError: (event: { data: number }) => { videoDebug(`${label} error ${event.data}`); events.unavailable(); rejectPlay?.(new VideoUnavailableError('Video unavailable')) },
+      onError: (event?: { data: number }) => { videoDebug(`${label} error ${event?.data}`); events.unavailable(); rejectPlay?.(new VideoUnavailableError('Video unavailable')) },
     },
   })
   return {
