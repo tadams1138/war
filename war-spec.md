@@ -815,9 +815,13 @@ end, validation and the stored duration use the full video length.
 | Maximum effective duration | 60 seconds |
 | Recommended | ≤ 20 seconds |
 
+A video rejected while being attached or replaced shows the creator the API's own validation
+message, never generic error copy — a clip over the maximum, for example, tells the creator
+that its duration must not exceed 60 seconds.
+
 **Video changes the economics of the platform.** An image matchup takes about three seconds
-to decide; a video matchup takes twice the video length, because both must play. At twenty
-seconds each that is about forty seconds per matchup — a 23-contestant War is roughly thirteen
+to decide; a video matchup takes up to twice the video length, since voters may vote or skip
+early. At twenty seconds each that is about forty seconds per matchup — a 23-contestant War is roughly thirteen
 minutes in image mode and nearly three hours in video mode.
 
 Partial completion is already expected, so this breaks nothing, but a video War gathers votes
@@ -980,19 +984,26 @@ users, and the card remains a single tab stop. Non-primary images load lazily �
 cards' full sets would multiply per-matchup transfer roughly tenfold for images most voters
 never look at.
 
-**In video mode** (§9.2) the two cards hold players and play one after the other: both start paused
-showing posters, the voter presses play once for the pair, the first plays, the second starts
-automatically, and both cards become selectable when it ends. Because side assignment is
+**In video mode** (§9.2) the two cards show posters and play one after the other: the first
+starts automatically with sound when each matchup loads, and the second starts automatically
+when the first ends. A voter can skip to the second video early using a next-video control on
+the first card or by selecting the second video's poster. Skipping stops the first video.
+Because side assignment is
 already randomised per voter and recorded, which video plays first is randomised too and
 recoverable from the same record — order-of-play bias is measurable with machinery that
 already exists.
 
-Voting stays disabled until both have played once, with a replay control always available.
-Enabling it earlier would let voters decide before seeing the second contestant at all.
+Both vote controls are visible and available throughout, including before either video has
+finished; they are disabled only while a vote is being submitted. Voting stops both videos.
+Once the second video has started, a replay control lets the voter restart from the first,
+stopping any current playback. There is no next-video control while the second video plays.
+An unavailable video remains marked as unavailable; if the first is unavailable, the second
+starts automatically.
 
 **Autoplay is not guaranteed** — browsers block programmatic playback absent a user gesture,
 and mobile browsers are stricter about how far one gesture carries. The chain must degrade
-rather than stall: if starting the second video is refused, show a play control and wait.
+rather than stall: if starting either video is refused, show a play control on that card.
+Selecting it starts that video from the beginning with sound.
 Never leave a voter looking at a paused player with no way forward. Players are created only
 for the current matchup and destroyed when it is replaced.
 

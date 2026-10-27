@@ -44,6 +44,20 @@ Feature: Edit War
     Then the original video remains visible
     And a video validation error is shown
 
+  Scenario: A clip longer than 60 seconds explains the limit
+    Given a draft War
+    And that War has contestants:
+      | name |
+      | Ada  |
+    And that War uses video mode
+    And the API rejects the video because the clip exceeds 60 seconds
+    And an authenticated voter
+    And they are on that War's Edit page
+    When they select "Ada" in the sections list
+    And they enter video URL "https://youtu.be/abc123" with start 0 and end 90
+    And they attach the video
+    Then the video error says "Clip duration must not exceed 60 seconds"
+
   Scenario: A video War cannot be published while a contestant lacks a video
     Given a draft War
     And that War has contestants:

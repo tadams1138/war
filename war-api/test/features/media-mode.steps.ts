@@ -111,13 +111,16 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
   });
 
-  Scenario('Overlong videos are rejected', ({ Given, When, Then }) => {
+  Scenario('Overlong videos are rejected', ({ Given, When, Then, And }) => {
     Given('a video whose effective duration is 90 seconds', async () => { // Arrange
       await draft('video'); duration = 'PT90S';
     });
     When('it is attached to a contestant', attach);
     Then('the response status is 422', () => { // Assert
       expect(response.status).toBe(422);
+    });
+    And('the response explains the clip must not exceed 60 seconds', () => { // Assert
+      expect(response.body.details).toEqual(['Clip duration must not exceed 60 seconds']);
     });
   });
 

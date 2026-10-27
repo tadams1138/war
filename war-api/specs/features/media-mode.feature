@@ -32,6 +32,7 @@ Feature: Media Mode
     Given a video whose effective duration is 90 seconds
     When it is attached to a contestant
     Then the response status is 422
+    And the response explains the clip must not exceed 60 seconds
 
   Scenario: A clip window shortens a longer video
     Given a five-minute video with start_seconds 60 and end_seconds 80

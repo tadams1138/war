@@ -38,6 +38,17 @@ Given('the API rejects replacement video validation', async ({ world }) => {
   recipe.responses = [{ status: 422, body: { error: 'This video cannot be embedded' } }]
 })
 
+Given('the API rejects the video because the clip exceeds 60 seconds', async ({ world }) => {
+  // Arrange
+  const recipe = world.recipes.find((item) => item.method === 'POST' && item.path.endsWith('/videos'))!
+  recipe.responses = [{ status: 422, body: { error: 'validation error', details: ['Clip duration must not exceed 60 seconds'] } }]
+})
+
+Then('the video error says {string}', async ({ page }, message: string) => {
+  // Assert
+  await expect(page.getByTestId('edit-war-video-error')).toHaveText(message)
+})
+
 When('they enter video URL {string} with start {int} and end {int}', async ({ page }, url: string, start: number, end: number) => {
   // Act
   await page.getByLabel('Video URL').fill(url)
