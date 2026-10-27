@@ -2,6 +2,8 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'rea
 import type { NextMatchupResponse } from '../api/client'
 import { MatchupView } from '../components/MatchupView'
 import { AutoplayBlockedError, createVideoPlayer, VideoUnavailableError, type VideoMedia, type VideoPlayer } from './player'
+import { videoDebug } from './debugLog'
+import { VideoDebugPanel } from './VideoDebugPanel'
 
 type Matchup = NextMatchupResponse['matchup']
 type Side = 'left' | 'right'
@@ -80,6 +82,7 @@ export function VideoMatchup(props: Props) {
 
   // The parent remounts this component for each matchup, so these run once per matchup.
   const autoplay = useEffectEvent(() => {
+    videoDebug(`matchup ${matchup.id} on ${navigator.userAgent}`)
     disposed.current = false
     void play('left')
   })
@@ -88,6 +91,9 @@ export function VideoMatchup(props: Props) {
     stop('left')
     stop('right')
   })
+
+  useEffect(() => { videoDebug(`left state ${left}`) }, [left])
+  useEffect(() => { videoDebug(`right state ${right}`) }, [right])
 
   useEffect(() => {
     autoplay()
@@ -145,6 +151,7 @@ export function VideoMatchup(props: Props) {
 
   function playbackFailed(side: Side, set: (state: PlaybackState) => void, error: unknown) {
     const state = stateForPlaybackError(error)
+    videoDebug(`${side} failed: ${error instanceof Error ? error.message : String(error)}`)
     set(state)
     if (side === 'left' && state === 'unavailable') beginRight()
   }
@@ -188,6 +195,7 @@ export function VideoMatchup(props: Props) {
       right: <VideoCard side="right" contestant={matchup.right} media={media.right} state={right} onPosterClick={left === 'playing' ? skipLeft : undefined} votingInFlight={votingInFlight} playerHost={rightHost} onManualPlay={() => void play('right')} onSelect={select} />,
     }}
     playbackControl={<div className="video-controls">
+      <VideoDebugPanel />
       {rightStarted && <button type="button" onClick={replay}>Replay videos</button>}
     </div>}
   />
