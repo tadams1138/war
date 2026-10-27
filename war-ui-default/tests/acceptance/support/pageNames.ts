@@ -37,6 +37,8 @@ export const PAGES: Record<string, PageRef> = {
   "the first War's Edit page": { path: () => '/wars/war-1/edit', landmark: 'edit-war-title-input' },
   "that War's Edit page": { path: ({ warId }) => `/wars/${warId}/edit`, landmark: 'edit-war-title-input' },
   "that War's vote page": { path: ({ warId }) => `/wars/${warId}/vote` },
+  // Temporary: `?debug` shows the video playback log (src/video/debugLog.ts).
+  "that War's vote page with debugging on": { path: ({ warId }) => `/wars/${warId}/vote?debug` },
 }
 
 export function literalPage(path: string): PageRef {

@@ -9,6 +9,13 @@ Feature: Video Mode
     And the left video plays first
     When the left video ends
     Then the right video begins
+    And no playback log is shown
+
+  Scenario: A debug flag shows a playback log for diagnosing phones
+    Given a matchup in a video War
+    And an authenticated voter
+    When they open that War's vote page with debugging on
+    Then the playback log records the left video playing
 
   Scenario: Voting is available from the start
     Given a matchup in a video War

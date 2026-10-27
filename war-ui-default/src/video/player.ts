@@ -1,4 +1,5 @@
 import type { MediaItem } from '../api/client'
+import { videoDebug } from './debugLog'
 
 export type VideoMedia = MediaItem & {
   provider: 'youtube' | 'vimeo'
@@ -29,6 +30,7 @@ export class AutoplayBlockedError extends Error {}
 export class VideoUnavailableError extends Error {}
 
 interface YouTubePlayer {
+  getPlaybackQuality?(): string
   playVideo(): void
   pauseVideo(): void
   getCurrentTime(): number
@@ -120,10 +122,16 @@ async function createYouTube(host: HTMLElement, media: VideoMedia, events: Playe
   }
   function checkClipEnd() {
     if (media.end_seconds === null || player.getCurrentTime() < media.end_seconds) return
+    videoDebug(`${label} clip end reached at ${at()}s`)
     player.pauseVideo()
     finish()
   }
+  const label = `youtube ${media.video_id}`
+  const stateNames: Record<number, string> = { [-1]: 'unstarted', 0: 'ended', 1: 'playing', 2: 'paused', 3: 'buffering', 5: 'cued' }
+  const at = () => { try { return player.getCurrentTime().toFixed(1) } catch { return '?' } }
+  const logState = (data: number) => videoDebug(`${label} ${stateNames[data] ?? data} at ${at()}s`)
   function handleState(data: number) {
+    logState(data)
     if (data === 1) {
       resolvePlay?.()
       if (media.end_seconds !== null) {
@@ -135,10 +143,11 @@ async function createYouTube(host: HTMLElement, media: VideoMedia, events: Playe
   }
   const player = new window.YT!.Player(iframe, {
     events: {
-      onReady: ready,
+      onReady: () => { videoDebug(`${label} ready`); ready() },
       onStateChange: (event: { data: number }) => handleState(event.data),
-      onAutoplayBlocked: () => rejectPlay?.(new AutoplayBlockedError('Autoplay blocked')),
-      onError: () => { events.unavailable(); rejectPlay?.(new VideoUnavailableError('Video unavailable')) },
+      onPlaybackQualityChange: (event: { data: string }) => videoDebug(`${label} quality ${event.data} at ${at()}s`),
+      onAutoplayBlocked: () => { videoDebug(`${label} autoplay blocked`); rejectPlay?.(new AutoplayBlockedError('Autoplay blocked')) },
+      onError: (event: { data: number }) => { videoDebug(`${label} error ${event.data}`); events.unavailable(); rejectPlay?.(new VideoUnavailableError('Video unavailable')) },
     },
   })
   return {
@@ -146,6 +155,7 @@ async function createYouTube(host: HTMLElement, media: VideoMedia, events: Playe
       await withTimeout(readyPromise)
       ended = false
       window.clearInterval(clipTimer)
+      videoDebug(`${label} seekTo ${media.start_seconds} and playVideo`)
       player.seekTo(media.start_seconds, true)
       return withTimeout(new Promise<void>((resolve, reject) => {
         resolvePlay = resolve
@@ -172,8 +182,10 @@ async function createVimeo(host: HTMLElement, media: VideoMedia, events: PlayerE
     void player.pause()
     events.ended()
   }
+  const label = `vimeo ${media.video_id}`
+  for (const name of ['play', 'pause', 'bufferstart', 'bufferend', 'ended']) player.on(name, () => videoDebug(`${label} ${name}`))
   player.on('ended', finish)
-  player.on('error', events.unavailable)
+  player.on('error', (error: unknown) => { videoDebug(`${label} error ${String((error as { name?: string }).name)}`); events.unavailable() })
   player.on('timeupdate', (event: { seconds: number }) => {
     if (media.end_seconds !== null && event.seconds >= media.end_seconds) finish()
   })
@@ -181,9 +193,11 @@ async function createVimeo(host: HTMLElement, media: VideoMedia, events: PlayerE
     play: async () => {
       ended = false
       await withTimeout(player.setCurrentTime(media.start_seconds))
+      videoDebug(`${label} play`)
       try {
         await withTimeout(player.play())
       } catch (error) {
+        videoDebug(`${label} play refused ${String((error as { name?: string }).name)}`)
         if (isAutoplayRefusal(error)) throw new AutoplayBlockedError('Autoplay blocked')
         throw error
       }

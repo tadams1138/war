@@ -258,3 +258,13 @@ Then('replay is not yet offered', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Play right video', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Replay videos' })).toHaveCount(0)
 })
+
+Then('no playback log is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('video-debug-log')).toHaveCount(0)
+})
+
+Then('the playback log records the left video playing', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('video-debug-log')).toContainText('left state playing')
+})

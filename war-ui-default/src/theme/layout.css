@@ -882,3 +882,20 @@ label {
 .carousel-dot[data-active='true'] {
   background: #fff;
 }
+
+/* Temporary: the `?debug` video playback log (src/video/VideoDebugPanel.tsx). */
+.video-debug-log {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 1000;
+  max-height: 35vh;
+  overflow-y: auto;
+  padding: 0.25rem 0.5rem;
+  background: rgb(0 0 0 / 0.85);
+  color: #fff;
+  font: 11px/1.3 monospace;
+}
+.video-debug-log pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
