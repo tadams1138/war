@@ -22,6 +22,7 @@ interface CardProps {
   contestant: Matchup['left']
   media?: VideoMedia
   state: PlaybackState
+  hasPlayer: boolean
   votingInFlight: boolean
   playerHost: React.RefObject<HTMLDivElement | null>
   onPosterClick?: () => void
@@ -30,9 +31,10 @@ interface CardProps {
   onSelect: (id: string) => void
 }
 
-function Poster({ media, state, onPosterClick }: Pick<CardProps, 'media' | 'state' | 'onPosterClick'>) {
+// One box per card: the provider's player while one exists, the poster otherwise.
+function Poster({ media, hasPlayer, onPosterClick }: Pick<CardProps, 'media' | 'hasPlayer' | 'onPosterClick'>) {
   if (!media?.poster_url) return null
-  const poster = <img data-testid="video-poster" className="video-poster" src={media.poster_url} alt="" hidden={state === 'playing'} />
+  const poster = <img data-testid="video-poster" className="video-poster" src={media.poster_url} alt="" hidden={hasPlayer} />
   if (onPosterClick) return <button type="button" className="video-poster-button" aria-label="Skip to right video" onClick={onPosterClick}>{poster}</button>
   return poster
 }
@@ -47,10 +49,10 @@ function VoteButton({ contestant, votingInFlight, onSelect }: Pick<CardProps, 'c
 }
 
 function VideoCard(props: CardProps) {
-  const { side, contestant, media, state, votingInFlight, playerHost, onManualPlay, onSelect } = props
+  const { side, contestant, media, state, hasPlayer, votingInFlight, playerHost, onManualPlay, onSelect } = props
   return <div className="contestant-card video-card" data-testid="contestant-card" data-video-state={state} data-selectable={!votingInFlight}>
-    <Poster media={media} state={state} onPosterClick={props.onPosterClick} />
-    <div ref={playerHost} className="video-player" />
+    <Poster media={media} hasPlayer={hasPlayer} onPosterClick={props.onPosterClick} />
+    <div ref={playerHost} className="video-player" hidden={!hasPlayer} />
     <p>{contestant.name}</p>
     {state === 'unavailable' && <p role="status">Video unavailable</p>}
     {props.skipControl}
@@ -78,6 +80,8 @@ export function VideoMatchup(props: Props) {
   const generations = useRef({ left: 0, right: 0 })
   const advancedLeft = useRef(-1)
   const [rightStarted, setRightStarted] = useState(false)
+  const [hasPlayer, setHasPlayer] = useState<Record<Side, boolean>>({ left: false, right: false })
+  const showPlayer = (side: Side, shown: boolean) => setHasPlayer((current) => ({ ...current, [side]: shown }))
   const media = { left: matchup.left.media[0] as VideoMedia | undefined, right: matchup.right.media[0] as VideoMedia | undefined }
 
   // The parent remounts this component for each matchup, so these run once per matchup.
@@ -104,6 +108,7 @@ export function VideoMatchup(props: Props) {
     generations.current[side] += 1
     players.current[side]?.destroy()
     delete players.current[side]
+    showPlayer(side, false)
   }
 
   function select(id: string) {
@@ -130,6 +135,7 @@ export function VideoMatchup(props: Props) {
     if (!item) throw new VideoUnavailableError('Video unavailable')
     set('playing')
     if (!players.current[side]) {
+      showPlayer(side, true)
       const created = await createVideoPlayer(host, item, playerEvents(side, generation, set))
       if (!isCurrent(side, generation)) { created.destroy(); return }
       players.current[side] = created
@@ -151,6 +157,7 @@ export function VideoMatchup(props: Props) {
 
   function playbackFailed(side: Side, set: (state: PlaybackState) => void, error: unknown) {
     const state = stateForPlaybackError(error)
+    if (!players.current[side]) showPlayer(side, false)
     videoDebug(`${side} failed: ${error instanceof Error ? error.message : String(error)}`)
     set(state)
     if (side === 'left' && state === 'unavailable') beginRight()
@@ -191,8 +198,8 @@ export function VideoMatchup(props: Props) {
     progressBar={progressBar}
     errorMessage={errorMessage}
     videoCards={{
-      left: <VideoCard side="left" contestant={matchup.left} media={media.left} state={left} skipControl={left === 'playing' && <button type="button" onClick={skipLeft}>Next video {'\u203a'}</button>} votingInFlight={votingInFlight} playerHost={leftHost} onManualPlay={() => void play('left')} onSelect={select} />,
-      right: <VideoCard side="right" contestant={matchup.right} media={media.right} state={right} onPosterClick={left === 'playing' ? skipLeft : undefined} votingInFlight={votingInFlight} playerHost={rightHost} onManualPlay={() => void play('right')} onSelect={select} />,
+      left: <VideoCard side="left" contestant={matchup.left} media={media.left} state={left} hasPlayer={hasPlayer.left} skipControl={left === 'playing' && <button type="button" onClick={skipLeft}>Next video {'\u203a'}</button>} votingInFlight={votingInFlight} playerHost={leftHost} onManualPlay={() => void play('left')} onSelect={select} />,
+      right: <VideoCard side="right" contestant={matchup.right} media={media.right} state={right} hasPlayer={hasPlayer.right} onPosterClick={left === 'playing' ? skipLeft : undefined} votingInFlight={votingInFlight} playerHost={rightHost} onManualPlay={() => void play('right')} onSelect={select} />,
     }}
     playbackControl={<div className="video-controls">
       <VideoDebugPanel />
