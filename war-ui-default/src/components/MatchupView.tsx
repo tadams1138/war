@@ -104,6 +104,17 @@ function cardContent(side: 'left' | 'right', props: MatchupViewProps): ReactNode
   return <ContestantCard key={props.matchup[side].id} contestant={props.matchup[side]} disabled={props.votingInFlight} onVote={props.onSelect} />
 }
 
+// A video matchup on a narrow (stacked) viewport shows no bios: the players need
+// the width a bio would take beside them (war-spec.md §10.3).
+function bioFor(side: 'left' | 'right', props: MatchupViewProps, narrow: boolean): ReactNode {
+  if (narrow && props.videoCards) return null
+  return (
+    <div className="matchup-bio" data-testid={`matchup-bio-${side}`}>
+      <BioContent bio={props.matchup[side].bio} />
+    </div>
+  )
+}
+
 export function MatchupView(props: MatchupViewProps) {
   const { matchup, progressBar, errorMessage, playbackControl } = props
   const narrow = useNarrowViewport()
@@ -124,16 +135,8 @@ export function MatchupView(props: MatchupViewProps) {
         {cardContent('right', props)}
       </div>
     ),
-    leftBio: (
-      <div className="matchup-bio" data-testid="matchup-bio-left">
-        <BioContent bio={matchup.left.bio} />
-      </div>
-    ),
-    rightBio: (
-      <div className="matchup-bio" data-testid="matchup-bio-right">
-        <BioContent bio={matchup.right.bio} />
-      </div>
-    ),
+    leftBio: bioFor('left', props, narrow),
+    rightBio: bioFor('right', props, narrow),
     progressBar,
     errorMessage,
     viewportClass: viewportClassFor(matchup),

@@ -29,6 +29,24 @@ Given('a matchup in a video War', async ({ page, world }) => {
   // Assert: verified by the scenario's Then steps.
 })
 
+Given('both video contestants have bios', async ({ world }) => {
+  // Arrange
+  world.matchupResponse!.matchup.left.bio = 'Left bio.'
+  world.matchupResponse!.matchup.right.bio = 'Right bio.'
+})
+
+Then('no bio is shown', async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('matchup-bio-left')).toHaveCount(0)
+  await expect(page.getByTestId('matchup-bio-right')).toHaveCount(0)
+})
+
+Then("each video contestant's bio is shown", async ({ page }) => {
+  // Assert
+  await expect(page.getByTestId('matchup-bio-left')).toContainText('Left bio.')
+  await expect(page.getByTestId('matchup-bio-right')).toContainText('Right bio.')
+})
+
 Then('the left video plays first', async ({ page }) => {
   // Arrange: use the scenario fixtures.
   // Act: observe the rendered result.

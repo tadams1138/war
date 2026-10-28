@@ -12,6 +12,24 @@ Feature: Video Mode
     Then the right video begins
     And no playback log is shown
 
+  Scenario: On a phone, a video matchup shows no bios, leaving the space to the videos
+    Given a phone screen
+    And a matchup in a video War
+    And both video contestants have bios
+    And an authenticated voter
+    When they open that War's vote page
+    Then the left video plays first
+    And no bio is shown
+
+  Scenario: On a wide screen, a video matchup still shows its bios
+    Given a desktop screen
+    And a matchup in a video War
+    And both video contestants have bios
+    And an authenticated voter
+    When they open that War's vote page
+    Then the left video plays first
+    And each video contestant's bio is shown
+
   Scenario: A debug flag shows a playback log for diagnosing phones
     Given a matchup in a video War
     And an authenticated voter

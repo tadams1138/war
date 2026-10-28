@@ -974,7 +974,8 @@ scrolling down past it. On a narrow (stacked) viewport, where the two cards are 
 stacked to keep both visible without scrolling, each contestant's bio instead renders beside
 its own card, in the width the stacked layout leaves spare; a long bio scrolls within its own
 area there rather than growing the card or forcing the page itself to scroll before both
-contestants are visible. Either way, the footer remains reachable by scrolling past everything
+contestants are visible. In a video War, the narrow viewport shows no bios at all, so the
+players get the full width; bios still render below the block on a wide viewport. Either way, the footer remains reachable by scrolling past everything
 above it.
 
 **Multiple images** are browsable within a card. Horizontal swipe browses; tap votes. **These
