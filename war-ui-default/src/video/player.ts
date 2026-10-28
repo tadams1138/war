@@ -12,6 +12,7 @@ export type VideoMedia = MediaItem & {
 
 export interface VideoPlayer {
   play(): Promise<void>
+  pause(): void
   destroy(): void
 }
 
@@ -22,6 +23,7 @@ function validVideo(media: VideoMedia): boolean {
 }
 
 interface PlayerEvents {
+  playing(): void
   ended(): void
   unavailable(): void
 }
@@ -133,6 +135,8 @@ async function createYouTube(host: HTMLElement, media: VideoMedia, events: Playe
   function handleState(data: number) {
     logState(data)
     if (data === 1) {
+      ended = false
+      events.playing()
       resolvePlay?.()
       if (media.end_seconds !== null) {
         window.clearInterval(clipTimer)
@@ -163,6 +167,7 @@ async function createYouTube(host: HTMLElement, media: VideoMedia, events: Playe
         player.playVideo()
       }))
     },
+    pause: () => { videoDebug(`${label} pause requested`); window.clearInterval(clipTimer); player.pauseVideo() },
     destroy: () => { window.clearInterval(clipTimer); player.destroy(); iframe.remove() },
   }
 }
@@ -175,6 +180,7 @@ async function createVimeo(host: HTMLElement, media: VideoMedia, events: PlayerE
   iframe.title = 'Vimeo video player'
   host.append(iframe)
   const player = new window.Vimeo!.Player(iframe)
+  await withTimeout(player.setCurrentTime(media.start_seconds))
   let ended = false
   function finish() {
     if (ended) return
@@ -183,7 +189,8 @@ async function createVimeo(host: HTMLElement, media: VideoMedia, events: PlayerE
     events.ended()
   }
   const label = `vimeo ${media.video_id}`
-  for (const name of ['play', 'pause', 'bufferstart', 'bufferend', 'ended']) player.on(name, () => videoDebug(`${label} ${name}`))
+  for (const name of ['pause', 'bufferstart', 'bufferend', 'ended']) player.on(name, () => videoDebug(`${label} ${name}`))
+  player.on('play', () => { ended = false; videoDebug(`${label} playing (provider event)`); events.playing() })
   player.on('ended', finish)
   player.on('error', (error: unknown) => { videoDebug(`${label} error ${String((error as { name?: string }).name)}`); events.unavailable() })
   player.on('timeupdate', (event: { seconds: number }) => {
@@ -202,6 +209,7 @@ async function createVimeo(host: HTMLElement, media: VideoMedia, events: PlayerE
         throw error
       }
     },
+    pause: () => { videoDebug(`${label} pause requested`); void player.pause().catch((error: unknown) => videoDebug(`${label} pause failed ${String(error)}`)) },
     destroy: () => { void player.destroy(); iframe.remove() },
   }
 }

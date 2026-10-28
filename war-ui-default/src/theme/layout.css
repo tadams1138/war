@@ -419,7 +419,7 @@ label {
 
 /* The vote page's own layout (war-spec.md §10.3): the tap-to-vote block
    (progress + both cards) fills the viewport with no scroll needed to
-   vote, via a definite `height: 100vh` flex column -- not `min-height`,
+   vote, via a definite `height: 100dvh` flex column (with a 100vh fallback) -- not `min-height`,
    which leaves how much of that height a `flex: 1`/`1fr` row actually
    gets ambiguous once something else follows it, and a trailing bio
    section does follow it here on a wide viewport. Bios sit outside this
@@ -434,6 +434,7 @@ label {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
 }
 
 /* Neither contestant has media: the cards are a name and a Vote button, so the
@@ -521,7 +522,6 @@ label {
   gap: 0.5rem;
 }
 .video-poster,
-.video-card .video-poster-button,
 .video-player {
   flex: 1 1 0%;
   min-height: 0;
@@ -533,14 +533,6 @@ label {
 .video-poster[hidden],
 .video-player[hidden] {
   display: none;
-}
-/* The right poster doubles as a skip control while the left video plays. */
-.video-card .video-poster-button {
-  align-self: stretch;
-  padding: 0;
-}
-.video-poster-button .video-poster {
-  height: 100%;
 }
 .video-player iframe {
   width: 100%;

@@ -808,7 +808,9 @@ An optional clip window lets a creator point at a segment of a longer video. Pla
 at the chosen start and stops at the chosen end. Bounds are whole, nonnegative seconds:
 the start must precede the full duration, and an end must follow the start without exceeding
 that duration. Effective duration is end minus start when an end is supplied; without an
-end, validation and the stored duration use the full video length.
+end, validation and the stored duration use the full video length. Both videos are prepared
+at their clip starts when a matchup loads, including the second video while it waits for
+playback. Starting or replaying a clip respects its chosen bounds.
 
 | Limit | Value |
 |---|---|
@@ -984,10 +986,13 @@ users, and the card remains a single tab stop. Non-primary images load lazily �
 cards' full sets would multiply per-matchup transfer roughly tenfold for images most voters
 never look at.
 
-**In video mode** (§9.2) the two cards show posters and play one after the other: the first
-starts automatically with sound when each matchup loads, and the second starts automatically
-when the first ends. A voter can skip to the second video early using a next-video control on
-the first card or by selecting the second video's poster. Skipping stops the first video.
+**In video mode** (§9.2) both cards show their provider players when each matchup loads.
+The first tries to start automatically with sound; the second is ready to play but waits.
+When the first ends, the second tries to start automatically. A tap inside either provider
+player starts that video and pauses the other if it is playing, retaining both players.
+This also lets a voter skip ahead by tapping inside the second player. Each card shows one
+media box: its player while present, otherwise its poster if available. The vote button
+labels the contestant; no separate contestant name appears beneath the video.
 Because side assignment is
 already randomised per voter and recorded, which video plays first is randomised too and
 recoverable from the same record — order-of-play bias is measurable with machinery that
@@ -996,16 +1001,18 @@ already exists.
 Both vote controls are visible and available throughout, including before either video has
 finished; they are disabled only while a vote is being submitted. Voting stops both videos.
 Once the second video has started, a replay control lets the voter restart from the first,
-stopping any current playback. There is no next-video control while the second video plays.
+seeking to its clip start and pausing the second player. Replay retains both players.
+There are no separate next-video or poster skip controls.
 An unavailable video remains marked as unavailable; if the first is unavailable, the second
 starts automatically.
 
 **Autoplay is not guaranteed** — browsers block programmatic playback absent a user gesture,
-and mobile browsers are stricter about how far one gesture carries. The chain must degrade
-rather than stall: if starting either video is refused, show a play control on that card.
-Selecting it starts that video from the beginning with sound.
-Never leave a voter looking at a paused player with no way forward. Players are created only
-for the current matchup and destroyed when it is replaced.
+and mobile browsers are stricter about how far one gesture carries. If starting either video
+is refused, its provider player remains visible and waits for a tap inside it. The page adds
+no play button or hint text. Provider-initiated playback, including a replay inside a player,
+is recognised the same way as automatic playback and pauses the other video if necessary.
+Players are created only for the current matchup and destroyed when it is replaced or a vote
+is submitted.
 
 ### 10.4 Other pages and components
 
