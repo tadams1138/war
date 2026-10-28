@@ -7,7 +7,7 @@ import { VideoDebugPanel } from './VideoDebugPanel'
 
 type Matchup = NextMatchupResponse['matchup']
 type Side = 'left' | 'right'
-type PlaybackState = 'poster' | 'playing' | 'played' | 'manual' | 'unavailable'
+type PlaybackState = 'poster' | 'playing' | 'played' | 'waiting' | 'unavailable'
 
 interface Props {
   matchup: Matchup
@@ -18,30 +18,19 @@ interface Props {
 }
 
 interface CardProps {
-  side: Side
   contestant: Matchup['left']
   media?: VideoMedia
   state: PlaybackState
   hasPlayer: boolean
   votingInFlight: boolean
   playerHost: React.RefObject<HTMLDivElement | null>
-  onPosterClick?: () => void
-  skipControl?: ReactNode
-  onManualPlay: () => void
   onSelect: (id: string) => void
 }
 
 // One box per card: the provider's player while one exists, the poster otherwise.
-function Poster({ media, hasPlayer, onPosterClick }: Pick<CardProps, 'media' | 'hasPlayer' | 'onPosterClick'>) {
+function Poster({ media, hasPlayer }: Pick<CardProps, 'media' | 'hasPlayer'>) {
   if (!media?.poster_url) return null
-  const poster = <img data-testid="video-poster" className="video-poster" src={media.poster_url} alt="" hidden={hasPlayer} />
-  if (onPosterClick) return <button type="button" className="video-poster-button" aria-label="Skip to right video" onClick={onPosterClick}>{poster}</button>
-  return poster
-}
-
-function ManualPlay({ side, state, onManualPlay }: Pick<CardProps, 'side' | 'state' | 'onManualPlay'>) {
-  if (state !== 'manual') return null
-  return <button type="button" onClick={onManualPlay}>Play {side} video</button>
+  return <img data-testid="video-poster" className="video-poster" src={media.poster_url} alt="" hidden={hasPlayer} />
 }
 
 function VoteButton({ contestant, votingInFlight, onSelect }: Pick<CardProps, 'contestant' | 'votingInFlight' | 'onSelect'>) {
@@ -49,20 +38,17 @@ function VoteButton({ contestant, votingInFlight, onSelect }: Pick<CardProps, 'c
 }
 
 function VideoCard(props: CardProps) {
-  const { side, contestant, media, state, hasPlayer, votingInFlight, playerHost, onManualPlay, onSelect } = props
+  const { contestant, media, state, hasPlayer, votingInFlight, playerHost, onSelect } = props
   return <div className="contestant-card video-card" data-testid="contestant-card" data-video-state={state} data-selectable={!votingInFlight}>
-    <Poster media={media} hasPlayer={hasPlayer} onPosterClick={props.onPosterClick} />
+    <Poster media={media} hasPlayer={hasPlayer} />
     <div ref={playerHost} className="video-player" hidden={!hasPlayer} />
-    <p>{contestant.name}</p>
     {state === 'unavailable' && <p role="status">Video unavailable</p>}
-    {props.skipControl}
-    <ManualPlay side={side} state={state} onManualPlay={onManualPlay} />
     <VoteButton contestant={contestant} votingInFlight={votingInFlight} onSelect={onSelect} />
   </div>
 }
 
 function stateForPlaybackError(error: unknown): PlaybackState {
-  return error instanceof AutoplayBlockedError ? 'manual' : 'unavailable'
+  return error instanceof AutoplayBlockedError ? 'waiting' : 'unavailable'
 }
 
 function initialState(media: VideoMedia | undefined): PlaybackState {
@@ -76,7 +62,9 @@ export function VideoMatchup(props: Props) {
   const leftHost = useRef<HTMLDivElement>(null)
   const rightHost = useRef<HTMLDivElement>(null)
   const players = useRef<Partial<Record<Side, VideoPlayer>>>({})
+  const creating = useRef<Partial<Record<Side, Promise<VideoPlayer | undefined>>>>({})
   const disposed = useRef(false)
+  const active = useRef<Side | undefined>(undefined)
   const generations = useRef({ left: 0, right: 0 })
   const advancedLeft = useRef(-1)
   const [rightStarted, setRightStarted] = useState(false)
@@ -88,6 +76,10 @@ export function VideoMatchup(props: Props) {
   const autoplay = useEffectEvent(() => {
     videoDebug(`matchup ${matchup.id} on ${navigator.userAgent}`)
     disposed.current = false
+    const generation = generations.current.right
+    void prepare('right', generation, rightHost.current!, setRight).catch((error: unknown) => {
+      if (isCurrent('right', generation)) playbackFailed('right', setRight, error)
+    })
     void play('left')
   })
   const dispose = useEffectEvent(() => {
@@ -108,6 +100,8 @@ export function VideoMatchup(props: Props) {
     generations.current[side] += 1
     players.current[side]?.destroy()
     delete players.current[side]
+    delete creating.current[side]
+    if (active.current === side) active.current = undefined
     showPlayer(side, false)
   }
 
@@ -125,31 +119,35 @@ export function VideoMatchup(props: Props) {
 
   function playerEvents(side: Side, generation: number, set: (state: PlaybackState) => void) {
     return {
+      playing: () => { if (isCurrent(side, generation)) handlePlaying(side, generation, set) },
       ended: () => { if (isCurrent(side, generation)) handleEnded(side, set) },
       unavailable: () => { if (isCurrent(side, generation)) playbackFailed(side, set, new VideoUnavailableError('Video unavailable')) },
     }
   }
 
-  async function start(side: Side, generation: number, host: HTMLDivElement, set: (state: PlaybackState) => void) {
+  async function create(side: Side, generation: number, host: HTMLDivElement, set: (state: PlaybackState) => void) {
     const item = media[side]
     if (!item) throw new VideoUnavailableError('Video unavailable')
-    set('playing')
-    if (!players.current[side]) {
-      showPlayer(side, true)
-      const created = await createVideoPlayer(host, item, playerEvents(side, generation, set))
-      if (!isCurrent(side, generation)) { created.destroy(); return }
-      players.current[side] = created
-    }
-    await players.current[side].play()
+    videoDebug(`${side} creating cued player`)
+    showPlayer(side, true)
+    const created = await createVideoPlayer(host, item, playerEvents(side, generation, set))
+    if (!isCurrent(side, generation)) { created.destroy(); return }
+    players.current[side] = created
+    return created
+  }
+
+  function prepare(side: Side, generation: number, host: HTMLDivElement, set: (state: PlaybackState) => void) {
+    creating.current[side] ??= create(side, generation, host, set)
+    return creating.current[side]
   }
 
   async function play(side: Side) {
     const [host, set] = side === 'left' ? [leftHost.current, setLeft] : [rightHost.current, setRight]
-    if (!host) return
     const generation = generations.current[side]
     try {
-      await start(side, generation, host, set)
-      markStarted(side, generation)
+      const player = await prepare(side, generation, host!, set)
+      if (!isCurrent(side, generation)) return
+      await player!.play()
     } catch (error) {
       if (isCurrent(side, generation)) playbackFailed(side, set, error)
     }
@@ -163,6 +161,24 @@ export function VideoMatchup(props: Props) {
     if (side === 'left' && state === 'unavailable') beginRight()
   }
 
+  function pause(side: Side) {
+    if (active.current !== side) return
+    videoDebug(`${side} pause requested by matchup`)
+    players.current[side]?.pause()
+    active.current = undefined
+    const set = side === 'left' ? setLeft : setRight
+    set('played')
+  }
+
+  function handlePlaying(side: Side, generation: number, set: (state: PlaybackState) => void) {
+    videoDebug(`${side} provider reported playing`)
+    pause(side === 'left' ? 'right' : 'left')
+    active.current = side
+    if (side === 'left') advancedLeft.current = -1
+    set('playing')
+    markStarted(side, generation)
+  }
+
   function markStarted(side: Side, generation: number) {
     if (side === 'right' && isCurrent(side, generation)) setRightStarted(true)
   }
@@ -174,19 +190,14 @@ export function VideoMatchup(props: Props) {
   }
 
   function replay() {
-    stop('left')
-    stop('right')
-    setRight(initialState(media.right))
+    videoDebug('replay requested')
+    pause('right')
+    advancedLeft.current = -1
     void play('left')
   }
 
-  function skipLeft() {
-    stop('left')
-    setLeft('played')
-    beginRight()
-  }
-
   function handleEnded(side: Side, set: (state: PlaybackState) => void) {
+    if (active.current === side) active.current = undefined
     set('played')
     if (side === 'left') beginRight()
   }
@@ -198,8 +209,8 @@ export function VideoMatchup(props: Props) {
     progressBar={progressBar}
     errorMessage={errorMessage}
     videoCards={{
-      left: <VideoCard side="left" contestant={matchup.left} media={media.left} state={left} hasPlayer={hasPlayer.left} skipControl={left === 'playing' && <button type="button" onClick={skipLeft}>Next video {'\u203a'}</button>} votingInFlight={votingInFlight} playerHost={leftHost} onManualPlay={() => void play('left')} onSelect={select} />,
-      right: <VideoCard side="right" contestant={matchup.right} media={media.right} state={right} hasPlayer={hasPlayer.right} onPosterClick={left === 'playing' ? skipLeft : undefined} votingInFlight={votingInFlight} playerHost={rightHost} onManualPlay={() => void play('right')} onSelect={select} />,
+      left: <VideoCard contestant={matchup.left} media={media.left} state={left} hasPlayer={hasPlayer.left} votingInFlight={votingInFlight} playerHost={leftHost} onSelect={select} />,
+      right: <VideoCard contestant={matchup.right} media={media.right} state={right} hasPlayer={hasPlayer.right} votingInFlight={votingInFlight} playerHost={rightHost} onSelect={select} />,
     }}
     playbackControl={<div className="video-controls">
       <VideoDebugPanel />

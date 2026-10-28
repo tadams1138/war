@@ -12,7 +12,15 @@ export type VideoMedia = MediaItem & {
 
 export interface VideoPlayer {
   play(): Promise<void>
+  pause(): void
   destroy(): void
+}
+
+// A provider's own replay can resume at the clip end or restart the whole
+// video; either way playback must go back to the clip start.
+function outsideClip(media: VideoMedia, seconds: number): boolean {
+  const pastEnd = media.end_seconds !== null && seconds >= media.end_seconds
+  return pastEnd || seconds < media.start_seconds - 1
 }
 
 function validVideo(media: VideoMedia): boolean {
@@ -22,6 +30,7 @@ function validVideo(media: VideoMedia): boolean {
 }
 
 interface PlayerEvents {
+  playing(): void
   ended(): void
   unavailable(): void
 }
@@ -130,15 +139,24 @@ async function createYouTube(host: HTMLElement, media: VideoMedia, events: Playe
   const stateNames: Record<number, string> = { [-1]: 'unstarted', 0: 'ended', 1: 'playing', 2: 'paused', 3: 'buffering', 5: 'cued' }
   const at = () => { try { return player.getCurrentTime().toFixed(1) } catch { return '?' } }
   const logState = (data: number) => videoDebug(`${label} ${stateNames[data] ?? data} at ${at()}s`)
+  function rewindIfOutsideClip() {
+    if (!outsideClip(media, player.getCurrentTime())) return
+    videoDebug(`${label} rewinding to clip start from ${at()}s`)
+    player.seekTo(media.start_seconds, true)
+  }
+  function handlePlaying() {
+    rewindIfOutsideClip()
+    ended = false
+    events.playing()
+    resolvePlay?.()
+    if (media.end_seconds !== null) {
+      window.clearInterval(clipTimer)
+      clipTimer = window.setInterval(checkClipEnd, 250)
+    }
+  }
   function handleState(data: number) {
     logState(data)
-    if (data === 1) {
-      resolvePlay?.()
-      if (media.end_seconds !== null) {
-        window.clearInterval(clipTimer)
-        clipTimer = window.setInterval(checkClipEnd, 250)
-      }
-    }
+    if (data === 1) handlePlaying()
     if (data === 0) finish()
   }
   const player = new window.YT!.Player(iframe, {
@@ -163,6 +181,7 @@ async function createYouTube(host: HTMLElement, media: VideoMedia, events: Playe
         player.playVideo()
       }))
     },
+    pause: () => { videoDebug(`${label} pause requested`); window.clearInterval(clipTimer); player.pauseVideo() },
     destroy: () => { window.clearInterval(clipTimer); player.destroy(); iframe.remove() },
   }
 }
@@ -175,6 +194,7 @@ async function createVimeo(host: HTMLElement, media: VideoMedia, events: PlayerE
   iframe.title = 'Vimeo video player'
   host.append(iframe)
   const player = new window.Vimeo!.Player(iframe)
+  await withTimeout(player.setCurrentTime(media.start_seconds))
   let ended = false
   function finish() {
     if (ended) return
@@ -183,11 +203,24 @@ async function createVimeo(host: HTMLElement, media: VideoMedia, events: PlayerE
     events.ended()
   }
   const label = `vimeo ${media.video_id}`
-  for (const name of ['play', 'pause', 'bufferstart', 'bufferend', 'ended']) player.on(name, () => videoDebug(`${label} ${name}`))
+  for (const name of ['pause', 'bufferstart', 'bufferend', 'ended']) player.on(name, () => videoDebug(`${label} ${name}`))
+  let rewinding = false
+  function rewindIfOutsideClip(seconds: number) {
+    if (!outsideClip(media, seconds)) return
+    videoDebug(`${label} rewinding to clip start from ${seconds}s`)
+    rewinding = true
+    void player.setCurrentTime(media.start_seconds).finally(() => { rewinding = false })
+  }
+  player.on('play', (event?: { seconds: number }) => {
+    rewindIfOutsideClip(event?.seconds ?? media.start_seconds)
+    ended = false
+    videoDebug(`${label} playing (provider event)`)
+    events.playing()
+  })
   player.on('ended', finish)
   player.on('error', (error: unknown) => { videoDebug(`${label} error ${String((error as { name?: string }).name)}`); events.unavailable() })
   player.on('timeupdate', (event: { seconds: number }) => {
-    if (media.end_seconds !== null && event.seconds >= media.end_seconds) finish()
+    if (!rewinding && media.end_seconds !== null && event.seconds >= media.end_seconds) finish()
   })
   return {
     play: async () => {
@@ -202,6 +235,7 @@ async function createVimeo(host: HTMLElement, media: VideoMedia, events: PlayerE
         throw error
       }
     },
+    pause: () => { videoDebug(`${label} pause requested`); void player.pause().catch((error: unknown) => videoDebug(`${label} pause failed ${String(error)}`)) },
     destroy: () => { void player.destroy(); iframe.remove() },
   }
 }

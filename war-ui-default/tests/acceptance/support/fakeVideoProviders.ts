@@ -9,10 +9,12 @@ export type VideoBehavior = 'blocked-once' | 'unavailable'
 interface FakeVideo {
   behavior: Record<string, VideoBehavior>
   times: Record<string, number>
+  pauses: Record<string, number>
+  plays: Record<string, number>
   created: number
   destroyed: number
   events: string[]
-  players: Record<string, { end(): void; tick?(seconds: number): void }>
+  players: Record<string, { tap(): void; end(): void; tick?(seconds: number): void }>
 }
 
 declare global {
@@ -20,7 +22,7 @@ declare global {
 }
 
 const STATE_SCRIPT = `
-window.__fakeVideo = { behavior: {}, times: {}, created: 0, destroyed: 0, events: [], players: {} };
+window.__fakeVideo = { behavior: {}, times: {}, pauses: {}, plays: {}, created: 0, destroyed: 0, events: [], players: {} };
 `
 
 const YOUTUBE_SCRIPT = `
@@ -32,15 +34,16 @@ const YOUTUBE_SCRIPT = `
     var events = options.events;
     fake.created += 1; fake.events.push('created:' + id);
     fake.times[id] = fake.times[id] || 0;
-    fake.players[id] = { end: function () { events.onStateChange({ data: 0 }); } };
+    fake.players[id] = { tap: function () { events.onStateChange({ data: 1 }); }, end: function () { events.onStateChange({ data: 0 }); } };
     setTimeout(function () { events.onReady(); }, 0);
     this.playVideo = function () {
+      fake.plays[id] = (fake.plays[id] || 0) + 1;
       var behavior = fake.behavior[id];
       if (behavior === 'blocked-once') { delete fake.behavior[id]; events.onAutoplayBlocked(); return; }
       if (behavior === 'unavailable') { events.onError(); return; }
       setTimeout(function () { events.onStateChange({ data: 1 }); }, 0);
     };
-    this.pauseVideo = function () {};
+    this.pauseVideo = function () { fake.pauses[id] = (fake.pauses[id] || 0) + 1; };
     this.getCurrentTime = function () { return fake.times[id]; };
     this.seekTo = function (seconds) { fake.times[id] = seconds; };
     this.destroy = function () { fake.destroyed += 1; fake.events.push('destroyed:' + id); };
@@ -58,11 +61,12 @@ const VIMEO_SCRIPT = `
     function emit(name, payload) { (handlers[name] || []).forEach(function (handler) { handler(payload); }); }
     fake.created += 1; fake.events.push('created:' + id);
     fake.times[id] = fake.times[id] || 0;
-    fake.players[id] = { end: function () { emit('ended'); } };
+    fake.players[id] = { tap: function () { emit('play'); }, end: function () { emit('ended'); } };
     this.on = function (name, handler) { (handlers[name] = handlers[name] || []).push(handler); };
     this.setCurrentTime = function (seconds) { fake.times[id] = seconds; return Promise.resolve(seconds); };
-    this.pause = function () { return Promise.resolve(); };
+    this.pause = function () { fake.pauses[id] = (fake.pauses[id] || 0) + 1; return Promise.resolve(); };
     this.play = function () {
+      fake.plays[id] = (fake.plays[id] || 0) + 1;
       var behavior = fake.behavior[id];
       if (behavior === 'blocked-once') {
         delete fake.behavior[id];
@@ -70,6 +74,7 @@ const VIMEO_SCRIPT = `
         return Promise.reject(refusal);
       }
       if (behavior === 'unavailable') { emit('error'); return Promise.reject(new Error('Video unavailable')); }
+      emit('play');
       return Promise.resolve();
     };
     this.destroy = function () { fake.destroyed += 1; fake.events.push('destroyed:' + id); return Promise.resolve(); };
@@ -116,4 +121,9 @@ export async function reachClipEnd(page: Page, videoId: string, seconds: number)
     fake.times[id] = time as number
     fake.players[id].tick?.(time as number)
   }, [videoId, seconds])
+}
+
+export async function tapVideo(page: Page, videoId: string): Promise<void> {
+  await page.waitForFunction((id) => id in window.__fakeVideo!.players, videoId)
+  await page.evaluate((id) => window.__fakeVideo!.players[id].tap(), videoId)
 }

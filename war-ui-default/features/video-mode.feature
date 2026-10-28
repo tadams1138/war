@@ -5,7 +5,8 @@ Feature: Video Mode
     Given a matchup in a video War
     And an authenticated voter
     When they open that War's vote page
-    Then both video posters are shown
+    Then the left card shows only its player
+    And the right card shows only its player
     And the left video plays first
     When the left video ends
     Then the right video begins
@@ -24,24 +25,25 @@ Feature: Video Mode
     Then both cards become selectable
     And the left video plays first
 
-  Scenario: A blocked autoplay offers a manual control
+  Scenario: A blocked autoplay shows the provider player without our play button
     Given a matchup in a video War
     And an authenticated voter
     When they open that War's vote page
     Given the browser refuses to autoplay the right video
     When the left video ends
-    Then a play control is shown on the right card
+    Then the right video waits for a provider tap
+    And the right card shows only its player
     And replay is not yet offered
-    And the voter can start the right video manually
-    And only replay is offered
 
-  Scenario: A blocked autoplay on the first video offers a manual control
+  Scenario: A tap inside a blocked left player starts playback
     Given a matchup in a video War
     And an authenticated voter
     Given the browser refuses to autoplay the left video
     When they open that War's vote page
-    Then a play control is shown on the left card
-    And the voter can start the left video manually
+    Then the left video waits for a provider tap
+    And the left card shows only its player
+    When the voter taps inside the left player
+    Then the left video plays first
 
   Scenario: Replay restarts from the left once the right video starts
     Given a matchup in a video War
@@ -52,6 +54,7 @@ Feature: Video Mode
     When the voter replays the pair
     Then both cards remain selectable
     And the left video plays first
+    And the right player is paused without being destroyed
 
   Scenario: A missing video does not block voting
     Given a matchup in a video War
@@ -110,25 +113,22 @@ Feature: Video Mode
     Then an unavailable state is shown on the left card
     And both cards become selectable
 
-  Scenario: Skip to the second video with the next button
+  Scenario: Tapping the right player pauses the left video
     Given a matchup in a video War
     And an authenticated voter
     When they open that War's vote page
     Then the left video plays first
-    When the voter skips the first video
+    When the voter taps inside the right player
     Then the right video begins
-    And the first player is stopped
+    And the left player is paused without being destroyed
     And only replay is offered
 
-  Scenario: Skip to the second video by clicking its poster
+  Scenario: Provider players are the only controls for starting or switching videos
     Given a matchup in a video War
     And an authenticated voter
     When they open that War's vote page
     Then the left video plays first
-    When the voter clicks the right poster
-    Then the right video begins
-    And the first player is stopped
-    And only replay is offered
+    And no page play or skip controls are shown
 
   Scenario: Voting during playback stops the player while the vote is pending
     Given a matchup in a video War
@@ -171,11 +171,42 @@ Feature: Video Mode
     Then the left card shows only its player
     And the right card shows only its player
 
-  Scenario: A skipped first video shows only its poster
+  Scenario: Switching back to the left player pauses the right
     Given a matchup in a video War
     And an authenticated voter
     When they open that War's vote page
     Then the left video plays first
-    When the voter skips the first video
-    Then the left card shows only its poster
+    When the voter taps inside the right player
+    Then the right video begins
+    When the voter taps inside the left player
+    Then the left video plays first
+    And the right player is paused without being destroyed
+    And the left card shows only its player
     And the right card shows only its player
+
+  Scenario: Both players exist on load with the right player waiting
+    Given a matchup in a video War
+    And an authenticated voter
+    When they open that War's vote page
+    Then the left video plays first
+    And the right card shows only its player
+    And the right player has not been asked to play
+
+  Scenario: The vote button labels the video without a separate contestant name
+    Given a matchup in a video War
+    And an authenticated voter
+    When they open that War's vote page
+    Then both cards become selectable
+    And no separate contestant name appears under either video
+
+  Scenario: Replaying inside the left provider still advances to the right
+    Given a matchup in a video War
+    And an authenticated voter
+    When they open that War's vote page
+    And the left video ends
+    Then the right video begins
+    When the voter taps inside the left player
+    Then the left video plays first
+    When the left video ends
+    Then the right video begins
+    And the right player has been asked to play 2 times
