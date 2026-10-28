@@ -293,3 +293,57 @@ describe('cued clips', () => {
     expect(play).not.toHaveBeenCalled()
   })
 })
+
+describe('replaying a finished clip inside the provider player', () => {
+  it('rewinds a Vimeo clip to its start instead of ending again at once', async () => {
+    // Arrange
+    const callbacks = new Map<string, (event: { seconds: number }) => void>()
+    const setCurrentTime = vi.fn().mockResolvedValue(3)
+    window.Vimeo = { Player: class {
+      on(event: string, callback: (...args: never[]) => void) { callbacks.set(event, callback as (event: { seconds: number }) => void) }
+      play = vi.fn().mockResolvedValue(undefined)
+      pause = vi.fn().mockResolvedValue(undefined)
+      setCurrentTime = setCurrentTime
+      destroy = vi.fn().mockResolvedValue(undefined)
+    } }
+    const media = buildVideoMediaItem({ id: 'clip', provider: 'vimeo', video_id: '12345', start_seconds: 3, end_seconds: 5 }) as VideoMedia
+    const events = { playing: vi.fn(), ended: vi.fn(), unavailable: vi.fn() }
+    const player = await createVideoPlayer(document.createElement('div'), media, events)
+    await player.play()
+    callbacks.get('timeupdate')?.({ seconds: 5 })
+    setCurrentTime.mockClear()
+
+    // Act
+    callbacks.get('play')?.({ seconds: 5 })
+    callbacks.get('timeupdate')?.({ seconds: 3 })
+
+    // Assert
+    expect(setCurrentTime).toHaveBeenCalledWith(3)
+    expect(events.ended).toHaveBeenCalledOnce()
+    expect(events.playing).toHaveBeenCalledTimes(1)
+  })
+
+  it('rewinds a YouTube clip to its start when playback resumes past its end', async () => {
+    // Arrange
+    let stateChange!: (event: { data: number }) => void
+    const seekTo = vi.fn()
+    window.YT = { Player: class {
+      constructor(_host: HTMLElement, options: object) {
+        stateChange = (options as { events: { onStateChange(event: { data: number }): void } }).events.onStateChange
+      }
+      playVideo = vi.fn()
+      pauseVideo = vi.fn()
+      getCurrentTime = () => 20
+      seekTo = seekTo
+      destroy = vi.fn()
+    } }
+    const media = buildVideoMediaItem({ id: 'clip', provider: 'youtube', video_id: 'clip-id', start_seconds: 5, end_seconds: 20 }) as VideoMedia
+    await createVideoPlayer(document.createElement('div'), media, { playing: vi.fn(), ended: vi.fn(), unavailable: vi.fn() })
+
+    // Act
+    stateChange({ data: 1 })
+
+    // Assert
+    expect(seekTo).toHaveBeenCalledWith(5, true)
+  })
+})
