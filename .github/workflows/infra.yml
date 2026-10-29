@@ -303,7 +303,10 @@ jobs:
   apply-production:
     name: Apply → Production
     needs: plan-production
-    if: github.event_name == 'push' && needs.plan-production.outputs.changes == 'true'
+    # !cancelled() replaces the implicit success(), which is false whenever any
+    # earlier job in the chain was skipped -- apply-shared and apply-staging skip
+    # on every run without shared or staging changes, so production never applied.
+    if: github.event_name == 'push' && !cancelled() && needs.plan-production.result == 'success' && needs.plan-production.outputs.changes == 'true'
     runs-on: ubuntu-latest
     environment: production
     concurrency:
