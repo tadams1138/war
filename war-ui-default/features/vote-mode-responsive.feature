@@ -5,6 +5,23 @@ Feature: Vote Mode Responsive Layout
     Given a War
     And that War has a matchup to vote on
 
+  Scenario Outline: Vote title and both contestants fit on a <screen> screen with <images> images
+    Given a <screen> screen
+    And the left contestant has <images> images
+    And the right contestant has <images> images
+    And an authenticated voter
+    When they open that War's vote page
+    Then the War title is on screen above both contestants inside the vote block
+    And both contestant cards are on screen
+    And the vote title has the same font size and weight as the results heading
+
+    Examples:
+      | screen  | images |
+      | phone   | 1      |
+      | desktop | 1      |
+      | phone   | 0      |
+      | desktop | 0      |
+
   Scenario: Both contestant cards stay visible without scrolling on a phone, and the page opens scrolled past the header
     Given a phone screen
     And an authenticated voter

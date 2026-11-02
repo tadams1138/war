@@ -14,6 +14,7 @@ import type { Theme } from '../theme/themeCookie'
 import { FALLBACK_THEME, usePublishTheme } from '../theme/ThemeContext'
 import { useTheme } from '../theme/useTheme'
 import { useVoteSession } from '../vote/useVoteSession'
+import { warTitle } from '../utils/warTitle'
 import { VideoMatchup } from '../video/VideoMatchup'
 
 // Scrolls the tap-to-vote block to the top of the viewport once, the first
@@ -41,6 +42,10 @@ function orEmpty(value: string | undefined): string {
 
 function loadWar(warId: string | undefined): (() => Promise<WarDetailResponse>) | undefined {
   return warId ? () => getWar(warId) : undefined
+}
+
+function voteTitle(warState: AsyncResourceState<WarDetailResponse>): string | undefined {
+  return warState.status === 'loaded' ? warTitle(warState.value.title) : undefined
 }
 
 function initialTheme(warState: AsyncResourceState<WarDetailResponse>): Theme {
@@ -82,6 +87,7 @@ export function VoteMode() {
     <main data-theme={theme}>
       <MatchupComponent
         key={state.matchup.id}
+        title={voteTitle(warState)}
         matchup={state.matchup}
         votingInFlight={state.votingInFlight}
         onSelect={selectContestant}

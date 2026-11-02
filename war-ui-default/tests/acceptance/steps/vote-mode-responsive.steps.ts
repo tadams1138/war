@@ -60,11 +60,6 @@ Then('the page is scrolled past the header', async ({ page }) => {
   await expect(page.getByTestId('nav-home')).not.toBeInViewport()
 })
 
-Then('both contestant cards are on screen', async ({ page }) => {
-  // Assert
-  await cardsOnScreen(page, SIDES)
-})
-
 Then("the {side} contestant's card is on screen", async ({ page }, side: Side) => {
   // Assert
   await cardsOnScreen(page, [side])

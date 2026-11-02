@@ -10,6 +10,7 @@ type Side = 'left' | 'right'
 type PlaybackState = 'poster' | 'playing' | 'played' | 'waiting' | 'unavailable'
 
 interface Props {
+  title?: string
   matchup: Matchup
   votingInFlight: boolean
   onSelect: (id: string) => void
@@ -56,7 +57,7 @@ function initialState(media: VideoMedia | undefined): PlaybackState {
 }
 
 export function VideoMatchup(props: Props) {
-  const { matchup, votingInFlight, onSelect, progressBar, errorMessage } = props
+  const { title, matchup, votingInFlight, onSelect, progressBar, errorMessage } = props
   const [left, setLeft] = useState<PlaybackState>(initialState(matchup.left.media[0] as VideoMedia | undefined))
   const [right, setRight] = useState<PlaybackState>(initialState(matchup.right.media[0] as VideoMedia | undefined))
   const leftHost = useRef<HTMLDivElement>(null)
@@ -203,6 +204,7 @@ export function VideoMatchup(props: Props) {
   }
 
   return <MatchupView
+    title={title}
     matchup={matchup}
     votingInFlight={votingInFlight}
     onSelect={select}

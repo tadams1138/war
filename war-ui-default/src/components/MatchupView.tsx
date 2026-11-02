@@ -21,6 +21,7 @@ import { useNarrowViewport } from '../hooks/useNarrowViewport'
 import { ContestantCard } from './ContestantCard'
 
 interface MatchupViewProps {
+  title?: string
   matchup: NextMatchupResponse['matchup']
   votingInFlight: boolean
   onSelect: (contestantId: string) => void
@@ -30,7 +31,7 @@ interface MatchupViewProps {
   playbackControl?: ReactNode
 }
 
-function WideMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage, viewportClass, playbackControl }: MatchupPieces) {
+function WideMatchup({ title, leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage, viewportClass, playbackControl }: MatchupPieces) {
   return (
     <>
       <div className={viewportClass} data-testid="vote-layout">
@@ -39,6 +40,7 @@ function WideMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progress
           {errorMessage}
           {playbackControl}
         </div>
+        {title && <h1 className="vote-title">{title}</h1>}
         <div className="matchup-cards" data-testid="matchup-view">
           {leftCard}
           {vsBadge}
@@ -55,7 +57,7 @@ function WideMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progress
 
 // Always the full-height block, media or not: each bio already sits beside its
 // card here, and a long one must scroll within its own area (war-spec.md §10.3).
-function NarrowMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage, playbackControl }: MatchupPieces) {
+function NarrowMatchup({ title, leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage, playbackControl }: MatchupPieces) {
   return (
     <div className="vote-viewport" data-testid="vote-layout">
       <div className="vote-progress">
@@ -63,6 +65,7 @@ function NarrowMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progre
         {errorMessage}
         {playbackControl}
       </div>
+      {title && <h1 className="vote-title">{title}</h1>}
       <div className="matchup-view" data-testid="matchup-view">
         <div className="matchup-row">
           {leftCard}
@@ -79,6 +82,7 @@ function NarrowMatchup({ leftCard, vsBadge, rightCard, leftBio, rightBio, progre
 }
 
 interface MatchupPieces {
+  title?: string
   leftCard: ReactNode
   vsBadge: ReactNode
   rightCard: ReactNode
@@ -116,10 +120,11 @@ function bioFor(side: 'left' | 'right', props: MatchupViewProps, narrow: boolean
 }
 
 export function MatchupView(props: MatchupViewProps) {
-  const { matchup, progressBar, errorMessage, playbackControl } = props
+  const { title, matchup, progressBar, errorMessage, playbackControl } = props
   const narrow = useNarrowViewport()
 
   const pieces: MatchupPieces = {
+    title,
     leftCard: (
       <div className="matchup-card" data-testid="matchup-card-left">
         {cardContent('left', props)}

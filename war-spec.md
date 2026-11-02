@@ -948,7 +948,10 @@ Two contestant cards side by side.
   tap-to-vote media (below), as §4.2 requires
 - Images use the width set the API supplies, sized for two cards sharing the viewport, so a
   phone downloads a small variant rather than a large one
-- Card media, the two names, and the progress bar are capped to fit one viewport on a typical
+- The War's title appears above both contestants inside the voting block in every layout,
+  including stacked phones, polls without media, and image and video Wars. It uses the same
+  heading size and weight as the results page.
+- The title, card media, the two names, and the progress bar are capped to fit one viewport on a typical
   screen without scrolling — a card is never so tall that voting requires scrolling first. The
   page opens scrolled to the top of this block, past the persistent header, so it's the first
   thing a voter sees; the header remains reachable by scrolling back up

@@ -1,6 +1,20 @@
 @video-mode
 Feature: Video Mode
 
+  Scenario Outline: Video vote title and both contestants fit on a <screen> screen
+    Given a <screen> screen
+    And a matchup in a video War
+    And an authenticated voter
+    When they open that War's vote page
+    Then the War title is on screen above both contestants inside the vote block
+    And both contestant cards are on screen
+    And the vote title has the same font size and weight as the results heading
+
+    Examples:
+      | screen  |
+      | phone   |
+      | desktop |
+
   Scenario: Videos play in sequence
     Given a matchup in a video War
     And an authenticated voter

@@ -4,7 +4,12 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'
 import { test } from './fixtures'
-import { backgroundOf, boxOf } from '../support/pages'
+import { backgroundOf, boxOf, matchupCard } from '../support/pages'
+
+import { SIDES } from '../support/screens'
+import { warDetail } from '../support/editWar'
+import { navigateAuthenticated } from '../support/mocking'
+import { warTitle } from '../../../src/utils/warTitle'
 
 const { Then } = createBdd(test)
 
@@ -59,4 +64,51 @@ Then(/^the "([^"]*)" (?:button|link) is larger than an ordinary button$/, async 
     return size
   })
   expect(await fontSize(controlLabelled(page, name))).toBeGreaterThan(ordinary)
+})
+
+Then('both contestant cards are on screen', async ({ page }) => {
+  // Arrange
+  const viewport = page.viewportSize()!
+  // Act
+  await expect(page.getByTestId('matchup-view')).toBeVisible()
+  // Assert
+  for (const side of SIDES) {
+    const card = await boxOf(matchupCard(page, side))
+    expect(card.y).toBeGreaterThanOrEqual(0)
+    expect(card.y + card.height).toBeLessThanOrEqual(viewport.height + 0.5)
+    expect(card.x).toBeGreaterThanOrEqual(0)
+    expect(card.x + card.width).toBeLessThanOrEqual(viewport.width + 0.5)
+  }
+})
+
+Then('the War title is on screen above both contestants inside the vote block', async ({ page, world }) => {
+  // Arrange
+  const block = page.getByTestId('vote-layout')
+  const title = block.getByRole('heading', { level: 1, name: warTitle(warDetail(world).title), exact: true })
+  // Act
+  await expect(title).toBeVisible()
+  const heading = await boxOf(title)
+  const bounds = await boxOf(block)
+  // Assert
+  expect(heading.y).toBeGreaterThanOrEqual(0)
+  expect(heading.y + heading.height).toBeLessThanOrEqual(page.viewportSize()!.height)
+  expect(heading.y).toBeGreaterThanOrEqual(bounds.y)
+  expect(heading.y + heading.height).toBeLessThanOrEqual(bounds.y + bounds.height)
+  for (const side of SIDES) expect(heading.y + heading.height).toBeLessThanOrEqual((await boxOf(matchupCard(page, side))).y)
+})
+
+Then('the vote title has the same font size and weight as the results heading', async ({ page, world }) => {
+  // Arrange
+  const typography = (heading: Locator) => heading.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return { size: style.fontSize, weight: style.fontWeight }
+  })
+  const title = page.getByTestId('vote-layout').getByRole('heading', { level: 1 })
+  // Act
+  const voteStyle = await typography(title)
+  await navigateAuthenticated(page, `/wars/${world.warId}`)
+  const results = page.locator('main').getByRole('heading', { level: 1, name: warTitle(warDetail(world).title), exact: true })
+  await expect(results).toBeVisible()
+  // Assert
+  expect(voteStyle).toEqual(await typography(results))
 })
