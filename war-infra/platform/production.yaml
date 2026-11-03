@@ -23,11 +23,13 @@ domains:
 
 # Production's own database and user on the shared cluster (spec 12.1). The
 # API service connects through the production pool
-# (${db.war-production-pool.DATABASE_URL}); the migration job uses the direct
-# ${db.DATABASE_URL}, as the same user, because migrations take session-level
-# locks that transaction pooling does not support.
+# (${shared.war-production-pool.DATABASE_URL}); the migration job uses the direct
+# ${shared.DATABASE_URL}, as the same user, because migrations take session-level
+# locks that transaction pooling does not support. The component is named
+# `shared`, not `db`: App Platform keeps an existing component attached to the
+# cluster it was first created on, even after cluster_name changes.
 databases:
-  - name: db
+  - name: shared
     engine: PG
     cluster_name: war-staging-pg
     db_name: war_production
@@ -85,10 +87,10 @@ services:
         value: production
       - key: DATABASE_URL
         scope: RUN_TIME
-        value: ${db.war-production-pool.DATABASE_URL}
+        value: ${shared.war-production-pool.DATABASE_URL}
       - key: DATABASE_CA_CERT
         scope: RUN_TIME
-        value: ${db.CA_CERT}
+        value: ${shared.CA_CERT}
       - key: PUBLIC_BASE_URL
         scope: RUN_TIME
         value: https://war.tmad.dev
@@ -202,10 +204,10 @@ jobs:
     envs:
       - key: DATABASE_URL
         scope: RUN_TIME
-        value: ${db.DATABASE_URL}
+        value: ${shared.DATABASE_URL}
       - key: DATABASE_CA_CERT
         scope: RUN_TIME
-        value: ${db.CA_CERT}
+        value: ${shared.CA_CERT}
 
 alerts:
   - rule: DEPLOYMENT_FAILED
