@@ -346,3 +346,51 @@ import {
   to = digitalocean_database_firewall.pg
   id = data.digitalocean_database_cluster.existing.id
 }
+
+variable "alert_email" {
+  description = "DigitalOcean team email address for monitoring alerts."
+  type        = string
+  sensitive   = true
+}
+
+resource "digitalocean_monitor_alert" "database_cpu" {
+  description = "Shared database cpu above 80 percent"
+  type        = "v1/dbaas/alerts/cpu_alerts"
+  entities    = [digitalocean_database_cluster.pg.id]
+  compare     = "GreaterThan"
+  value       = 80
+  window      = "5m"
+  enabled     = true
+
+  alerts {
+    email = [var.alert_email]
+  }
+}
+
+resource "digitalocean_monitor_alert" "database_memory" {
+  description = "Shared database memory above 80 percent"
+  type        = "v1/dbaas/alerts/memory_utilization_alerts"
+  entities    = [digitalocean_database_cluster.pg.id]
+  compare     = "GreaterThan"
+  value       = 80
+  window      = "5m"
+  enabled     = true
+
+  alerts {
+    email = [var.alert_email]
+  }
+}
+
+resource "digitalocean_monitor_alert" "database_disk" {
+  description = "Shared database disk above 80 percent"
+  type        = "v1/dbaas/alerts/disk_utilization_alerts"
+  entities    = [digitalocean_database_cluster.pg.id]
+  compare     = "GreaterThan"
+  value       = 80
+  window      = "5m"
+  enabled     = true
+
+  alerts {
+    email = [var.alert_email]
+  }
+}

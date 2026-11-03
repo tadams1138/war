@@ -10,6 +10,7 @@ import type { OAuthProvider } from './auth/oauthProvider.js';
 import { registerAuthRoutes } from './auth/routes.js';
 import type { ObjectStorage } from './contestants/storage.js';
 import { registerContestantsRoutes } from './contestants/routes.js';
+import { registerHealthRoutes } from './health/routes.js';
 import { registerMatchupsRoutes } from './matchups/routes.js';
 import { registerOpenApiPlugin } from './openapi/plugin.js';
 import { registerOpenApiRoutes } from './openapi/routes.js';
@@ -33,6 +34,8 @@ export interface AppDeps {
   storage: ObjectStorage;
   config: AppConfig;
   metadataFetch?: typeof fetch;
+  /** The time source for scheduled-task bookkeeping; defaults to the system clock. Tests inject one. */
+  now?: () => Date;
 }
 
 const API_PREFIX = '/api/v1';
@@ -47,6 +50,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     logger: { level: 'info', serializers: { req: redactedRequestSerializer } },
     trustProxy: deps.config.trustProxyHops ?? 0,
   });
+
+  const now = deps.now ?? (() => new Date());
 
   await app.register(cookie);
   await app.register(cors, { origin: deps.config.uiOrigins, credentials: true });
@@ -85,6 +90,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(
     async (instance) => {
       registerOpenApiRoutes(instance);
+      registerHealthRoutes(instance, { db: deps.db, now });
       registerAuthRoutes(instance, authDeps, {
         uiOrigins: deps.config.uiOrigins,
         apiBaseUrl: deps.config.apiBaseUrl,
@@ -97,6 +103,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         storage: deps.storage,
         publicBaseUrl: deps.config.s3.publicBaseUrl,
         internalTaskToken: deps.config.internalTaskToken,
+        now,
         rateLimiter: warCreationRateLimiter,
         imageUploadRateLimiter,
       });

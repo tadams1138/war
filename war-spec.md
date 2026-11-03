@@ -1475,21 +1475,31 @@ per-component access policy, or audit trail. A dedicated secrets manager is defe
 
 ### 12.7 Monitoring
 
-**Planned — not yet built** for the table below: only platform resource and deploy alerts
-exist today. Edge protection and the content security policy that follow are built.
+Resource, deployment, database utilization, availability and scheduled-task freshness
+monitoring are built. Request-level, exception, connection-pool and edge-spike alerts
+remain planned. The scheduled-task freshness signal comes from the watchdog endpoint in
+§12.8.
 
-| Signal | Threshold |
-|---|---|
-| API error rate | Above 1% over 5 minutes |
-| API p99 latency | Above 2 seconds over 5 minutes |
-| Unhandled exceptions | Any new issue in production |
-| API CPU / memory | Above 80% over 5 minutes |
-| API restart loop | More than 3 in 10 minutes |
-| Deploy failure | Any |
-| Domain or TLS failure | Any |
-| Database pool, disk, CPU | Above 80% |
-| Edge client-error spike | Above 5% over 5 minutes |
-| Scheduled task failure | Two consecutive failed runs |
+| Signal | Threshold | Status |
+|---|---|---|
+| API error rate | Above 1% over 5 minutes | Planned |
+| API p99 latency | Above 2 seconds over 5 minutes | Planned |
+| Unhandled exceptions | Any new issue in production | Planned |
+| API CPU / memory | Above 80% over 5 minutes | Built |
+| API restart loop | More than 3 in 10 minutes | Built |
+| Deploy failure | Any | Built |
+| Domain or TLS failure | Any | Built |
+| Database CPU, memory and disk utilization | Above 80% over 5 minutes | Built |
+| Database connection-pool utilization | Above 80% | Planned |
+| Public availability, including API and database health | Unhealthy for 2 minutes | Built |
+| Public health-check latency | Above 2 seconds over 5 minutes | Built |
+| Public TLS certificate expiry | Within 14 days | Built |
+| Edge client-error spike | Above 5% over 5 minutes | Planned |
+| Stale scheduled task | No recent successful nightly run; unhealthy for 2 minutes | Built |
+
+Availability, health-check latency, certificate expiry and scheduled-task freshness are
+monitored in both staging and production. Operators receive email alerts. Health-check
+latency is a synthetic measurement, separate from request-level p99 latency.
 
 Request-level signals are the two most likely to lack a native platform equivalent; any
 provider evaluation must confirm how they are satisfied.
@@ -1513,7 +1523,16 @@ converges stored state.
 
 Every task must be safe to run repeatedly, concurrently, and after arbitrary delay. Because
 correctness never depends on it, a failed run is a housekeeping incident, not an outage;
-alerting on repeated failure is part of the planned monitoring (§12.7).
+monitoring alerts when the nightly task has no recent successful run (§12.7).
+
+**Watchdog signal.** The API records when the close task last completed successfully; a run
+that is rejected or fails records nothing. A public, unauthenticated, never-cached health
+endpoint reports that state for an external uptime check to poll: it answers success, with
+the time of the last success, while that time is within 49 hours (two consecutive missed
+nightly runs plus an hour of slack), and answers service-unavailable otherwise, with the
+time of the last success when one exists. It exposes nothing beyond that timestamp. A
+brand-new environment has no recorded run, so the endpoint answers service-unavailable
+until the first nightly run completes.
 
 ### 12.9 Operational constraints
 

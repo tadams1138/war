@@ -81,6 +81,7 @@ env:
   # Provider credentials
   TF_VAR_staging_app_id: ${{ vars.SHARED_DB_STAGING_APP_ID }}
   TF_VAR_production_app_id: ${{ vars.SHARED_DB_PRODUCTION_APP_ID }}
+  TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
   TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
   TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
@@ -112,6 +113,9 @@ jobs:
 
       - name: Check shared database ownership
         run: node --test scripts/shared-db.test.mjs
+
+      - name: Check monitoring configuration
+        run: node --test scripts/monitoring.test.mjs
 
       - name: Validate modules
         run: |

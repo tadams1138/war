@@ -126,7 +126,8 @@ export interface ModerationLogTable {
 /** Single-row settings table; the row, when present, always has `id` 1. */
 export interface PlatformSettingsTable {
   id: number;
-  war_creation_kill_switch: boolean;
+  war_creation_kill_switch: ColumnType<boolean, boolean | undefined, boolean>;
+  close_expired_wars_last_success_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
   updated_at: GeneratedTimestamp;
 }
 
