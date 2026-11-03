@@ -28,7 +28,16 @@ domains:
 # locks that transaction pooling does not support. The component is named
 # `shared`, not `db`: App Platform keeps an existing component attached to the
 # cluster it was first created on, even after cluster_name changes.
+#
+# `db` is the old component, kept exactly as it was and bound by nothing: App
+# Platform rejects adding one database component and removing another in the
+# same deploy. Remove it when war-production-pg is retired (TODO 15).
 databases:
+  - name: db
+    engine: PG
+    cluster_name: war-production-pg
+    production: true
+
   - name: shared
     engine: PG
     cluster_name: war-staging-pg

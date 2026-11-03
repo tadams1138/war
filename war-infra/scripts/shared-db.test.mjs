@@ -64,3 +64,15 @@ test('each app binds its own database and user, the service through its pool and
     assert.match(job, new RegExp(`value: \\$\\{${component}\\.DATABASE_URL\\}`));
   }
 });
+
+test('production keeps its old db component unchanged until war-production-pg is retired', () => {
+  // Arrange
+  const yaml = read('platform/production.yaml');
+  // Act
+  const old = yaml.match(/- name: db\n([\s\S]*?)\n\n/)?.[1] ?? '';
+  // Assert
+  // App Platform rejects adding and removing a database component in one
+  // deploy, so `db` stays (as it was) until a later change removes it.
+  assert.match(old, /cluster_name: war-production-pg/);
+  assert.doesNotMatch(old, /db_name|db_user/);
+});
