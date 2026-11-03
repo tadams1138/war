@@ -194,3 +194,14 @@ output "ui_custom_bucket" {
 output "database_cluster_name" {
   value = data.digitalocean_database_cluster.shared.name
 }
+
+variable "alert_email" {
+  description = "DigitalOcean team email address for monitoring alerts."
+  type        = string
+}
+
+module "monitoring" {
+  source      = "../../modules/monitoring"
+  domain      = local.domain
+  alert_email = var.alert_email
+}

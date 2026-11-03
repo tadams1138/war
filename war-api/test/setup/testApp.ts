@@ -83,6 +83,8 @@ export interface TestHarness {
   providers: ReadonlyMap<string, OAuthProvider>;
   storage: InMemoryObjectStorage;
   jwtFor: (voterId: string) => Promise<string>;
+  /** Pins the app's clock to `at`; until called, the app uses the system clock. */
+  setNow: (at: Date) => void;
 }
 
 export async function buildTestHarness(metadataFetch?: typeof fetch): Promise<TestHarness> {
@@ -91,7 +93,8 @@ export async function buildTestHarness(metadataFetch?: typeof fetch): Promise<Te
   const { config, google, microsoft, providers, storage } = buildCommonDeps();
   config.youtubeApiKey = 'test-key';
 
-  const app = trackApp(await buildApp({ db, providers, storage, config, metadataFetch }));
+  let pinnedNow: Date | undefined;
+  const app = trackApp(await buildApp({ db, providers, storage, config, metadataFetch, now: () => pinnedNow ?? new Date() }));
 
   return {
     app,
@@ -101,5 +104,8 @@ export async function buildTestHarness(metadataFetch?: typeof fetch): Promise<Te
     providers,
     storage,
     jwtFor: (voterId: string) => signAccessToken(voterId, { secret: config.jwtSecret, issuer: config.jwtIssuer }),
+    setNow: (at: Date) => {
+      pinnedNow = at;
+    },
   };
 }

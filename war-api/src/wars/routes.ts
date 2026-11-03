@@ -21,6 +21,7 @@ import { callerOf, findVisibleWar } from './warAccess.js';
 import { presentWarDetail, presentWarSummary, warDetailResponseSchema, warSummaryProperties } from './warPresenter.js';
 import { clearVotes, createWarForVoter, deleteWar, joinWar, patchWar, publishWar, setShareImage, unpublishWar } from './warsService.js';
 import { removeWar } from './removeWarService.js';
+import { recordCloseExpiredWarsSuccess } from '../health/scheduledTaskStatusRepository.js';
 import { closeExpiredWars, listWars, type War, type WarsSort } from './warsRepository.js';
 
 export interface WarsRouteDeps {
@@ -29,6 +30,8 @@ export interface WarsRouteDeps {
   storage: ObjectStorage;
   publicBaseUrl: string;
   internalTaskToken: string;
+  /** The time source for the close task and its success record. */
+  now: () => Date;
   /** Per-voter War-creation limit (§8.4: 10/hour). */
   rateLimiter: RateLimiter;
   /** The limiter contestant image uploads use too (§8.4: 100/hour): one image-upload budget per voter, so this route is no loophole around it. */
@@ -341,7 +344,8 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
     if (token !== deps.internalTaskToken) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
-    const closed = await closeExpiredWars(db, new Date());
+    const closed = await closeExpiredWars(db, deps.now());
+    await recordCloseExpiredWarsSuccess(db, deps.now());
     return reply.send({ closed });
   });
 }

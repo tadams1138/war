@@ -206,3 +206,14 @@ removed {
     destroy = false
   }
 }
+
+variable "alert_email" {
+  description = "DigitalOcean team email address for monitoring alerts."
+  type        = string
+}
+
+module "monitoring" {
+  source      = "../../modules/monitoring"
+  domain      = local.domain
+  alert_email = var.alert_email
+}

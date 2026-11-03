@@ -609,7 +609,17 @@ permits per zone); bypass the cache for the API except rankings.
 One task runs, nightly: the `scheduled-tasks.js` Cron Worker calls
 `POST /api/v1/internal/close-expired-wars` with `INTERNAL_TASK_TOKEN` (the `x-internal-token`
 header). When a task fails the Worker throws, which marks the invocation failed in Cloudflare.
-Why a failure is not an outage: spec section 12.8. Alerting on repeated failure is not built
+Why a failure is not an outage: spec section 12.8.
+
+Each successful run is recorded in the database (`platform_settings`). The public endpoint
+`GET /api/v1/health/scheduled-tasks` (no auth, `Cache-Control: no-store`) returns 200 with
+`last_success_at` while the last success is within 49 hours, and 503 otherwise. Each
+environment's uptime check polls it (see Alerts), so a broken API, an unreachable database
+or two missed nightly runs all raise the same alert. A new environment (or one restored
+from a database without the record) returns 503 until the first nightly run completes:
+deploy the API before applying the uptime checks, or trigger the task by hand, or expect
+one alert. The threshold is `SCHEDULED_TASKS_MAX_AGE_MS` in `war-api/src/health/routes.ts`.
+Automatic retries remain planned
 ([`TODO/3-monitoring-and-alerting.md`](TODO/3-monitoring-and-alerting.md)).
 
 ### Secrets and configuration
@@ -646,6 +656,7 @@ Required GitHub Actions variables:
 
 | Variable | Used by | Purpose |
 |---|---|---|
+| `ALERT_EMAIL` | terraform | Repository variable: alert recipient email belonging to the DigitalOcean team; covers shared, staging and production monitoring |
 | `CLOUDFLARE_ZONE_ID` | terraform | Cloudflare DNS zone ID |
 | `CLOUDFLARE_ACCOUNT_ID` | terraform, scheduler | Cloudflare account ID |
 | `GOOGLE_CLIENT_ID`, `MICROSOFT_CLIENT_ID`, `FACEBOOK_CLIENT_ID`, `TWITTER_CLIENT_ID` | API config | OAuth provider client IDs |
@@ -747,7 +758,32 @@ See `war-infra/scripts/smoke-test.sh` and the deploy jobs in `app.yml`.
 ### Alerts
 
 The App Platform app alerts on CPU, memory, restart count, failed deployment and failed
-domain. Anything beyond that is not built (spec 12.7; [`TODO/3-monitoring-and-alerting.md`](TODO/3-monitoring-and-alerting.md)).
+domain. Terraform also declares these DigitalOcean alerts:
+
+- Shared database `war-staging-pg`: CPU, memory and disk utilization above 80% over
+  5 minutes, owned by the shared Terraform root. DigitalOcean already creates default
+  90% CPU, memory and disk alerts on database clusters; these 80% policies are additional.
+- One HTTPS uptime check per environment, from US East and Europe West, targeting only
+  `https://<domain>/api/v1/health/scheduled-tasks`. This covers API/database availability
+  and stale nightly jobs through a single signal. It alerts when down for 2 minutes,
+  when latency exceeds 2000 ms for 5 minutes, or when the TLS certificate expires within
+  14 days. The endpoint is described under Scheduled tasks.
+
+All new alerts email `ALERT_EMAIL`. Before running the infrastructure workflow, set
+`ALERT_EMAIL` as a **GitHub repository variable** to an email address on the DigitalOcean
+team. Check the workflow's `DIGITALOCEAN_ACCESS_TOKEN` has monitoring and uptime read,
+create, update and delete permissions; the local doctl token previously returned 403 on
+`GET /v2/monitoring/alerts` and may need additional scopes.
+
+Database monitoring alerts have no additional charge. [Uptime checks cost $1/month each,
+with one free check per account](https://docs.digitalocean.com/products/uptime/details/pricing/)
+and no additional charge for alerts: two environments cost about $1/month assuming the
+account's free allowance is available and no other checks consume it (otherwise about
+$2/month incremental).
+
+Request error rate, p99 latency, exception tracking, connection-pool and edge-spike
+alerting remain planned (spec 12.7;
+[`TODO/3-monitoring-and-alerting.md`](TODO/3-monitoring-and-alerting.md)).
 
 ## Status and specification
 
