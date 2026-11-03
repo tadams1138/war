@@ -21,13 +21,17 @@ domains:
   - domain: war.tmad.dev
     type: PRIMARY
 
-# DATABASE_URL below is the direct database binding, not a PgBouncer pool.
-# Pool bindings use ${db.<pool-name>.DATABASE_URL}. Runtime bindings stay
-# unchanged until the manual cutover described in README.
+# Production's own database and user on the shared cluster (spec 12.1). The
+# API service connects through the production pool
+# (${db.war-production-pool.DATABASE_URL}); the migration job uses the direct
+# ${db.DATABASE_URL}, as the same user, because migrations take session-level
+# locks that transaction pooling does not support.
 databases:
   - name: db
     engine: PG
-    cluster_name: war-production-pg
+    cluster_name: war-staging-pg
+    db_name: war_production
+    db_user: war_production_api
     production: true
 
 # Path → component routing (spec). Order matters: the catch-all is last.
@@ -81,7 +85,7 @@ services:
         value: production
       - key: DATABASE_URL
         scope: RUN_TIME
-        value: ${db.DATABASE_URL}
+        value: ${db.war-production-pool.DATABASE_URL}
       - key: DATABASE_CA_CERT
         scope: RUN_TIME
         value: ${db.CA_CERT}

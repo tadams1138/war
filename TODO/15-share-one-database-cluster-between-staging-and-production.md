@@ -69,3 +69,23 @@ Decided 2026-11-02:
 ## Open questions
 - Is 1 GiB enough for both environments? If not, resize `war-staging-pg` to 2 GiB, which saves
   less.
+
+## Progress
+Done on 2026-11-03:
+- Shared, staging and production Terraform applied: `war-staging-pg` and its firewall are owned
+  by `shared/`; `war_production`, `war_production_api` and `war-production-pool` exist.
+- Before the cutover both apps connected as `doadmin` to `defaultdb`. Staging's data was copied
+  from `defaultdb` into `war` (owner `war_api`) and production's from `war-production-pg`'s
+  `defaultdb` into `war_production` (owner `war_production_api`), with `pg_dump`/`pg_restore`.
+  Row counts matched on every table. The source databases are untouched, for rollback.
+- Isolation SQL applied. Verified with each app user's own credentials: `war_api` reaches only
+  `war`, `war_production_api` only `war_production`; neither can connect to `defaultdb`.
+- Both platform YAMLs bind their own database and user, the service through its pool and the
+  migration job directly.
+
+Remaining:
+- Deploy both specs and pass the smoke tests.
+- After an observation period, retire `war-production-pg` (and the `legacy-data` module) in a
+  separate Terraform change; its backups go with it, so keep the dump taken at cutover.
+- Optionally drop staging's old data from `defaultdb` on the shared cluster once the cutover is
+  confirmed.
