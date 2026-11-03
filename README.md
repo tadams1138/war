@@ -499,8 +499,9 @@ cluster:
 
 History: until 2026-11-03 each environment had its own cluster, and both apps connected as
 `doadmin` to `defaultdb`. Their data was copied into the databases above with `pg_dump` and
-`pg_restore`, and production's old cluster, `war-production-pg`, was then deleted. Staging's
-pre-move data is still in `defaultdb` on the shared cluster, which no app user can reach.
+`pg_restore`, and production's old cluster, `war-production-pg`, was then deleted, as was
+staging's pre-move copy in `defaultdb`. The dumps taken at the move are kept outside the
+repository.
 
 ### App Platform deployment
 
