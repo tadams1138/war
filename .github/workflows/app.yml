@@ -464,6 +464,7 @@ jobs:
         run: |
           bash war-infra/scripts/render-spec.test.sh
           bash war-infra/scripts/smoke-video-policy.test.sh
+          bash war-infra/scripts/prune-registry.test.sh
 
       - uses: actions/setup-node@v7
         with:
@@ -813,3 +814,32 @@ jobs:
         env:
           BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: war-infra/scripts/smoke-test.sh production api
+
+  # Deletes the API images no environment needs, then garbage-collects. Runs
+  # after a successful production deploy, when both apps are known to run the
+  # tags the script reads from their live specs. Garbage collection makes the
+  # registry read-only for a few minutes, so an image push that overlaps it
+  # fails visibly; rerun the failed job. It deliberately shares no concurrency
+  # group with ensure-api-image: a pending prune must never evict a pending
+  # build (see the 9404ffe note on the deploy jobs). No GitHub Environment, so
+  # it does not wait for a second approval.
+  prune-api-images:
+    name: Prune old API images
+    needs: [deploy-app-production]
+    if: >-
+      github.event_name != 'pull_request' && !cancelled() &&
+      needs.deploy-app-production.result == 'success'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: prune-api-images
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2.5.2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Prune the registry
+        run: war-infra/scripts/prune-registry.sh

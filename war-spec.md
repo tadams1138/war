@@ -1431,6 +1431,8 @@ request. Infrastructure and custom UIs have their own pipelines.
     the image already published. An image exists only for API source that passed its checks:
     publishing waits for them, and a deploy that needs an image whose checks did not run
     fails and says to run the pipeline manually, which forces every check.
+  - After each production deploy, old API images are pruned, keeping those in use, one
+    rollback image and the bootstrap image.
 - **Custom UI:** resolve and validate slug → lint → build → template check → size check →
   deploy staging → purge → smoke test → **manual gate** → promote the same artefact
 - **Infrastructure:** validate → plan → **manual gate** → apply shared → plan → apply

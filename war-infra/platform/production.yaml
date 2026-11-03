@@ -44,8 +44,8 @@ ingress:
 
 services:
   - name: war-api
-    instance_size_slug: professional-xs
-    instance_count: 2
+    instance_size_slug: basic-xs
+    instance_count: 1
     # war-api's Dockerfile EXPOSEs 3000, and its own default (config.ts's
     # PORT ?? 3000) matches -- this was 8080 with nothing making the app
     # actually listen there, so App Platform's health check and all routed
