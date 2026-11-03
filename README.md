@@ -433,8 +433,13 @@ validate locally, use the Terraform commands in "Build and test" in
 
 ### Shared database adoption and manual production cutover (TODO 15)
 
-This is a prepared transition, not a completed migration. Production still binds to
-`war-production-pg`; do not retire it in this change. The existing `war-staging-pg`
+**Status (2026-11-03):** the adoption, isolation SQL and data copy are done, and both
+platform YAMLs now bind their own database, user and pool on `war-staging-pg`. Before this,
+both apps connected as `doadmin` to `defaultdb`; those databases are kept untouched for
+rollback. What remains is retiring `war-production-pg` (step 6 below). The rest of this
+section is the procedure as followed, kept for reference.
+
+The existing `war-staging-pg`
 (1 GiB, nyc3, PostgreSQL 16, one node) becomes shared without replacement. Staging retains
 `war`, `war_api`, and `war-staging-pool`: database/user renames would replace resources.
 Production adds `war_production`, `war_production_api`, and `war-production-pool` on that

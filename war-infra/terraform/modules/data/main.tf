@@ -1,8 +1,8 @@
 # Managed PostgreSQL — see war-spec.md
 #
-# Pools are provisioned here. Existing platform YAMLs still use the direct
-# database binding; README documents the explicit service-pool switch and
-# direct migration connection required for the shared-cluster cutover.
+# One environment's logical database, user and connection pool on the shared
+# cluster. The platform YAMLs bind the API service to this pool and the
+# migration job to the direct URL, both as this user.
 
 # Required in every module that uses it, not just the root — Terraform does
 # not infer a non-default-namespace provider's source for a child module from
@@ -78,7 +78,7 @@ output "database_name" {
   value = digitalocean_database_db.war.name
 }
 
-# Intended pooled URI; the current platform YAML still binds a direct URL.
+# The pooled URI, which the API service binds as ${db.<pool-name>.DATABASE_URL}.
 # See the README cutover runbook before changing runtime bindings.
 output "pooled_uri" {
   value     = digitalocean_database_connection_pool.api.private_uri
