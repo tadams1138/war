@@ -86,6 +86,9 @@ Done on 2026-11-03:
 Remaining:
 - Deploy both specs and pass the smoke tests.
 - After an observation period, retire `war-production-pg` (and the `legacy-data` module) in a
-  separate Terraform change; its backups go with it, so keep the dump taken at cutover.
+  separate Terraform change; its backups go with it, so keep the dump taken at cutover. In the
+  same change, remove the unused `db` component from `war-infra/platform/production.yaml`
+  (App Platform rejects adding and removing a database component in one deploy, so it stayed
+  while `shared` was added).
 - Optionally drop staging's old data from `defaultdb` on the shared cluster once the cutover is
   confirmed.
