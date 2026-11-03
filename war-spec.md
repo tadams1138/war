@@ -1358,13 +1358,15 @@ capabilities:
 
 - Path-based ingress across components, with per-rule control over whether the matched prefix
   is preserved or stripped
-- Zero-downtime rolling deploys with health checks
+- Deploys gated on health checks. A deploy may briefly interrupt service; zero downtime is
+  not required
 - Pre-deploy hooks that abort the deployment on failure
 - Encrypted environment variables injected at runtime
 
 The database is reachable only from the application platform, never the public internet, with
-automated daily backups and point-in-time recovery. Production runs a standby; staging runs
-single-node.
+automated daily backups and point-in-time recovery. A standby is not required: each
+environment's database may run single-node, with backups and point-in-time recovery as the
+protection against a node failure.
 
 **Reverse-proxy hop count.** The API's address-keyed rate limits (§8.4) stay off until the
 number of reverse-proxy hops in front of the application is configured per deployment.
@@ -1441,8 +1443,10 @@ gates are a required-approval step tied to the environment itself, not a step in
 pipeline, so a gate cannot be bypassed by editing a pipeline.
 
 **Migrations run as a pre-deploy hook inside the deployment**, not as a pipeline stage, so a
-failed migration aborts the deployment and never ships. They are ordered, recorded as applied, must be backwards-compatible — the hook runs while the previous revision
-is still serving — and roll back manually, with point-in-time recovery as the backstop.
+failed migration aborts the deployment and never ships. They are ordered, recorded as applied, and roll back manually, with point-in-time recovery
+as the backstop. The hook runs while the previous revision is still serving, so a migration
+should be backwards-compatible; one that is not is allowed, at the cost of errors from the
+previous revision until the deploy completes.
 
 Custom UIs share one pipeline template, invoked from each brand's own repository. Invoking it
 resolves the template's version when the run is first triggered and keeps that version for the
