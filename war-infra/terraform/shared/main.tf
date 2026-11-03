@@ -285,3 +285,63 @@ output "registry_name" {
 output "registry_endpoint" {
   value = digitalocean_container_registry.war.endpoint
 }
+
+# Adopt the existing staging cluster by name, never create a replacement.
+data "digitalocean_database_cluster" "existing" {
+  name = "war-staging-pg"
+}
+
+variable "staging_app_id" {
+  type        = string
+  description = "Existing staging app ID; repository variable SHARED_DB_STAGING_APP_ID"
+}
+
+variable "production_app_id" {
+  type        = string
+  description = "Existing production app ID; repository variable SHARED_DB_PRODUCTION_APP_ID"
+}
+
+resource "digitalocean_database_cluster" "pg" {
+  name       = "war-staging-pg"
+  engine     = "pg"
+  version    = "16"
+  size       = "db-s-1vcpu-1gb"
+  region     = "nyc3"
+  node_count = 1
+
+  maintenance_window {
+    day  = "tuesday"
+    hour = "07:00:00"
+  }
+
+  # Preserve existing tags during adoption.
+  tags = ["war", "staging"]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# The provider replaces the complete rule set: only one state may own it.
+resource "digitalocean_database_firewall" "pg" {
+  cluster_id = digitalocean_database_cluster.pg.id
+
+  rule {
+    type  = "app"
+    value = var.staging_app_id
+  }
+  rule {
+    type  = "app"
+    value = var.production_app_id
+  }
+}
+
+import {
+  to = digitalocean_database_cluster.pg
+  id = data.digitalocean_database_cluster.existing.id
+}
+
+import {
+  to = digitalocean_database_firewall.pg
+  id = data.digitalocean_database_cluster.existing.id
+}

@@ -21,10 +21,9 @@ domains:
   - domain: staging.war.tmad.dev
     type: PRIMARY
 
-# Attaching the cluster makes App Platform add this app to the database's
-# trusted sources and expose ${db.DATABASE_URL}. That binding resolves to the
-# POOLED connection string — the API must never open a direct connection
-# (spec).
+# DATABASE_URL below is the direct database binding, not a PgBouncer pool.
+# Pool bindings use ${db.<pool-name>.DATABASE_URL}. Runtime bindings stay
+# unchanged until the manual cutover described in README.
 databases:
   - name: db
     engine: PG
