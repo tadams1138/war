@@ -71,6 +71,8 @@ test('monitoring uses one scheduled-task health check with availability, latency
   assert.ok(ssl);
   assert.match(ssl[1], /threshold\s*=\s*14\b/);
   for (const [, body] of alerts) {
+    // DigitalOcean's API rejects any uptime alert without a period, even ssl_expiry.
+    assert.match(body, /period\s*=\s*"(2m|3m|5m|10m|15m|30m|1h)"/);
     assert.match(body, /notifications\s*\{\s*email\s*=\s*\[var\.alert_email\]/);
   }
 });
