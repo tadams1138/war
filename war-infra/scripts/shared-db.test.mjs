@@ -43,19 +43,24 @@ test('environment databases use distinct identities and bounded pools without re
 
 test('each app binds its own database and user, the service through its pool and migrations directly', () => {
   // Arrange
+  // Production's component is not named `db`: App Platform keeps an existing
+  // component attached to its original cluster even after cluster_name changes,
+  // so moving production off war-production-pg needed a new component.
   const specs = {
-    staging: { yaml: read('platform/staging.yaml'), db: 'war', user: 'war_api', pool: 'war-staging-pool' },
-    production: { yaml: read('platform/production.yaml'), db: 'war_production', user: 'war_production_api', pool: 'war-production-pool' },
+    staging: { yaml: read('platform/staging.yaml'), component: 'db', db: 'war', user: 'war_api', pool: 'war-staging-pool' },
+    production: { yaml: read('platform/production.yaml'), component: 'shared', db: 'war_production', user: 'war_production_api', pool: 'war-production-pool' },
   };
-  for (const { yaml, db, user, pool } of Object.values(specs)) {
+  for (const { yaml, component, db, user, pool } of Object.values(specs)) {
     // Act
     const [service, job] = yaml.split(/^jobs:/m);
+    const bindings = [...yaml.matchAll(/\$\{([a-z0-9-]+)\.[A-Za-z0-9_.-]+\}/g)].map((m) => m[1]);
     // Assert
-    assert.match(yaml, /cluster_name: war-staging-pg/);
+    assert.match(yaml, new RegExp(`- name: ${component}\\n\\s+engine: PG\\n\\s+cluster_name: war-staging-pg\\n`));
     assert.match(yaml, new RegExp(`db_name: ${db}\\n`));
     assert.match(yaml, new RegExp(`db_user: ${user}\\n`));
-    assert.match(service, new RegExp(`value: \\$\\{db\\.${pool}\\.DATABASE_URL\\}`));
-    assert.doesNotMatch(service, /value: \$\{db\.DATABASE_URL\}/);
-    assert.match(job, /value: \$\{db\.DATABASE_URL\}/);
+    assert.deepEqual([...new Set(bindings)], [component]);
+    assert.match(service, new RegExp(`value: \\$\\{${component}\\.${pool}\\.DATABASE_URL\\}`));
+    assert.doesNotMatch(service, new RegExp(`value: \\$\\{${component}\\.DATABASE_URL\\}`));
+    assert.match(job, new RegExp(`value: \\$\\{${component}\\.DATABASE_URL\\}`));
   }
 });
