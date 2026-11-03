@@ -417,13 +417,12 @@ environment must provide is in spec sections 12.1 and 12.2.
 
 - `ui/`: the default UI Worker and its static assets, applied by `app.yml` (not `infra.yml`)
   with the run's built UI, once per environment (state key `ui/<env>/terraform.tfstate`).
-- `shared/`: the container registry and the Cloudflare zone-wide settings (zone settings, firewall, rate-limit and cache rulesets).
+- `shared/`: the container registry, shared PostgreSQL cluster and its database firewall, and the Cloudflare zone-wide settings (zone settings, firewall, rate-limit and cache rulesets).
 - `envs/staging/`, `envs/production/`: the environment roots. Each `main.tf` configures the
   providers and the remote state backend (Spaces, S3-compatible), instantiates the modules
   with environment values (node size, counts, hostnames) and handles async dependencies such
   as waiting for App Platform ingress to be ready.
-- `modules/`: `compute/` (the App Platform app and its initial spec), `data/` (PostgreSQL
-  cluster with a connection pooler), `storage/` (Spaces buckets for media, custom UIs and
+- `modules/`: `compute/` (the App Platform app and its initial spec), `data/` (logical database, credentials and pool), `legacy-data/` (temporary production cluster composition retained until cutover), `storage/` (Spaces buckets for media, custom UIs and
   state), `edge/` (Cloudflare DNS, TLS, WAF rules, rate limiting, and the media and custom-UI
   Worker routes; the default UI's `/*` route is in `ui/`) and `scheduler/` (Cloudflare cron triggers and Worker bindings).
 
@@ -431,6 +430,175 @@ environment must provide is in spec sections 12.1 and 12.2.
 `infra-shared` GitHub Environment's reviewer and the production apply on `production`'s. To
 validate locally, use the Terraform commands in "Build and test" in
 [`AGENTS.md`](AGENTS.md); repeat them with `envs/production` for production, as CI does.
+
+### Shared database adoption and manual production cutover (TODO 15)
+
+This is a prepared transition, not a completed migration. Production still binds to
+`war-production-pg`; do not retire it in this change. The existing `war-staging-pg`
+(1 GiB, nyc3, PostgreSQL 16, one node) becomes shared without replacement. Staging retains
+`war`, `war_api`, and `war-staging-pool`: database/user renames would replace resources.
+Production adds `war_production`, `war_production_api`, and `war-production-pool` on that
+cluster. Its old `module.data` resource addresses remain unchanged through the temporary
+`legacy-data` module. Remove that module only in the later retirement change.
+
+The shared root owns the entire database firewall, with both app IDs. The provider manages
+one complete rule set per cluster; two environment-owned firewalls would overwrite each
+other. Environment roots own their logical database, user and pool; app trust is consolidated
+in shared state. Set repository variables `SHARED_DB_STAGING_APP_ID` and
+`SHARED_DB_PRODUCTION_APP_ID` to the existing app IDs (copy the respective environments'
+`DO_APP_ID` values). `infra.yml` supplies these to shared as `TF_VAR_staging_app_id` and
+`TF_VAR_production_app_id`. For local owner operations, export those Terraform variables,
+the existing provider credentials and Spaces backend credentials. No shared-state outputs
+or application passwords need to be copied between environment states.
+
+**Binding discrepancy.** Both checked-in YAMLs use `${db.DATABASE_URL}`, the direct URL,
+not a pool URL. Their old comments claiming otherwise were incorrect. DigitalOcean documents
+pool URLs as `${db.<pool-name>.DATABASE_URL}` in its
+[pool binding guide](https://docs.digitalocean.com/products/app-platform/how-to/connect-pg-pools/).
+The API consumes the supplied URL unchanged. This change preserves runtime bindings;
+provisioning pools alone does not route API traffic through them or enforce a connection cap.
+The owner must inspect resolved connection host/port, database and username without logging
+passwords, and make the explicit switches below before accepting shared-cluster capacity.
+
+Pools reserve 5 staging + 10 production = 15 backend connections, leaving 7 of the 22 usable
+connections documented for 1 GiB ([limits](https://docs.digitalocean.com/products/databases/postgresql/details/limits/)).
+Budget at most one direct migration connection per environment and one serial dump/restore
+connection, leaving four spare. Do not use parallel restore. The three provider-maintenance
+connections are already excluded from 22. Until the service bindings switch, direct client
+pools consume this same budget independently; inspect active connections and stop unused
+clients before restore. CPU, disk and outages affect both environments; resize up in place
+if load exceeds capacity. Splitting again requires a new cluster and another data transfer.
+
+**Owner apply order: all commands from the repository root.** These are future live
+operations, not commands run as part of implementing this item.
+
+1. Pause infrastructure applies and app deploys across both environments; Spaces has no
+   state locking. Back up all three remote states to secure storage and confirm database
+   backups/PITR. Record cluster UUIDs, existing app IDs, current connection identities and
+   current specs. Do not print credentials in CI logs. Run the validation and regression
+   commands in AGENTS.md first.
+2. Initialise shared with its real backend, review its plan, then apply:
+   `terraform -chdir=war-infra/terraform/shared init`,
+   `terraform -chdir=war-infra/terraform/shared plan`,
+   `terraform -chdir=war-infra/terraform/shared apply`.
+   The import blocks must adopt the exact existing staging cluster UUID and firewall.
+   Expect no cluster replacement or deletion; stop if either appears. Keep the original
+   size, region, version, tags and maintenance settings. `prevent_destroy` guards the new
+   cluster owner. Shared now trusts both apps. This temporarily overlaps ownership with
+   staging: keep all other writers paused until step 3 completes.
+3. Initialise, review and apply staging, using the same three commands with
+   `-chdir=war-infra/terraform/envs/staging`. Its two `removed` blocks must only forget
+   the cluster and firewall (`destroy = false`); the existing database, user and pool
+   stay at the same resource addresses. Only the pool size changes to 5. Confirm shared
+   owns the cluster/firewall and staging no longer does. Never reapply the old staging
+   configuration after this handoff. If interrupted, resume these steps with the same
+   configuration; imports and removal are repeatable.
+4. Initialise, review and apply production with
+   `-chdir=war-infra/terraform/envs/production`. Only the new shared logical database,
+   user and size-10 pool should be added for this item; the old cluster, database, user,
+   pool and firewall must remain managed. Stop on any proposed legacy replacement or
+   destruction. All live plans must be reviewed for unrelated drift as well.
+
+**Manual SQL isolation gate.** The DigitalOcean provider supports normal PostgreSQL users,
+but [additional permissions must be managed manually](https://github.com/digitalocean/terraform-provider-digitalocean/blob/main/docs/resources/database_user.md).
+Distinct usernames and pools alone do not isolate databases: PostgreSQL grants `CONNECT`
+to `PUBLIC` by default. Use a trusted App Platform console/job with PostgreSQL 16 tools,
+verified cluster CA, `sslmode=verify-full`, and a temporary administrative connection to the
+shared cluster. Keep admin credentials out of application environment variables. Do not
+open the firewall to the internet. Run with `psql -v ON_ERROR_STOP=1`:
+
+```sql
+REVOKE ALL ON DATABASE war FROM PUBLIC, war_production_api;
+REVOKE ALL ON DATABASE war_production FROM PUBLIC, war_api;
+GRANT CONNECT, CREATE, TEMPORARY ON DATABASE war TO war_api;
+GRANT CONNECT, CREATE, TEMPORARY ON DATABASE war_production TO war_production_api;
+REVOKE CONNECT ON DATABASE defaultdb FROM PUBLIC, war_api, war_production_api;
+-- Inspect \l+ for any other connectable databases (including postgres if present).
+-- Revoke PUBLIC/app-role CONNECT there too, leaving provider administration intact.
+```
+
+Connect to `war`, revoke `CREATE` on schema `public` from `PUBLIC`, and grant `USAGE, CREATE`
+on that schema to `war_api`. Repeat in `war_production` for `war_production_api`. Inspect
+`\du`, `\l+`, schema/object owners and inherited role memberships. Neither app role may
+be a database owner of the other database, a member of the other role, or hold administrative
+or cross-database privileges. Remove any such inherited grants. Existing staging objects
+may be owned by the original binding's administrative user: transfer only application
+schema objects and the migration tracking table to `war_api` as needed for migrations;
+do not use cluster-wide `REASSIGN OWNED` or revoke provider system permissions. New restored
+production objects will be owned by `war_production_api` via the restore role below.
+
+First verify the current staging database identity and table counts. Neither YAML currently
+selects `db_name` or `db_user`, so do not assume the provisioned `war` database contains the
+running application's data. If staging is actually using `defaultdb` or another database,
+stop here: freeze staging writes, back it up, dump/restore its application data into `war`
+with `war_api` ownership, and verify it before changing bindings. Keep its original database
+intact for rollback. Never point staging at an empty database silently.
+
+Before loading production data, change staging's database component to include
+`db_name: war` and `db_user: war_api`, change only its service `DATABASE_URL` to
+`${db.war-staging-pool.DATABASE_URL}`, and keep its migration job on `${db.DATABASE_URL}`
+for a direct connection with staging credentials (migration session/advisory locks must
+not go through transaction pooling). Deploy staging and run
+`bash war-infra/scripts/smoke-test.sh staging api`. These binding edits are intentionally
+not made by this preparation change. Terminate pre-existing application sessions using
+old/admin credentials after the staging deployment; revoking CONNECT does not end sessions.
+Never terminate provider maintenance sessions.
+
+Verify with fresh connections using the actual deployed staging API and migration
+credentials: own database succeeds, a direct connection to `war_production` fails with
+permission denied. Repeat with production credentials: `war_production` succeeds and `war`
+fails. Check `defaultdb` and every other connectable database also reject both app roles.
+Inspect `current_database(), current_user`, object owners and `pg_stat_activity`; staging
+API and migration must no longer use `doadmin`. Execute a staging migration and smoke test
+and recheck the negative production connection. Tests must use staging/test credentials,
+never shared administrator credentials. A successful cross-database login blocks cutover;
+fix grants/memberships, do not treat separate schemas or pool names as isolation. Keep
+these live checks as owner evidence; the repository regression tests cannot prove SQL ACLs.
+
+**Production data transfer and cutover.**
+
+1. Enter a maintenance window. Block production writes and stop/drain all production API
+   instances and scheduled tasks; pause deploys/migration jobs. Confirm no writer remains.
+   Confirm a final recoverable backup/PITR point on `war-production-pg` and record its ID/time.
+   Take a final dump after the write freeze and keep it encrypted with a checksum.
+2. In the trusted job/console, set `OLD_PRODUCTION_URL` to the old cluster's actual
+   application database and `SHARED_PRODUCTION_ADMIN_URL` to the shared cluster's
+   `war_production` using admin credentials. Both must verify their respective cluster CA.
+   Use PostgreSQL 16 client tools and secure temporary storage:
+
+   ```bash
+   pg_dump --dbname="$OLD_PRODUCTION_URL" --format=custom --no-owner --no-acl --file=production.dump
+   pg_restore --list production.dump
+   pg_restore --dbname="$SHARED_PRODUCTION_ADMIN_URL" --role=war_production_api --no-owner --no-acl --exit-on-error --single-transaction production.dump
+   ```
+
+   The target must be empty. Inspect required extensions and install any approved extensions
+   as admin first. Do not restore into `war` or restore global roles/old ACLs. For a retry,
+   inspect the failed transaction before retrying; never clear staging or blindly overwrite
+   a partially migrated target. Compare application table counts, representative data and
+   migration history against the frozen source; recheck the isolation gate after restore.
+3. Only now edit `war-infra/platform/production.yaml`: set `cluster_name: war-staging-pg`,
+   `db_name: war_production`, and `db_user: war_production_api` on component `db`; set the
+   service URL to `${db.war-production-pool.DATABASE_URL}` and leave the migration job on
+   `${db.DATABASE_URL}` (direct, same restricted production role). The CA binding stays
+   `${db.CA_CERT}` and resolves to the shared cluster's CA. Keep all unrelated settings.
+4. Render and deploy the production spec using the existing reviewed API image and the
+   documented App Platform deployment procedure below; wait for PRE_DEPLOY migration and
+   health checks to succeed. Confirm the resolved service URL identifies the production
+   pool, and the migration URL identifies the direct shared production database with
+   `war_production_api`. Run `bash war-infra/scripts/smoke-test.sh production api`, verify
+   representative reads/writes and OAuth flow, recheck staging smoke/isolation, and inspect
+   connection counts. Resume production traffic and its scheduler only after these pass.
+5. Before accepting new writes, rollback is restoring the saved production spec binding
+   and redeploying the same image against the untouched old cluster, then smoke testing
+   and resuming its scheduler. After shared-cluster writes begin, freeze again and reconcile
+   or copy those writes back before rollback; switching bindings alone would lose data.
+6. After a successful observation period, confirm the final backup again. In a separate
+   reviewed Terraform change, retire production's old `module.data` resources and temporary
+   `legacy-data` module, update its bootstrap cluster reference and output to the shared
+   cluster, and review a plan that destroys only the old production resources. Never remove
+   the shared cluster or its firewall. Keep TODO 15 open until migration, negative credential
+   checks, smoke tests and old-cluster retirement are complete.
 
 ### App Platform deployment
 

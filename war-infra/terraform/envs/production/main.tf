@@ -26,8 +26,9 @@ terraform {
 }
 
 locals {
-  env    = "production"
-  domain = "war.tmad.dev"
+  shared_pool_size = 10
+  env              = "production"
+  domain           = "war.tmad.dev"
 }
 
 # ── Credentials ───────────────────────────────────────────────────────────────
@@ -83,7 +84,7 @@ provider "cloudflare" {
 # ── Data ──────────────────────────────────────────────────────────────────────
 
 module "data" {
-  source = "../../modules/data"
+  source = "../../modules/legacy-data"
 
   env        = local.env
   node_size  = "db-s-1vcpu-2gb"
@@ -91,6 +92,21 @@ module "data" {
   pool_size  = 40
 
   trusted_app_id = module.compute.app_id
+}
+
+# Keep module.data and its existing resource addresses intact until cutover.
+data "digitalocean_database_cluster" "shared" {
+  name = "war-staging-pg"
+}
+
+module "shared_data" {
+  source = "../../modules/data"
+
+  cluster_id    = data.digitalocean_database_cluster.shared.id
+  database_name = "war_production"
+  user_name     = "war_production_api"
+  pool_name     = "war-production-pool"
+  pool_size     = local.shared_pool_size
 }
 
 # ── Storage ───────────────────────────────────────────────────────────────────

@@ -1,10 +1,8 @@
 # Managed PostgreSQL — see war-spec.md
 #
-# The connection pooler is the reason this module exists as more than a single
-# resource. The API must connect through PgBouncer, never directly: the
-# spec alerts on pool utilisation, and App Platform's instance counts multiplied
-# by a per-instance client pool exhausts a small cluster's connection limit
-# quickly without one.
+# Pools are provisioned here. Existing platform YAMLs still use the direct
+# database binding; README documents the explicit service-pool switch and
+# direct migration connection required for the shared-cluster cutover.
 
 # Required in every module that uses it, not just the root — Terraform does
 # not infer a non-default-namespace provider's source for a child module from
@@ -17,62 +15,33 @@ terraform {
   }
 }
 
-variable "env" {
-  type        = string
-  description = "staging | production"
+# Cluster lifecycle and its complete firewall rule set belong to shared/.
+# The DO provider cannot manage PostgreSQL database grants. Manual SQL and
+# negative credential tests in README are required before either app uses this.
+variable "cluster_id" {
+  type = string
 }
-
-variable "region" {
-  type    = string
-  default = "nyc3"
+variable "database_name" {
+  type = string
 }
-
-variable "node_size" {
-  type        = string
-  description = "Cluster node slug, e.g. db-s-1vcpu-1gb"
+variable "user_name" {
+  type = string
 }
-
-variable "node_count" {
-  type        = number
-  description = "1 for staging; 2 (primary + standby) for production"
-  default     = 1
+variable "pool_name" {
+  type = string
 }
-
-variable "pg_version" {
-  type    = string
-  default = "16"
-}
-
 variable "pool_size" {
-  type        = number
-  description = "Backend connections the pooler holds open"
-  default     = 20
-}
-
-resource "digitalocean_database_cluster" "pg" {
-  name       = "war-${var.env}-pg"
-  engine     = "pg"
-  version    = var.pg_version
-  size       = var.node_size
-  region     = var.region
-  node_count = var.node_count
-
-  maintenance_window {
-    day  = "tuesday"
-    hour = "07:00:00" # low-traffic window, ahead of the 03:00 UTC scheduled task
-  }
-
-  tags = ["war", var.env]
+  type = number
 }
 
 resource "digitalocean_database_db" "war" {
-  cluster_id = digitalocean_database_cluster.pg.id
-  name       = "war"
+  cluster_id = var.cluster_id
+  name       = var.database_name
 }
 
 resource "digitalocean_database_user" "api" {
-  cluster_id = digitalocean_database_cluster.pg.id
-  name       = "war_api"
+  cluster_id = var.cluster_id
+  name       = var.user_name
 
   # Terraform planned an in-place update to this resource on the second real
   # apply despite neither argument above ever changing - the only other
@@ -97,52 +66,20 @@ resource "digitalocean_database_user" "api" {
 # (no advisory locks, no prepared-statement reuse across requests) so
 # transaction mode is safe.
 resource "digitalocean_database_connection_pool" "api" {
-  cluster_id = digitalocean_database_cluster.pg.id
-  name       = "war-${var.env}-pool"
+  cluster_id = var.cluster_id
+  name       = var.pool_name
   mode       = "transaction"
   size       = var.pool_size
   db_name    = digitalocean_database_db.war.name
   user       = digitalocean_database_user.api.name
 }
 
-# Restrict the cluster to the App Platform app. Passed in rather than derived,
-# because the app is created from platform/{env}.yaml (see modules/compute).
-#
-# Unconditional, not gated behind `count`: both envs always pass a real
-# module.compute.app_id, and on a from-scratch apply that id is "known after
-# apply" (the app is created in the same plan) — a value Terraform cannot use
-# to decide a resource's *count*, even though it's completely fine to use as
-# a plain attribute value (which is all this does). Gating existence on
-# `trusted_app_id == ""` produced "Invalid count argument" on every first
-# apply; do not reintroduce it.
-variable "trusted_app_id" {
-  type        = string
-  description = "App Platform app id permitted to reach the cluster"
-}
-
-resource "digitalocean_database_firewall" "pg" {
-  cluster_id = digitalocean_database_cluster.pg.id
-
-  rule {
-    type  = "app"
-    value = var.trusted_app_id
-  }
-}
-
-output "cluster_id" {
-  value = digitalocean_database_cluster.pg.id
-}
-
-output "cluster_name" {
-  value = digitalocean_database_cluster.pg.name
-}
-
 output "database_name" {
   value = digitalocean_database_db.war.name
 }
 
-# The pooled URI. This is what belongs in DATABASE_URL — never
-# digitalocean_database_cluster.pg.uri, which bypasses the pooler.
+# Intended pooled URI; the current platform YAML still binds a direct URL.
+# See the README cutover runbook before changing runtime bindings.
 output "pooled_uri" {
   value     = digitalocean_database_connection_pool.api.private_uri
   sensitive = true

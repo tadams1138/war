@@ -1,6 +1,5 @@
 # War — staging environment
-# See war-spec.md. Production is the same composition with
-# larger sizing and a standby database node.
+# See war-spec.md. The physical database cluster is owned by shared/.
 
 terraform {
   required_version = "~> 1.9"
@@ -26,8 +25,9 @@ terraform {
 }
 
 locals {
-  env    = "staging"
-  domain = "staging.war.tmad.dev"
+  shared_pool_size = 5
+  env              = "staging"
+  domain           = "staging.war.tmad.dev"
 }
 
 # ── Credentials ───────────────────────────────────────────────────────────────
@@ -82,15 +82,18 @@ provider "cloudflare" {
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 
+data "digitalocean_database_cluster" "shared" {
+  name = "war-staging-pg"
+}
+
 module "data" {
   source = "../../modules/data"
 
-  env        = local.env
-  node_size  = "db-s-1vcpu-1gb"
-  node_count = 1 # staging runs single-node; production adds a standby
-  pool_size  = 20
-
-  trusted_app_id = module.compute.app_id
+  cluster_id    = data.digitalocean_database_cluster.shared.id
+  database_name = "war"
+  user_name     = "war_api"
+  pool_name     = "war-staging-pool"
+  pool_size     = local.shared_pool_size
 }
 
 # ── Storage ───────────────────────────────────────────────────────────────────
@@ -108,7 +111,7 @@ module "compute" {
 
   env                   = local.env
   domain                = local.domain
-  database_cluster_name = module.data.cluster_name
+  database_cluster_name = data.digitalocean_database_cluster.shared.name
 }
 
 # DO's API can report a just-created app as having no active deployment yet
@@ -186,5 +189,20 @@ output "ui_custom_bucket" {
 }
 
 output "database_cluster_name" {
-  value = module.data.cluster_name
+  value = data.digitalocean_database_cluster.shared.name
+}
+
+# Shared state adopts these first. Forget without deleting either live object.
+removed {
+  from = module.data.digitalocean_database_cluster.pg
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.data.digitalocean_database_firewall.pg
+  lifecycle {
+    destroy = false
+  }
 }

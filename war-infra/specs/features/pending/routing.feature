@@ -194,6 +194,15 @@ Feature: Secrets & Config
 
 Feature: Data Protection
 
+  Scenario: Environments may share a physical cluster with isolated logical databases
+    Given staging and production share a managed PostgreSQL cluster
+    Then each environment has a distinct logical database, user and connection pool
+    And the cluster firewall trusts both application deployments
+    And staging credentials cannot connect to the production database
+    And production credentials cannot connect to the staging database
+    And staging migrations and tests use only staging credentials
+
+
   Scenario: The database is not reachable from the public internet
     Given the managed PostgreSQL cluster is provisioned
     When a connection is attempted from an address outside the allowed sources

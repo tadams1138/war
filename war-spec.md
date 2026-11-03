@@ -1347,8 +1347,11 @@ README's Tech stack section, and operational detail lives in its Deployment and 
 ### 12.1 Environments
 
 Two: **staging**, deployed on merge, and **production**, promoted manually after staging
-smoke tests pass. Every environment has isolated resources — its own deployment, database,
-buckets, hostname and schedules.
+smoke tests pass. Environments keep isolated deployments, buckets, hostnames and schedules.
+Each environment has its own logical database and credentials; credentials for one environment
+cannot read or write the other environment's database, including during migrations and tests.
+Environments may share one physical database cluster, accepting shared outages and resource
+contention.
 
 ### 12.2 Hosting shape
 
