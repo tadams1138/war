@@ -83,18 +83,8 @@ provider "cloudflare" {
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 
-module "data" {
-  source = "../../modules/legacy-data"
-
-  env        = local.env
-  node_size  = "db-s-1vcpu-2gb"
-  node_count = 2 # primary + standby for HA (spec)
-  pool_size  = 40
-
-  trusted_app_id = module.compute.app_id
-}
-
-# Keep module.data and its existing resource addresses intact until cutover.
+# Production's own database, user and pool on the shared cluster, which
+# shared/ owns along with its firewall (spec 12.1).
 data "digitalocean_database_cluster" "shared" {
   name = "war-staging-pg"
 }
@@ -124,7 +114,7 @@ module "compute" {
 
   env                   = local.env
   domain                = local.domain
-  database_cluster_name = module.data.cluster_name
+  database_cluster_name = data.digitalocean_database_cluster.shared.name
 }
 
 # DO's API can report a just-created app as having no active deployment yet
@@ -202,5 +192,5 @@ output "ui_custom_bucket" {
 }
 
 output "database_cluster_name" {
-  value = module.data.cluster_name
+  value = data.digitalocean_database_cluster.shared.name
 }
