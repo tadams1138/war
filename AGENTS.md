@@ -82,6 +82,7 @@ calling `playwright test` directly runs stale generated tests.
 - validate: `terraform -chdir=war-infra/terraform/envs/staging init -backend=false` then `terraform -chdir=war-infra/terraform/envs/staging validate`
 - plan: `terraform -chdir=war-infra/terraform/envs/staging plan`
 - deploy script tests (render-spec.sh): `bash war-infra/scripts/render-spec.test.sh`
+- registry pruning script tests (prune-registry.sh): `bash war-infra/scripts/prune-registry.test.sh`
 - edge Worker tests: `node --test war-infra/edge/*.test.mjs`
 - UI root validate: `terraform -chdir=war-infra/terraform/ui init -backend=false` then `terraform -chdir=war-infra/terraform/ui validate`
 

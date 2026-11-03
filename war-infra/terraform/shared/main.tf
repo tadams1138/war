@@ -62,8 +62,10 @@ provider "cloudflare" {
 # by tag — production deploys the exact digest staging validated.
 
 resource "digitalocean_container_registry" "war" {
-  name                   = var.registry_name
-  subscription_tier_slug = "basic"
+  name = var.registry_name
+  # Starter (free) allows one repository and 500 MiB. Old images are pruned to
+  # stay under that cap (TODO #13).
+  subscription_tier_slug = "starter"
   region                 = "nyc3"
 }
 

@@ -404,7 +404,7 @@ runs on changes under `.github/workflows/`. A manual run forces every check:
 | `platform/` | App Platform specs (`staging.yaml`, `production.yaml`): the source of truth for service configuration after bootstrap, applied by the deploy pipeline and not owned by Terraform |
 | `edge/` | Cloudflare Workers for the default UI, media, scheduled tasks and custom UI dispatch |
 | `bootstrap/` | The placeholder container image the app is first created with |
-| `scripts/` | `smoke-test.sh` and `render-spec.sh` (with `render-spec.test.sh`) |
+| `scripts/` | `smoke-test.sh`, `render-spec.sh` (with `render-spec.test.sh`) and `prune-registry.sh` (with `prune-registry.test.sh`) |
 | `specs/` | Gherkin feature files for infrastructure behaviour |
 
 ### Environments
@@ -474,6 +474,28 @@ covers both. There is no edge cache purge: `/assets/*` is `public, max-age=31536
 (hashed filenames) and the HTML shell is `max-age=0, must-revalidate`. The asset header rules
 live in `war-infra/terraform/ui/asset-headers` (`_headers` syntax), passed to the Worker's
 asset config rather than shipped in the build, so they are never served as a file.
+
+**Registry pruning.** The registry would otherwise keep every `war-api` image ever built. After
+each successful production deploy, `app.yml`'s `prune-api-images` job runs
+`war-infra/scripts/prune-registry.sh`. It reads the tags the staging and production apps run
+from their live specs and deletes every other tag except the previous one (the most recent
+other tag by updated time, kept for rollback) and `bootstrap`, which the Terraform bootstrap
+app needs. It aborts without deleting anything if either environment's tag cannot be read. It
+then starts garbage collection, which makes the registry read-only for a few minutes. The job
+has its own concurrency group and deliberately none shared with `ensure-api-image`, so a
+pending prune can never evict a pending build. A garbage collection that overlaps an image
+push makes that push fail visibly; rerun the failed job. The script skips starting garbage
+collection when one is already running. A pruned tag
+for an unchanged `war-api/` tree is rebuilt on the next deploy. For a one-off cleanup, run it
+by hand with an authenticated `doctl`; `--dry-run` lists what it would delete and changes
+nothing:
+
+```bash
+war-infra/scripts/prune-registry.sh --dry-run
+war-infra/scripts/prune-registry.sh
+```
+
+Deleting tags is permanent. Do not run it while a deploy is building an image.
 
 **Rollback.** Re-run the deploy jobs of an earlier successful run. They redeploy only the
 sides that run changed (its `ui-default-dist` artefact, its app spec, or both), so re-running
