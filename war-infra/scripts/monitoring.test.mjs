@@ -74,3 +74,17 @@ test('monitoring uses one scheduled-task health check with availability, latency
     assert.match(body, /notifications\s*\{\s*email\s*=\s*\[var\.alert_email\]/);
   }
 });
+
+test('the alert email is a sensitive secret everywhere it is passed', () => {
+  // Arrange
+  const workflow = read('../.github/workflows/infra.yml');
+  const roots = ['terraform/shared/main.tf', 'terraform/envs/staging/main.tf', 'terraform/envs/production/main.tf', 'terraform/modules/monitoring/main.tf'];
+  // Act
+  const declarations = roots.map((path) => read(path).match(/variable "alert_email" \{([\s\S]*?)^\}/m)?.[1] ?? '');
+  // Assert
+  assert.match(workflow, /TF_VAR_alert_email:\s*\$\{\{\s*secrets\.ALERT_EMAIL\s*\}\}/);
+  assert.doesNotMatch(workflow, /vars\.ALERT_EMAIL/);
+  for (const declaration of declarations) {
+    assert.match(declaration, /sensitive\s*=\s*true/);
+  }
+});

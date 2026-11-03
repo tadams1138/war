@@ -350,6 +350,7 @@ import {
 variable "alert_email" {
   description = "DigitalOcean team email address for monitoring alerts."
   type        = string
+  sensitive   = true
 }
 
 resource "digitalocean_monitor_alert" "database_cpu" {

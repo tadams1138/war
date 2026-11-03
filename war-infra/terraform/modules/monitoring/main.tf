@@ -11,6 +11,7 @@ variable "domain" {
 variable "alert_email" {
   description = "DigitalOcean team email address for monitoring alerts."
   type        = string
+  sensitive   = true
 }
 
 # This single endpoint covers API/database availability and nightly task freshness.

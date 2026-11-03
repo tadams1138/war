@@ -636,6 +636,7 @@ Required GitHub Actions secrets (per repository):
 | `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_SECRET`, `FACEBOOK_CLIENT_SECRET`, `TWITTER_CLIENT_SECRET` | API config | OAuth provider client secrets |
 | `YOUTUBE_API_KEY` | API config | YouTube Data API v3 metadata checks |
 | `DOCKERHUB_TOKEN` | API and bootstrap pipelines | Authenticated image pulls (avoids the anonymous rate limit on shared runners) |
+| `ALERT_EMAIL` | terraform | Monitoring alert recipient; must belong to a DigitalOcean team member. A secret, not a variable, so the public repository's logs never show it |
 
 The `staging` and `production` GitHub Environments each carry `DO_APP_ID` and
 `PUBLIC_BASE_URL`; `production` has the required reviewer. Repository secrets and variables
@@ -656,7 +657,6 @@ Required GitHub Actions variables:
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `ALERT_EMAIL` | terraform | Repository variable: alert recipient email belonging to the DigitalOcean team; covers shared, staging and production monitoring |
 | `CLOUDFLARE_ZONE_ID` | terraform | Cloudflare DNS zone ID |
 | `CLOUDFLARE_ACCOUNT_ID` | terraform, scheduler | Cloudflare account ID |
 | `GOOGLE_CLIENT_ID`, `MICROSOFT_CLIENT_ID`, `FACEBOOK_CLIENT_ID`, `TWITTER_CLIENT_ID` | API config | OAuth provider client IDs |
@@ -770,8 +770,8 @@ domain. Terraform also declares these DigitalOcean alerts:
   14 days. The endpoint is described under Scheduled tasks.
 
 All new alerts email `ALERT_EMAIL`. Before running the infrastructure workflow, set
-`ALERT_EMAIL` as a **GitHub repository variable** to an email address on the DigitalOcean
-team. Check the workflow's `DIGITALOCEAN_ACCESS_TOKEN` has monitoring and uptime read,
+`ALERT_EMAIL` as a **GitHub repository secret** to an email address on the DigitalOcean
+team; Terraform marks it sensitive, so plans redact it too. Check the workflow's `DIGITALOCEAN_ACCESS_TOKEN` has monitoring and uptime read,
 create, update and delete permissions; the local doctl token previously returned 403 on
 `GET /v2/monitoring/alerts` and may need additional scopes.
 

@@ -210,6 +210,7 @@ removed {
 variable "alert_email" {
   description = "DigitalOcean team email address for monitoring alerts."
   type        = string
+  sensitive   = true
 }
 
 module "monitoring" {

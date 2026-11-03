@@ -198,6 +198,7 @@ output "database_cluster_name" {
 variable "alert_email" {
   description = "DigitalOcean team email address for monitoring alerts."
   type        = string
+  sensitive   = true
 }
 
 module "monitoring" {
