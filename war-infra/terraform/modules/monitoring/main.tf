@@ -56,6 +56,8 @@ resource "digitalocean_uptime_alert" "ssl_expiry" {
   type       = "ssl_expiry"
   comparison = "less_than"
   threshold  = 14
+  # Required by DigitalOcean's API for every uptime alert type.
+  period = "5m"
 
   notifications {
     email = [var.alert_email]
