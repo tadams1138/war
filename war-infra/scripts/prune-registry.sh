@@ -47,6 +47,15 @@ running_tags() {
       want && $1 == "tag:" { print $2; want = 0 }'
 }
 
+# tag_times: reads list-tags output on stdin and prints "tag updated-at" lines.
+# doctl's list-tags ignores --format and --no-header, so the timestamp is found
+# by pattern rather than by column, and the header (no timestamp) is dropped.
+tag_times() {
+  awk 'match($0, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]/) {
+    print $1, substr($0, RSTART, RLENGTH)
+  }'
+}
+
 # select_deletions <kept tag>...: reads "tag updated-at" lines on stdin and
 # prints the tags to delete. The newest tag that is not kept
 # is the rollback image and is kept too.
@@ -110,7 +119,7 @@ main() {
   # shellcheck disable=SC2086 # the tag lists are whitespace-separated words
   mapfile -t doomed < <(
     doctl registry repository list-tags "$repository" --format Tag,UpdatedAt --no-header |
-      tr -d '\r' | select_deletions bootstrap $staging $production)
+      tr -d '\r' | tag_times | select_deletions bootstrap $staging $production)
 
   delete_tags "$dry_run" ${doomed[@]+"${doomed[@]}"}
   if [ "$dry_run" -eq 0 ]; then

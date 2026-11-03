@@ -141,6 +141,28 @@ skips_garbage_collection_when_one_is_active() {
     grep -Fq 'garbage collection already running' "$dir/stdout"
 }
 
+# doctl's list-tags ignores --format and --no-header: it always prints its full
+# table, header included, with the updated time after the size column.
+reads_doctls_full_tag_table() {
+  # Arrange
+  local dir
+  dir=$(mktemp -d "$fixtures/case.XXXXXX")
+  new_case "$dir"
+  printf '%s\n' \
+    'Tag          Compressed Size    Updated At                       Manifest Digest' \
+    'old1         3.70 kB            2026-01-01 00:00:00 +0000 UTC    sha256:a1' \
+    'bootstrap    2.36 kB            2025-12-01 00:00:00 +0000 UTC    sha256:b0' \
+    'prev         3.70 kB            2026-03-01 00:00:00 +0000 UTC    sha256:p1' \
+    'old2         13.70 kB           2026-02-01 00:00:00 +0000 UTC    sha256:a2' \
+    'stg          3.70 kB            2026-05-01 00:00:00 +0000 UTC    sha256:s1' \
+    'prd          3.70 kB            2026-04-01 00:00:00 +0000 UTC    sha256:r1' > "$dir/tags"
+  # Act
+  run_pruner "$dir" > "$dir/stdout" || return 1
+  # Assert
+  cat "$dir/calls"
+  grep -Fxq 'registry repository delete-tag war-api old2 old1 --force' "$dir/calls"
+}
+
 rejects_unknown_arguments() {
   # Arrange
   local dir status=0
@@ -158,5 +180,6 @@ check aborts_without_deleting_when_a_running_tag_is_unreadable aborts_without_de
 check aborts_without_deleting_when_an_app_is_missing aborts_without_deleting_when_an_app_is_missing
 check dry_run_lists_deletions_and_changes_nothing dry_run_lists_deletions_and_changes_nothing
 check skips_garbage_collection_when_one_is_active skips_garbage_collection_when_one_is_active
+check reads_doctls_full_tag_table reads_doctls_full_tag_table
 check rejects_unknown_arguments rejects_unknown_arguments
 [ "$failures" -eq 0 ]
