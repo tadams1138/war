@@ -20,7 +20,7 @@ test('shared cluster adoption cannot destroy the staging cluster or its firewall
   assert.match(shared, /value\s*=\s*var\.production_app_id/);
 });
 
-test('environment databases use distinct identities and bounded pools without retiring production', () => {
+test('environment databases use distinct identities and bounded pools on the shared cluster only', () => {
   // Arrange
   const staging = read('terraform/envs/staging/main.tf');
   const production = read('terraform/envs/production/main.tf');
@@ -34,7 +34,7 @@ test('environment databases use distinct identities and bounded pools without re
   assert.match(staging, /user_name\s*=\s*"war_api"/);
   assert.match(production, /database_name\s*=\s*"war_production"/);
   assert.match(production, /user_name\s*=\s*"war_production_api"/);
-  assert.match(production, /source\s*=\s*"\.\.\/\.\.\/modules\/legacy-data"/);
+  assert.doesNotMatch(production, /legacy-data|module "data"|module\.data\b/);
   assert.doesNotMatch(data, /resource "digitalocean_database_(cluster|firewall)"/);
   assert.match(data, /name\s*=\s*var.database_name/);
   assert.match(data, /name\s*=\s*var.user_name/);
@@ -65,14 +65,14 @@ test('each app binds its own database and user, the service through its pool and
   }
 });
 
-test('production keeps its old db component unchanged until war-production-pg is retired', () => {
+test('nothing refers to the retired production cluster', () => {
   // Arrange
   const yaml = read('platform/production.yaml');
+  const production = read('terraform/envs/production/main.tf');
   // Act
-  const old = yaml.match(/- name: db\n([\s\S]*?)\n\n/)?.[1] ?? '';
+  const components = [...yaml.matchAll(/^  - name: ([a-z0-9-]+)\n\s+engine: PG/gm)].map((m) => m[1]);
   // Assert
-  // App Platform rejects adding and removing a database component in one
-  // deploy, so `db` stays (as it was) until a later change removes it.
-  assert.match(old, /cluster_name: war-production-pg/);
-  assert.doesNotMatch(old, /db_name|db_user/);
+  assert.deepEqual(components, ['shared']);
+  assert.doesNotMatch(yaml, /war-production-pg/);
+  assert.doesNotMatch(production, /war-production-pg/);
 });

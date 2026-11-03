@@ -18,4 +18,3 @@ deleted, and the implemented behavior is described in the spec.
 - **12** — [Run the production API on one smaller instance](TODO/12-run-the-production-api-on-one-smaller-instance.md)
 - **13** — [Prune old API images from the container registry](TODO/13-prune-old-api-images-from-the-container-registry.md)
 - **14** — [Move the container registry to the free Starter tier](TODO/14-move-the-container-registry-to-the-free-starter-tier.md)
-- **15** — [Share one database cluster between staging and production](TODO/15-share-one-database-cluster-between-staging-and-production.md)

@@ -42,5 +42,5 @@ stay, so data is still protected; only automatic failover is lost.
     could not; high availability would then need Advanced Edition (from $130/month).
 
 ## Dependencies
-- #15 later moves production onto staging's cluster and deletes `war-production-pg`. This item
-  is the quick saving until then.
+- Superseded: production moved onto `war-staging-pg` on 2026-11-03 and `war-production-pg` is
+  being deleted, which removes the standby with it.
