@@ -64,7 +64,8 @@ provider "cloudflare" {
 resource "digitalocean_container_registry" "war" {
   name = var.registry_name
   # Starter (free) allows one repository and 500 MiB. Old images are pruned to
-  # stay under that cap (TODO #13).
+  # stay under that cap (scripts/prune-registry.sh, run after each production
+  # deploy).
   subscription_tier_slug = "starter"
   region                 = "nyc3"
 }

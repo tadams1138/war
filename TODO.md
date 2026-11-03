@@ -14,7 +14,3 @@ deleted, and the implemented behavior is described in the spec.
 - **8** — [Restore Facebook sign-in](TODO/8-restore-facebook-sign-in.md)
 - **9** — [Clean up orphaned storage objects](TODO/9-clean-up-orphaned-storage-objects.md)
 - **10** — [Cover the untested paths](TODO/10-cover-the-untested-paths.md)
-- **11** — [Remove the production database standby](TODO/11-remove-the-production-database-standby.md)
-- **12** — [Run the production API on one smaller instance](TODO/12-run-the-production-api-on-one-smaller-instance.md)
-- **13** — [Prune old API images from the container registry](TODO/13-prune-old-api-images-from-the-container-registry.md)
-- **14** — [Move the container registry to the free Starter tier](TODO/14-move-the-container-registry-to-the-free-starter-tier.md)
