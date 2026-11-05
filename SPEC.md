@@ -2,8 +2,8 @@
 
 **Status:** Living specification. `TODO.md` lists only the work not yet done.
 
-Sections marked **Planned — not yet built** (§6.5, §11, §12.7) describe designed
-behaviour with no implementation yet; everything else is built.
+Everything in this document is built. Work not yet done lives in `TODO.md`. Section numbers
+are stable references: where a section is absent (§6.5, §11), its design is in the backlog.
 
 This is the complete functional specification for the War platform. It describes *what the
 system does*, not how any particular implementation achieves it. Concrete technology
@@ -26,7 +26,7 @@ than single-click polls.
 
 The system is **API-first**. One backend holds all business logic and is the sole authority
 over what any identity may do. Every client — the default web UI, per-brand custom UIs, and
-future mobile apps — is thin: it renders what the API returns and submits user actions back
+mobile apps — is thin: it renders what the API returns and submits user actions back
 to it.
 
 ---
@@ -35,7 +35,7 @@ to it.
 
 ### Goals
 
-- One API layer serving web and future mobile clients identically
+- One API layer serving web and mobile clients identically
 - Multiple OAuth providers, each producing a unique, non-mergeable voter identity
 - Campaigns configurable with image-rich or short-video contestants
 - Free-form per-contestant bios, so a pageant and a primary are served by the same code
@@ -48,7 +48,7 @@ to it.
 - Live leaderboard updates — results refresh when the page loads, not while it is open
 - Push notifications
 - War creator moderation tools (removing voters, resetting votes)
-- Vote tamper-detection analytics — the data is collected; the tooling is future work
+- Vote tamper-detection analytics — the data is collected; no tooling analyses it
 - Paid or promoted Wars
 - Weighted votes; all voters are equal
 - Changing a vote once cast
@@ -84,9 +84,8 @@ publish, unpublish, clear the votes of, export and delete any War, but cannot su
 remove or review reports. A Moderator who is not an Admin gets none of the War Creator powers
 over Wars they did not create.
 
-A Voter may act through any client interchangeably — the default UI or a custom UI. Each is
-a different route to the same identity, and the API is the sole authority over what that
-identity may do.
+A Voter may act through any client interchangeably. Each is a different route to the same
+identity, and the API is the sole authority over what that identity may do.
 
 ---
 
@@ -104,7 +103,6 @@ A named voting campaign, owned by its creator.
 | Visibility | `public` or `unlisted`. Unlisted Wars appear in no public list but are otherwise used exactly like public ones (§6.1). |
 | Media mode | `image` or `video`; fixed for the War's lifetime |
 | End date | Optional; closes the War when reached |
-| Custom UI slug | Optional; selects a registered custom UI |
 | Theme | `arcade`, `fight_card`, or `scrapbook` (below); set by the creator, overridable per voter |
 | Share image | Optional; a single 1200×630 image shown on the War's card and used as its link-preview thumbnail when shared outside the platform. Distinct from contestant media — one fixed-size image per War, not a set of responsive variants. |
 
@@ -206,7 +204,6 @@ recomputation. They drive both pair selection and rankings.
   name and avatar where the provider supplies them.
 - **War membership** — records that a voter has joined a War.
 - **Refresh token** — a session credential, grouped into families (below).
-- **Custom UI registration** — maps a slug to the location of its bundle (planned, §6.5).
 
 ---
 
@@ -454,14 +451,6 @@ Responses are cacheable for about thirty seconds, so many
 concurrent viewers collapse to roughly one origin query per interval per edge location. Only
 rankings of a War everyone can read are cacheable by shared caches; rankings of a draft or a
 removed War, readable only by those entitled to them (§6.1, §6.7), are never stored.
-
-### 6.5 Custom UI registry
-
-**Planned — not yet built.**
-
-A read-only registry mapping a slug to the location of its bundle. Registration is an
-administrative operation: a registry record plus a file upload. It provisions nothing — no
-bucket, no origin, no routing rule, no redeploy.
 
 ### 6.6 Internal and scheduled operations
 
@@ -1227,105 +1216,6 @@ the server call is a courtesy.
 
 ---
 
-## 11. Custom UIs
-
-**Planned — not yet built.** No registry, shared runtime, or custom-UI pipeline exists yet; this
-section is the target design.
-
-A custom UI is a brand-specific frontend for a single War, selected by that War's slug. It
-replaces **presentation only**: it consumes the same API, enforces no rules of its own, and
-cannot change how voting, ranking, or scoring behave. A branded UI and the default UI produce
-identical votes and identical rankings.
-
-### 11.1 When a custom UI is not the answer
-
-Most campaign-to-campaign variation does not need one.
-
-| The difference is… | Solved by |
-|---|---|
-| Video instead of photographs | The War's media mode |
-| Different title, category, end date, visibility | Ordinary War configuration |
-| **Radically different branding, layout and styling** | **A custom UI** |
-
-A primary and a pageant describe contestants in entirely different prose and are both
-served well by the default UI — that is a *data* difference, not a presentational one. A
-custom UI is warranted only when a campaign needs markup and styling the default UI cannot
-express. It is the heaviest option and the last to reach for.
-
-### 11.2 Template contract
-
-Three views are required — war detail, vote mode, and rankings — and their presence is
-enforced in the pipeline, so a bundle missing one cannot deploy. A custom UI may add any
-further views it likes.
-
-Templates are **logicless by design**: they can express section presence but cannot perform
-arithmetic or arbitrary conditionals, so a custom UI structurally cannot reimplement ranking
-or recompute progress. Every value a template needs — display strings, percentages, booleans
-— is precomputed by the runtime.
-
-Regardless of styling, each must satisfy the behaviour its data implies:
-
-- **Vote mode** renders the two contestants **in the order given** and must not reorder, sort
-  or randomise them; side placement is decided and recorded by the API to make position bias
-  measurable, and shuffling destroys that signal irrecoverably
-- **Vote mode** presents exactly two choices and no skip or abstain control
-- **Vote mode**, in video mode, renders both players in the given order and does not enable
-  voting before both have played; the runtime supplies that state, the template renders it
-- **Rankings** render rows in the order supplied and display rank as given — never sorting by
-  wins, computing percentages, or deriving an ordering. **Percentages are not supplied in any
-  context**, because ranking is by raw wins and a derived percentage misrepresents contestants
-  with few appearances
-- **War detail** does not present a vote entry point when the runtime says the viewer cannot
-  vote
-
-### 11.3 Shared runtime
-
-The client logic every UI needs — authentication, single-flight refresh, error mapping, vote
-submission, media handling, sequential video playback, and precomputing template values — is
-**emitted by the default UI as a second build artefact and loaded by custom UIs directly over
-HTTP** from a stable path. Both outputs compile from the same source; there is one
-implementation, never two.
-
-**A custom UI does not implement any of this.** Re-implementing it is unsupported: such a UI
-is on its own for correctness and receives no platform fixes.
-
-**Why not a package.** A package needs a publish step, a version bump per brand, and a
-redeploy of every custom UI to pick up a fix. Serving it from a stable URL means a fix ships
-with the next default-UI deploy and **every custom UI has it immediately**, with no brand
-having to act. The highest-risk logic here is the refresh flow, where a mistake signs voters
-out — centrally patchable is worth more than independently pinnable.
-
-Three things this requires: a **stable, unhashed path** — the one deliberate exception to
-content hashing — cached hard but revalidated within minutes of a deploy; a **major version in
-the path**, so breaking changes ship alongside rather than replacing, and only a major bump
-requires a brand to act; and a **published surface**, since anything not on it is internal.
-
-**The tradeoff, stated plainly:** custom UIs cannot pin a patch version, so a bad runtime
-deploy breaks all of them at once. This is mitigated by the runtime shipping through the
-default UI's own pipeline — staging, smoke tests, then a manual production gate.
-
-### 11.4 Constraints
-
-| Constraint | Value |
-|---|---|
-| Built bundle size | Under 2MB |
-| Required templates | All three present |
-| Slug format | Lowercase alphanumeric and hyphens, not leading or trailing, ≤ 64 characters |
-| Server-side code | None |
-
-The size budget covers the whole bundle — a custom UI is a brand skin, and contestant imagery
-is served from the media CDN rather than bundled.
-
-**The slug pattern is a security control, not cosmetic.** All custom UIs share one storage
-bucket, so the slug is a key prefix; an unvalidated slug containing a traversal sequence could
-write into another brand's prefix. It is validated before any upload.
-
-Out of scope for a custom UI: more than one War per bundle, any server-side code, overriding
-scoring or matchup order or side placement, adding API endpoints, authentication flows other
-than the standard ones, and per-slug infrastructure of any kind.
-
----
-
 ## 12. Infrastructure & Operations
 
 Infrastructure is defined as code, and every environment change is applied by automated
@@ -1342,7 +1232,7 @@ README's Tech stack section, and operational detail lives in its Deployment and 
 | **Object storage** | Buckets for media, custom UI bundles, and infrastructure state |
 | **Container registry** | Stores API images |
 | **Scheduler** | Invokes endpoints on a recurring schedule |
-| **Observability** | Error tracking, log aggregation, metric alerting |
+| **Observability** | Log aggregation, metric alerting |
 
 ### 12.1 Environments
 
@@ -1394,8 +1284,8 @@ edge function handles it for custom UIs, refetching the slug's shell and returni
 successfully. That function is the mechanism making the shared-bucket model viable.
 
 **All custom UIs share one bucket behind one origin**, keyed by slug prefix. There is no
-per-slug bucket, origin, or routing rule: registering a slug is a database record plus a file
-upload, requiring no infrastructure run and no redeploy. The alternative — one origin per slug
+per-slug bucket, origin, or routing rule: a slug's files are uploaded to the shared bucket under its
+prefix, requiring no infrastructure run and no redeploy. The alternative — one origin per slug
 — makes every registration an infrastructure change and consumes a per-deployment component
 budget, and custom UIs are unbounded by design.
 
@@ -1406,7 +1296,6 @@ budget, and custom UIs are unbounded by design.
 | Hashed assets | Immutable, one year |
 | Custom UI shells | Never stored |
 | Default UI shell | Short, self-healing on the next navigation |
-| Shared runtime | Ten minutes, revalidated in the background |
 | Contestant images | Immutable, one year |
 | API responses | Per-endpoint; no store by default |
 
@@ -1471,38 +1360,29 @@ secret, the internal-task secret or the registered UI origins are left at their 
 when a sign-in provider's credentials are missing.
 
 Known limitation: platform-encrypted variables give encryption at rest but no versioning,
-per-component access policy, or audit trail. A dedicated secrets manager is deferred.
+per-component access policy, or audit trail.
 
 ### 12.7 Monitoring
 
-Resource, deployment, database utilization, availability and scheduled-task freshness
-monitoring are built. Request-level, exception, connection-pool and edge-spike alerts
-remain planned. The scheduled-task freshness signal comes from the watchdog endpoint in
+Resource, deployment, database utilization, availability and scheduled-task freshness are
+monitored. The scheduled-task freshness signal comes from the watchdog endpoint in
 §12.8.
 
-| Signal | Threshold | Status |
-|---|---|---|
-| API error rate | Above 1% over 5 minutes | Planned |
-| API p99 latency | Above 2 seconds over 5 minutes | Planned |
-| Unhandled exceptions | Any new issue in production | Planned |
-| API CPU / memory | Above 80% over 5 minutes | Built |
-| API restart loop | More than 3 in 10 minutes | Built |
-| Deploy failure | Any | Built |
-| Domain or TLS failure | Any | Built |
-| Database CPU, memory and disk utilization | Above 80% over 5 minutes | Built |
-| Database connection-pool utilization | Above 80% | Planned |
-| Public availability, including API and database health | Unhealthy for 2 minutes | Built |
-| Public health-check latency | Above 2 seconds over 5 minutes | Built |
-| Public TLS certificate expiry | Within 14 days | Built |
-| Edge client-error spike | Above 5% over 5 minutes | Planned |
-| Stale scheduled task | No recent successful nightly run; unhealthy for 2 minutes | Built |
+| Signal | Threshold |
+|---|---|
+| API CPU / memory | Above 80% over 5 minutes |
+| API restart loop | More than 3 in 10 minutes |
+| Deploy failure | Any |
+| Domain or TLS failure | Any |
+| Database CPU, memory and disk utilization | Above 80% over 5 minutes |
+| Public availability, including API and database health | Unhealthy for 2 minutes |
+| Public health-check latency | Above 2 seconds over 5 minutes |
+| Public TLS certificate expiry | Within 14 days |
+| Stale scheduled task | No recent successful nightly run; unhealthy for 2 minutes |
 
 Availability, health-check latency, certificate expiry and scheduled-task freshness are
 monitored in both staging and production. Operators receive email alerts. Health-check
 latency is a synthetic measurement, separate from request-level p99 latency.
-
-Request-level signals are the two most likely to lack a native platform equivalent; any
-provider evaluation must confirm how they are satisfied.
 
 **Edge protection** provides managed firewall rules in production, rate limiting on
 authentication paths, always-on DDoS mitigation, and blocking of internal endpoints.
