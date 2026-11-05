@@ -25,7 +25,7 @@ the default web frontend (a React single-page app) and [`war-infra/`](war-infra)
 Terraform, App Platform specs, Cloudflare Workers and deploy scripts. The technologies are in
 [Tech stack](#tech-stack).
 
-A brand-specific custom UI (spec section 11) is its own repository, not a directory here;
+A brand-specific custom UI (see TODO #1) is its own repository, not a directory here;
 [`.github/workflows/ui-custom.yml`](.github/workflows/ui-custom.yml) is the reusable pipeline
 each one calls. Custom UIs and the registry behind them are specified but not built.
 
@@ -200,7 +200,7 @@ deployment's `dist/`.
 
 ## Deployment and operations
 
-Section 12 of [`SPEC.md`](SPEC.md) says what the pipelines and infrastructure must do;
+Section 11 of [`SPEC.md`](SPEC.md) says what the pipelines and infrastructure must do;
 this section is how this repository does it and how to operate it. Every infrastructure
 change is applied through CI, never by hand.
 
@@ -216,7 +216,7 @@ change is applied through CI, never by hand.
 | `ui-custom.yml` | Reusable pipeline for separate custom-UI repositories |
 | `push-bootstrap-image.yml` | Manual one-off publish of the placeholder image Terraform's initial app spec points at |
 
-Path filters decide what runs (the stage order is in spec section 12.5). The deploy-script
+Path filters decide what runs (the stage order is in spec section 11.5). The deploy-script
 tests run when `war-infra/scripts/` or `war-infra/platform/` changed, and `workflows.yml`
 runs on changes under `.github/workflows/`. A manual run forces every check:
 `gh workflow run app.yml --ref master`.
@@ -236,7 +236,7 @@ runs on changes under `.github/workflows/`. A manual run forces every check:
 
 Staging is `staging.war.tmad.dev` and deploys on every merge to `master`; production is
 `war.tmad.dev` and waits on the `production` GitHub Environment's required reviewer. What each
-environment must provide is in spec sections 12.1 and 12.2.
+environment must provide is in spec sections 11.1 and 11.2.
 
 ### Terraform
 
@@ -251,7 +251,7 @@ environment must provide is in spec sections 12.1 and 12.2.
   state), `edge/` (Cloudflare DNS, TLS, WAF rules, rate limiting, and the media and custom-UI
   Worker routes; the default UI's `/*` route is in `ui/`) and `scheduler/` (Cloudflare cron triggers and Worker bindings).
 
-`infra.yml` is gated as spec section 12.5 describes; the shared apply waits on the
+`infra.yml` is gated as spec section 11.5 describes; the shared apply waits on the
 `infra-shared` GitHub Environment's reviewer and the production apply on `production`'s. To
 validate locally, use the Terraform commands in "Build and test" in
 [`AGENTS.md`](AGENTS.md); repeat them with `envs/production` for production, as CI does.
@@ -352,7 +352,7 @@ doctl apps update <app-id> --spec /tmp/app.yaml --wait
 `bash war-infra/scripts/render-spec.test.sh`. The image tag is the git tree hash of
 `war-api/` (`git rev-parse HEAD:war-api`).
 
-`app.yml` automates this (stage order: spec section 12.5). The API image is tagged with that
+`app.yml` automates this (stage order: spec section 11.5). The API image is tagged with that
 tree hash and built only if the registry lacks it, after API CI passes. One app deploy job per
 environment renders the full app spec and applies it with `doctl --wait`; the `PRE_DEPLOY`
 migration job runs inside it. A push that needs an API image missing from the registry,
@@ -434,7 +434,7 @@ permits per zone); bypass the cache for the API except rankings.
 One task runs, nightly: the `scheduled-tasks.js` Cron Worker calls
 `POST /api/v1/internal/close-expired-wars` with `INTERNAL_TASK_TOKEN` (the `x-internal-token`
 header). When a task fails the Worker throws, which marks the invocation failed in Cloudflare.
-Why a failure is not an outage: spec section 12.8.
+Why a failure is not an outage: spec section 11.8.
 
 Each successful run is recorded in the database (`platform_settings`). The public endpoint
 `GET /api/v1/health/scheduled-tasks` (no auth, `Cache-Control: no-store`) returns 200 with
@@ -492,7 +492,7 @@ Required GitHub Actions variables:
 ### Rate limiting
 
 The API's per-address limits (spec 8.4) need the real client address, which depends on how
-many reverse-proxy hops sit in front of the API (spec 12.2). The hop count is **not yet
+many reverse-proxy hops sit in front of the API (spec 11.2). The hop count is **not yet
 verified**, so `TRUST_PROXY_HOPS` is unset in `platform/{env}.yaml` and those limits are
 **off**; the Cloudflare edge rule on `/api/v1/auth/*` still applies. To enable:
 
@@ -542,7 +542,7 @@ Rules not visible in code, each learned through production incidents:
    Twitter/X are done; Facebook is not (see [`TODO/8-restore-facebook-sign-in.md`](TODO/8-restore-facebook-sign-in.md)).
 3. **Seed the first Admin**, once per environment, after that environment's deploy has run
    (it needs the roles migration) and the owner has signed in once. Nothing else grants the
-   role, since granting is Admin-only (spec 6.7). Run from the repository root with dev
+   role, since granting is Admin-only (spec 6.6). Run from the repository root with dev
    dependencies installed (`npm --prefix war-api ci`):
 
    ```powershell

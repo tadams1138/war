@@ -2,7 +2,7 @@
 
 ## Summary
 Build the registry of custom UIs and the shared runtime artifact they depend on (formerly SPEC.md
-§6.5 "Custom UI registry" and §11 "Custom UIs", removed from the spec until built).
+the "Custom UI registry" and "Custom UIs" sections, removed from the spec until built).
 
 ## Current state
 - No registry endpoints or schema. The registry table and the War slug column were dropped
@@ -20,9 +20,9 @@ Build the registry of custom UIs and the shared runtime artifact they depend on 
 
 ## Behavior
 The following is the design carried over verbatim from the spec. When the item ships, return
-it (trimmed to what was built) to SPEC.md as §6.5 and §11.
+it (trimmed to what was built) to SPEC.md as new sections.
 
-### Custom UI registry (was SPEC.md §6.5)
+### Custom UI registry (former SPEC.md section)
 
 A read-only registry mapping a slug to the location of its bundle. Registration is an
 administrative operation: a registry record plus a file upload. It provisions nothing — no
@@ -34,14 +34,14 @@ Registering a slug is a database record plus a file upload, requiring no infrast
 and no redeploy. A Voter may act through the default UI or a custom UI interchangeably, since
 each is a route to the same identity and the API is the sole authority.
 
-### Custom UIs (was SPEC.md §11)
+### Custom UIs (former SPEC.md section)
 
 A custom UI is a brand-specific frontend for a single War, selected by that War's slug. It
 replaces **presentation only**: it consumes the same API, enforces no rules of its own, and
 cannot change how voting, ranking, or scoring behave. A branded UI and the default UI produce
 identical votes and identical rankings.
 
-#### 11.1 When a custom UI is not the answer
+#### 1. When a custom UI is not the answer
 
 Most campaign-to-campaign variation does not need one.
 
@@ -56,7 +56,7 @@ served well by the default UI — that is a *data* difference, not a presentatio
 custom UI is warranted only when a campaign needs markup and styling the default UI cannot
 express. It is the heaviest option and the last to reach for.
 
-#### 11.2 Template contract
+#### 2. Template contract
 
 Three views are required — war detail, vote mode, and rankings — and their presence is
 enforced in the pipeline, so a bundle missing one cannot deploy. A custom UI may add any
@@ -82,7 +82,7 @@ Regardless of styling, each must satisfy the behaviour its data implies:
 - **War detail** does not present a vote entry point when the runtime says the viewer cannot
   vote
 
-#### 11.3 Shared runtime
+#### 3. Shared runtime
 
 The client logic every UI needs — authentication, single-flight refresh, error mapping, vote
 submission, media handling, sequential video playback, and precomputing template values — is
@@ -108,7 +108,7 @@ requires a brand to act; and a **published surface**, since anything not on it i
 deploy breaks all of them at once. This is mitigated by the runtime shipping through the
 default UI's own pipeline — staging, smoke tests, then a manual production gate.
 
-#### 11.4 Constraints
+#### 4. Constraints
 
 | Constraint | Value |
 |---|---|
@@ -128,10 +128,10 @@ Out of scope for a custom UI: more than one War per bundle, any server-side code
 scoring or matchup order or side placement, adding API endpoints, authentication flows other
 than the standard ones, and per-slug infrastructure of any kind.
 
-### Caching of the shared runtime (was a SPEC.md §12.4 row)
+### Caching of the shared runtime (was a SPEC.md §11.4 row)
 Shared runtime: ten minutes, revalidated in the background.
 
-### Already built (kept in SPEC.md §12)
+### Already built (kept in SPEC.md §11)
 The shared-bucket routing, the reusable custom UI pipeline (slug validation, template check,
 size check, staging then production gate) and the slug/size/template constraints enforced by
 that pipeline are built and stay in the spec.
