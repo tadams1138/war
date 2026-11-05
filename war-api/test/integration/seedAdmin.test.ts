@@ -4,7 +4,7 @@ import { makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
-describe('seedAdmin (war-spec.md §6.7, first-Admin bootstrap)', () => {
+describe('seedAdmin (SPEC.md §6.7, first-Admin bootstrap)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

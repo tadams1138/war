@@ -8,7 +8,7 @@ The War platform. Three projects and one specification:
 | `war-ui-default/` | Default web frontend — React SPA, Vite, Playwright |
 | `war-infra/` | Terraform, App Platform specs, Cloudflare Workers, deploy scripts |
 
-`war-spec.md`, at the repo root, is the platform specification.
+`SPEC.md`, at the repo root, is the platform specification.
 
 ## Testing
 
@@ -130,18 +130,18 @@ remove it from `TODO.md`, delete its detail file, and ask whether to renumber.
 
 ## Specs
 
-`war-spec.md` is the single specification and the contract. It describes **what** the
+`SPEC.md` is the single specification and the contract. It describes **what** the
 platform does, in implementation-agnostic terms — no payload shapes, no schemas, no folder
 structures. Keep it accurate enough to rebuild the project from alone, and keep
 implementation detail out of it: that belongs here.
 
-When something ships, make sure `war-spec.md` (behaviour) and the README's "Deployment and
+When something ships, make sure `SPEC.md` (behaviour) and the README's "Deployment and
 operations" section (how to operate it) describe it.
 
 Executable Gherkin lives with the code that implements it — `war-api/specs/features/`,
 `war-ui-default/features/`, `war-infra/specs/features/`. Each has a `pending/` subdirectory
 for scenarios with no binding yet. These are test fixture, not a second copy of the spec. A
-custom UI (war-spec.md §11) is its own separate repository, not a directory here, so it
+custom UI (SPEC.md §11) is its own separate repository, not a directory here, so it
 keeps its own Gherkin — `.github/workflows/ui-custom.yml` is the reusable pipeline each one
 calls.
 

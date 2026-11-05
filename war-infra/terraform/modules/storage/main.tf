@@ -1,4 +1,4 @@
-# Object storage — see war-spec.md
+# Object storage — see SPEC.md
 #
 # Two buckets per environment:
 #   war-media-{env}       contestant image variants (public) + originals (private)

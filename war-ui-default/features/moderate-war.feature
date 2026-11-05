@@ -1,7 +1,7 @@
 @moderate-war
 Feature: Moderating a War
 
-  A Moderator moderates a War on its detail page (war-spec.md §6.7, §10.4): the
+  A Moderator moderates a War on its detail page (SPEC.md §6.7, §10.4): the
   page everyone sees, plus the War's reports and a Remove control.
 
   Scenario: A Moderator sees a War's reports and the Remove control on its detail page

@@ -1,4 +1,4 @@
-// Media router — see war-spec.md
+// Media router — see SPEC.md
 //
 // Bound to /media/* on the zone. Fetches contestant image variants directly
 // from the Spaces CDN, stripping the /media prefix so bucket keys stay clean.

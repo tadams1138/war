@@ -1,4 +1,4 @@
-// The Voters list (war-spec.md §6.7): every Voter with role and sanction
+// The Voters list (SPEC.md §6.7): every Voter with role and sanction
 // badges and the number of Wars they created.
 import { Link } from 'react-router-dom'
 import type { AdminVoterItem } from '../../api/client'

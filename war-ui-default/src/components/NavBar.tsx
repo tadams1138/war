@@ -1,4 +1,4 @@
-// Persistent navigation header (war-spec.md §10.2), rendered once by App's
+// Persistent navigation header (SPEC.md §10.2), rendered once by App's
 // shell around every route. Renders in the active theme published via
 // ThemeContext.
 import { Link } from 'react-router-dom'

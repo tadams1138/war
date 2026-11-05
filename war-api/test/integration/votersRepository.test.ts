@@ -4,7 +4,7 @@ import { UNKNOWN_ID, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
-describe('setVoterRole (war-spec.md §3, §6.7)', () => {
+describe('setVoterRole (SPEC.md §3, §6.7)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

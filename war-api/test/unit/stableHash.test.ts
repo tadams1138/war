@@ -62,7 +62,7 @@ describe('isLeftSide', () => {
   it('depends on its inputs rather than being a constant value', () => {
     // Arrange: recomputing the same digest with the same library restates
     // the implementation and can never fail while it stays internally
-    // consistent. Instead, assert the property war-spec.md §6.3 actually
+    // consistent. Instead, assert the property SPEC.md §6.3 actually
     // needs: across a spread of matchup ids, both sides occur — a
     // constant-true or constant-false implementation would fail.
     const voterId = 'v1';

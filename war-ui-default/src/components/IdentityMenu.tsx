@@ -1,4 +1,4 @@
-// The authenticated half of NavBar (war-spec.md §10.2): one avatar+name
+// The authenticated half of NavBar (SPEC.md §10.2): one avatar+name
 // control that opens a menu of My Wars, Start a War, Import a War, Admin
 // Dashboard (Moderators and Admins) and Log out. Follows the ARIA menu pattern: focus moves
 // into the menu on open, arrow keys/Home/End move between items, and Escape

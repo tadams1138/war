@@ -1,7 +1,7 @@
 # 1 — Custom UI registry and shared runtime
 
 ## Summary
-Build the registry of custom UIs and the shared runtime artifact they depend on (war-spec.md
+Build the registry of custom UIs and the shared runtime artifact they depend on (SPEC.md
 §6.5 "Custom UI registry" and §11 "Custom UIs", both marked Planned).
 
 ## Current state
@@ -23,7 +23,7 @@ Build the registry of custom UIs and the shared runtime artifact they depend on 
   shared runtime artifact that custom UIs load, and a decision on how registration relates to
   `ui-router.js` (the Worker currently needs no per-slug configuration).
 - Follow the spec sections for the intended design; keep implementation detail out of
-  war-spec.md.
+  SPEC.md.
 
 ## Dependencies
 - #4 (the registry-related routing scenarios have no runner).

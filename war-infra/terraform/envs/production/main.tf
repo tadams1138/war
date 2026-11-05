@@ -1,5 +1,5 @@
 # War — production environment
-# See war-spec.md. Same composition as staging, with larger
+# See SPEC.md. Same composition as staging, with larger
 # sizing and a standby database node.
 
 terraform {

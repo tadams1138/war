@@ -68,7 +68,7 @@ export interface EditWarLoadedState {
   // its own visibility, so this never needs to be reset back to null.
   toast: string | null
   // Set while a Publish/Unpublish request is in flight, and to the API's
-  // own validation messages when one fails -- war-spec.md's one deliberate
+  // own validation messages when one fails -- SPEC.md's one deliberate
   // exception to generic 422 copy.
   publishing: boolean
   publishDetails: string[] | null
@@ -94,7 +94,7 @@ export interface EditWarActions {
 
 /**
  * The error copy for Publish/Unpublish and for attaching or replacing a video
- * (war-spec.md's deliberate exceptions to its generic 422 copy): the API's
+ * (SPEC.md's deliberate exceptions to its generic 422 copy): the API's
  * `details` array verbatim when the failure actually carries one, falling
  * back to the generic message otherwise.
  */
@@ -301,7 +301,7 @@ export function useEditWar(
     )
   }
 
-  // Mirrors useVoteSession's applyRateLimit: shows the wait (war-spec.md
+  // Mirrors useVoteSession's applyRateLimit: shows the wait (SPEC.md
   // §10.5, never an error) and clears itself once the delay passes, no
   // action required from the creator.
   function applyImageRateLimit(contestantId: string, error: ApiError): Update {

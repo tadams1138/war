@@ -90,7 +90,7 @@ export async function giveContestantAnImage(
 /**
  * Builds a War with `count` contestants (each with one image when
  * `options.withImages` is set), still in draft. Generates matchups incrementally as each contestant is added,
- * mirroring `addContestant` (war-spec.md §4 "Matchup") -- matchups exist as soon as
+ * mirroring `addContestant` (SPEC.md §4 "Matchup") -- matchups exist as soon as
  * a War has contestants to pair, independent of publishing.
  */
 export async function makeDraftWarWithContestants(

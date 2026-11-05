@@ -18,7 +18,7 @@ working conventions.
 
 ## Architecture
 
-The platform is three projects and one specification. [`war-spec.md`](war-spec.md) says what
+The platform is three projects and one specification. [`SPEC.md`](SPEC.md) says what
 the system does, in implementation-agnostic terms; where a test and the spec disagree, the
 spec wins. [`war-api/`](war-api) is the backend REST API, [`war-ui-default/`](war-ui-default)
 the default web frontend (a React single-page app) and [`war-infra/`](war-infra) the
@@ -165,7 +165,7 @@ Executable Gherkin lives next to the code it describes; see "Specs" in
 ## Default UI
 
 `war-ui-default` is a React single-page app (Vite, TypeScript) served as static assets by a Cloudflare Worker. It
-talks to `war-api` over REST; behaviour is defined in [`war-spec.md`](war-spec.md) (section
+talks to `war-api` over REST; behaviour is defined in [`SPEC.md`](SPEC.md) (section
 10). Run its scripts from the repository root with `npm --prefix war-ui-default <script>`.
 Install, lint, typecheck, test, acceptance, coverage and build are in
 [`AGENTS.md`](AGENTS.md); the rest:
@@ -278,7 +278,7 @@ Rules:
 4. **Steps must be true, and the Gherkin is the owner's intent.** When a step claims more than
    the test arranges or checks, strengthen the test: arrange what the Given says, assert what
    the Then claims. Do not reword the Gherkin down to fit a weak test. Reword it only when it
-   contradicts `war-spec.md` or cannot be verified in a UI test, and then report it as an open
+   contradicts `SPEC.md` or cannot be verified in a UI test, and then report it as an open
    question. Where the text merely misdescribes *how* the test works (an implementation detail,
    a wrong name), fix the text.
 5. **No no-op steps.** A step whose definition does nothing (`Given no voter is authenticated`)
@@ -375,7 +375,7 @@ Use these before writing new steps.
 
 ## Deployment and operations
 
-Section 12 of [`war-spec.md`](war-spec.md) says what the pipelines and infrastructure must do;
+Section 12 of [`SPEC.md`](SPEC.md) says what the pipelines and infrastructure must do;
 this section is how this repository does it and how to operate it. Every infrastructure
 change is applied through CI, never by hand.
 
@@ -787,7 +787,7 @@ alerting remain planned (spec 12.7;
 
 ## Status and specification
 
-[`war-spec.md`](war-spec.md) describes the full design, including parts not yet built, so a
+[`SPEC.md`](SPEC.md) describes the full design, including parts not yet built, so a
 section being present in the spec does not mean it ships; sections marked **Planned** are the
 unbuilt ones. Planned work is tracked in [TODO.md](TODO.md).
 [`docs/building-a-war-import.md`](docs/building-a-war-import.md) holds instructions written

@@ -10,12 +10,12 @@ import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
 /**
- * The two narrow races of Suspend/Ban (war-spec.md §6.7), made deterministic:
+ * The two narrow races of Suspend/Ban (SPEC.md §6.7), made deterministic:
  * each test holds one side's transaction open, proves the other side is
  * genuinely waiting on a row lock (a not-granted lock in `pg_locks`, not a
  * timer guess), then lets the first side commit and checks the outcome.
  */
-describe('voter row locking (war-spec.md §6.7)', () => {
+describe('voter row locking (SPEC.md §6.7)', () => {
   let harness: TestHarness;
 
   const openHolds: { release: () => void; finished: Promise<unknown> }[] = [];

@@ -1,4 +1,4 @@
-// Custom UI router — see war-spec.md
+// Custom UI router — see SPEC.md
 //
 // Bound to /ui/* on the zone. Serves every custom UI from one shared bucket
 // keyed by slug prefix, and rewrites storage 404s to that slug's index.html

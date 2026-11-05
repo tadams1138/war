@@ -1,5 +1,5 @@
 // Generates a War's share image client-side from two of its own contestants
-// (war-spec.md, "The share image is set one of two ways"): a 1200x630 canvas,
+// (SPEC.md, "The share image is set one of two ways"): a 1200x630 canvas,
 // each contestant's own primary image (utils/media.ts's primaryMedia --
 // display_order 0, never just the media array's first entry, which the API
 // happens to return pre-sorted today but this codebase's own convention

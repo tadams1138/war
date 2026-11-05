@@ -12,7 +12,7 @@ gather what the user wants the War to contain, and assemble one correctly-shaped
 they can hand to that existing feature. The deliverable is the file, not code, and not an API
 call.
 
-If anything here conflicts with [`war-spec.md`](../war-spec.md), the spec wins.
+If anything here conflicts with [`SPEC.md`](../SPEC.md), the spec wins.
 
 ## Before you start: figure out what the War needs
 

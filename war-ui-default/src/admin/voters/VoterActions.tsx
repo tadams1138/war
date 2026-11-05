@@ -1,4 +1,4 @@
-// The actions available on a Voter's detail (war-spec.md §3, §6.7): Suspend and
+// The actions available on a Voter's detail (SPEC.md §3, §6.7): Suspend and
 // Ban to a Moderator, role controls to an Admin. Neither role implies the other.
 import { setVoterBan, setVoterRole, setVoterSuspension, type AdminVoterDetail, type VoterMe, type VoterRole } from '../../api/client'
 import { canAssignRoles, canModerate } from '../../auth/roles'
@@ -46,7 +46,7 @@ function SanctionControls({ voter, isSelf, onChanged }: VoterActionsProps & { is
   )
 }
 
-// Admin-only. An Admin never sees Revoke Admin on their own detail (war-spec.md's
+// Admin-only. An Admin never sees Revoke Admin on their own detail (SPEC.md's
 // self-removal guard); the API would refuse it.
 function RoleControls({ voter, isSelf, onChanged }: VoterActionsProps & { isSelf: boolean }) {
   return (

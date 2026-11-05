@@ -1,5 +1,5 @@
 // Privacy Policy — required by Google's OAuth consent screen. Generic
-// boilerplate drafted from what war-spec.md says the platform actually
+// boilerplate drafted from what SPEC.md says the platform actually
 // collects, not a lawyer-reviewed document. Owner should replace before
 // this is relied on for real compliance obligations.
 const LAST_UPDATED = '2026-09-24'

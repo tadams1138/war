@@ -1,4 +1,4 @@
-// A creator's personal backup of a War's definition (war-spec.md §10.4): title,
+// A creator's personal backup of a War's definition (SPEC.md §10.4): title,
 // contestants, and their images, so the War can be recreated later. Carries
 // no votes, rankings, or win/appearance counts -- it exists to rebuild a
 // War, not to report on one. Media ships as files inside the zip, never

@@ -1,4 +1,4 @@
-// The merged War detail results list (war-spec.md §10.1, §10.4): one entry
+// The merged War detail results list (SPEC.md §10.1, §10.4): one entry
 // per contestant, ordered exactly as the rankings API returns it (never
 // re-sorted), each carrying that contestant's browsable media, name, and
 // bio alongside its rank/wins/appearances (GET /wars/:id merged with

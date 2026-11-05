@@ -417,7 +417,7 @@ label {
   margin-bottom: 0.75rem;
 }
 
-/* The vote page's own layout (war-spec.md §10.3): the tap-to-vote block
+/* The vote page's own layout (SPEC.md §10.3): the tap-to-vote block
    (progress + both cards) fills the viewport with no scroll needed to
    vote, via a definite `height: 100dvh` flex column (with a 100vh fallback) -- not `min-height`,
    which leaves how much of that height a `flex: 1`/`1fr` row actually
@@ -598,7 +598,7 @@ label {
 /* Narrow mode's bio, sharing a .matchup-row with its own card -- capped to
    that row's height, so a long bio scrolls within its own area rather than
    growing the row past the viewport (both contestants must stay fully
-   visible without scrolling the page itself, war-spec.md §10.3). */
+   visible without scrolling the page itself, SPEC.md §10.3). */
 .matchup-row .matchup-bio {
   flex: 1 1 0%;
   min-width: 0;
@@ -637,7 +637,7 @@ label {
   height: 100%;
 }
 
-/* The results list (war-spec.md §10.4): each card's media, content, and stats
+/* The results list (SPEC.md §10.4): each card's media, content, and stats
    groups stack in one column, media first, on a narrow viewport -- a fixed
    percentage split would squeeze every group into an unusably narrow
    sliver below some breakpoint. The

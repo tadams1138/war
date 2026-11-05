@@ -1,5 +1,5 @@
 # War — staging environment
-# See war-spec.md. The physical database cluster is owned by shared/.
+# See SPEC.md. The physical database cluster is owned by shared/.
 
 terraform {
   required_version = "~> 1.9"

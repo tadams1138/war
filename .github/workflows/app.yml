@@ -1,4 +1,4 @@
-# War app pipeline (war-api + war-ui-default) — see war-spec.md
+# War app pipeline (war-api + war-ui-default) — see SPEC.md
 #
 # One pipeline, one writer per side (UI Worker, App Platform app) per
 # environment. A change-detection job decides which project's CI runs; the API
@@ -89,7 +89,7 @@ env:
   REGISTRY: registry.digitalocean.com/war
   IMAGE_NAME: war-api
   # The deployed runtime is 24.x, not the 22 this pinned before — see
-  # war-spec.md "Toolchain deviation".
+  # SPEC.md "Toolchain deviation".
   NODE_VERSION: '24'
   TF_VERSION: '1.9.8'
 

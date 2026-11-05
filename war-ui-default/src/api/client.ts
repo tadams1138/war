@@ -378,7 +378,7 @@ export function providerLoginUrl(provider: string): string {
   return `${API_BASE_URL}/auth/${provider}/login`
 }
 
-// --- Role-gated endpoints (the Admin Dashboard, war-spec.md §6.7) --------------
+// --- Role-gated endpoints (the Admin Dashboard, SPEC.md §6.7) --------------
 
 export function getKillSwitch(): Promise<KillSwitchState> {
   return json('/kill-switch', {}, classifyRoleForbidden)

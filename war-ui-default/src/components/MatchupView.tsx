@@ -1,4 +1,4 @@
-// The core voting UI (war-spec.md §10.3). The API decides which contestant
+// The core voting UI (SPEC.md §10.3). The API decides which contestant
 // is left and which is right — this renders that order verbatim and must
 // never reorder the pair. A bio, when a contestant has one, renders in its
 // own area outside the tap-to-vote media (§10.3) — never inside
@@ -56,7 +56,7 @@ function WideMatchup({ title, leftCard, vsBadge, rightCard, leftBio, rightBio, p
 }
 
 // Always the full-height block, media or not: each bio already sits beside its
-// card here, and a long one must scroll within its own area (war-spec.md §10.3).
+// card here, and a long one must scroll within its own area (SPEC.md §10.3).
 function NarrowMatchup({ title, leftCard, vsBadge, rightCard, leftBio, rightBio, progressBar, errorMessage, playbackControl }: MatchupPieces) {
   return (
     <div className="vote-viewport" data-testid="vote-layout">
@@ -109,7 +109,7 @@ function cardContent(side: 'left' | 'right', props: MatchupViewProps): ReactNode
 }
 
 // A video matchup on a narrow (stacked) viewport shows no bios: the players need
-// the width a bio would take beside them (war-spec.md §10.3).
+// the width a bio would take beside them (SPEC.md §10.3).
 function bioFor(side: 'left' | 'right', props: MatchupViewProps, narrow: boolean): ReactNode {
   if (narrow && props.videoCards) return null
   return (

@@ -11,7 +11,7 @@ import { truncateAll } from '../setup/testDb.js';
  * counters. This needs the real UNIQUE constraint as arbiter, so it runs
  * against the real database rather than a mock.
  */
-describe('castVote concurrency (war-spec.md §6.3, idempotent retry)', () => {
+describe('castVote concurrency (SPEC.md §6.3, idempotent retry)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

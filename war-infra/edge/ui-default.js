@@ -1,5 +1,5 @@
 // Default UI Worker -- serves the static SPA (Workers static assets) and adds
-// per-War link-preview (Open Graph / Twitter Card) tags -- see war-spec.md
+// per-War link-preview (Open Graph / Twitter Card) tags -- see SPEC.md
 //
 // The SPA is fully static: every route serves the identical index.html and
 // fills its <title>/content in client-side JavaScript, which a link-preview

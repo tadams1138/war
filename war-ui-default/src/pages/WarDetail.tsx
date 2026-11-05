@@ -1,4 +1,4 @@
-// War overview and results, image mode only (war-spec.md: "War detail is one
+// War overview and results, image mode only (SPEC.md: "War detail is one
 // page, not two" — 10.1, 10.4). One merged results list, ordered by rank —
 // no separate contestant gallery and no separate "Results" section. No
 // authentication required to view a War or its results, listed or unlisted.
@@ -120,7 +120,7 @@ function asVoteProgress(progress: VoteProgress | 'anonymous' | null): VoteProgre
 }
 
 // Replaces the Vote entry point once an authenticated voter has cast every
-// vote (war-spec.md §10.4) -- also what a voter who just cast their final
+// vote (SPEC.md §10.4) -- also what a voter who just cast their final
 // vote on the vote page sees, since finishing there redirects here
 // (VoteMode's useRedirectWhenCompleted) rather than showing its own screen.
 function CompletionNotice({ progress }: { progress: VoteProgress | 'anonymous' | null }) {

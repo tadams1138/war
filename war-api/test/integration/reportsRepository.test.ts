@@ -8,7 +8,7 @@ import { deleteWarRow, makeDraftWar, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
-describe('reportsRepository (war-spec.md §8.5)', () => {
+describe('reportsRepository (SPEC.md §8.5)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {
@@ -34,7 +34,7 @@ describe('reportsRepository (war-spec.md §8.5)', () => {
     expect(queue).toEqual([{ warId: warWithUnaddressed.id, title: 'Needs review', unaddressedCount: 2 }]);
   });
 
-  it('is removed entirely when its War is deleted (war-spec.md §8.5, no FK cascade on reports.war_id)', async () => {
+  it('is removed entirely when its War is deleted (SPEC.md §8.5, no FK cascade on reports.war_id)', async () => {
     // Arrange
     const creator = await makeVoter(harness.db, 'creator');
     const reporter = await makeVoter(harness.db, 'reporter');

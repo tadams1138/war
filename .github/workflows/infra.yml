@@ -1,4 +1,4 @@
-# war-infra pipeline — see war-spec.md
+# war-infra pipeline — see SPEC.md
 #
 # Spaces provides no state locking (spec), so the per-environment
 # concurrency groups on the apply jobs below are what prevent two applies

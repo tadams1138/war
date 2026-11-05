@@ -1,4 +1,4 @@
-// A War's own editing page (war-spec.md §6.1: always editable by its
+// A War's own editing page (SPEC.md §6.1: always editable by its
 // creator, in any status): metadata, each contestant's name/bio/images,
 // Publish/Unpublish, Clear Votes, and Delete. GET /wars/:id 404s for "not
 // the creator" and "not found" alike, so this page cannot tell them apart.

@@ -1,4 +1,4 @@
-// What each role may do (war-spec.md §3, §6.7): a Moderator moderates, an
+// What each role may do (SPEC.md §3, §6.7): a Moderator moderates, an
 // Admin assigns roles, and neither implies the other. A role holder is a
 // Moderator, an Admin or both.
 import type { VoterMe } from '../api/client'

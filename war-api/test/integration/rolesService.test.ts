@@ -6,7 +6,7 @@ import { makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
-describe('rolesService (war-spec.md §6.7)', () => {
+describe('rolesService (SPEC.md §6.7)', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

@@ -42,7 +42,7 @@ function coverageInstrumentation(): Plugin[] {
   ]
 }
 
-// Static output only: no SSR, no server (war-spec.md §10).
+// Static output only: no SSR, no server (SPEC.md §10).
 export default defineConfig({
   plugins: [react(), tailwindcss(), mockServiceWorker(), ...coverageInstrumentation()],
 })

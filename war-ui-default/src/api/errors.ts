@@ -35,7 +35,7 @@ export class ApiError extends Error {
   }
 }
 
-// Pure mapping from a typed reason to the exact user-facing copy in war-spec.md's
+// Pure mapping from a typed reason to the exact user-facing copy in SPEC.md's
 // table. `conflict` has no message — MatchupView advances silently instead.
 // A lookup table, not a switch: every branch here is a fixed string, so a
 // `Record` keeps this at zero cyclomatic complexity instead of one branch per
