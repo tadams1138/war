@@ -29,7 +29,7 @@ export const contestantViewSchema = {
   },
 };
 
-/** `ContestantView` plus `bio`: what `/matchups/next` shows for each side (§10.3). Separate from `ContestantView` because `/rankings` has no use for bio. */
+/** `ContestantView` plus `bio`: what `/matchups/next` shows for each side. Separate from `ContestantView` because `/rankings` has no use for bio. */
 export interface MatchupContestantView {
   id: string;
   name: string;

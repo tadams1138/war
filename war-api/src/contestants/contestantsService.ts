@@ -55,7 +55,7 @@ export async function addContestant(db: Kysely<Database>, input: CreateContestan
       name: input.name,
       bio: input.bio ?? null,
     });
-    // Matchups generate incrementally: the new contestant is paired against everyone already on the roster (§4 "Matchup").
+    // Matchups generate incrementally: the new contestant is paired against everyone already on the roster.
     await generateMatchupsForNewContestant(
       trx,
       input.warId,
@@ -94,7 +94,7 @@ export async function patchContestant(
 }
 
 /**
- * Removes a contestant, any status, creator-only (§6.1). Votes on its matchups (and only those) are
+ * Removes a contestant, any status, creator-only. Votes on its matchups (and only those) are
  * cleared with it and the surviving contestants' counters recomputed, all in one transaction so a failure
  * never leaves a matchup or vote orphaned from a contestant that no longer exists. An Admin's moderation log entry
  * joins that transaction; the stored media objects are deleted best effort after it commits.

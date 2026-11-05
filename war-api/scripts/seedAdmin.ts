@@ -4,7 +4,7 @@ import { loadConfig } from '../src/config.js';
 import { createDb } from '../src/db/index.js';
 import { setVoterRole, type Voter } from '../src/auth/votersRepository.js';
 
-/** Grants the admin role to `voterId` (spec §6.7). The only way to create the first Admin on a fresh deployment, since no Admin yet exists to call the grant endpoint. */
+/** Grants the admin role to `voterId`. The only way to create the first Admin on a fresh deployment, since no Admin yet exists to call the grant endpoint. */
 export async function seedAdmin(db: Kysely<Database>, voterId: string): Promise<Voter | undefined> {
   return setVoterRole(db, voterId, 'admin', true);
 }

@@ -101,7 +101,7 @@ function buildPrefetch(
 }
 
 /**
- * Builds the `/matchups/next` response (§6.3): the voter's next matchup, progress, and an advisory prefetch
+ * Builds the `/matchups/next` response: the voter's next matchup, progress, and an advisory prefetch
  * block naming the following matchup's media. Two batched queries cover both contestants and all four media sets;
  * this is the most latency-sensitive endpoint, since a slow response stalls the prefetch meant to warm the next one.
  */

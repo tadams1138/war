@@ -25,7 +25,7 @@ function extractAdvertisedRedirectUri(location: string | undefined): string | nu
 }
 
 /**
- * Drives the login leg only (SPEC.md §5.1) and stops before the
+ * Drives the login leg only and stops before the
  * callback -- the shared setup every "begin a login, then do something
  * callback-shaped" test needs, instead of duplicating it per test.
  */

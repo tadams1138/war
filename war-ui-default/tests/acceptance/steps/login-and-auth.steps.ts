@@ -83,7 +83,7 @@ Then("the browser navigates to {provider}'s login endpoint", async ({ page }, pr
   await expect(page).toHaveURL(new RegExp(`${API}/auth/${provider.id}/login`))
 })
 
-// The token lives in memory only (SPEC.md §10): a script-readable copy in
+// The token lives in memory only: a script-readable copy in
 // any browser storage is what an XSS payload would exfiltrate.
 Then('the access token is not in browser storage', async ({ page }) => {
   // Assert

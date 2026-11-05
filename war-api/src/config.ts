@@ -42,7 +42,7 @@ export interface AppConfig {
   internalTaskToken: string;
   /**
    * How many reverse-proxy hops sit between the internet and this process
-   * (env `TRUST_PROXY_HOPS`). Address-keyed rate limits (§8.4) read
+   * (env `TRUST_PROXY_HOPS`). Address-keyed rate limits read
    * the client address from `X-Forwarded-For` only across this many hops. Unset
    * means the hop count isn't known yet, so those limits stay off rather than
    * throttle every client as one address.

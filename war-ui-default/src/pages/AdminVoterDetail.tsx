@@ -1,4 +1,4 @@
-// A single Voter as a Moderator or an Admin sees it (SPEC.md §6.7): their
+// A single Voter as a Moderator or an Admin sees it: their
 // roles and sanctions and the Wars they created, and for a Moderator (below)
 // their vote history. Each War opens on its detail page. Reached from the Admin
 // Dashboard's Voters list and the moderation log.

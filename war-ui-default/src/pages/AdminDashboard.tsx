@@ -1,4 +1,4 @@
-// The Admin Dashboard (SPEC.md §10.1 routes table; §6.7): each role sees its
+// The Admin Dashboard: each role sees its
 // own panels. A Moderator has the Wars, the unaddressed reports queue and the
 // kill switch; a Moderator and an Admin both have the Voters list and the
 // moderation log (the API gives each the entries of its own role).

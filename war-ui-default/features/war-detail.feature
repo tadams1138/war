@@ -1,7 +1,7 @@
 @war-detail
 Feature: War Detail
 
-  War detail is one page (SPEC.md 10.1, 10.4): a single results list, ordered
+  War detail is one page: a single results list, ordered
   by rank, where each row carries that contestant's image, name, bio, wins, and
   appearances together. There is no separate contestant gallery and no separate
   "Results" section — one merged list is the whole page.

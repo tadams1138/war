@@ -38,7 +38,7 @@ export interface VoteForbiddenView {
 }
 
 /**
- * The vote route's `403` carries a `reason` so a client can tell the two causes §6.3 defines (War not
+ * The vote route's `403` carries a `reason` so a client can tell the two causes (War not
  * published, voter not joined) apart without matching `error`'s text. `POST /wars/:id/join` has a single
  * cause and stays on `errorResponseSchema`.
  */
@@ -55,7 +55,7 @@ export interface MatchupsRouteDeps {
   db: Kysely<Database>;
   auth: AuthDependencies;
   publicBaseUrl: string;
-  /** Per-voter vote-casting limit (§8.4: 60/minute and 2,000/day). */
+  /** Per-voter vote-casting limit (60/minute and 2,000/day). */
   rateLimiter: RateLimiter;
 }
 

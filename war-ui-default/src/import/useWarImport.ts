@@ -16,8 +16,7 @@ export interface WarImportState {
 }
 
 // The exported metadata's `visibility`/`theme` are only structurally
-// validated (spec §10.4: shape and completeness, not deep enum
-// membership) -- an invalid value here surfaces as an ordinary 422 from the
+// validated -- an invalid value here surfaces as an ordinary 422 from the
 // real `createWar` call below, handled the same as any other createWar
 // failure (importWar.ts's own createWar error path).
 function toCreateWarPayload(metadata: Parameters<ImportApi['createWar']>[0]): CreateWarPayload {
@@ -45,8 +44,7 @@ const realImportApi: ImportApi = {
   },
 }
 
-// The new draft is left findable via My Wars either way (spec §10.4,
-// "Import"): a full success calls `onImported` to jump straight to it, same
+// The new draft is left findable via My Wars either way: a full success calls `onImported` to jump straight to it, same
 // as Create War's own instant-draft-to-Edit-page flow; a partial failure
 // (the War exists, a contestant or image didn't) shows its error here
 // instead and does not navigate -- the creator finds the draft in the list

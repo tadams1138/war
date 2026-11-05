@@ -19,7 +19,7 @@ export interface War {
   endsAt: Date | null;
   shareImageKey: string | null;
   createdAt: Date;
-  /** When a Moderator removed it (§6.7); only {@link findWarIncludingRemoved} can return a War where this is set. */
+  /** When a Moderator removed it; only {@link findWarIncludingRemoved} can return a War where this is set. */
   removedAt: Date | null;
 }
 
@@ -74,13 +74,13 @@ export async function findWarById(db: Kysely<Database>, id: string): Promise<War
   return row ? toWar(row) : undefined;
 }
 
-/** The War whether or not a Moderator removed it: for the Moderator's own view only (§6.7); every other reader uses {@link findWarById}. */
+/** The War whether or not a Moderator removed it: for the Moderator's own view only; every other reader uses {@link findWarById}. */
 export async function findWarIncludingRemoved(db: Kysely<Database>, id: string): Promise<War | undefined> {
   const row = await db.selectFrom('wars').selectAll().where('id', '=', id).executeTakeFirst();
   return row ? toWar(row) : undefined;
 }
 
-/** Marks a not-yet-removed War removed (§6.7). `false` if it doesn't exist or was already removed. */
+/** Marks a not-yet-removed War removed. `false` if it doesn't exist or was already removed. */
 export async function markWarRemoved(db: Kysely<Database>, id: string): Promise<boolean> {
   const row = await db
     .updateTable('wars')
@@ -99,11 +99,11 @@ export interface ListWarsFilter {
   category?: string;
   cursor?: string;
   limit: number;
-  /** The instant status filters are evaluated at -- a War ending at or before it is closed (§4, "Effective status"). */
+  /** The instant status filters are evaluated at -- a War ending at or before it is closed ("Effective status"). */
   now: Date;
   /**
    * Scopes the list to Wars created by this voter, across every status --
-   * including their own drafts and unlisted Wars (§6.1).
+   * including their own drafts and unlisted Wars.
    * Composes with `status`/`category` exactly as
    * those two already compose with each other. Only ever set from the
    * authenticated requester's own id -- never from a client-supplied one --
@@ -151,7 +151,7 @@ function baseWarsQuery(db: Kysely<Database>, filter: ListWarsFilter) {
     const ownScoped = query.where('wars.creator_id', '=', filter.creatorId);
     return filter.status ? ownScoped.where(hasEffectiveStatus(filter.status, filter.now)) : ownScoped;
   }
-  // Default scoping when `creatorId` is absent (§6.1): never a draft, never an unlisted War, whatever
+  // Default scoping when `creatorId` is absent: never a draft, never an unlisted War, whatever
   // `status` asks for (`status=draft` returns empty, not another voter's drafts). No `status` means `published`.
   // Enforced here so every caller of `listWars` inherits it.
   return query
@@ -375,7 +375,7 @@ export async function closeExpiredWars(db: Kysely<Database>, now: Date): Promise
 }
 
 /**
- * Removes a War and everything it owns, in any status (§6.1 "Deletion"), in FK dependency order: none of the foreign
+ * Removes a War and everything it owns, in any status, in FK dependency order: none of the foreign
  * keys in `20260101000000_init.sql` cascade. Runs on the caller's open transaction (Kysely cannot nest `.transaction()`)
  * so callers such as banning a Voter can delete several Wars atomically with their own writes. Storage objects are the
  * caller's job, after commit (`deleteWar`, `warMediaStorage.ts`).
@@ -400,7 +400,7 @@ export async function deleteWarRowIn(trx: Kysely<Database>, warId: string): Prom
   await trx.deleteFrom('wars').where('id', '=', warId).execute();
 }
 
-/** Ids of every War `creatorId` created, removed ones included (§6.7: a ban hard-deletes them all). */
+/** Ids of every War `creatorId` created, removed ones included (a ban hard-deletes them all). */
 export async function listWarIdsByCreator(db: Kysely<Database>, creatorId: string): Promise<string[]> {
   const rows = await db.selectFrom('wars').select('id').where('creator_id', '=', creatorId).execute();
   return rows.map((row) => row.id);

@@ -72,7 +72,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     jwt: { secret: deps.config.jwtSecret, issuer: deps.config.jwtIssuer },
   };
 
-  // Per-voter rate limits (§8.4) -- one limiter instance per scope, per
+  // Per-voter rate limits -- one limiter instance per scope, per
   // app instance, so each `buildApp()` call (a fresh process in production,
   // a fresh test harness in `buildTestHarness`) starts with clean state.
   const voteRateLimiter = new RateLimiter([
@@ -81,7 +81,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   ]);
   const warCreationRateLimiter = new RateLimiter([{ windowMs: 3_600_000, max: 10 }]);
   const imageUploadRateLimiter = new RateLimiter([{ windowMs: 3_600_000, max: 100 }]);
-  // Per-client-address limits for the endpoints that run before a voter is identified (§8.4).
+  // Per-client-address limits for the endpoints that run before a voter is identified.
   // Off until the proxy hop count is configured: without it every client shares one address.
   const addressLimited = deps.config.trustProxyHops !== undefined;
   const signInRateLimiter = addressLimited ? new RateLimiter([{ windowMs: 60_000, max: 10 }]) : undefined;

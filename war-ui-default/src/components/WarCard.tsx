@@ -1,10 +1,10 @@
-// Summary tile used on the Home and MyWars pages (SPEC.md, "WarCard"):
+// Summary tile used on the Home and MyWars pages:
 // title, category badge, contestant count, and time remaining (when
 // ends_at is set). MyWars ("MyWars Page") additionally needs a status badge
 // and a single link to the War's detail page, since it lists every status a
 // War can hold. Home's own Wars are all published by construction (the
 // page's query already filters to published), so repeating "published" on
-// every card is noise, not information (SPEC.md 10.4) -- Home instead
+// every card is noise, not information -- Home instead
 // offers direct Vote and Results entry points in place of the status badge
 // and the single detail-page link.
 import { Link } from 'react-router-dom'
@@ -19,7 +19,7 @@ interface WarCardProps {
   showEditLink?: boolean
   // 'my-wars' (default) keeps the status badge and single link to detail.
   // 'home' drops the status badge and offers Vote/Results entry points
-  // instead (SPEC.md 10.4).
+  // instead.
   variant?: 'my-wars' | 'home'
 }
 

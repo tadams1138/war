@@ -1,4 +1,4 @@
-// The merged War detail results list (SPEC.md §10.1, §10.4): one entry
+// The merged War detail results list: one entry
 // per contestant, ordered exactly as the rankings API returns it (never
 // re-sorted), each carrying that contestant's browsable media, name, and
 // bio alongside its rank/wins/appearances (GET /wars/:id merged with
@@ -31,7 +31,7 @@ function contestantDetailsById(contestants: ContestantDetail[]): Map<string, Con
 }
 
 // A bar sized by this contestant's raw wins relative to the leader's —
-// never wins over appearances. §7 rejects any appearance-normalized
+// never wins over appearances. Any appearance-normalized
 // percentage as a display value (it would let a 3-for-3 contestant outrank
 // a 320-of-400 one); this bar visualizes the same raw win count already
 // shown as a number in the Wins group, nothing derived from appearances.

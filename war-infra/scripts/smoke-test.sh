@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Post-deploy smoke tests — see SPEC.md.
+# Post-deploy smoke tests.
 #
 # Usage:
 #   smoke-test.sh <environment> api

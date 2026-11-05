@@ -4,7 +4,7 @@ const SHARE_IMAGE_WIDTH = 1200;
 const SHARE_IMAGE_HEIGHT = 630;
 
 /**
- * A War's share image (§9.1) follows none of contestants' own
+ * A War's share image follows none of contestants' own
  * processing rules: one fixed 1200x630 size, not a set of responsive
  * variants, and JPEG rather than the modern format contestant media uses --
  * so the same asset works as both the in-app card thumbnail and a

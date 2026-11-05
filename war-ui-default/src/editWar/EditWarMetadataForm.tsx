@@ -10,8 +10,8 @@ interface EditWarMetadataFormProps {
   error: string | null
   saving: boolean
   onSave: (payload: PatchWarPayload) => void
-  // Deferred like every other field on this form (spec, "neither an upload
-  // nor a generated preview takes effect until Save is pressed") -- called
+  // Deferred like every other field on this form: neither an upload
+  // nor a generated preview takes effect until Save is pressed. Called
   // from submit(), before onSave, only when a pending image exists.
   onUploadShareImage: (blob: Blob) => Promise<void>
 }

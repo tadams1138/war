@@ -1,4 +1,4 @@
-/** The moderation-log action of each kind of owner-level request an Admin makes on a War they did not create (§6.7). */
+/** The moderation-log action of each kind of owner-level request an Admin makes on a War they did not create. */
 export type OwnerAction =
   | 'edit_war'
   | 'set_share_image'

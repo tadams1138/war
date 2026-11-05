@@ -1,4 +1,4 @@
-// The append-only moderation log (SPEC.md §6.7), newest first. Entries carry
+// The append-only moderation log, newest first. Entries carry
 // the names of the acting Moderator or Admin, the target Voter and the target War's
 // title alongside the ids, so the panel shows names without a lookup per id.
 // A name links to that Voter's / War's detail. A Voter with no name falls

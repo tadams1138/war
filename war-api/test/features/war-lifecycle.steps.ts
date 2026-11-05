@@ -540,7 +540,7 @@ describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => 
       // Arrange
       const creator = await makeVoter(harness.db, 'creator');
       // Published (not left in "draft"): an anonymous, unfiltered GET /wars
-      // excludes draft Wars by default (SPEC.md §6.1), and this
+      // excludes draft Wars by default, and this
       // scenario is about contestant_count, not visibility -- so the fixture
       // needs a War the anonymous request can actually see. contestant_count
       // must still reflect the contestants rows regardless of the War's

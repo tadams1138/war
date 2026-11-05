@@ -1,5 +1,4 @@
-// A War's own editing page (SPEC.md §6.1: always editable by its
-// creator, in any status): metadata, each contestant's name/bio/images,
+// A War's own editing page: metadata, each contestant's name/bio/images,
 // Publish/Unpublish, Clear Votes, and Delete. GET /wars/:id 404s for "not
 // the creator" and "not found" alike, so this page cannot tell them apart.
 //
@@ -80,8 +79,7 @@ export function EditWar() {
 
   const state = editWar.state
 
-  // A contestant with no votes on its own matchups is just removed (spec
-  // §6.1); one that does carry votes asks first, naming what will be lost,
+  // A contestant with no votes on its own matchups is just removed; one that does carry votes asks first, naming what will be lost,
   // like every other destructive action on this page.
   function requestRemoveContestant(contestant: ContestantDetail): void {
     if (contestant.appearance_count > 0) removalConfirm.ask(contestant)
@@ -150,10 +148,10 @@ function TopActions({
   )
 }
 
-// Publish and Unpublish are the two directions of one toggle (spec §6.1) --
+// Publish and Unpublish are the two directions of one toggle --
 // one button whose label and action follow the War's current status, not
 // two separate controls. A closed War can be neither published nor
-// unpublished (spec: "nothing reverses" closing), so neither direction is
+// unpublished (nothing reverses closing), so neither direction is
 // offered for one.
 function PublishToggleButton({
   war,

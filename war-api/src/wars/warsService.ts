@@ -166,7 +166,7 @@ export async function patchWar(db: Kysely<Database>, warId: string, caller: Call
 }
 
 /**
- * Any status, creator-only (§6.1 "Deletion"). `deleteWarRowIn` cascades everything the War owns in one
+ * Any status, creator-only. `deleteWarRowIn` cascades everything the War owns in one
  * transaction, together with the Admin's moderation log entry; its media objects are deleted best effort after that
  * commit (a storage failure is logged and the delete still succeeds), like Remove a War and Ban.
  */
@@ -188,7 +188,7 @@ export async function deleteWar(
 }
 
 /**
- * Publish and Unpublish are the two directions of one reversible toggle (§6.1). `closed` is the one
+ * Publish and Unpublish are the two directions of one reversible toggle. `closed` is the one
  * terminal state and rejects both; every other transition is either the real change or an idempotent no-op.
  *
  * draft → published requires at least 2 contestants. Republishing never re-checks the count, since nothing
@@ -246,7 +246,7 @@ export interface SetShareImageInput {
 }
 
 /**
- * Creator-only, any status (§6.1, §9.1, §10.4). Always replaces. Each upload is stored under a new key, so the current
+ * Creator-only, any status. Always replaces. Each upload is stored under a new key, so the current
  * image stays intact until the War points at its successor. Access is checked first, then the slow image work and the
  * uploads happen outside any transaction; only the row update and the Admin's log entry share one. If that fails or is
  * refused the new objects are deleted; once it commits the previous image's objects are (both best effort).
@@ -287,7 +287,7 @@ export async function joinWar(db: Kysely<Database>, warId: string, voterId: stri
 }
 
 /**
- * Deletes every vote cast in the War and resets every contestant's counters to zero (§6.1 "Clear Votes"):
+ * Deletes every vote cast in the War and resets every contestant's counters to zero:
  * any status, creator-only, a deliberate hard delete. Membership rows are untouched. One transaction, so a failure
  * between the delete and the recompute never leaves counters inconsistent with an emptied `votes` table.
  */

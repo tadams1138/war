@@ -21,8 +21,8 @@ function toMatchup(row: MatchupColumns): Matchup {
 
 /**
  * Generates matchups for one newly-added contestant against every
- * contestant already on the roster (§4 "Matchup": "generated the
- * moment it's added, against every other contestant present at that time").
+ * contestant already on the roster (generated the
+ * moment it's added, against every other contestant present at that time).
  * Not a re-run of a bulk pairwise generator over the whole roster -- that
  * would try to recreate every existing pair too and collide with the
  * canonical-ordering unique constraint.
@@ -45,7 +45,7 @@ export async function generateMatchupsForNewContestant(
   await db.insertInto('matchups').values(rows).execute();
 }
 
-/** Every matchup id involving `contestantId`, needed to clean up its votes and matchups before it's removed (§6.1). */
+/** Every matchup id involving `contestantId`, needed to clean up its votes and matchups before it's removed. */
 export async function findMatchupIdsForContestant(db: Kysely<Database>, warId: string, contestantId: string): Promise<string[]> {
   const rows = await db
     .selectFrom('matchups')

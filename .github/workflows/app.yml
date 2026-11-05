@@ -1,4 +1,4 @@
-# War app pipeline (war-api + war-ui-default) — see SPEC.md
+# War app pipeline (war-api + war-ui-default)
 #
 # One pipeline, one writer per side (UI Worker, App Platform app) per
 # environment. A change-detection job decides which project's CI runs; the API
@@ -25,7 +25,7 @@
 #   SPACES_ACCESS_KEY_ID, SPACES_SECRET_ACCESS_KEY   secrets (Terraform state)
 #   CLOUDFLARE_API_TOKEN   secret; CLOUDFLARE_ZONE_ID, CLOUDFLARE_ACCOUNT_ID   variables
 #
-# Repository secrets/variables (spec) — substituted into
+# Repository secrets/variables — substituted into
 # war-infra/platform/{env}.yaml by war-infra/scripts/render-spec.sh on every
 # deploy, same mechanism as ${IMAGE_TAG}:
 #   JWT_SECRET, INTERNAL_TASK_TOKEN,
@@ -88,8 +88,7 @@ permissions:
 env:
   REGISTRY: registry.digitalocean.com/war
   IMAGE_NAME: war-api
-  # The deployed runtime is 24.x, not the 22 this pinned before — see
-  # SPEC.md "Toolchain deviation".
+  # The deployed runtime is 24.x.
   NODE_VERSION: '24'
   TF_VERSION: '1.9.8'
 
@@ -693,7 +692,7 @@ jobs:
         run: war-infra/scripts/render-spec.sh war-infra/platform/staging.yaml "$RUNNER_TEMP/app-spec.yaml"
 
       # --wait blocks until the deployment settles. The PRE_DEPLOY migration job
-      # (spec) runs inside it, so a failed migration fails this step and the
+      # runs inside it, so a failed migration fails this step and the
       # previous revision keeps serving traffic. The spec update itself starts
       # the deployment, so no separate create-deployment is needed.
       - name: Deploy the app spec

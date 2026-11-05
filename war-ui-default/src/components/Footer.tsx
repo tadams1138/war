@@ -1,4 +1,4 @@
-// Persistent footer (SPEC.md §10.1), rendered once by the shell alongside
+// Persistent footer, rendered once by the shell alongside
 // NavBar. Tracks the active theme like NavBar: its colors come from the
 // [data-theme] custom properties in themes.css.
 import { Link } from 'react-router-dom'

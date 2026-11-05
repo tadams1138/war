@@ -1,5 +1,5 @@
-// War overview and results, image mode only (SPEC.md: "War detail is one
-// page, not two" — 10.1, 10.4). One merged results list, ordered by rank —
+// War overview and results, image mode only. War detail is one
+// page, not two. One merged results list, ordered by rank —
 // no separate contestant gallery and no separate "Results" section. No
 // authentication required to view a War or its results, listed or unlisted.
 import { useEffect, useState } from 'react'
@@ -120,7 +120,7 @@ function asVoteProgress(progress: VoteProgress | 'anonymous' | null): VoteProgre
 }
 
 // Replaces the Vote entry point once an authenticated voter has cast every
-// vote (SPEC.md §10.4) -- also what a voter who just cast their final
+// vote -- also what a voter who just cast their final
 // vote on the vote page sees, since finishing there redirects here
 // (VoteMode's useRedirectWhenCompleted) rather than showing its own screen.
 function CompletionNotice({ progress }: { progress: VoteProgress | 'anonymous' | null }) {
@@ -168,7 +168,7 @@ function useVoteProgress(warId: string, status: string): VoteProgress | 'anonymo
   return progress
 }
 
-// Edit and Delete are never status-gated (spec §6.1) -- shown to the
+// Edit and Delete are never status-gated -- shown to the
 // creator, or an Admin, regardless of the War's current status.
 function OwnerActions({ warId, onDeleteClick }: { warId: string; onDeleteClick: () => void }) {
   return (

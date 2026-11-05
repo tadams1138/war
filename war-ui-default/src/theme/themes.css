@@ -1,5 +1,4 @@
-/* Visual treatment per theme (SPEC.md, "Visual Theme" / "Theme
-   switching"): color, type, and a signature shape per theme, selected by
+/* Visual treatment per theme: color, type, and a signature shape per theme, selected by
    the [data-theme] attribute each themed page sets on its <main>.
    Arrangement/breakpoints live in layout.css, not here. This is a first
    pass on each theme's identity — decorative flourishes from the approved

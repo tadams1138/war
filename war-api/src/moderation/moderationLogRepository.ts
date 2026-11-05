@@ -79,7 +79,7 @@ function moderationLogQuery(db: Kysely<Database>, visibility: ModerationLogVisib
 
 type ModerationLogRow = Awaited<ReturnType<ReturnType<typeof moderationLogQuery>['execute']>>[number];
 
-/** One page of logged moderation, role-change and owner actions, newest first (§6.7); `nextCursor` is set only when a further entry exists. */
+/** One page of logged moderation, role-change and owner actions, newest first; `nextCursor` is set only when a further entry exists. */
 export async function listModerationLog(
   db: Kysely<Database>,
   options: { limit: number; cursor?: string; visibility: ModerationLogVisibility },
@@ -96,7 +96,7 @@ export interface LogActionInput {
   targetVoterId?: string;
 }
 
-/** Records one moderation or role-change action (§6.7). Insert-only — there is no update or delete, mirroring votes' own immutability (§8.1). */
+/** Records one moderation or role-change action. Insert-only — there is no update or delete, mirroring votes' own immutability. */
 export async function logAction(db: Kysely<Database>, input: LogActionInput): Promise<void> {
   await db
     .insertInto('moderation_log')

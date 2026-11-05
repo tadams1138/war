@@ -1,4 +1,4 @@
-// Cursor-paged Wars list (SPEC.md §6.7), refetched from the first
+// Cursor-paged Wars list, refetched from the first
 // page whenever the status filter or (debounced) search text changes.
 import { useState } from 'react'
 import { getAdminWars, type AdminWarItem, type GetAdminWarsParams } from '../../api/client'

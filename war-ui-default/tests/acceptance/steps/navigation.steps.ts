@@ -81,7 +81,7 @@ Then('the Home brand mark sits to the left of the theme switcher', async ({ page
   expect(home!.x).toBeLessThan(switcher!.x)
 })
 
-// The fallback is fixed (SPEC.md §10.2): never blank and never "null".
+// The fallback is fixed: never blank and never "null".
 Then('the navigation shows a fallback identity label instead of a blank', async ({ page }) => {
   // Assert
   await expect(trigger(page)).toHaveText(FALLBACK_DISPLAY_NAME)
@@ -99,7 +99,7 @@ Then('the identity menu shows a log out control', async ({ page }) => {
   await expect(menu(page).getByRole('menuitem', { name: 'Log out' })).toBeVisible()
 })
 
-// Not the bare page behind it (SPEC.md §10.2): whatever colour or opacity a
+// Not the bare page behind it: whatever colour or opacity a
 // theme picks, the surface is not fully transparent.
 Then('the menu renders on an opaque or translucent surface of its own', async ({ page }) => {
   // Assert
@@ -117,7 +117,7 @@ Then(/^the "([^"]*)" item is (not )?marked as the current page$/, async ({ page 
   else await expect(item).toHaveAttribute('aria-current', 'page')
 })
 
-// The menu's first two items, in the order SPEC.md §10.2 lists them.
+// The menu's first two items, in display order.
 const MENU_ITEMS: Record<string, { index: number; name: string }> = {
   first: { index: 0, name: 'My Wars' },
   second: { index: 1, name: 'Start a War' },

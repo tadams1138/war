@@ -19,13 +19,13 @@ function guard(denies: (request: FastifyRequest) => boolean | Promise<boolean>, 
 
 const FORBIDDEN = { error: 'forbidden' };
 
-/** Admin-only: granting and revoking roles (§6.7). Admin implies no Moderator capability. */
+/** Admin-only: granting and revoking roles. Admin implies no Moderator capability. */
 export const requireAdmin = guard((request) => !request.voter?.isAdmin, 403, FORBIDDEN);
 
-/** Moderator-only: the moderation capabilities (§6.7, §8.5). Admin does not imply it. */
+/** Moderator-only: the moderation capabilities. Admin does not imply it. */
 export const requireModerator = guard((request) => !request.voter?.isModerator, 403, FORBIDDEN);
 
-/** Moderator-or-Admin: the Voters views (§6.7 "Visibility") and the moderation log, whose content is then filtered by role. */
+/** Moderator-or-Admin: the Voters views and the moderation log, whose content is then filtered by role. */
 export const requireModeratorOrAdmin = guard((request) => !request.voter?.isModerator && !request.voter?.isAdmin, 403, FORBIDDEN);
 
 /** The 403 body/schema `POST /wars` sends while the caller is suspended. */
@@ -35,7 +35,7 @@ export const suspendedResponseSchema = {
   properties: { error: { type: 'string', enum: ['suspended'] } },
 };
 
-/** Refuses a suspended caller with 403 `suspended` (§6.7). */
+/** Refuses a suspended caller with 403 `suspended`. */
 export const rejectWhileSuspended = guard((request) => request.voter?.suspended === true, 403, { error: 'suspended' });
 
 /** The 503 body/schema `POST /wars` sends while War creation is disabled. */

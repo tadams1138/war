@@ -133,10 +133,10 @@ export async function deleteContestant(db: Kysely<Database>, id: string): Promis
 
 /**
  * Recomputes every contestant's `win_count`/`appearance_count` in a War from
- * the votes/matchups that actually remain (§4 "Vote": normally
+ * the votes/matchups that actually remain (normally
  * maintained incrementally alongside each vote insert, but a bulk vote
  * deletion -- Clear Votes, or removing a contestant that carries votes,
- * §6.1 -- needs the survivors' counters corrected afterward). A
+ * -- needs the survivors' counters corrected afterward). A
  * `COUNT(*)`-based aggregate write, not hand-rolled decrement math: recompute
  * from source of truth rather than risk a subtle delta bug in vote-count
  * integrity.

@@ -1,5 +1,5 @@
 // A contestant's images, paged by swipe, arrow keys or arrow buttons
-// (SPEC.md §10.3, §10.4). When `onTap` is given (the vote page), a tap
+//. When `onTap` is given (the vote page), a tap
 // or Enter/Space activates it. Swipe and tap must never be confused:
 // ambiguity always resolves toward "swipe", since a mis-fired vote is
 // unrecoverable (votes are final). Styling lives in layout.css (.carousel-*).
@@ -16,7 +16,7 @@ interface ImageCarouselProps {
   onTap?: () => void
   // Extra content (the contestant's name) rendered inside the same
   // gesture-handling element: the whole card is one tap/swipe target and a
-  // single tab stop (SPEC.md §10.3), not just the image.
+  // single tab stop, not just the image.
   children?: ReactNode
   ariaLabel?: string
   // The vote page's cards: media fills the vertical space the layout gives

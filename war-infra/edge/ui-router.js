@@ -1,4 +1,4 @@
-// Custom UI router — see SPEC.md
+// Custom UI router
 //
 // Bound to /ui/* on the zone. Serves every custom UI from one shared bucket
 // keyed by slug prefix, and rewrites storage 404s to that slug's index.html
@@ -66,7 +66,7 @@ async function shell(base) {
 
   const headers = new Headers(response.headers)
   headers.set('content-type', 'text/html; charset=utf-8')
-  // index.html is never cached, or deploys would not be picked up (spec).
+  // index.html is never cached, or deploys would not be picked up.
   headers.set('cache-control', 'no-store')
 
   return new Response(response.body, { status: 200, headers })

@@ -1,4 +1,4 @@
-// Recreates a War from a validated import (spec §10.4, "Import"): creates
+// Recreates a War from a validated import: creates
 // the War, then each contestant, then each contestant's images, entirely
 // through the same endpoints EditWar's own UI already calls -- no dedicated
 // import endpoint exists or is needed. The API calls are injected so this

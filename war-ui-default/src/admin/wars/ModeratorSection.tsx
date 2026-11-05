@@ -1,5 +1,5 @@
 // What a Moderator sees on a War's detail page besides what everyone sees
-// (SPEC.md §6.7, §10.4): its reports and the Remove control. A removed War
+//: its reports and the Remove control. A removed War
 // can no longer be removed or reported on, so it offers neither.
 import type { WarDetailResponse } from '../../api/client'
 import { canModerate } from '../../auth/roles'

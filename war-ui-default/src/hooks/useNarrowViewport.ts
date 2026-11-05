@@ -1,5 +1,5 @@
 // Whether the viewport is at or below the vote page's stacked-layout
-// breakpoint (SPEC.md §10.3). Must match the `@media (max-width: 640px)`
+// breakpoint. Must match the `@media (max-width: 640px)`
 // rules in layout.css.
 import { useEffect, useState } from 'react'
 

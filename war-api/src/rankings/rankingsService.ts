@@ -24,7 +24,7 @@ export interface RankingsView {
   rankings: RankingEntry[];
 }
 
-/** The response body JSON Schema for {@link RankingsView}. `rank` is null for an unranked (zero-appearance) contestant (§7). */
+/** The response body JSON Schema for {@link RankingsView}. `rank` is null for an unranked (zero-appearance) contestant. */
 export const rankingsResponseSchema = {
   type: 'object',
   required: ['war_id', 'status', 'theme', 'updated_at', 'rankings'],
@@ -53,7 +53,7 @@ export type RankingsOutcome =
   | { kind: 'ok'; view: RankingsView; shareable: boolean }
   | { kind: 'notFound' };
 
-/** Assembles a War's rankings response (§6.4). `viewerId` is `null` for an anonymous request. */
+/** Assembles a War's rankings response. `viewerId` is `null` for an anonymous request. */
 export async function getRankings(
   db: Kysely<Database>,
   warId: string,
@@ -62,7 +62,7 @@ export async function getRankings(
   publicBaseUrl: string,
   roles: ViewerRoles = {},
 ): Promise<RankingsOutcome> {
-  // A draft is invisible to anyone but its creator (§6.1): reported as not found, like a missing War.
+  // A draft is invisible to anyone but its creator: reported as not found, like a missing War.
   const war = await findVisibleWar(db, warId, viewerId, roles);
   if (!war) {
     return { kind: 'notFound' };

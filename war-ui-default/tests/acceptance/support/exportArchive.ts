@@ -1,4 +1,4 @@
-// Builds War export archives (spec §10.4, "Import") for the import steps.
+// Builds War export archives for the import steps.
 import { strToU8, zipSync } from 'fflate'
 
 export function validWarJson(overrides: Record<string, unknown> = {}): string {

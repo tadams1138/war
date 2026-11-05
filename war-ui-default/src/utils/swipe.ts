@@ -1,5 +1,5 @@
 // Swipe-vs-tap gesture disambiguation for ImageCarousel
-// (SPEC.md §10.3). Ambiguity must always resolve toward
+//. Ambiguity must always resolve toward
 // "swipe", never toward "vote" — a mis-fired vote is unrecoverable.
 export const SWIPE_THRESHOLD_PX = 10
 

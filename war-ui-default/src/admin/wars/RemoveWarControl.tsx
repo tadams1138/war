@@ -1,4 +1,4 @@
-// The Remove War action and its in-page confirmation (SPEC.md §6.7).
+// The Remove War action and its in-page confirmation.
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useRemoveWar } from './useRemoveWar'
 

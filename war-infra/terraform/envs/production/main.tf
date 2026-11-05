@@ -1,5 +1,5 @@
 # War — production environment
-# See SPEC.md. Same composition as staging, with larger
+# Same composition as staging, with larger
 # sizing and a standby database node.
 
 terraform {
@@ -32,7 +32,7 @@ locals {
 }
 
 # ── Credentials ───────────────────────────────────────────────────────────────
-# Supplied by the pipeline as TF_VAR_* from GitHub Actions secrets (spec).
+# Supplied by the pipeline as TF_VAR_* from GitHub Actions secrets.
 
 variable "do_token" {
   type      = string
@@ -84,7 +84,7 @@ provider "cloudflare" {
 # ── Data ──────────────────────────────────────────────────────────────────────
 
 # Production's own database, user and pool on the shared cluster, which
-# shared/ owns along with its firewall (spec 12.1).
+# shared/ owns along with its firewall.
 data "digitalocean_database_cluster" "shared" {
   name = "war-staging-pg"
 }
@@ -173,7 +173,7 @@ import {
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # app_id is consumed by the deploy pipelines as the DO_APP_ID environment
-# variable (spec).
+# variable.
 
 output "app_id" {
   value = module.compute.app_id

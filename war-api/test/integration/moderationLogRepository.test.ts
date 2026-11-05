@@ -4,7 +4,7 @@ import { deleteWarRow, makeDraftWar, makeVoter } from '../setup/fixtures.js';
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
-describe('moderationLogRepository (SPEC.md §6.7)', () => {
+describe('moderationLogRepository', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

@@ -1,5 +1,4 @@
-// State machine behind EditWar (spec §6.1: a War is always editable by its
-// creator, in any status) — extracted out of the page component, mirroring
+// State machine behind EditWar — extracted out of the page component, mirroring
 // useVoteSession's split for the same reason.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -68,7 +67,7 @@ export interface EditWarLoadedState {
   // its own visibility, so this never needs to be reset back to null.
   toast: string | null
   // Set while a Publish/Unpublish request is in flight, and to the API's
-  // own validation messages when one fails -- SPEC.md's one deliberate
+  // own validation messages when one fails -- a deliberate
   // exception to generic 422 copy.
   publishing: boolean
   publishDetails: string[] | null
@@ -94,7 +93,7 @@ export interface EditWarActions {
 
 /**
  * The error copy for Publish/Unpublish and for attaching or replacing a video
- * (SPEC.md's deliberate exceptions to its generic 422 copy): the API's
+ * (deliberate exceptions to the generic 422 copy): the API's
  * `details` array verbatim when the failure actually carries one, falling
  * back to the generic message otherwise.
  */
@@ -228,7 +227,7 @@ export function useEditWar(
     return result?.value ?? null
   }
 
-  // The API clears a removed contestant's votes itself (spec §6.1); the
+  // The API clears a removed contestant's votes itself; the
   // "ask first" confirmation lives in EditWar.tsx. Resolves to whether the
   // contestant was removed; a failure is shown on that contestant's editor.
   const removeContestant = async (contestantId: string): Promise<boolean> => {
@@ -301,8 +300,8 @@ export function useEditWar(
     )
   }
 
-  // Mirrors useVoteSession's applyRateLimit: shows the wait (SPEC.md
-  // §10.5, never an error) and clears itself once the delay passes, no
+  // Mirrors useVoteSession's applyRateLimit: shows the wait
+  // (never an error) and clears itself once the delay passes, no
   // action required from the creator.
   function applyImageRateLimit(contestantId: string, error: ApiError): Update {
     window.clearTimeout(imageWaitTimersRef.current[contestantId])
@@ -314,7 +313,7 @@ export function useEditWar(
   }
 
   // Fired from the metadata form's submit(), before its own PATCH, only
-  // when a pending upload or generated image exists (spec: deferred until
+  // when a pending upload or generated image exists (deferred until
   // Save). Refetches the War afterward so the saved share_image_url is what
   // renders.
   const uploadShareImage = async (blob: Blob): Promise<void> => {

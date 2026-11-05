@@ -65,7 +65,7 @@ describe('presentMedia', () => {
 
   it('prefers the recorded variant widths over recomputing from today\'s config', () => {
     // Arrange: recorded at upload time under widths that differ from the
-    // current VARIANT_WIDTHS — simulating the spec's anticipated future
+    // current VARIANT_WIDTHS — simulating an anticipated future
     // change to variant widths without touching this historical row.
     const items = [media({ width: 2000, height: 1500, variantWidths: [300, 600] })];
 

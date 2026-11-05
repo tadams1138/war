@@ -7,7 +7,7 @@ import { logAction } from '../moderation/moderationLogRepository.js';
 export type GrantRoleOutcome = MutationOutcome<Voter, NotFound | Forbidden>;
 
 /**
- * Grants or revokes `role` on `targetVoterId` (§6.7). Caller-permission
+ * Grants or revokes `role` on `targetVoterId`. Caller-permission
  * (Admin-only) is enforced by `requireAdmin`, not here. The one exception an
  * Admin-only guard can't express is self-removal of the Admin role, which
  * `requireAdmin` happily allows since the caller is an Admin -- so that check

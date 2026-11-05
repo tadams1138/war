@@ -1,4 +1,4 @@
-// Steps for features/import-war.feature (spec §10.4, "Import"). Scoped with the
+// Steps for features/import-war.feature. Scoped with the
 // feature's own tag so no other feature can ever bind to this text.
 import { expect } from '@playwright/test'
 import { createBdd } from 'playwright-bdd'

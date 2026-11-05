@@ -1,5 +1,4 @@
 # App Platform spec — staging
-# See SPEC.md
 #
 # THIS FILE IS THE SOURCE OF TRUTH FOR THE APP. Terraform creates the app and
 # then ignores its spec (terraform/modules/compute), because the image tag
@@ -21,7 +20,7 @@ domains:
   - domain: staging.war.tmad.dev
     type: PRIMARY
 
-# Staging's own database and user on the shared cluster (spec 12.1). The API
+# Staging's own database and user on the shared cluster. The API
 # service connects through the staging pool (${db.war-staging-pool.DATABASE_URL});
 # the migration job uses the direct ${db.DATABASE_URL}, as the same user,
 # because migrations take session-level locks that transaction pooling does
@@ -34,7 +33,7 @@ databases:
     db_user: war_api
     production: true
 
-# Path → component routing (spec). Order matters: the catch-all is last.
+# Path → component routing. Order matters: the catch-all is last.
 # /ui/{slug}/* never reaches here — Cloudflare's Worker handles it upstream.
 ingress:
   rules:
@@ -125,12 +124,11 @@ services:
 
       # Secrets. Not literal values — uppercase placeholders in
       # dollar-brace form, substituted from GitHub
-      # Actions secrets by envsubst immediately before this file is applied
-      # (spec). Re-rendered fresh on every deploy, so rotating the GitHub
+      # Actions secrets by envsubst immediately before this file is applied.
+      # Re-rendered fresh on every deploy, so rotating the GitHub
       # secret and redeploying (even a no-op redeploy) is all rotation takes.
-      # Apple is absent: unimplemented (see TODO.md #3),
-      # so there is nothing to substitute it with — add it here only once
-      # the provider actually exists.
+      # Apple is absent: unimplemented, so there is nothing to
+      # substitute it with — add it here only once the provider actually exists.
       - key: JWT_SECRET
         scope: RUN_TIME
         type: SECRET
@@ -183,7 +181,7 @@ services:
         window: TEN_MINUTES
 
 # Runs before the new revision receives traffic, while the previous one is still
-# serving. A non-zero exit aborts the deployment (spec), which is why the
+# serving. A non-zero exit aborts the deployment, which is why the
 # pipeline passes --wait: without it the stage would pass before this ran.
 jobs:
   - name: migrate

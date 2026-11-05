@@ -81,9 +81,9 @@ export const warDetailResponseSchema = {
     ...warSummaryProperties,
     contestants: { type: 'array', items: { $ref: 'ContestantDetail#' } },
     is_owner: { type: 'boolean' },
-    /** The viewer may manage this War: its creator, or any Admin (§6.1). `is_owner` stays false for an Admin who did not create it. */
+    /** The viewer may manage this War: its creator, or any Admin. `is_owner` stays false for an Admin who did not create it. */
     can_manage: { type: 'boolean' },
-    /** When a Moderator removed the War; only a Moderator can load a removed War, so null for everyone else (§6.7). */
+    /** When a Moderator removed the War; only a Moderator can load a removed War, so null for everyone else. */
     removed_at: { type: ['string', 'null'], format: 'date-time' },
   },
 };
@@ -114,7 +114,7 @@ export interface WarDetailView extends WarSummaryView {
   contestants: ContestantDetailView[];
   is_owner: boolean;
   can_manage: boolean;
-  /** When a Moderator removed the War; non-null only for a Moderator, the only viewer who can load a removed War (§6.7). */
+  /** When a Moderator removed the War; non-null only for a Moderator, the only viewer who can load a removed War. */
   removed_at: string | null;
 }
 

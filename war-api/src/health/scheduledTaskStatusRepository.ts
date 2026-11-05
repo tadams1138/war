@@ -1,7 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { Database } from '../db/types.js';
 
-/** Records that close-expired-wars completed successfully at `at` (§12.8). */
+/** Records that close-expired-wars completed successfully at `at`. */
 export async function recordCloseExpiredWarsSuccess(db: Kysely<Database>, at: Date): Promise<void> {
   await db
     .insertInto('platform_settings')

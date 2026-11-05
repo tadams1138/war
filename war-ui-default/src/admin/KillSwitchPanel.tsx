@@ -1,4 +1,4 @@
-// The War-creation kill switch (SPEC.md §6.7).
+// The War-creation kill switch.
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useKillSwitch, type UseKillSwitchResult } from './useKillSwitch'
 import { AsyncStatus } from '../components/AsyncStatus'

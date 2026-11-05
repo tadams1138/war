@@ -12,7 +12,7 @@ import { deleteMediaObjects, mediaPrefixes } from './warMediaStorage.js';
 export type RemoveWarOutcome = MutationOutcome<void, NotFound>;
 
 /**
- * Removes a War (§6.7): hidden from everyone, rows kept for the audit
+ * Removes a War: hidden from everyone, rows kept for the audit
  * trail, media hard-deleted. Moderator-only access is enforced by the route's
  * guard. The removal, the `contestant_media` deletion and the moderation log
  * entry commit together or not at all; the stored objects are deleted only

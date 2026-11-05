@@ -20,6 +20,15 @@ When prompted to generate tests, present the tests for approval before writing a
 
 When changing a function, check its cyclomatic complexity. If it exceeds 5, report the function name and complexity value to the user.
 
+## Code comments
+
+Write a comment only to explain what well-named classes, methods and variables cannot: a
+non-obvious reason, a constraint, a workaround. Never restate what the code says.
+
+Never put anything in a comment that changes for reasons unrelated to the code beside it:
+no SPEC.md section numbers or references to the spec, no TODO item, issue or PR numbers, no
+dates or change history. The same applies to test names and Gherkin comments.
+
 ## Development
 
 Always use Test Driven Development. Prefer BDD-style acceptance tests over unit tests. Never write production code without first having a failing acceptance test or failing unit test.
@@ -141,7 +150,7 @@ operations" section (how to operate it) describe it.
 Executable Gherkin lives with the code that implements it — `war-api/specs/features/`,
 `war-ui-default/features/`, `war-infra/specs/features/`. Each has a `pending/` subdirectory
 for scenarios with no binding yet. These are test fixture, not a second copy of the spec. A
-custom UI (SPEC.md §12.5; registry and shared runtime are TODO #1) is its own separate repository, not a directory here, so it
+custom UI (SPEC.md §11.5; registry and shared runtime are TODO #1) is its own separate repository, not a directory here, so it
 keeps its own Gherkin — `.github/workflows/ui-custom.yml` is the reusable pipeline each one
 calls.
 

@@ -1,4 +1,4 @@
-// Media router — see SPEC.md
+// Media router
 //
 // Bound to /media/* on the zone. Fetches contestant image variants directly
 // from the Spaces CDN, stripping the /media prefix so bucket keys stay clean.
@@ -12,11 +12,11 @@
 // cacheEverything + a fixed cacheTtl (rather than relying on Cache Rules to
 // respect whatever Cache-Control the origin sends) is deliberate, not just a
 // side effect of using a Worker: variant keys are content-addressed
-// (spec) — width and content are baked into the filename — so a cache entry
+// — width and content are baked into the filename — so a cache entry
 // can only ever be stale in the sense of "not yet warmed", never "serving
 // the wrong bytes for this key". A year is safe regardless of what the
 // origin sends, which matters because the origin does not currently send a
-// long-lived Cache-Control at all (see the note in the spec).
+// long-lived Cache-Control at all.
 
 export default {
   async fetch(request, env) {
@@ -27,7 +27,7 @@ export default {
       return new Response('Not found', { status: 404 })
     }
 
-    // /media/originals/* never reaches here — the WAF custom rule (spec)
+    // /media/originals/* never reaches here — the WAF custom rule
     // blocks it ahead of this Worker in the request lifecycle.
     const rest = url.pathname.slice('/media/'.length)
     const origin = `${env.MEDIA_CDN_ORIGIN}/${rest}${url.search}`

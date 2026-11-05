@@ -10,7 +10,7 @@ const PKCE_COOKIE = 'oauth_pkce';
 const AUTH_COOKIE_PATH = '/api/v1/auth';
 const OAUTH_COOKIE_MAX_AGE_SECONDS = 600;
 
-/** The body of a declined authorization (§5.1). */
+/** The body of a declined authorization. */
 export interface OAuthDeclinedView {
   error: 'authorization declined';
   reason: string;
@@ -41,9 +41,9 @@ function addressLimit(limiter: RateLimiter | undefined) {
 export interface AuthRouteConfig {
   uiOrigins: string[];
   apiBaseUrl: string;
-  /** Per-client-address limit on starting sign-in (§8.4: 10/minute); absent while address limits are off. */
+  /** Per-client-address limit on starting sign-in (10/minute); absent while address limits are off. */
   signInRateLimiter?: RateLimiter;
-  /** Per-client-address limit on token refresh (§8.4: 30/minute); absent while address limits are off. */
+  /** Per-client-address limit on token refresh (30/minute); absent while address limits are off. */
   tokenRefreshRateLimiter?: RateLimiter;
 }
 
@@ -87,7 +87,7 @@ type CallbackValidation =
   | { kind: 'stateMismatch' }
   | { kind: 'ok'; code: string; codeVerifier: string };
 
-/** The callback failure checks of §5.1, in order: a declined authorization is checked before, and independently of, state validation. */
+/** The callback failure checks, in order: a declined authorization is checked before, and independently of, state validation. */
 function validateCallbackRequest(request: FastifyRequest<CallbackRoute>): CallbackValidation {
   const { code, state, error } = request.query;
 

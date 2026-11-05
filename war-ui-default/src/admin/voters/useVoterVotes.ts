@@ -1,4 +1,4 @@
-// Cursor-paged vote history of one Voter (SPEC.md §6.7).
+// Cursor-paged vote history of one Voter.
 import { getAdminVoterVotes, type AdminVoterVote } from '../../api/client'
 import { useCursorPage } from '../../hooks/useCursorPage'
 

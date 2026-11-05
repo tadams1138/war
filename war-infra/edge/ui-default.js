@@ -1,5 +1,5 @@
 // Default UI Worker -- serves the static SPA (Workers static assets) and adds
-// per-War link-preview (Open Graph / Twitter Card) tags -- see SPEC.md
+// per-War link-preview (Open Graph / Twitter Card) tags
 //
 // The SPA is fully static: every route serves the identical index.html and
 // fills its <title>/content in client-side JavaScript, which a link-preview
@@ -41,10 +41,9 @@ function buildTags({ title, description, image, url }) {
     `<meta name="twitter:title" content="${safeTitle}">`,
     `<meta name="twitter:description" content="${safeDescription}">`,
   ]
-  // Omitted, not defaulted, when the War has no share image (spec, "War
-  // cards"): there is no server-rendered fallback image anywhere in this
-  // SPA to point a crawler at instead, and a fabricated placeholder would
-  // misrepresent the War.
+  // Omitted, not defaulted, when the War has no share image: there is no server-rendered fallback image
+  // anywhere in this SPA to point a crawler at instead, and a fabricated
+  // placeholder would misrepresent the War.
   if (image) {
     const safeImage = escapeHtml(image)
     tags.push(`<meta property="og:image" content="${safeImage}">`, `<meta name="twitter:card" content="summary_large_image">`, `<meta name="twitter:image" content="${safeImage}">`)

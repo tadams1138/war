@@ -16,7 +16,7 @@ async function authenticateRequest(deps: AuthDependencies, request: FastifyReque
   request.voter = caller.voter;
 }
 
-/** Requires a valid Bearer JWT (§5). Populates `request.voterId` and `request.voter`, or replies 401 without calling the handler. */
+/** Requires a valid Bearer JWT. Populates `request.voterId` and `request.voter`, or replies 401 without calling the handler. */
 export function requireAuth(deps: AuthDependencies) {
   return async function preHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     try {
@@ -29,7 +29,7 @@ export function requireAuth(deps: AuthDependencies) {
 
 /**
  * {@link requireAuth} only when `shouldRequireAuth` says so, for a route that is public in general but needs
- * identity for one query combination (`GET /wars?creator=me`, §6.1). Unlike {@link bearerAuthRoute}, it does
+ * identity for one query combination (`GET /wars?creator=me`). Unlike {@link bearerAuthRoute}, it does
  * not mark the whole route as requiring auth in the OpenAPI document.
  */
 export function requireAuthIf(deps: AuthDependencies, shouldRequireAuth: (request: FastifyRequest) => boolean) {
