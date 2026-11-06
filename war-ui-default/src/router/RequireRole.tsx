@@ -1,4 +1,4 @@
-// A role-gated route (war-spec.md §10.1): unauthenticated visits go to sign-in
+// A role-gated route: unauthenticated visits go to sign-in
 // (RequireAuth), and an authenticated visit by a Voter the `allow` rule does
 // not admit redirects Home.
 import type { ReactNode } from 'react'

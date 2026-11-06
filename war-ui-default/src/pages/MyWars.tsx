@@ -1,5 +1,5 @@
 // Every War the authenticated voter created, across every status
-// (war-spec.md "MyWars Page"). This is what closes the gap war-spec.md names: a
+// This closes a gap: a
 // creator who leaves a draft before it's published has, until this page
 // exists, no way to find that draft War again.
 import { Link } from 'react-router-dom'

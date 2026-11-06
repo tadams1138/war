@@ -1,4 +1,4 @@
-// Which actions a Voter's detail offers each viewer (war-spec.md §3, §6.7):
+// Which actions a Voter's detail offers each viewer:
 // Suspend and Ban only to a Moderator, never against a role holder or oneself;
 // role controls only to an Admin. Admin and Moderator are orthogonal, so the
 // Admin-without-Moderator case is covered here rather than by a scenario.

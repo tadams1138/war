@@ -1,6 +1,6 @@
 // The inverse of exportWar.ts's buildWarExportZip: raw zip bytes in (as a
 // file picker hands over), a validated War shape out. Validates the whole
-// file up front (spec §10.4, "Import") -- a malformed file is rejected with
+// file up front -- a malformed file is rejected with
 // one clear message and nothing is ever sent to the server from here.
 import { strFromU8, unzipSync } from 'fflate'
 import type { WarExportContestant, WarExportMedia, WarExportMetadata } from '../export/warExportFile'

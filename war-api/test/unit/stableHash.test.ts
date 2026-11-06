@@ -30,7 +30,7 @@ describe('stableHash', () => {
     expect(hashA).not.toBe(hashB);
   });
 
-  it('matches the md5(matchup_id || voter_id) hex digest named in the spec', () => {
+  it('matches the md5(matchup_id || voter_id) hex digest used to order matchup sides', () => {
     // Arrange
     const matchupId = 'm1';
     const voterId = 'v1';
@@ -62,7 +62,7 @@ describe('isLeftSide', () => {
   it('depends on its inputs rather than being a constant value', () => {
     // Arrange: recomputing the same digest with the same library restates
     // the implementation and can never fail while it stays internally
-    // consistent. Instead, assert the property war-spec.md §6.3 actually
+    // consistent. Instead, assert the property the ordering actually
     // needs: across a spread of matchup ids, both sides occur — a
     // constant-true or constant-false implementation would fail.
     const voterId = 'v1';

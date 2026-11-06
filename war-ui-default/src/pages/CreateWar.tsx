@@ -55,8 +55,7 @@ export function CreateWar() {
       })
       .catch((requestError) => {
         if (cancelled) return
-        // Rate limited (war-spec.md §10.5: "a wait, using the supplied delay
-        // — never presented as an error") retries on its own once the
+        // Rate limited retries on its own once the
         // delay passes, mirroring useVoteSession's applyRateLimit — no
         // "Try again" click needed for a mere cooldown.
         if (requestError instanceof ApiError && requestError.reason === 'rate-limited') {

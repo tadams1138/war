@@ -1,4 +1,4 @@
-// Recreates a War from a previously exported file (spec §10.4, "Import").
+// Recreates a War from a previously exported file.
 // A full success forwards to the new draft's Edit page, mirroring Create
 // War's own instant-draft-to-Edit-page flow; a partial failure shows its
 // error here instead and leaves the (partial) draft findable via My Wars,

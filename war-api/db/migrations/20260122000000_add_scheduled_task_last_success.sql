@@ -1,6 +1,6 @@
 -- Up Migration
 
--- When close-expired-wars last completed successfully (§12.8 watchdog). Nullable and
+-- When close-expired-wars last completed successfully (the scheduled-task watchdog). Nullable and
 -- additive, so the previous release keeps working against it; NULL means never recorded.
 ALTER TABLE platform_settings ADD COLUMN close_expired_wars_last_success_at TIMESTAMPTZ;
 

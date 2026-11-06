@@ -1,4 +1,4 @@
-// Which panels the Admin Dashboard shows each role (war-spec.md §10.1): a
+// Which panels the Admin Dashboard shows each role: a
 // Moderator the moderation panels, an Admin the role-management ones, both
 // everything. Admin and Moderator are orthogonal, so the Admin-without-Moderator
 // case is covered here rather than by a scenario.

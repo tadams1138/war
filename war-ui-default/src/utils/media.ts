@@ -1,5 +1,5 @@
 // Which image is "primary" for a contestant, and how to build a srcset
-// for one (war-spec.md §9.1) — the single most consequential piece of
+// for one — the single most consequential piece of
 // presentation in a fast binary vote. Shared by the results list and
 // ImageCarousel so the two can't drift.
 import type { MediaItem } from '../api/client'

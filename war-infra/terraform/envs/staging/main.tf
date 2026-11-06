@@ -1,5 +1,5 @@
 # War — staging environment
-# See war-spec.md. The physical database cluster is owned by shared/.
+# The physical database cluster is owned by shared/.
 
 terraform {
   required_version = "~> 1.9"
@@ -31,7 +31,7 @@ locals {
 }
 
 # ── Credentials ───────────────────────────────────────────────────────────────
-# Supplied by the pipeline as TF_VAR_* from GitHub Actions secrets (spec).
+# Supplied by the pipeline as TF_VAR_* from GitHub Actions secrets.
 
 variable "do_token" {
   type      = string
@@ -170,7 +170,7 @@ import {
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # app_id is consumed by the deploy pipelines as the DO_APP_ID environment
-# variable (spec).
+# variable.
 
 output "app_id" {
   value = module.compute.app_id

@@ -4,7 +4,7 @@ import { deleteWarRow, makeDraftWarWithContestants, makeVoter } from '../setup/f
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 
-describe('warsRepository removal (war-spec.md §6.7)', () => {
+describe('warsRepository removal', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {

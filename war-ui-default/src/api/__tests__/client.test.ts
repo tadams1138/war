@@ -600,7 +600,7 @@ describe('uploadContestantImages', () => {
     // Act
     const result = await uploadContestantImages('war-1', 'contestant-1', files)
 
-    // Assert — one request per file (spec), each genuinely multipart
+    // Assert — one request per file, each genuinely multipart
     expect(contentTypes).toHaveLength(2)
     expect(contentTypes.every((type) => type?.startsWith('multipart/form-data'))).toBe(true)
     expect(result).toEqual([
@@ -611,7 +611,7 @@ describe('uploadContestantImages', () => {
 
   it('classifies a 422 with no details array as validation, carrying no details', async () => {
     // Arrange — this route's own 422 is a plain { error } shape, never
-    // { error, details } (spec: deliberately asymmetric).
+    // { error, details } (deliberately asymmetric).
     server.use(
       http.post(`${BASE}/wars/war-1/contestants/contestant-1/images`, () =>
         HttpResponse.json({ error: 'no file uploaded' }, { status: 422 }),
@@ -1003,8 +1003,8 @@ describe('logout', () => {
   })
 
   it('still clears the in-memory token when DELETE /auth/session fails server-side', async () => {
-    // Arrange — the spec, "Logout always succeeds from the
-    // voter's point of view": the request is attempted best-effort, but a
+    // Arrange — logout always succeeds from the
+    // voter's point of view: the request is attempted best-effort, but a
     // 5xx from it must not stop the token from being cleared.
     setToken('token-abc')
     server.use(http.delete(`${BASE}/auth/session`, () => new HttpResponse(null, { status: 503 })))

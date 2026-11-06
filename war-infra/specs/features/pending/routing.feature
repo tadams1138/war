@@ -171,7 +171,7 @@ Feature: Single App Pipeline
     Given the current commit on master
     When the pipeline is run manually
     Then every project's checks run
-    And staging is deployed with the API image and app spec of that commit
+    And staging is deployed with the API image and app configuration of that commit
 
 Feature: Secrets & Config
 

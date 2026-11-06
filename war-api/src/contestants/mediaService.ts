@@ -10,7 +10,7 @@ import { resolveVideo, type VideoInput } from './videoMetadata.js';
 import { MAX_IMAGES_PER_CONTESTANT, storeContestantImage } from './imageUploadService.js';
 import type { ObjectStorage } from './storage.js';
 
-/** Whether the caller may manage the contestant's War and the contestant belongs to it (§6.1, §6.2), checked before any slow work. */
+/** Whether the caller may manage the contestant's War and the contestant belongs to it, checked before any slow work. */
 async function guardOwnedContestant(
   db: Kysely<Database>,
   warId: string,

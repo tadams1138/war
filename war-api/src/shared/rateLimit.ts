@@ -14,7 +14,7 @@ export type RateLimitAttempt = { allowed: true } | { allowed: false; retryAfterS
 
 /**
  * In-process, fixed-window limiter keyed by an arbitrary string (a voter
- * id, here). State is per process, not shared across instances (§8.4 accepts this for a fixed instance
+ * id, here). State is per process, not shared across instances (acceptable for a fixed instance
  * count; autoscaling needs a shared store). Entries are never pruned: each distinct key holds a small, fixed
  * amount of state for the process's lifetime, acceptable at this scale.
  *
@@ -49,7 +49,7 @@ export class RateLimiter {
 
 /**
  * The response body JSON Schema every rate-limited route's `429` uses
- * (§8.4) -- `retry_after_seconds` mirrors the `Retry-After` header
+ * -- `retry_after_seconds` mirrors the `Retry-After` header
  * in the body too, so a client need not parse headers to get it.
  */
 export const rateLimitedResponseSchema = {
@@ -65,7 +65,7 @@ export const rateLimitedResponseSchema = {
  * A Fastify preHandler enforcing `limiter` keyed by the client address
  * (`request.ip`, which honours `trustProxyHops` -- see `config.ts`) for the
  * limits that apply before any identity exists: sign-in start and token
- * refresh (§8.4). Replies exactly as {@link rateLimitByVoter} does.
+ * refresh. Replies exactly as {@link rateLimitByVoter} does.
  */
 export function rateLimitByAddress(limiter: RateLimiter) {
   return enforce(limiter, (request) => request.ip);
@@ -73,10 +73,10 @@ export function rateLimitByAddress(limiter: RateLimiter) {
 
 /**
  * A Fastify preHandler enforcing `limiter` keyed by `request.voterId`
- * (§8.4's per-identity limits) -- must run after the preHandler
+ * for the per-identity limits -- must run after the preHandler
  * that populates it (`requireAuth`). Replies 429 with a `Retry-After`
  * header (seconds) instead of calling the route handler when exceeded
- * (§8.4/§10.3: "never presented as an error" is the client's job
+ * ("never presented as an error" is the client's job
  * to honour, not built here).
  */
 export function rateLimitByVoter(limiter: RateLimiter) {

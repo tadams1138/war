@@ -1,4 +1,4 @@
-// Binary matchup voting, image mode only (war-spec.md §10.3). Navigating here
+// Binary matchup voting, image mode only. Navigating here
 // silently joins the War before the first matchup is
 // requested — there is no visible Join control. Rendering only; the vote
 // session's state machine lives in useVoteSession.
@@ -18,8 +18,8 @@ import { warTitle } from '../utils/warTitle'
 import { VideoMatchup } from '../video/VideoMatchup'
 
 // Scrolls the tap-to-vote block to the top of the viewport once, the first
-// time a matchup is ready (war-spec.md 10.3: "the page opens scrolled to
-// the top of this block, past the persistent header"). Only fires once per
+// time a matchup is ready, so the page opens scrolled to
+// the top of this block, past the persistent header. Only fires once per
 // page visit -- re-scrolling after every vote would fight a voter who has
 // deliberately scrolled down to read a bio. Queries by testid rather than a
 // ref: MatchupView (a wide vs. narrow layout, useNarrowViewport) owns which
@@ -58,8 +58,7 @@ function matchupComponentFor(warState: AsyncResourceState<WarDetailResponse>) {
 
 // Finishing every matchup -- whether by just casting the last vote, or by
 // arriving at the vote page (fresh, or back from signing in) having already
-// done so -- sends the voter straight to the War's results page (war-spec.md
-// §10.3), which carries its own completion notice (WarDetail's
+// done so -- sends the voter straight to the War's results page, which carries its own completion notice (WarDetail's
 // useVoteProgress) instead of a dedicated screen here.
 function useRedirectWhenCompleted(warId: string | undefined, completed: boolean) {
   const navigate = useNavigate()

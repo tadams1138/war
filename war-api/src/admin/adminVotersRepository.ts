@@ -80,7 +80,7 @@ function applySearch(query: AdminVotersQuery, q: string | undefined): AdminVoter
   return q ? query.where('voters.display_name', 'ilike', containsPattern(q)) : query;
 }
 
-/** Every Voter (§6.7 "Visibility"), newest first. The War count (removed Wars included) comes from the same query, never one lookup per row. */
+/** Every Voter, newest first. The War count (removed Wars included) comes from the same query, never one lookup per row. */
 export async function listAdminVoters(db: Kysely<Database>, options: ListAdminVotersOptions): Promise<ListAdminVotersOutcome> {
   const query = applySearch(applyStatus(baseAdminVotersQuery(db), options.status), options.q);
   const result = await fetchKeysetPage(query, { createdAtColumn: 'voters.created_at', idColumn: 'voters.id', ...options });

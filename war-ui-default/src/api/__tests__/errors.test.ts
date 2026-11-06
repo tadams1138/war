@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError, messageForReason, toUserMessage } from '../errors'
 
 describe('messageForReason', () => {
-  it('maps each reason to the exact copy in the spec\'s table', () => {
+  it('maps each reason to the exact copy in the table', () => {
     // Arrange
     const reasons = ['unauthorized', 'war-closed', 'not-joined', 'not-found', 'validation', 'server-error', 'network'] as const
 

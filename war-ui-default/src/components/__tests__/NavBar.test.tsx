@@ -1,4 +1,4 @@
-// The spec's "NavBar" behaviour — the failure-path half of the
+// NavBar behaviour — the failure-path half of the
 // Identity bullet the acceptance suite cannot honestly cover: "NavBar
 // still renders full authenticated navigation — My Wars, Start a War,
 // and logout all remain" even when GET /auth/me fails. NavBar has real

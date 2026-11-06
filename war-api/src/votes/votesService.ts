@@ -14,7 +14,7 @@ export type CastVoteOutcome =
   | { kind: 'warNotPublished' }
   | { kind: 'notJoined' }
   | { kind: 'notFound' }
-  /** The Voter was banned after their request authenticated (§6.7); answered like any banned Voter, 401. */
+  /** The Voter was banned after their request authenticated; answered like any banned Voter, 401. */
   | { kind: 'banned' };
 
 export interface CastVoteInput {
@@ -70,7 +70,7 @@ async function insertOrIdempotentOutcome(
   return { kind: 'created', vote: result.vote };
 }
 
-/** Casts a vote, enforcing §6.3's rules: published War, joined voter, valid winner, final vote. */
+/** Casts a vote, enforcing the voting rules: published War, joined voter, valid winner, final vote. */
 export async function castVoteForVoter(
   db: Kysely<Database>,
   input: CastVoteInput,

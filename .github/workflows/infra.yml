@@ -1,6 +1,6 @@
-# war-infra pipeline — see war-spec.md
+# war-infra pipeline
 #
-# Spaces provides no state locking (spec), so the per-environment
+# Spaces provides no state locking, so the per-environment
 # concurrency groups on the apply jobs below are what prevent two applies
 # colliding. A workflow_dispatch run validates and plans (shared, staging and
 # production) only; applies need a push to master.
@@ -74,7 +74,7 @@ env:
   TF_IN_AUTOMATION: 'true'
   TF_INPUT: '0'
 
-  # Spaces credentials for the S3-compatible state backend (spec)
+  # Spaces credentials for the S3-compatible state backend
   AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
 
@@ -93,7 +93,7 @@ env:
   # (the scheduler module's Worker needs it to call the internal endpoint).
   # The rest — JWT_SECRET, GOOGLE_CLIENT_ID/SECRET, etc. — are not Terraform
   # inputs; they're substituted straight into platform/{env}.yaml by the
-  # app.yml's render-spec step (spec).
+  # app.yml's render-spec step.
   TF_VAR_internal_task_token: ${{ secrets.INTERNAL_TASK_TOKEN }}
 
 jobs:
@@ -177,7 +177,7 @@ jobs:
   # Account/zone-scoped (registry, Cloudflare zone settings) — applied once,
   # ahead of either environment. staging and production don't reference this
   # state directly, but envs/*/compute expects the registry to already exist
-  # by the time it tries to create an app pointing at it (spec).
+  # by the time it tries to create an app pointing at it.
   apply-shared:
     name: Apply → Shared
     needs: plan-shared

@@ -5,7 +5,7 @@ import { findCloseExpiredWarsLastSuccess } from './scheduledTaskStatusRepository
 
 /**
  * How old the last successful nightly run may be before the watchdog reports
- * failure: two missed nightly runs plus an hour of scheduling slack (§12.8).
+ * failure: two missed nightly runs plus an hour of scheduling slack.
  */
 export const SCHEDULED_TASKS_MAX_AGE_MS = 49 * 60 * 60 * 1000;
 
@@ -24,7 +24,7 @@ export interface HealthRoutesDeps {
   now: () => Date;
 }
 
-/** Watchdog for the nightly scheduled tasks (§12.8); polled by an external uptime check. */
+/** Watchdog for the nightly scheduled tasks; polled by an external uptime check. */
 export function registerHealthRoutes(app: FastifyInstance, deps: HealthRoutesDeps): void {
   app.get('/health/scheduled-tasks', { schema: { response: { 200: watchdogResponseSchema, 503: watchdogResponseSchema } } }, async (_request, reply) => {
     const lastSuccess = await findCloseExpiredWarsLastSuccess(deps.db);

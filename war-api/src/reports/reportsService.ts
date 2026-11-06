@@ -55,7 +55,7 @@ export interface FileReportInput {
 
 export type FileReportOutcome = MutationOutcome<Report, NotFound | ValidationError>;
 
-/** Files one abuse report (§8.5) — any authenticated Voter, any War, any number of times; never deduplicated. */
+/** Files one abuse report — any authenticated Voter, any War, any number of times; never deduplicated. */
 export async function fileReport(db: Kysely<Database>, input: FileReportInput): Promise<FileReportOutcome> {
   const war = await findWarById(db, input.warId);
   if (!war) return { kind: 'notFound' };
@@ -69,7 +69,7 @@ export async function fileReport(db: Kysely<Database>, input: FileReportInput): 
 
 export type ListReportsOutcome = MutationOutcome<Report[], NotFound>;
 
-/** Every report against `warId`, newest first (§8.5). 404s if the War itself doesn't exist; caller permission (Moderator) is enforced by `requireModerator`, not here. */
+/** Every report against `warId`, newest first. 404s if the War itself doesn't exist; caller permission (Moderator) is enforced by `requireModerator`, not here. */
 export async function listReportsForWar(db: Kysely<Database>, warId: string): Promise<ListReportsOutcome> {
   const war = await findWarById(db, warId);
   if (!war) return { kind: 'notFound' };
@@ -94,7 +94,7 @@ export const unaddressedWarViewSchema = {
   },
 };
 
-/** The moderation queue (§8.5) — never fails; an empty result just means nothing is waiting. */
+/** The moderation queue — never fails; an empty result just means nothing is waiting. */
 export async function unaddressedQueue(db: Kysely<Database>): Promise<UnaddressedWarView[]> {
   const entries = await listWarsWithUnaddressedReports(db);
   return entries.map((entry: UnaddressedWarQueueEntry) => ({
@@ -106,7 +106,7 @@ export async function unaddressedQueue(db: Kysely<Database>): Promise<Unaddresse
 
 export type MarkAddressedOutcome = MutationOutcome<Report, NotFound>;
 
-/** Marks one report addressed (§8.5); addressing is final. Caller permission (Moderator) is enforced by `requireModerator`, not here. */
+/** Marks one report addressed; addressing is final. Caller permission (Moderator) is enforced by `requireModerator`, not here. */
 export async function markAddressed(db: Kysely<Database>, reportId: string): Promise<MarkAddressedOutcome> {
   const report = await markReportAddressed(db, reportId);
   return report ? { kind: 'ok', value: report } : { kind: 'notFound' };

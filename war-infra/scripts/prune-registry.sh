@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Prune old war-api images from the container registry — see war-spec.md 12.5.
+# Prune old war-api images from the container registry.
 #
 # Usage:
 #   prune-registry.sh [--dry-run]

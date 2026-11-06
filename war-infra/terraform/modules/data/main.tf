@@ -1,4 +1,4 @@
-# Managed PostgreSQL — see war-spec.md
+# Managed PostgreSQL
 #
 # One environment's logical database, user and connection pool on the shared
 # cluster. The platform YAMLs bind the API service to this pool and the

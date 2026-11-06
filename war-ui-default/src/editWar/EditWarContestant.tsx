@@ -55,7 +55,7 @@ export function EditWarContestant({
     event.preventDefault()
     // Checked before any request goes out — an empty name is never valid,
     // so there is nothing the server needs to tell us that we don't
-    // already know (war-spec.md, "client-side validate mandatory fields").
+    // already know.
     if (name.trim().length === 0) {
       setNameRequiredError('Name is required')
       return
@@ -102,8 +102,7 @@ export function EditWarContestant({
   )
 }
 
-// Rate-limited (war-spec.md §10.5: "a wait, using the supplied delay --
-// never presented as an error") renders on role="status", not
+// Rate-limited renders on role="status", not
 // role="alert" -- the same distinction useVoteSession's vote-error
 // message already draws.
 function ImageNoticeMessage({ notice }: { notice: ImageNotice | null }) {

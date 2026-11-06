@@ -4,7 +4,7 @@ import { buildAppWithoutDb } from '../setup/testAppWithoutDb.js';
 
 /**
  * Closes an observability gap: nothing else in the suite inspects the
- * `redirect_uri` that actually reaches Google (war-spec.md §5.1's exact-URL
+ * `redirect_uri` that actually reaches Google (the exact-URL
  * requirement applies to the callback exchange too), only the computed
  * `redirectUri` one layer above the wire. Runs DB-free via
  * `buildAppWithoutDb()` -- `beginLogin` never touches the database, it only

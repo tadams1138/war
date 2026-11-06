@@ -6,13 +6,13 @@ import type { OwnerAction } from '../moderation/ownerActions.js';
 import type { MutationFailure, MutationOutcome } from '../shared/outcomes.js';
 import { findWarById, findWarIncludingRemoved, type War } from './warsRepository.js';
 
-/** Who is acting: the roles that widen what they may do to a War (§3, §6.1). */
+/** Who is acting: the roles that widen what they may do to a War. */
 export interface Caller {
   voterId: string;
   isAdmin: boolean;
 }
 
-/** The roles that widen what a viewer may see of a War (§3, §6.1, §6.7). */
+/** The roles that widen what a viewer may see of a War. */
 export interface ViewerRoles {
   isAdmin?: boolean;
   isModerator?: boolean;
@@ -25,14 +25,14 @@ export function callerOf(request: FastifyRequest): Caller {
 
 export type OwnedWarOutcome = { kind: 'ok'; war: War; caller: Caller } | { kind: 'notFound' } | { kind: 'forbidden' };
 
-/** Whether `caller` may manage `war` (§6.1): its creator, or any Admin. A removed War is editable by no one (§6.7). */
+/** Whether `caller` may manage `war`: its creator, or any Admin. A removed War is editable by no one. */
 export function canManageWar(war: War, caller: { voterId?: string | null; isAdmin?: boolean }): boolean {
   return war.removedAt === null && (caller.isAdmin === true || (caller.voterId != null && war.creatorId === caller.voterId));
 }
 
 /**
  * Owner-level access, no status requirement: a War is always editable by its creator, in any status, and by any
- * Admin (§6.1). A Moderator-removed War is not found for anyone, as `findWarById` skips it.
+ * Admin. A Moderator-removed War is not found for anyone, as `findWarById` skips it.
  */
 export async function loadOwnedWar(db: Kysely<Database> | Transaction<Database>, warId: string, caller: Caller): Promise<OwnedWarOutcome> {
   const war = await findWarById(db, warId);
@@ -49,7 +49,7 @@ class OwnerActionRefused<R> extends Error {
 }
 
 /**
- * Logs one owner-level request that succeeded (§6.7): only when an Admin acts on a War they did not create, since on
+ * Logs one owner-level request that succeeded: only when an Admin acts on a War they did not create, since on
  * their own War an Admin is simply its creator.
  */
 async function logOwnerAction(trx: Transaction<Database>, war: War, caller: Caller, action: OwnerAction): Promise<void> {
@@ -58,7 +58,7 @@ async function logOwnerAction(trx: Transaction<Database>, war: War, caller: Call
 }
 
 /**
- * The one unit of work for an owner-level change (§6.1, §6.7): guards access, runs `work` and, when an Admin acts on
+ * The one unit of work for an owner-level change: guards access, runs `work` and, when an Admin acts on
  * another Voter's War, writes its moderation log entry, all in one transaction, so the change and its entry stand or
  * fall together. `work` must use `trx`, and any refusal it returns (not `ok`) rolls the transaction back and is
  * returned as is, logging nothing. Keep slow work (object storage) outside `work`.
@@ -86,10 +86,10 @@ export async function asOwnerAction<T>(
 }
 
 /**
- * Whether the viewer may see this War at all (§6.1): a draft is invisible to everyone but its creator and Admins, and
+ * Whether the viewer may see this War at all: a draft is invisible to everyone but its creator and Admins, and
  * routes report it as not found, never as "exists but private". A closed War stays visible.
  * Judged on the stored status, not the effective one: a draft whose end date passes reads as closed,
- * but it was never published, so expiry must not make it public. A Moderator sees every War (§6.7).
+ * but it was never published, so expiry must not make it public. A Moderator sees every War.
  */
 export function isWarVisibleTo(war: War, voterId: string | undefined | null, roles: ViewerRoles = {}): boolean {
   return roles.isModerator === true || war.status !== 'draft' || canManageWar(war, { voterId, isAdmin: roles.isAdmin });
@@ -97,7 +97,7 @@ export function isWarVisibleTo(war: War, voterId: string | undefined | null, rol
 
 /**
  * The War, or `undefined` when it does not exist or the viewer may not see it. Only a Moderator can load a removed
- * War (§6.7); for everyone else it does not exist.
+ * War; for everyone else it does not exist.
  */
 export async function findVisibleWar(
   db: Kysely<Database>,

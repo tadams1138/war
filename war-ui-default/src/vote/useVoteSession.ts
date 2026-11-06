@@ -1,4 +1,4 @@
-// The vote-session state machine for VoteMode (war-spec.md §10.3): join
+// The vote-session state machine for VoteMode: join
 // orchestration, matchup fetching, vote submission, error
 // classification, and the rate-limit wait. The transitions (409 advances
 // silently, 429 keeps cards busy then re-enables, everything else shows an

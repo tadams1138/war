@@ -32,9 +32,9 @@ export interface WarsRouteDeps {
   internalTaskToken: string;
   /** The time source for the close task and its success record. */
   now: () => Date;
-  /** Per-voter War-creation limit (§8.4: 10/hour). */
+  /** Per-voter War-creation limit (10/hour). */
   rateLimiter: RateLimiter;
-  /** The limiter contestant image uploads use too (§8.4: 100/hour): one image-upload budget per voter, so this route is no loophole around it. */
+  /** The limiter contestant image uploads use too (100/hour): one image-upload budget per voter, so this route is no loophole around it. */
   imageUploadRateLimiter: RateLimiter;
 }
 
@@ -110,7 +110,7 @@ export function registerWarsRoutes(app: FastifyInstance, deps: WarsRouteDeps): v
         },
       },
       // Not `bearerAuthRoute`: the route is open to anonymous callers for every query except `creator=me`
-      // (§6.1), so it must not carry a bearer `security` marker in the OpenAPI document.
+      //, so it must not carry a bearer `security` marker in the OpenAPI document.
       preHandler: requireAuthIf(auth, (request) => wantsOwnWars(request.query as { creator?: string })),
     },
     async (request, reply) => {

@@ -1,4 +1,4 @@
-// Cursor-paged moderation log, newest first (war-spec.md §6.7).
+// Cursor-paged moderation log, newest first.
 import { getModerationLog, type ModerationLogEntry } from '../api/client'
 import { useCursorPage } from '../hooks/useCursorPage'
 

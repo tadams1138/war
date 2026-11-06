@@ -58,7 +58,7 @@ export const mediaItemSchema = {
 };
 
 /**
- * Builds the response shape for a contestant's media array (§9.1). Variant widths come from those actually
+ * Builds the response shape for a contestant's media array. Variant widths come from those actually
  * written at upload time (`variantWidths`), so changing `VARIANT_WIDTHS` later cannot break URLs already
  * advertised. Rows predating that column fall back to filtering the source width against today's config.
  */

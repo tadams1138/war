@@ -1,4 +1,4 @@
-// The core voting UI's per-contestant card (war-spec.md §10.3).
+// The core voting UI's per-contestant card.
 // Shows image and name only — voting is a fast binary choice. A contestant
 // with no media has nothing to tap, so a Vote button stands where the media
 // would be (and is the card's single tab stop).

@@ -75,7 +75,7 @@ function toAdminVote(row: VoteRow): AdminVote {
 }
 
 /**
- * One page of every vote `voterId` cast, newest first (§6.7 "Visibility"): removed Wars and other
+ * One page of every vote `voterId` cast, newest first: removed Wars and other
  * Voters' unlisted or draft Wars included, since the history is the Voter's, not the War's. The loser
  * is the matchup's other contestant; War title and both names arrive in the same query.
  */

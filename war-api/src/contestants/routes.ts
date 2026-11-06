@@ -21,7 +21,7 @@ export interface ContestantsRouteDeps {
   auth: AuthDependencies;
   storage: ObjectStorage;
   publicBaseUrl: string;
-  /** Per-voter image-upload limit (§8.4: 100/hour). */
+  /** Per-voter image-upload limit (100/hour). */
   rateLimiter: RateLimiter;
   youtubeApiKey?: string;
   metadataFetch: typeof fetch;

@@ -14,7 +14,7 @@ import { truncateAll } from '../setup/testDb.js';
  * granularity (the access_denied callback there overlaps `error` precedence
  * below, which adds the state-mismatch and no-cookie cases). Not bound to a
  * .feature file — these are implementation-owned regression tests of
- * behaviour war-spec.md §5.1 requires.
+ * behaviour the sign-in flow requires.
  */
 let harness: TestHarness;
 
@@ -46,7 +46,7 @@ describe('Login sets PKCE state alongside the OAuth state cookie', () => {
   });
 });
 
-describe('OAuth callback state validation (war-spec.md §5.1)', () => {
+describe('OAuth callback state validation', () => {
   it('rejects a callback that omits the state query parameter entirely', async () => {
     // Arrange
     const { agent, stateCookie } = await beginLogin(harness);
@@ -150,13 +150,13 @@ describe('OAuth callback state validation (war-spec.md §5.1)', () => {
 });
 
 /**
- * The `502` boundary of war-spec.md §5.1 -- deliberately not a Gherkin
+ * The `502` boundary of the callback -- deliberately not a Gherkin
  * scenario: a wire-level robustness property, the same category as the
  * redirect-URI-pinning tests above. Both the exchange-failure mapping and
  * the downstream-failure exclusion are asserted here so the boundary's
  * scope is pinned exactly, not just its existence.
  */
-describe('Callback exchange failures (war-spec.md §5.1)', () => {
+describe('Callback exchange failures', () => {
   it('maps an openid-client/oauth4webapi validation error from the exchange to a 502, not a raw 500', async () => {
     // Arrange: a class-typed error carrying the library's own internal
     // error code as its message -- exactly the shape that reached three
@@ -219,12 +219,12 @@ describe('Callback exchange failures (war-spec.md §5.1)', () => {
 });
 
 /**
- * The `error`-first precedence and independence war-spec.md §5.1 requires
+ * The `error`-first precedence and independence the callback requires
  * -- checked before, and regardless of, the state-cookie check. The
  * acceptance scenario's one existing test happens to send a matching
  * cookie, which would pass even a subtly wrong `if (error && expectedState)`.
  */
-describe('OAuth error parameter precedence and independence (war-spec.md §5.1)', () => {
+describe('OAuth error parameter precedence and independence', () => {
   it('is honored even when a state mismatch would otherwise fire, and never reaches the exchange', async () => {
     // Arrange: a real, valid oauth_state cookie is present, but the query's
     // own `state` is deliberately wrong -- if `error` were checked only

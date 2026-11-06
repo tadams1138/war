@@ -32,7 +32,7 @@ export const PAGES: Record<string, PageRef> = {
   "that Voter's detail page": { path: ({ voterId }) => `/admin/voters/${voterId}` },
   // The signed-in voter is voter-1 (see World.nextVoterId)
   'their own detail page': { path: () => '/admin/voters/voter-1' },
-  // War detail is also its results page (war-spec.md §10.4)
+  // War detail is also its results page
   "that War's results page": { path: ({ warId }) => `/wars/${warId}` },
   "the first War's Edit page": { path: () => '/wars/war-1/edit', landmark: 'edit-war-title-input' },
   "that War's Edit page": { path: ({ warId }) => `/wars/${warId}/edit`, landmark: 'edit-war-title-input' },

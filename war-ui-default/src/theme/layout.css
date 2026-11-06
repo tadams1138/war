@@ -261,15 +261,14 @@ label {
 /* Icon-only below phone width -- the icon plus wordmark plus the theme
    switcher plus identity/login no longer fit one row at 390px, and
    wrapping to a second row grows the nav bar just enough to break the
-   vote page's own "no scroll to vote" guarantee (vote-mode-responsive
-   spec). The mark alone is still a clickable, recognizable Home link. */
+   vote page's own "no scroll to vote" guarantee. The mark alone is still a clickable, recognizable Home link. */
 @media (max-width: 480px) {
   .brand-wordmark {
     display: none;
   }
   /* A few extra px of headroom below the wordmark-hiding breakpoint, on
      top of that fix -- CI's headless renderer has measured a few px taller
-     than local runs at this exact width (vote-mode-responsive spec's "no
+     than local runs at this exact width (the "no
      scroll to vote" guarantee), so this trims real margin in rather than
      leaving the fit exact. */
   .nav-bar {
@@ -417,7 +416,7 @@ label {
   margin-bottom: 0.75rem;
 }
 
-/* The vote page's own layout (war-spec.md §10.3): the tap-to-vote block
+/* The vote page's own layout: the tap-to-vote block
    (progress + both cards) fills the viewport with no scroll needed to
    vote, via a definite `height: 100dvh` flex column (with a 100vh fallback) -- not `min-height`,
    which leaves how much of that height a `flex: 1`/`1fr` row actually
@@ -560,7 +559,7 @@ label {
 @media (max-width: 640px) {
   /* Stacked layout means every px here matters more than in the wide
      layout -- trimmed for headroom under the "no scroll to vote"
-     guarantee (vote-mode-responsive spec), matching .nav-bar's own
+     guarantee, matching .nav-bar's own
      narrow-viewport trim below. */
   .contestant-card {
     padding: 0.5rem;
@@ -598,7 +597,7 @@ label {
 /* Narrow mode's bio, sharing a .matchup-row with its own card -- capped to
    that row's height, so a long bio scrolls within its own area rather than
    growing the row past the viewport (both contestants must stay fully
-   visible without scrolling the page itself, war-spec.md §10.3). */
+   visible without scrolling the page itself). */
 .matchup-row .matchup-bio {
   flex: 1 1 0%;
   min-width: 0;
@@ -637,7 +636,7 @@ label {
   height: 100%;
 }
 
-/* The results list (war-spec.md §10.4): each card's media, content, and stats
+/* The results list: each card's media, content, and stats
    groups stack in one column, media first, on a narrow viewport -- a fixed
    percentage split would squeeze every group into an unusably narrow
    sliver below some breakpoint. The

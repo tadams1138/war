@@ -1,5 +1,5 @@
-// Shared by WarDetail's results-page Delete and EditWar's Delete (spec
-// §6.1 "Deletion", §10.4): draft-only, creator-only removal, with the same
+// Shared by WarDetail's results-page Delete and EditWar's Delete:
+// draft-only, creator-only removal, with the same
 // permanence confirmation both entry points require before calling the API.
 import { useState } from 'react'
 import { deleteWar } from '../api/client'

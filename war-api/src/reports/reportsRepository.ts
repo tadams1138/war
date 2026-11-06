@@ -28,7 +28,7 @@ export interface CreateReportInput {
   explanation: string;
 }
 
-/** Inserts one report row. Never deduplicates against existing reports on the same War (§8.5: "reports are never deduplicated or merged"). */
+/** Inserts one report row. Never deduplicates against existing reports on the same War. */
 export async function createReport(db: Kysely<Database>, input: CreateReportInput): Promise<Report> {
   const row = await db
     .insertInto('reports')
@@ -38,7 +38,7 @@ export async function createReport(db: Kysely<Database>, input: CreateReportInpu
   return toReport(row);
 }
 
-/** Every report against `warId`, newest first (§8.5). */
+/** Every report against `warId`, newest first. */
 export async function listReportsForWar(db: Kysely<Database>, warId: string): Promise<Report[]> {
   const rows = await db
     .selectFrom('reports')
@@ -56,7 +56,7 @@ export interface UnaddressedWarQueueEntry {
   unaddressedCount: number;
 }
 
-/** The moderation queue (§8.5): every War carrying ≥1 unaddressed report, with that count, ordered by title. */
+/** The moderation queue: every War carrying ≥1 unaddressed report, with that count, ordered by title. */
 export async function listWarsWithUnaddressedReports(db: Kysely<Database>): Promise<UnaddressedWarQueueEntry[]> {
   const rows = await db
     .selectFrom('reports')
@@ -71,7 +71,7 @@ export async function listWarsWithUnaddressedReports(db: Kysely<Database>): Prom
   return rows.map((row) => ({ warId: row.warId, title: row.title, unaddressedCount: Number(row.unaddressedCount) }));
 }
 
-/** Marks one report addressed (§8.5: final, never reopened). `undefined` if `reportId` doesn't exist. */
+/** Marks one report addressed (final, never reopened). `undefined` if `reportId` doesn't exist. */
 export async function markReportAddressed(db: Kysely<Database>, reportId: string): Promise<Report | undefined> {
   const row = await db
     .updateTable('reports')

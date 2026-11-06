@@ -24,7 +24,7 @@ export interface SignedIn {
   refreshTokenValue: string;
 }
 
-/** A banned Voter cannot sign in at all (§6.7): no refresh token is issued. */
+/** A banned Voter cannot sign in at all: no refresh token is issued. */
 export type CallbackResult = SignedIn | { kind: 'banned' };
 
 export async function beginLogin(
@@ -92,7 +92,7 @@ export async function refresh(deps: AuthDependencies, presentedTokenValue: strin
   return rotateForVoter(deps, decision.token);
 }
 
-/** Rotates a valid refresh token into a new JWT -- unless its Voter is banned (§6.7: no sign-in at all; their tokens are also revoked at ban time), which counts as invalid. */
+/** Rotates a valid refresh token into a new JWT -- unless its Voter is banned (no sign-in at all; their tokens are also revoked at ban time), which counts as invalid. */
 async function rotateForVoter(deps: AuthDependencies, token: StoredRefreshToken): Promise<RefreshResult> {
   if ((await findVoterById(deps.db, token.voterId))?.banned) {
     return { kind: 'invalid' };
@@ -101,7 +101,7 @@ async function rotateForVoter(deps: AuthDependencies, token: StoredRefreshToken)
   const newTokenValue = generateRefreshTokenValue();
   const rotated = await rotateRefreshToken(deps.db, token, hashRefreshToken(newTokenValue));
   if (rotated.kind === 'lostRace') {
-    // A concurrent request already rotated this exact token: the same signal as presenting a used one (§5.2).
+    // A concurrent request already rotated this exact token: the same signal as presenting a used one.
     await revokeFamily(deps.db, token.familyId);
     return { kind: 'reused' };
   }
@@ -127,7 +127,7 @@ export interface AuthenticatedCaller {
   voter: Voter | undefined;
 }
 
-/** Verifies the Bearer JWT and returns the caller it names, or throws -- including for a banned Voter, whose tokens stop working at once (§6.7). One primary-key lookup per call. */
+/** Verifies the Bearer JWT and returns the caller it names, or throws -- including for a banned Voter, whose tokens stop working at once. One primary-key lookup per call. */
 export async function authenticate(deps: AuthDependencies, authorizationHeader: string | undefined): Promise<AuthenticatedCaller> {
   if (!authorizationHeader?.startsWith('Bearer ')) {
     throw new Error('missing bearer token');

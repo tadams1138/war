@@ -1,4 +1,4 @@
-// Browse published public Wars (war-spec.md §10.4).
+// Browse published public Wars.
 import { Link } from 'react-router-dom'
 import type { WarSummary } from '../api/client'
 import { useAuth } from '../auth/context'
