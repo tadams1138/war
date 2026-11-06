@@ -267,6 +267,11 @@ connection pool on it:
 | staging | `war` | `war_api` | `war-staging-pool` (5) |
 | production | `war_production` | `war_production_api` | `war-production-pool` (10) |
 
+Despite its name, `war-staging-pg` is the single cluster serving both staging and
+production, and it is tagged `shared`. DigitalOcean cannot rename a database cluster: the
+name is fixed at creation, and changing it means a new cluster and a data migration. The
+name was kept deliberately.
+
 - **Ownership.** `terraform/shared/` owns the cluster (`prevent_destroy`) and its whole
   firewall rule set, which trusts both apps. The provider manages one complete rule set per
   cluster, so no other root may declare a firewall for it. Each environment root owns only
