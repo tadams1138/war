@@ -77,6 +77,16 @@ test('monitoring uses one scheduled-task health check with availability, latency
   }
 });
 
+test('the down alert declares the comparison DigitalOcean stores, so plans show no drift', () => {
+  // Arrange
+  const config = read('terraform/modules/monitoring/main.tf');
+  // Act
+  const down = config.match(/resource "digitalocean_uptime_alert" "down" \{([\s\S]*?)^\}/m);
+  // Assert
+  assert.ok(down, 'Missing down alert');
+  assert.match(down[1], /comparison\s*=\s*"less_than"/);
+});
+
 test('the alert email is a sensitive secret everywhere it is passed', () => {
   // Arrange
   const workflow = read('../.github/workflows/infra.yml');
