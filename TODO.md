@@ -14,5 +14,4 @@ deleted, and the implemented behavior is described in the spec.
 - **8** — [Restore Facebook sign-in](TODO/8-restore-facebook-sign-in.md)
 - **9** — [Clean up orphaned storage objects](TODO/9-clean-up-orphaned-storage-objects.md)
 - **10** — [Cover the untested paths](TODO/10-cover-the-untested-paths.md)
-- **11** — [Review monitoring and alerts, and explain them](TODO/11-review-monitoring-and-alerts-and-explain-them.md)
 - **12** — [Consider renaming infrastructure after the cost consolidation](TODO/12-consider-renaming-infrastructure-after-the-cost-consolidation.md)
