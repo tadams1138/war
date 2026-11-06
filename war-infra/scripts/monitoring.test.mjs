@@ -77,7 +77,7 @@ test('monitoring uses one scheduled-task health check with availability, latency
   }
 });
 
-test('the down alert declares the comparison DigitalOcean stores, so plans show no drift', () => {
+test('the down alert declares the comparison and threshold DigitalOcean stores, so plans show no drift', () => {
   // Arrange
   const config = read('terraform/modules/monitoring/main.tf');
   // Act
@@ -85,6 +85,7 @@ test('the down alert declares the comparison DigitalOcean stores, so plans show 
   // Assert
   assert.ok(down, 'Missing down alert');
   assert.match(down[1], /comparison\s*=\s*"less_than"/);
+  assert.match(down[1], /threshold\s*=\s*1\b/);
 });
 
 test('the alert email is a sensitive secret everywhere it is passed', () => {

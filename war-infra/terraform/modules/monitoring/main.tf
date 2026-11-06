@@ -30,8 +30,9 @@ resource "digitalocean_uptime_alert" "down" {
   name     = "${var.domain} down"
   check_id = digitalocean_uptime_check.scheduled_tasks.id
   type     = "down"
-  # DigitalOcean stores this value for down alerts; declaring it stops a perpetual plan diff.
+  # DigitalOcean stores these values for down alerts; declaring them stops a perpetual plan diff.
   comparison = "less_than"
+  threshold  = 1
   period     = "2m"
 
   notifications {
