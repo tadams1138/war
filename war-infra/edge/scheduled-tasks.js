@@ -44,7 +44,6 @@ async function run(task, env) {
     method: 'POST',
     headers: {
       'X-Internal-Token': env.INTERNAL_TASK_TOKEN,
-      'content-type': 'application/json',
     },
   })
 
