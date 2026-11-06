@@ -34,7 +34,7 @@ test('environment databases use distinct identities and bounded pools on the sha
   assert.match(staging, /user_name\s*=\s*"war_api"/);
   assert.match(production, /database_name\s*=\s*"war_production"/);
   assert.match(production, /user_name\s*=\s*"war_production_api"/);
-  assert.doesNotMatch(production, /legacy-data|module "data"|module\.data\b/);
+  assert.doesNotMatch(production, /legacy-data/);
   assert.doesNotMatch(data, /resource "digitalocean_database_(cluster|firewall)"/);
   assert.match(data, /name\s*=\s*var.database_name/);
   assert.match(data, /name\s*=\s*var.user_name/);
@@ -75,4 +75,18 @@ test('nothing refers to the retired production cluster', () => {
   assert.deepEqual(components, ['shared']);
   assert.doesNotMatch(yaml, /war-production-pg/);
   assert.doesNotMatch(production, /war-production-pg/);
+});
+
+test('names describe the shared cluster role, not the environment it was created for', () => {
+  // Arrange
+  const shared = read('terraform/shared/main.tf');
+  const production = read('terraform/envs/production/main.tf');
+  // Act
+  const tags = shared.match(/resource "digitalocean_database_cluster" "pg" \{[\s\S]*?tags\s*=\s*(\[[^\]]*\])/)?.[1];
+  // Assert
+  assert.equal(tags, '["war", "shared"]');
+  assert.doesNotMatch(shared, /data "digitalocean_database_cluster" "existing"/);
+  assert.match(production, /module "data" \{/);
+  assert.doesNotMatch(production, /module "shared_data"/);
+  assert.match(production, /moved\s*\{\s*from\s*=\s*module\.shared_data\s*to\s*=\s*module\.data\s*\}/);
 });

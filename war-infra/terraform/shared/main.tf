@@ -287,8 +287,9 @@ output "registry_endpoint" {
   value = digitalocean_container_registry.war.endpoint
 }
 
-# Adopt the existing staging cluster by name, never create a replacement.
-data "digitalocean_database_cluster" "existing" {
+# Adopt the cluster by name, never create a replacement. DigitalOcean cannot rename
+# a cluster, so it keeps the name it was created with for staging.
+data "digitalocean_database_cluster" "adopted" {
   name = "war-staging-pg"
 }
 
@@ -315,8 +316,7 @@ resource "digitalocean_database_cluster" "pg" {
     hour = "07:00:00"
   }
 
-  # Preserve existing tags during adoption.
-  tags = ["war", "staging"]
+  tags = ["war", "shared"]
 
   lifecycle {
     prevent_destroy = true
@@ -339,12 +339,12 @@ resource "digitalocean_database_firewall" "pg" {
 
 import {
   to = digitalocean_database_cluster.pg
-  id = data.digitalocean_database_cluster.existing.id
+  id = data.digitalocean_database_cluster.adopted.id
 }
 
 import {
   to = digitalocean_database_firewall.pg
-  id = data.digitalocean_database_cluster.existing.id
+  id = data.digitalocean_database_cluster.adopted.id
 }
 
 variable "alert_email" {

@@ -89,7 +89,7 @@ data "digitalocean_database_cluster" "shared" {
   name = "war-staging-pg"
 }
 
-module "shared_data" {
+module "data" {
   source = "../../modules/data"
 
   cluster_id    = data.digitalocean_database_cluster.shared.id
@@ -97,6 +97,11 @@ module "shared_data" {
   user_name     = "war_production_api"
   pool_name     = "war-production-pool"
   pool_size     = local.shared_pool_size
+}
+
+moved {
+  from = module.shared_data
+  to   = module.data
 }
 
 # ── Storage ───────────────────────────────────────────────────────────────────
