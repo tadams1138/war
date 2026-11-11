@@ -1,6 +1,7 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { processShareImage } from '../../src/wars/shareImageProcessing.js';
+import { phonePhoto, quadrantColours, UPRIGHT_QUADRANTS } from '../setup/orientedPhotos.js';
 
 async function makeJpeg(width: number, height: number): Promise<Buffer> {
   return sharp({ create: { width, height, channels: 3, background: { r: 80, g: 120, b: 200 } } }).jpeg().toBuffer();
@@ -59,5 +60,18 @@ describe('processShareImage', () => {
     // Assert
     const meta = await sharp(result).metadata();
     expect(meta.exif).toBeUndefined();
+  });
+
+  it.each([6, 8, 3, 2] as const)('applies EXIF orientation %i before cropping', async (orientation) => {
+    // Arrange
+    const source = await phonePhoto(1200, 630, orientation);
+
+    // Act
+    const result = await processShareImage(source);
+
+    // Assert
+    const meta = await sharp(result).metadata();
+    expect({ width: meta.width, height: meta.height, orientation: meta.orientation }).toEqual({ width: 1200, height: 630, orientation: undefined });
+    expect(await quadrantColours(result)).toEqual(UPRIGHT_QUADRANTS);
   });
 });

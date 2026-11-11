@@ -744,6 +744,13 @@ aspect ratio and never upscaling, **strips all metadata** — phone photos routi
 coordinates and device identifiers — and retains the original privately so widths can be
 changed later without re-uploading. Originals are never publicly reachable.
 
+Before anything else, the image is **turned the way its camera says to show it**. Phone cameras
+store the sensor's pixels with an orientation tag (any of the eight rotations and mirrorings)
+rather than rotating the pixels, so the platform applies that tag to the pixels themselves. The
+widths, aspect ratio and every stored version are those of the image as shown, and because the
+tag is stripped with the rest of the metadata, no viewer can apply it a second time. An image
+with no orientation tag is used as it is.
+
 Wherever a contestant appears in a response it carries an **ordered media array**, its
 contents depending on the War's media mode. Clients render what they are given and never
 construct media URLs themselves. Each image carries its aspect ratio so clients can reserve
@@ -757,8 +764,8 @@ latency is tolerable.
 image, not a set of responsive variants, and is stored as JPEG rather than the modern format
 contestant media uses — chosen so the same asset works as both the in-app card thumbnail and
 a third-party link-preview image without a second encoding, since not every external platform
-that renders a link preview supports the modern format. Metadata stripping and a privately
-retained original still apply.
+that renders a link preview supports the modern format. Orientation, metadata stripping and a
+privately retained original still apply: the image is turned upright before it is cropped.
 
 **Why this matters.** Serving a multi-megabyte original to a phone showing two cards side by
 side is simultaneously the worst experience and the largest line on the bandwidth bill — image

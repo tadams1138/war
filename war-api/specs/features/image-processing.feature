@@ -11,6 +11,25 @@ Feature: Contestant image processing
     When the photo is uploaded
     Then no EXIF metadata is present in any variant
 
+  Scenario Outline: Android photos are stored the way the phone shows them
+    Given an Android <shape> photo whose camera recorded EXIF orientation <orientation>
+    When the photo is uploaded
+    Then every variant shows the photo upright, with no EXIF orientation
+    And the image's aspect ratio is that of a <shape> photo
+
+    Examples:
+      | shape     | orientation |
+      | portrait  | 6           |
+      | portrait  | 8           |
+      | landscape | 1           |
+      | landscape | 3           |
+
+  Scenario: A photo without EXIF metadata is stored as it is
+    Given a landscape photo with no EXIF metadata
+    When the photo is uploaded
+    Then every variant shows the photo upright, with no EXIF orientation
+    And the image's aspect ratio is that of a landscape photo
+
   Scenario: Images are never upscaled
     Given an image 600 pixels wide
     When the image is uploaded

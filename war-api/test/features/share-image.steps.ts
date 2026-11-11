@@ -8,6 +8,7 @@ import { giveContestantAnImage, makeAdmin, makeContestant, makeDraftWar, makeVot
 import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as } from '../setup/apiClient.js';
+import { phonePhoto, quadrantColours, UPRIGHT_QUADRANTS } from '../setup/orientedPhotos.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/share-image.feature', import.meta.url)));
 
@@ -96,6 +97,29 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const meta = await sharp(harness.storage.publicObjects.get(key)!).metadata();
       expect(meta.width).toBe(1200);
       expect(meta.height).toBe(630);
+    });
+  });
+
+  Scenario('A portrait Android photo is cropped as the phone shows it', ({ Given, When, Then }) => {
+    let war: War;
+
+    Given('a draft War owned by its creator', async () => {
+      // Arrange
+      war = await makeDraftWar(harness.db, creatorId);
+    });
+
+    When('the creator uploads, as the share image, an Android photo whose camera recorded EXIF orientation 6', async () => {
+      // Act
+      const response = await uploadShareImage(war.id, creatorId, await phonePhoto(1200, 630, 6));
+      expect(response.status).toBe(200);
+    });
+
+    Then('the stored image shows the photo upright, with no EXIF orientation', async () => {
+      // Assert
+      const key = [...harness.storage.publicObjects.keys()].find((k) => k.startsWith('share-images/'))!;
+      const stored = harness.storage.publicObjects.get(key)!;
+      expect((await sharp(stored).metadata()).orientation).toBeUndefined();
+      expect(await quadrantColours(stored)).toEqual(UPRIGHT_QUADRANTS);
     });
   });
 
