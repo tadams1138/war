@@ -12,6 +12,11 @@ Feature: Share Image
     Then the response status is 200
     And the stored image is exactly 1200 by 630
 
+  Scenario: A portrait Android photo is cropped as the phone shows it
+    Given a draft War owned by its creator
+    When the creator uploads, as the share image, an Android photo whose camera recorded EXIF orientation 6
+    Then the stored image shows the photo upright, with no EXIF orientation
+
   Scenario: The original is retained privately
     Given a draft War owned by its creator
     When the creator uploads a share image

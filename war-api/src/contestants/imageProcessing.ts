@@ -45,21 +45,22 @@ export function validateImageUpload(input: UploadValidationInput): UploadValidat
 }
 
 /**
- * Re-encodes an uploaded image into WebP variants at 400/800/1600px wide,
- * never upscaling, and never carrying source EXIF metadata forward: sharp
- * omits metadata from its output unless `.withMetadata()` is called.
+ * Re-encodes an uploaded image into WebP variants at 400/800/1600px wide, never upscaling. Phone cameras store the
+ * sensor's pixels and an EXIF orientation tag saying how to show them, so the pixels are turned upright first and the
+ * sizes taken as shown; the variants carry no metadata (sharp writes none unless `.withMetadata()` is called), so no
+ * viewer can apply the orientation a second time. The private original is kept exactly as uploaded.
  */
 export async function processImage(input: Buffer): Promise<ProcessedImage> {
-  const metadata = await sharp(input).metadata();
-  const sourceWidth = metadata.width ?? 0;
-  const sourceHeight = metadata.height ?? 0;
+  const { autoOrient } = await sharp(input).metadata();
+  const sourceWidth = autoOrient.width;
+  const sourceHeight = autoOrient.height;
 
   const variants: ImageVariant[] = [];
   for (const width of VARIANT_WIDTHS) {
     if (sourceWidth < width) {
       continue;
     }
-    const buffer = await sharp(input).resize({ width }).webp().toBuffer();
+    const buffer = await sharp(input).autoOrient().resize({ width }).webp().toBuffer();
     variants.push({ width, buffer });
   }
 

@@ -10,12 +10,14 @@ const SHARE_IMAGE_HEIGHT = 630;
  * so the same asset works as both the in-app card thumbnail and a
  * third-party link-preview image without a second encoding. `fit: 'cover'`
  * center-crops a source of any aspect ratio down to exactly this size
- * rather than letterboxing or rejecting it; sharp omits metadata from its
- * output unless `.withMetadata()` is called, which it never is here, same
- * as contestant media's own stripping (imageProcessing.ts).
+ * rather than letterboxing or rejecting it. The source's EXIF orientation is
+ * applied before the crop, so a phone photo is cropped as the phone shows it;
+ * sharp omits metadata from its output unless `.withMetadata()` is called,
+ * which it never is here, so the tag cannot be applied a second time.
  */
 export async function processShareImage(buffer: Buffer): Promise<Buffer> {
   return sharp(buffer)
+    .autoOrient()
     .resize(SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, { fit: 'cover' })
     .jpeg({ quality: 85 })
     .toBuffer();

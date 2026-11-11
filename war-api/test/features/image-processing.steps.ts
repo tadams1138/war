@@ -9,6 +9,7 @@ import { buildTestHarness, type TestHarness } from '../setup/testApp.js';
 import { truncateAll } from '../setup/testDb.js';
 import { as, uploadImage } from '../setup/apiClient.js';
 import { storedObjectKeys } from '../setup/queries.js';
+import { phonePhoto, quadrantColours, UPRIGHT_QUADRANTS, type Orientation } from '../setup/orientedPhotos.js';
 
 const feature = await loadFeature(fileURLToPath(new URL('../../specs/features/image-processing.feature', import.meta.url)));
 
@@ -25,7 +26,10 @@ async function smallJpeg(width: number, height: number): Promise<Buffer> {
   return sharp({ create: { width, height, channels: 3, background: { r: 10, g: 200, b: 90 } } }).jpeg().toBuffer();
 }
 
-describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
+const PHOTO_SIZES = { portrait: { width: 900, height: 1200 }, landscape: { width: 1200, height: 900 } } as const;
+type PhotoShape = keyof typeof PHOTO_SIZES;
+
+describeFeature(feature, ({ Scenario, ScenarioOutline, BeforeEachScenario }) => {
   let harness: TestHarness;
   let warId: string;
   let creatorId: string;
@@ -96,6 +100,75 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
         const meta = await sharp(buffer).metadata();
         expect(meta.exif).toBeUndefined();
       }
+    });
+  });
+
+  async function expectEveryVariantUpright(): Promise<void> {
+    const variants = [...harness.storage.publicObjects.values()];
+    expect(variants.length).toBeGreaterThan(0);
+    for (const buffer of variants) {
+      const meta = await sharp(buffer).metadata();
+      expect(meta.orientation).toBeUndefined();
+      expect(await quadrantColours(buffer)).toEqual(UPRIGHT_QUADRANTS);
+    }
+  }
+
+  async function expectAspectRatioOf(shape: PhotoShape): Promise<void> {
+    const response = await as(harness, creatorId).get(`/api/v1/wars/${warId}`);
+    const [media] = response.body.contestants[0].media;
+    const { width, height } = PHOTO_SIZES[shape];
+    expect(media.aspect_ratio).toBeCloseTo(width / height);
+  }
+
+  ScenarioOutline('Android photos are stored the way the phone shows them', ({ Given, When, Then, And }, variables) => {
+    const shape = variables.shape as PhotoShape;
+    let photo: Buffer;
+
+    Given('an Android <shape> photo whose camera recorded EXIF orientation <orientation>', async () => {
+      // Arrange
+      const { width, height } = PHOTO_SIZES[shape];
+      photo = await phonePhoto(width, height, Number(variables.orientation) as Orientation);
+    });
+
+    When('the photo is uploaded', async () => {
+      // Act
+      expect((await upload(photo)).status).toBe(201);
+    });
+
+    Then('every variant shows the photo upright, with no EXIF orientation', async () => {
+      // Assert
+      await expectEveryVariantUpright();
+    });
+
+    And("the image's aspect ratio is that of a <shape> photo", async () => {
+      // Assert
+      await expectAspectRatioOf(shape);
+    });
+  });
+
+  Scenario('A photo without EXIF metadata is stored as it is', ({ Given, When, Then, And }) => {
+    let photo: Buffer;
+
+    Given('a landscape photo with no EXIF metadata', async () => {
+      // Arrange
+      const { width, height } = PHOTO_SIZES.landscape;
+      photo = await phonePhoto(width, height);
+      expect((await sharp(photo).metadata()).exif).toBeUndefined();
+    });
+
+    When('the photo is uploaded', async () => {
+      // Act
+      expect((await upload(photo)).status).toBe(201);
+    });
+
+    Then('every variant shows the photo upright, with no EXIF orientation', async () => {
+      // Assert
+      await expectEveryVariantUpright();
+    });
+
+    And("the image's aspect ratio is that of a landscape photo", async () => {
+      // Assert
+      await expectAspectRatioOf('landscape');
     });
   });
 
