@@ -8,15 +8,7 @@ the "Custom UI registry" and "Custom UIs" sections, removed from the spec until 
 - No registry endpoints or schema. The registry table and the War slug column were dropped
   until this is built (`war-api/db/migrations/20260120000000_drop_unused_video_and_ui_registry_schema.sql`).
 - No shared runtime artifact for custom UIs.
-- Pieces that already exist:
-  - `.github/workflows/ui-custom.yml`, the reusable pipeline each `war-ui-{slug}` repo calls. It
-    syncs files to a key prefix in one shared bucket and provisions nothing per slug.
-  - `war-infra/edge/ui-router.js`, bound to `/ui/*` (Terraform: `war-infra/terraform/modules/edge/main.tf`,
-    `cloudflare_workers_script.ui_router` and `cloudflare_workers_route.ui_router`). It serves
-    each custom UI from the shared bucket by slug prefix and rewrites storage 404s to that
-    slug's `index.html` with 200. The slug pattern is validated in the Worker.
-  - Pending routing scenarios in `war-infra/specs/features/pending/routing.feature` (e.g.
-    "Custom UI slug is routed to the shared bucket", given "a registered slug").
+- Custom UI hosting, routing and deployment are deferred together with the registry. No custom UI bucket, router Worker, reusable deployment pipeline or custom UI smoke mode is currently provided.
 
 ## Behavior
 The following is the design carried over verbatim from the spec. When the item ships, return
@@ -131,18 +123,49 @@ than the standard ones, and per-slug infrastructure of any kind.
 ### Caching of the shared runtime (was a SPEC.md §11.4 row)
 Shared runtime: ten minutes, revalidated in the background.
 
-### Already built (kept in SPEC.md §11)
-The shared-bucket routing, the reusable custom UI pipeline (slug validation, template check,
-size check, staging then production gate) and the slug/size/template constraints enforced by
-that pipeline are built and stay in the spec.
+### Hosting and deployment to rebuild on R2
+
+The previous Spaces custom UI bucket, policy and CDN endpoint, `war-infra/edge/ui-router.js`,
+its Worker route, `.github/workflows/ui-custom.yml` and custom UI smoke checks were removed.
+Git history retains the originals; rebuild this plumbing on R2 when the registry ships.
+
+Provision one private Cloudflare R2 custom UI bucket per environment, shared by all slugs.
+Each slug owns a key prefix; registering a UI creates a registry record and uploads files,
+with no per-slug bucket, origin, route or infrastructure apply.
+
+Restore a Worker on `/ui/*` that reads the private bucket through an R2 binding. Validate
+slugs with `^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$` before reading or uploading, to prevent
+cross-prefix access. `/ui/{slug}/` serves `{slug}/index.html`. Direct object requests return
+the object and its metadata; a missing object under a valid slug falls back to that slug's
+shell with HTTP 200 for SPA deep links. A missing shell or invalid slug returns 404. Shell
+responses use `text/html; charset=utf-8` and `Cache-Control: no-store`. Two registered slugs
+must serve independent bundles from the same bucket. Recreate executable coverage for these
+routes and for registration requiring no infrastructure change.
+
+Restore `.github/workflows/ui-custom.yml` as a reusable workflow called by each
+`war-ui-{slug}` repository. Inputs include `deploy` (false by default), an optional slug
+(default: repository name without `war-ui-`), and `template_dir` (default: `templates`).
+Publish the resolved slug as an output. Validate it before upload, run install, lint and
+build, require `war-detail.mustache`, `vote-mode.mustache` and `rankings.mustache`, and reject
+missing `dist/` or a bundle exceeding 2,097,152 bytes. Add regression scenarios proving
+missing templates and oversized bundles prevent deployment.
+
+When deployment is enabled, retain the built artifact for 30 days. Deploy to staging,
+then promote that exact artifact to production after the production Environment's reviewer
+approval; never rebuild for promotion. Use R2 S3 credentials and the account endpoint
+`https://<account_id>.r2.cloudflarestorage.com`, with region `auto` and no ACL options.
+Sync non-shell assets only inside the validated slug prefix with deletion scoped to that
+prefix and `Cache-Control: public, max-age=31536000, immutable`. Upload `index.html`
+separately as HTML with `no-store`. Purge that slug's shell URL through the Cloudflare zone
+API, then smoke-check `/ui/{slug}/` for HTTP 200 and HTML and a nonexistent deep link for
+HTTP 200 SPA fallback. Production must wait for staging's smoke checks. Restore custom UI
+smoke mode and pending routing/pipeline scenarios as executable coverage when implemented.
 
 ## Technical notes
-- Needs: a registry table plus a War slug column (new migration), registry API endpoints, a
-  shared runtime artifact that custom UIs load, and a decision on how registration relates to
-  `ui-router.js` (the Worker currently needs no per-slug configuration).
-- Follow the spec sections for the intended design; keep implementation detail out of
-  SPEC.md.
+- Needs a registry table plus a War slug column (new migration), registry API endpoints,
+  and the shared runtime artifact in addition to the R2 hosting and pipeline above.
+- Decide how registry validation and uploaded bundles interact before enabling routing.
 
 ## Dependencies
 - #4 (the registry-related routing scenarios have no runner).
-- The default UI Worker (`war-infra/edge/ui-default.js`, route `/*`) shares the edge routing; `/ui/*` stays with `ui_router`.
+- The default UI Worker (`war-infra/edge/ui-default.js`, route `/*`) will share edge routing; restore a more specific `/ui/*` route when custom UIs ship.

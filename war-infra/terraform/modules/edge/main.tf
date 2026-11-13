@@ -2,6 +2,7 @@
 # The zone-wide WAF/rate-limit/cache rulesets live in terraform/shared
 # instead, applied once — see that module for why.
 #
+# Media reads private R2 through a binding and caches public variants at the edge.
 # Only /api/v1/* reaches App Platform; the default UI is its own Worker
 # (terraform/ui).
 
@@ -39,11 +40,7 @@ variable "app_default_host" {
   description = "*.ondigitalocean.app hostname; proxied to, never advertised"
 }
 
-variable "media_cdn_host" {
-  type = string
-}
-
-variable "ui_custom_cdn_host" {
+variable "media_bucket" {
   type = string
 }
 
@@ -51,7 +48,6 @@ locals {
   # Paths not matched by a Worker route here fall to the default UI Worker's
   # /* route (terraform/ui), apart from /api/v1/*, which that root keeps on a
   # script-less route so it proxies to App Platform.
-  ui_worker_name    = "war-ui-router-${var.env}"
   media_worker_name = "war-media-router-${var.env}"
 }
 
@@ -75,23 +71,17 @@ resource "cloudflare_dns_record" "apex" {
 }
 
 # ── Media router Worker ───────────────────────────────────────────────────────
-# /media/* is served from the media bucket's CDN rather than App Platform.
-# A Worker rather than an Origin Rule: redirecting to a different origin's
-# hostname needs that rule type's Host Header override, which requires a
-# paid Cloudflare plan. Fetching the CDN's own hostname directly (what
-# edge/media-router.js does) needs no such override at all.
-
 resource "cloudflare_workers_script" "media_router" {
   account_id         = var.account_id
   script_name        = local.media_worker_name
   content            = file("${path.module}/../../../edge/media-router.js")
   main_module        = "media-router.js"
-  compatibility_date = "2025-04-02" # earliest date the Worker's own cf.cacheEverything/cacheTtl are honoured over Cache Rules — required for the aggressive media caching this Worker exists to provide
+  compatibility_date = "2025-04-02"
 
   bindings = [{
-    type = "plain_text"
-    name = "MEDIA_CDN_ORIGIN"
-    text = "https://${var.media_cdn_host}"
+    type        = "r2_bucket"
+    name        = "MEDIA_BUCKET"
+    bucket_name = var.media_bucket
   }]
 }
 
@@ -99,33 +89,6 @@ resource "cloudflare_workers_route" "media_router" {
   zone_id = var.zone_id
   pattern = "${var.domain}/media/*"
   script  = cloudflare_workers_script.media_router.script_name
-}
-
-# ── Custom UI router Worker ───────────────────────────────────────────────────
-# Handles /ui/{slug}/* for every slug from one shared bucket, and rewrites
-# storage 404s to that slug's index.html with HTTP 200. Object
-# storage cannot do the latter, which is the whole reason this Worker exists.
-
-resource "cloudflare_workers_script" "ui_router" {
-  account_id         = var.account_id
-  script_name        = local.ui_worker_name
-  content            = file("${path.module}/../../../edge/ui-router.js")
-  main_module        = "ui-router.js"
-  compatibility_date = "2025-04-02" # pinned for predictable behaviour, matching media_router; this script sets no cf overrides today
-
-  bindings = [{
-    type = "plain_text"
-    name = "STORAGE_CDN_ORIGIN"
-    text = "https://${var.ui_custom_cdn_host}"
-  }]
-}
-
-# Bound only to /ui/*, so the bulk of platform traffic never invokes it and any
-# per-invocation quota applies to custom-UI traffic alone.
-resource "cloudflare_workers_route" "ui_router" {
-  zone_id = var.zone_id
-  pattern = "${var.domain}/ui/*"
-  script  = cloudflare_workers_script.ui_router.script_name
 }
 
 # WAF, rate limiting, and cache rules live in terraform/shared, not here, one
@@ -138,10 +101,6 @@ resource "cloudflare_workers_route" "ui_router" {
 # env or domain in their rule expressions (path-only matches throughout), so
 # one zone-wide instance changes nothing about what they do — only how many
 # of them exist. See terraform/shared/main.tf.
-
-output "worker_name" {
-  value = cloudflare_workers_script.ui_router.script_name
-}
 
 output "media_worker_name" {
   value = cloudflare_workers_script.media_router.script_name

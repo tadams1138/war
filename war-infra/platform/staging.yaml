@@ -99,7 +99,10 @@ services:
         value: https://staging.war.tmad.dev/media
       - key: S3_ENDPOINT
         scope: RUN_TIME
-        value: https://nyc3.digitaloceanspaces.com
+        value: https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com
+      - key: S3_REGION
+        scope: RUN_TIME
+        value: auto
       - key: S3_BUCKET
         scope: RUN_TIME
         value: war-media-staging

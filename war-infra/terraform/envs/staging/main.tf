@@ -58,22 +58,8 @@ variable "internal_task_token" {
   sensitive = true
 }
 
-variable "spaces_access_key" {
-  type      = string
-  sensitive = true
-}
-
-variable "spaces_secret_key" {
-  type      = string
-  sensitive = true
-}
-
-# Spaces uses S3-compatible credentials, which the API token does not cover.
-# Without these, every digitalocean_spaces_bucket resource fails to apply.
 provider "digitalocean" {
-  token             = var.do_token
-  spaces_access_id  = var.spaces_access_key
-  spaces_secret_key = var.spaces_secret_key
+  token = var.do_token
 }
 
 provider "cloudflare" {
@@ -99,8 +85,9 @@ module "data" {
 # ── Storage ───────────────────────────────────────────────────────────────────
 
 module "storage" {
-  source = "../../modules/storage"
-  env    = local.env
+  source     = "../../modules/storage"
+  env        = local.env
+  account_id = var.cloudflare_account_id
 }
 
 # ── Compute ───────────────────────────────────────────────────────────────────
@@ -141,13 +128,12 @@ data "digitalocean_app" "war" {
 module "edge" {
   source = "../../modules/edge"
 
-  env                = local.env
-  zone_id            = var.cloudflare_zone_id
-  account_id         = var.cloudflare_account_id
-  domain             = local.domain
-  app_default_host   = trimprefix(data.digitalocean_app.war.default_ingress, "https://")
-  media_cdn_host     = module.storage.media_cdn_host
-  ui_custom_cdn_host = module.storage.ui_custom_cdn_host
+  env              = local.env
+  zone_id          = var.cloudflare_zone_id
+  account_id       = var.cloudflare_account_id
+  domain           = local.domain
+  app_default_host = trimprefix(data.digitalocean_app.war.default_ingress, "https://")
+  media_bucket     = module.storage.media_bucket
 }
 
 # ── Scheduler ─────────────────────────────────────────────────────────────────
@@ -184,9 +170,6 @@ output "media_bucket" {
   value = module.storage.media_bucket
 }
 
-output "ui_custom_bucket" {
-  value = module.storage.ui_custom_bucket
-}
 
 output "database_cluster_name" {
   value = data.digitalocean_database_cluster.shared.name
@@ -217,4 +200,46 @@ module "monitoring" {
   source      = "../../modules/monitoring"
   domain      = local.domain
   alert_email = var.alert_email
+}
+
+removed {
+  from = module.storage.digitalocean_spaces_bucket.media
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.storage.digitalocean_spaces_bucket_policy.media
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.storage.digitalocean_cdn.media
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.storage.digitalocean_spaces_bucket.ui_custom
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.storage.digitalocean_spaces_bucket_policy.ui_custom
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.storage.digitalocean_cdn.ui_custom
+  lifecycle {
+    destroy = false
+  }
 }

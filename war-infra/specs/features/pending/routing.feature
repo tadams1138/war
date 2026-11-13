@@ -11,11 +11,6 @@ Feature: Routing
     Then index.html from the default UI is returned
     And the HTTP status is 200
 
-  Scenario: Custom UI slug is routed to the shared bucket
-    Given a registered slug "miss-universe-2026"
-    When a request is made to /ui/miss-universe-2026/
-    Then index.html is returned from the shared custom UI bucket under that slug's prefix
-
   Scenario: SPA deep links into the default UI return index.html
     Given the default UI is deployed
     When a request is made to /wars/some-war-id/vote
@@ -53,28 +48,6 @@ Feature: Routing
     And a request is made to /wars/import
     And a request is made to that War's own /edit and /vote pages
     Then none of those responses' <head> tags mention that War's title
-
-  Scenario: SPA deep links into a custom UI return index.html with status 200
-    Given a registered slug "miss-universe-2026"
-    When a request is made to /ui/miss-universe-2026/rankings
-    And no object exists at that key in storage
-    Then that slug's index.html is returned
-    And the HTTP status is 200
-
-  Scenario: Two custom UIs are served from the same origin
-    Given registered slugs "miss-universe-2026" and "best-pizza-nyc"
-    When requests are made to /ui/miss-universe-2026/ and /ui/best-pizza-nyc/
-    Then each returns its own bundle
-    And both were served from a single storage origin
-
-  Scenario: Registering a new slug requires no infrastructure change
-    Given a new custom UI bundle for slug "best-pizza-nyc"
-    When the bundle is uploaded under that slug's prefix
-    And a ui_registrations row is inserted
-    Then /ui/best-pizza-nyc/ serves that bundle
-    And no infrastructure apply was required
-    And no new bucket or origin was created
-    And no existing component was redeployed
 
 Feature: Scheduled Tasks
 
@@ -126,18 +99,6 @@ Feature: CI/CD Pipelines
     When the pre-deploy hook runs during a deployment
     Then the deployment is aborted
     And the previous revision continues serving traffic
-
-  Scenario: Custom UI pipeline blocks on missing required template
-    Given a war-ui-{slug} repo missing vote-mode.mustache
-    When the pipeline runs the template-check stage
-    Then the pipeline fails
-    And no deployment occurs
-
-  Scenario: Custom UI pipeline blocks on bundle size exceeded
-    Given a war-ui-{slug} repo with a built output of 3MB
-    When the pipeline runs the size-check stage
-    Then the pipeline fails with a size error
-    And no deployment occurs
 
   Scenario: Infrastructure changes require manual approval for production
     Given an infrastructure change merged to war-infra master

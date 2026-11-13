@@ -14,3 +14,4 @@ deleted, and the implemented behavior is described in the spec.
 - **8** — [Restore Facebook sign-in](TODO/8-restore-facebook-sign-in.md)
 - **9** — [Clean up orphaned storage objects](TODO/9-clean-up-orphaned-storage-objects.md)
 - **10** — [Cover the untested paths](TODO/10-cover-the-untested-paths.md)
+- **11** — [Move object storage from Spaces to Cloudflare R2](TODO/11-move-object-storage-from-spaces-to-cloudflare-r2.md)

@@ -92,6 +92,7 @@ calling `playwright test` directly runs stale generated tests.
 - shared/production validate: repeat init/validate above with `war-infra/terraform/shared` and `war-infra/terraform/envs/production`
 - monitoring regression: `node --test war-infra/scripts/monitoring.test.mjs`
 - shared database ownership regression: `node --test war-infra/scripts/shared-db.test.mjs`
+- object storage (R2) regression: `node --test war-infra/scripts/r2-storage.test.mjs`
 - plan: `terraform -chdir=war-infra/terraform/envs/staging plan`
 - deploy script tests (render-spec.sh): `bash war-infra/scripts/render-spec.test.sh`
 - registry pruning script tests (prune-registry.sh): `bash war-infra/scripts/prune-registry.test.sh`
@@ -151,8 +152,7 @@ Executable Gherkin lives with the code that implements it — `war-api/specs/fea
 `war-ui-default/features/`, `war-infra/specs/features/`. Each has a `pending/` subdirectory
 for scenarios with no binding yet. These are test fixture, not a second copy of the spec. A
 custom UI (SPEC.md §11.5; registry and shared runtime are TODO #1) is its own separate repository, not a directory here, so it
-keeps its own Gherkin — `.github/workflows/ui-custom.yml` is the reusable pipeline each one
-calls.
+keeps its own Gherkin.
 
 **The UI's Gherkin is executed.** Every scenario in `war-ui-default/features/*.feature` runs
 step by step through playwright-bdd. Follow "UI acceptance test conventions" below before adding

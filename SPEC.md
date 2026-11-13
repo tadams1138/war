@@ -1228,7 +1228,7 @@ README's Tech stack section, and operational detail lives in its Deployment and 
 | **Edge function** | Small request-time compute, used only where routing requires it |
 | **Application platform** | Runs the API and hosts the default UI; owns path-based ingress |
 | **Database** | Managed relational database with a connection pooler and automated backups |
-| **Object storage** | Buckets for media, custom UI bundles, and infrastructure state |
+| **Object storage** | Buckets for media and infrastructure state |
 | **Container registry** | Stores API images |
 | **Scheduler** | Invokes endpoints on a recurring schedule |
 | **Observability** | Log aggregation, metric alerting |
@@ -1272,28 +1272,18 @@ one.
 |---|---|---|
 | Internal endpoints | Edge | **Blocked** except from the scheduler |
 | API | Platform ingress | API service, prefix preserved |
-| Custom UI slugs | Edge function | Shared custom-UI bucket, keyed by slug |
 | Media | Edge | Media bucket, prefix stripped, long-lived cache |
 | Everything else | Edge | Default UI's static assets, with link-preview tags injected on War detail pages |
 
-**Every static UI must serve its shell with a success status for any unmatched path** so deep
-links work. The edge's static-asset hosting provides this natively for the default UI. Object storage typically
-cannot — it returns a not-found status even when serving an error document — which is why an
-edge function handles it for custom UIs, refetching the slug's shell and returning it
-successfully. That function is the mechanism making the shared-bucket model viable.
-
-**All custom UIs share one bucket behind one origin**, keyed by slug prefix. There is no
-per-slug bucket, origin, or routing rule: a slug's files are uploaded to the shared bucket under its
-prefix, requiring no infrastructure run and no redeploy. The alternative — one origin per slug
-— makes every registration an infrastructure change and consumes a per-deployment component
-budget, and custom UIs are unbounded by design.
+**The default UI serves its shell with a success status for unmatched paths** so deep
+links work. Public media delivery permits only processed contestant images; private
+originals remain unreachable independently of the edge firewall.
 
 ### 11.4 Caching
 
 | Asset class | Policy |
 |---|---|
 | Hashed assets | Immutable, one year |
-| Custom UI shells | Never stored |
 | Default UI shell | Short, self-healing on the next navigation |
 | Contestant images | Immutable, one year |
 | API responses | Per-endpoint; no store by default |
@@ -1306,7 +1296,7 @@ own policy.
 
 The API and the default UI share one application pipeline. It detects which project
 changed and runs only that project's checks; deploy stages are gated on not being a pull
-request. Infrastructure and custom UIs have their own pipelines.
+request. Infrastructure has its own pipeline.
 
 - **Application (API and default UI):** detect changes → each changed project's checks, plus
   the generated-types check when either side of the API contract changed and the deploy
@@ -1324,8 +1314,6 @@ request. Infrastructure and custom UIs have their own pipelines.
     fails and says to run the pipeline manually, which forces every check.
   - After each production deploy, old API images are pruned, keeping those in use, one
     rollback image and the bootstrap image.
-- **Custom UI:** resolve and validate slug → lint → build → template check → size check →
-  deploy staging → purge → smoke test → **manual gate** → promote the same artefact
 - **Infrastructure:** validate → plan → **manual gate** → apply shared → plan → apply
   staging → plan → **manual gate** → apply production. An apply runs only when its plan
   shows changes. A plan on a push to the main branch supersedes an older run's apply still
@@ -1340,11 +1328,6 @@ failed migration aborts the deployment and never ships. They are ordered, record
 as the backstop. The hook runs while the previous revision is still serving, so a migration
 should be backwards-compatible; one that is not is allowed, at the cost of errors from the
 previous revision until the deploy completes.
-
-Custom UIs share one pipeline template, invoked from each brand's own repository. Invoking it
-resolves the template's version when the run is first triggered and keeps that version for the
-run's life, so re-running an old failed run silently executes the *old* template; prefer a
-fresh trigger after changing it.
 
 ### 11.6 Secrets
 

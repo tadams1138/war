@@ -26,18 +26,17 @@ Terraform, App Platform specs, Cloudflare Workers and deploy scripts. The techno
 [Tech stack](#tech-stack).
 
 A brand-specific custom UI (see TODO #1) is its own repository, not a directory here;
-[`.github/workflows/ui-custom.yml`](.github/workflows/ui-custom.yml) is the reusable pipeline
-each one calls. Custom UIs and the registry behind them are specified but not built.
+its registry, hosting and reusable pipeline remain planned in [TODO #1](TODO/1-custom-ui-registry-and-shared-runtime.md).
 
 ```mermaid
 flowchart LR
   B[Browser] --> CF["Cloudflare edge<br/>DNS, WAF, rate limit, cache rules"]
   CF -->|"/api/v1/*"| API["war-api<br/>App Platform service"]
   CF -->|"/* (everything else)"| UI["war-ui-default Worker<br/>static assets, and link-preview<br/>tags on /wars/id"]
-  CF -->|"/media/*<br/>media-router Worker"| CDN["Spaces CDN<br/>images"]
-  CF -->|"/ui/slug/*<br/>ui-router Worker"| CUI["Spaces<br/>custom UI bundles"]
+  CF -->|"/media/*"| MEDIA["media-router Worker<br/>edge cache"]
+  MEDIA -->|"MEDIA_BUCKET binding"| R2["Private R2<br/>image storage"]
   API --> PG[("Managed PostgreSQL<br/>pooled connection")]
-  API --> SP["Spaces<br/>image storage"]
+  API -->|"S3 API"| R2
   CRON["Cloudflare cron Worker"] -->|"POST /internal/close-expired-wars"| API
 ```
 
@@ -49,11 +48,11 @@ operated are under [Deployment and operations](#deployment-and-operations).
 
 | Layer | Technologies |
 |---|---|
-| API | Node 24, TypeScript, Fastify 5, Kysely, `pg`, `node-pg-migrate`, `jose` (JWT), `openid-client` (OAuth/OIDC with PKCE), `sharp` (image processing), AWS S3 SDK (Spaces), `@fastify/swagger` (OpenAPI) |
+| API | Node 24, TypeScript, Fastify 5, Kysely, `pg`, `node-pg-migrate`, `jose` (JWT), `openid-client` (OAuth/OIDC with PKCE), `sharp` (image processing), AWS S3 SDK (R2), `@fastify/swagger` (OpenAPI) |
 | UI | React 19, Vite, React Router, Tailwind CSS, `marked` + DOMPurify (sanitized bio markdown), `fflate` (War export/import zip), MSW (mock mode) |
 | API tests | Vitest, `@amiceli/vitest-cucumber` (Gherkin), Testcontainers (PostgreSQL), supertest |
 | UI tests | Vitest + Testing Library (unit), Playwright and playwright-bdd (acceptance, against MSW mocks) |
-| Infra | Terraform (DigitalOcean and Cloudflare providers), DigitalOcean App Platform, managed PostgreSQL, Spaces + CDN, Cloudflare Workers, GitHub Actions |
+| Infra | Terraform (DigitalOcean and Cloudflare providers), DigitalOcean App Platform, managed PostgreSQL, Cloudflare R2, Cloudflare Workers, GitHub Actions |
 
 ## Engineering notes
 
@@ -204,6 +203,29 @@ Section 11 of [`SPEC.md`](SPEC.md) says what the pipelines and infrastructure mu
 this section is how this repository does it and how to operate it. Every infrastructure
 change is applied through CI, never by hand.
 
+### Media storage cutover
+
+Media storage is configured for private R2 buckets, served by the media-router binding.
+The state backend remains on Spaces; its backend blocks and Terraform version are unchanged.
+
+1. Create an R2 API token with Object Read and Write access restricted to
+   `war-media-staging` and `war-media-production`. Set the GitHub variable
+   `R2_ACCESS_KEY_ID` and the secret `R2_SECRET_ACCESS_KEY`; ensure the repository variable
+   `CLOUDFLARE_ACCOUNT_ID` identifies the account.
+2. After the infrastructure pipeline apply creates the buckets, copy objects for each
+   environment, staging first. Configure rclone remotes `spaces` and `r2` with their
+   respective S3 endpoints and credentials, then run:
+   `rclone sync spaces:war-media-staging r2:war-media-staging` (repeat for production).
+   `aws s3 sync` via a local staging directory with the two endpoints is an alternative.
+   Compare source and destination object counts, including private originals, before proceeding.
+3. Redeploy the app to pick up the R2 endpoint, region `auto` and credentials.
+   Verify existing `/media/contestants/...` URLs, uploads and deletion, and confirm
+   `/media/originals/...` stays inaccessible.
+4. Once copies and URLs are verified, manually delete the old Spaces media and ui-custom
+   buckets and their CDN endpoints. Terraform's non-destructive removal blocks leave these
+   intact for copying. Keep `war-tfstate` and the Spaces state credentials until the separate
+   backend migration; Spaces billing continues while that bucket exists.
+
 ### Workflows
 
 [`.github/workflows/`](.github/workflows):
@@ -213,7 +235,6 @@ change is applied through CI, never by hand.
 | `app.yml` | API and default UI: change-detected CI, API image build, a single UI build, then independent API and UI deploys to staging and (after approval) production |
 | `infra.yml` | Terraform validate, plan and gated apply (shared, staging, production) |
 | `workflows.yml` | actionlint (with shellcheck) over every workflow file |
-| `ui-custom.yml` | Reusable pipeline for separate custom-UI repositories |
 | `push-bootstrap-image.yml` | Manual one-off publish of the placeholder image Terraform's initial app spec points at |
 
 Path filters decide what runs (the stage order is in spec section 11.5). The deploy-script
@@ -227,7 +248,7 @@ runs on changes under `.github/workflows/`. A manual run forces every check:
 |---|---|
 | `terraform/` | Terraform modules and environment roots |
 | `platform/` | App Platform specs (`staging.yaml`, `production.yaml`): the source of truth for service configuration after bootstrap, applied by the deploy pipeline and not owned by Terraform |
-| `edge/` | Cloudflare Workers for the default UI, media, scheduled tasks and custom UI dispatch |
+| `edge/` | Cloudflare Workers for the default UI, media and scheduled tasks |
 | `bootstrap/` | The placeholder container image the app is first created with |
 | `scripts/` | `smoke-test.sh`, `render-spec.sh` (with `render-spec.test.sh`) and `prune-registry.sh` (with `prune-registry.test.sh`) |
 | `specs/` | Gherkin feature files for infrastructure behaviour |
@@ -247,9 +268,8 @@ environment must provide is in spec sections 11.1 and 11.2.
   providers and the remote state backend (Spaces, S3-compatible), instantiates the modules
   with environment values (node size, counts, hostnames) and handles async dependencies such
   as waiting for App Platform ingress to be ready.
-- `modules/`: `compute/` (the App Platform app and its initial spec), `data/` (logical database, credentials and pool), `storage/` (Spaces buckets for media, custom UIs and
-  state), `edge/` (Cloudflare DNS, TLS, WAF rules, rate limiting, and the media and custom-UI
-  Worker routes; the default UI's `/*` route is in `ui/`) and `scheduler/` (Cloudflare cron triggers and Worker bindings).
+- `modules/`: `compute/` (the App Platform app and its initial spec), `data/` (logical database, credentials and pool), `storage/` (private R2 media bucket), `edge/` (Cloudflare DNS and the media
+  Worker route; zone-wide TLS, WAF, rate-limit and cache settings live in `shared/`; the default UI's `/*` route is in `ui/`) and `scheduler/` (Cloudflare cron triggers and Worker bindings).
 
 `infra.yml` is gated as spec section 11.5 describes; the shared apply waits on the
 `infra-shared` GitHub Environment's reviewer and the production apply on `production`'s. To
@@ -411,7 +431,6 @@ old commit.
 1. The public hostname reaches the Cloudflare edge (DNS, TLS, WAF, rate limiting).
 2. Workers dispatch to origins:
    - `/api/v1/*`: App Platform API (prefix preserved)
-   - `/ui/{slug}/*`: custom UI bucket
    - `/media/*`: media bucket (cached, prefix stripped)
 3. Internal endpoints (`/api/v1/internal/*`) are blocked on the public hostname and reachable
    only from the scheduler.
@@ -420,13 +439,12 @@ old commit.
 
 | Worker | Purpose |
 |---|---|
-| `ui-router.js` | Routes custom UI requests to the shared bucket by slug, returning the shell with 200 for SPA deep links |
 | `ui-default.js` | Serves the default UI's static assets and injects link-preview tags on `/wars/:id` |
-| `media-router.js` | Caches and serves media, stripping the `/media/` prefix |
+| `media-router.js` | Serves only `contestants/*` from its private R2 binding after stripping `/media/`; GET/HEAD, ETags and edge caching |
 | `scheduled-tasks.js` | Invoked by Cloudflare cron; dispatches scheduled operations to internal API endpoints |
 
-Media and the shared custom-UI bucket are served with a one-year cache on content-addressed
-keys. The default UI Worker's script runs first on `/wars/*` and rewrites only `/wars/:id`;
+Media variants are served with a one-year immutable cache on content-addressed
+keys; only successful GETs populate the Workers Cache API. Originals are never served by the Worker. The default UI Worker's script runs first on `/wars/*` and rewrites only `/wars/:id`;
 other paths are served straight from its assets, except a non-navigation request that matches
 no file (a crawler or `curl` asking for a missing `/robots.txt`, say), which reaches the
 script and gets the shell. Zone-wide rules (in `terraform/shared/`):
@@ -460,7 +478,8 @@ Required GitHub Actions secrets (per repository):
 |---|---|---|
 | `DIGITALOCEAN_ACCESS_TOKEN` | terraform, doctl | DigitalOcean API access |
 | `CLOUDFLARE_API_TOKEN` | terraform | Cloudflare API access |
-| `SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY` | terraform state backend | DigitalOcean Spaces (S3-compatible) |
+| `SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY` | terraform state backend only | DigitalOcean Spaces (S3-compatible); retained until the backend move |
+| `R2_SECRET_ACCESS_KEY` | API config | R2 Object Read and Write secret key (its key ID is the `R2_ACCESS_KEY_ID` variable) |
 | `INTERNAL_TASK_TOKEN` | terraform scheduler, API config | Authorises internal endpoints |
 | `JWT_SECRET` | API config | Session token signing (substituted into the platform spec) |
 | `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_SECRET`, `FACEBOOK_CLIENT_SECRET`, `TWITTER_CLIENT_SECRET` | API config | OAuth provider client secrets |
@@ -489,6 +508,7 @@ Required GitHub Actions variables:
 |---|---|---|
 | `CLOUDFLARE_ZONE_ID` | terraform | Cloudflare DNS zone ID |
 | `CLOUDFLARE_ACCOUNT_ID` | terraform, scheduler | Cloudflare account ID |
+| `R2_ACCESS_KEY_ID` | API config | R2 access key ID; it identifies the key and does not authenticate on its own |
 | `GOOGLE_CLIENT_ID`, `MICROSOFT_CLIENT_ID`, `FACEBOOK_CLIENT_ID`, `TWITTER_CLIENT_ID` | API config | OAuth provider client IDs |
 | `DO_APP_ID` | app pipeline | App Platform app ID, set once per GitHub environment (staging, production) from Terraform's `app_id` output |
 | `PUBLIC_BASE_URL` | app pipeline, API config | The environment's public URL (`https://staging.war.tmad.dev` or `https://war.tmad.dev`), set per GitHub environment |
