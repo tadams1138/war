@@ -440,7 +440,7 @@ old commit.
 | Worker | Purpose |
 |---|---|
 | `ui-default.js` | Serves the default UI's static assets and injects link-preview tags on `/wars/:id` |
-| `media-router.js` | Serves only `contestants/*` from its private R2 binding after stripping `/media/`; GET/HEAD, ETags and edge caching |
+| `media-router.js` | Serves only `contestants/*` and `share-images/*` from its private R2 binding after stripping `/media/`; GET/HEAD, ETags and edge caching |
 | `scheduled-tasks.js` | Invoked by Cloudflare cron; dispatches scheduled operations to internal API endpoints |
 
 Media variants are served with a one-year immutable cache on content-addressed

@@ -1,12 +1,14 @@
-// Media keys contain both width and content hashes, so a year in the edge cache
-// cannot serve different bytes for the same key. Originals remain private:
-// the binding exposes only the explicitly allowed contestant variants.
+// Every public media key is written once and never overwritten (contestant
+// variants carry an image id and width, share images an upload id), so a year
+// in the edge cache cannot serve stale bytes. Originals remain private: the
+// binding exposes only these public prefixes.
+const PUBLIC_PREFIXES = ['contestants/', 'share-images/']
 
 function allowedKey(request) {
   const path = new URL(request.url).pathname
   if (!path.startsWith('/media/')) return null
   const key = path.slice('/media/'.length)
-  return key.startsWith('contestants/') ? key : null
+  return PUBLIC_PREFIXES.some(prefix => key.startsWith(prefix)) ? key : null
 }
 
 function objectResponse(object, method) {

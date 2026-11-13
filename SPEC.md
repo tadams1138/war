@@ -1283,7 +1283,7 @@ one.
 | Everything else | Edge | Default UI's static assets, with link-preview tags injected on War detail pages |
 
 **The default UI serves its shell with a success status for unmatched paths** so deep
-links work. Public media delivery permits only processed contestant images; private
+links work. Public media delivery permits only processed contestant images and War share images; private
 originals remain unreachable independently of the edge firewall.
 
 ### 11.4 Caching

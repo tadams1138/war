@@ -21,7 +21,8 @@ Sources (checked 2026-11-11):
 
 ## Behavior
 No change visible to voters or creators:
-- Contestant image variants keep loading from `https://<host>/media/contestants/...`.
+- Contestant image variants and War share images keep loading from
+  `https://<host>/media/contestants/...` and `https://<host>/media/share-images/...`.
 - Image originals stay private and are never served (the WAF rule on `/media/originals/*`
   stays).
 - Custom UI hosting is removed until the registry and shared runtime are built.
@@ -60,7 +61,7 @@ R2 differences that force changes:
   variants; remove it, test first (unit test asserting the command carries no ACL).
 - No bucket policies, so the "variants public, originals private" split cannot be a
   per-prefix policy. Options:
-  - Keep the media bucket private and serve only `contestants/*` through an R2 binding in
+  - Keep the media bucket private and serve only `contestants/*` and `share-images/*` through an R2 binding in
     the media-router Worker (preferred; the binding never exposes `originals/`).
   - Split originals into a separate private bucket (code change in `storage.ts`).
 - Region is `auto` (`S3_REGION=auto`); endpoint
@@ -95,7 +96,9 @@ Risks:
   and route, the `ui-custom.yml` pipeline and the custom UI smoke checks are removed; #1
   rebuilds them on R2 when custom UIs are built.
 - Media buckets stay private. The media-router Worker reads them through an R2 binding and
-  serves only `contestants/*` keys, so originals are unreachable even without the WAF rule.
+  serves only `contestants/*` and `share-images/*` keys, so originals are unreachable even
+  without the WAF rule. Share images were public on Spaces through their object ACL, not
+  the bucket policy, so the allowlist names them explicitly.
 - Spaces resources leave Terraform state through `removed` blocks with `destroy = false`.
   The buckets and CDN endpoints are deleted by hand after the data copy is verified.
 - The state backend moves last, in its own change, with the Terraform version bump.

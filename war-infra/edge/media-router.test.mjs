@@ -56,18 +56,29 @@ test('private media serves only variants with metadata, conditional reads and ed
   assert.deepEqual(f.writes, [200])
 })
 
+test('processed share images are served', async () => {
+  // Arrange
+  const f = fixture()
+  // Act
+  const response = await worker.fetch(f.request('/media/share-images/war-upload.jpg'), f.env, f.ctx)
+  // Assert
+  assert.equal(response.status, 200)
+  assert.equal(f.reads[0].key, 'share-images/war-upload.jpg')
+})
+
 test('invalid paths and methods never touch the bucket', async () => {
   // Arrange
   const f = fixture()
   // Act
   const responses = await Promise.all([
     worker.fetch(f.request('/media/originals/secret'), f.env, f.ctx),
+    worker.fetch(f.request('/media/originals/share-images/war-upload.png'), f.env, f.ctx),
     worker.fetch(f.request('/other/contestants/x'), f.env, f.ctx),
     worker.fetch(f.request('/media/other'), f.env, f.ctx),
     worker.fetch(f.request('/media/contestants/x', 'POST'), f.env, f.ctx),
   ])
   // Assert
-  assert.deepEqual(responses.map(response => response.status), [404, 404, 404, 405])
+  assert.deepEqual(responses.map(response => response.status), [404, 404, 404, 404, 405])
   assert.equal(f.reads.length, 0)
   assert.deepEqual(f.writes, [])
 })
