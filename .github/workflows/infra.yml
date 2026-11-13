@@ -86,8 +86,6 @@ env:
   TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
   TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-  TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
-  TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
 
   # internal_task_token is the only application secret Terraform consumes
   # (the scheduler module's Worker needs it to call the internal endpoint).
@@ -113,6 +111,9 @@ jobs:
 
       - name: Check shared database ownership
         run: node --test scripts/shared-db.test.mjs
+
+      - name: Check object storage configuration
+        run: node --test scripts/r2-storage.test.mjs
 
       - name: Check monitoring configuration
         run: node --test scripts/monitoring.test.mjs

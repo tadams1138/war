@@ -42,7 +42,6 @@ export class S3ObjectStorage implements ObjectStorage {
         Key: key,
         Body: body,
         ContentType: contentType,
-        ACL: 'public-read',
       }),
     );
     return `${this.config.publicBaseUrl}/${key}`;

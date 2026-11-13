@@ -32,8 +32,8 @@
 #   GOOGLE_CLIENT_SECRET, MICROSOFT_CLIENT_SECRET, FACEBOOK_CLIENT_SECRET, TWITTER_CLIENT_SECRET   secrets
 #   YOUTUBE_API_KEY   per-environment secret (YouTube Data API v3)
 #   GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID, FACEBOOK_CLIENT_ID, TWITTER_CLIENT_ID   variables (not secrets)
-#   SPACES_ACCESS_KEY_ID, SPACES_SECRET_ACCESS_KEY   secrets (same Spaces
-#     credentials used elsewhere; substituted into the spec's S3_* keys)
+#   R2_ACCESS_KEY_ID   variable; R2_SECRET_ACCESS_KEY   secret (app object storage)
+#   CLOUDFLARE_ACCOUNT_ID   variable (R2 S3 endpoint)
 #
 # The production approval gate is a required reviewer on the `production`
 # GitHub Environment, not a step in this file.
@@ -673,8 +673,9 @@ jobs:
           IMAGE_TAG: ${{ needs.ensure-api-image.outputs.api_tag }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           INTERNAL_TASK_TOKEN: ${{ secrets.INTERNAL_TASK_TOKEN }}
-          S3_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
-          S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          S3_ACCESS_KEY_ID: ${{ vars.R2_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
@@ -790,8 +791,9 @@ jobs:
           IMAGE_TAG: ${{ needs.ensure-api-image.outputs.api_tag }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           INTERNAL_TASK_TOKEN: ${{ secrets.INTERNAL_TASK_TOKEN }}
-          S3_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
-          S3_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          S3_ACCESS_KEY_ID: ${{ vars.R2_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}

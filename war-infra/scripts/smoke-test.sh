@@ -5,7 +5,6 @@
 # Usage:
 #   smoke-test.sh <environment> api
 #   smoke-test.sh <environment> ui-default
-#   smoke-test.sh <environment> ui <slug>
 #
 # <environment> is staging | production. BASE_URL overrides the derived hostname.
 #
@@ -17,7 +16,6 @@ set -euo pipefail
 
 ENVIRONMENT="${1:-}"
 TARGET="${2:-}"
-SLUG="${3:-}"
 
 usage() {
   sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'
@@ -168,17 +166,6 @@ case "$TARGET" in
       "War share page carries link-preview tags"
     body_lacks "/wars/smoke-test-nonexistent/vote" 'og:title' \
       "War vote page does not carry link-preview tags"
-    ;;
-
-  ui)
-    [[ -n "$SLUG" ]] || { echo "target 'ui' requires a slug" >&2; usage; }
-    await_ready "/ui/${SLUG}/" || true
-
-    status "/ui/${SLUG}/"     200 "custom UI '${SLUG}' responds"
-    header "/ui/${SLUG}/"     content-type "text/html" "custom UI returns HTML"
-
-    # the edge function must rewrite storage 404s to a 200 index.html.
-    status "/ui/${SLUG}/smoke-test-nonexistent" 200 "custom UI SPA fallback returns 200"
     ;;
 
   *)

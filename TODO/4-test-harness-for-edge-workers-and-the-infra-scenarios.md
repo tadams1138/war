@@ -5,13 +5,14 @@ Build a test harness for the Cloudflare Workers and a runner for `war-infra`'s G
 scenarios.
 
 ## Current state
-- Workers in `war-infra/edge/`: `media-router.js`, `scheduled-tasks.js`, `ui-default.js`,
-  `ui-router.js`. Only `ui-default.js` has tests (`ui-default.test.mjs`, `node --test`, with
-  `HTMLRewriter` and the `ASSETS` binding stubbed, not a Workers runtime); the rest have none.
-- `war-infra/specs/features/pending/routing.feature` has no binding for that reason. It covers
-  API routing, default UI deep links returning `index.html` with 200, custom UI slug routing,
-  and per-War link-preview tags.
-- Existing infra test: `war-infra/scripts/render-spec.test.sh` (bash, deploy script only).
+- Workers in `war-infra/edge/`: `media-router.js`, `scheduled-tasks.js` and
+  `ui-default.js` have dependency-free `node:test` coverage using fake bindings and
+  platform APIs, rather than a Workers runtime. Custom UI hosting was removed and
+  will be rebuilt with the registry.
+- `war-infra/specs/features/pending/routing.feature` still has no executable bindings.
+  It covers API routing, default UI deep links and per-War link-preview tags.
+- Infrastructure script regressions cover rendering, monitoring, shared database
+  ownership and the R2 transition; a runtime-backed acceptance harness remains unbuilt.
 
 ## Technical notes
 - Candidate approaches: Workers unit tests on a local runtime (Miniflare,

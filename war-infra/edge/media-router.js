@@ -1,44 +1,46 @@
-// Media router
-//
-// Bound to /media/* on the zone. Fetches contestant image variants directly
-// from the Spaces CDN, stripping the /media prefix so bucket keys stay clean.
-//
-// Exists instead of a Cloudflare Origin Rule because redirecting to a
-// different origin's hostname needs that rule type's Host Header override,
-// which requires a paid Cloudflare plan. Fetching the CDN's own hostname
-// directly needs no such override — the correct Host header is implicit in
-// the URL being fetched.
-//
-// cacheEverything + a fixed cacheTtl (rather than relying on Cache Rules to
-// respect whatever Cache-Control the origin sends) is deliberate, not just a
-// side effect of using a Worker: variant keys are content-addressed
-// — width and content are baked into the filename — so a cache entry
-// can only ever be stale in the sense of "not yet warmed", never "serving
-// the wrong bytes for this key". A year is safe regardless of what the
-// origin sends, which matters because the origin does not currently send a
-// long-lived Cache-Control at all.
+// Media keys contain both width and content hashes, so a year in the edge cache
+// cannot serve different bytes for the same key. Originals remain private:
+// the binding exposes only the explicitly allowed contestant variants.
+
+function allowedKey(request) {
+  const path = new URL(request.url).pathname
+  if (!path.startsWith('/media/')) return null
+  const key = path.slice('/media/'.length)
+  return key.startsWith('contestants/') ? key : null
+}
+
+function objectResponse(object, method) {
+  if (!object) return new Response('Not found', { status: 404 })
+  const headers = new Headers()
+  object.writeHttpMetadata(headers)
+  headers.set('etag', object.httpEtag)
+  headers.set('cache-control', 'public, max-age=31536000, immutable')
+  if (!('body' in object)) return new Response(null, { status: 304, headers })
+  return new Response(method === 'HEAD' ? null : object.body, { headers })
+}
+
+async function readObject(request, env, key) {
+  const object = await env.MEDIA_BUCKET.get(key, { onlyIf: request.headers })
+  return objectResponse(object, request.method)
+}
+
+async function serveGet(request, env, ctx, key) {
+  const cache = caches.default
+  const cached = await cache.match(request)
+  if (cached) return cached
+  const response = await readObject(request, env, key)
+  if (response.status === 200) ctx.waitUntil(cache.put(request, response.clone()))
+  return response
+}
 
 export default {
-  async fetch(request, env) {
-    const url = new URL(request.url)
-
-    // /media/{...rest}
-    if (!url.pathname.startsWith('/media/')) {
-      return new Response('Not found', { status: 404 })
+  async fetch(request, env, ctx) {
+    if (!['GET', 'HEAD'].includes(request.method)) {
+      return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } })
     }
-
-    // /media/originals/* never reaches here — the WAF custom rule
-    // blocks it ahead of this Worker in the request lifecycle.
-    const rest = url.pathname.slice('/media/'.length)
-    const origin = `${env.MEDIA_CDN_ORIGIN}/${rest}${url.search}`
-
-    return fetch(origin, {
-      method: 'GET',
-      headers: request.headers,
-      cf: {
-        cacheEverything: true,
-        cacheTtl: 31536000,
-      },
-    })
+    const key = allowedKey(request)
+    if (!key) return new Response('Not found', { status: 404 })
+    if (request.method === 'GET') return serveGet(request, env, ctx, key)
+    return readObject(request, env, key)
   },
 }
