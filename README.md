@@ -88,7 +88,7 @@ Things a reviewer may want to look at:
 ## Quick start
 
 Prerequisites: Node 24 (the API requires `>=24 <25`), Docker (for Testcontainers and local
-Postgres), and, for `war-infra`, Terraform 1.9.
+Postgres), and, for `war-infra`, Terraform 1.10 or later.
 
 All commands run from the repository root; `npm --prefix <project>` reaches into a project
 without `cd`. Each project has its own `package.json` and `node_modules`; there is no
@@ -206,7 +206,7 @@ change is applied through CI, never by hand.
 ### Media storage cutover
 
 Media storage is configured for private R2 buckets, served by the media-router binding.
-The state backend remains on Spaces; its backend blocks and Terraform version are unchanged.
+Terraform state lives in the `war-tfstate` R2 bucket, with S3 lock files.
 
 1. Create an R2 API token with Object Read and Write access restricted to
    `war-media-staging` and `war-media-production`. Set the GitHub variable
@@ -223,8 +223,7 @@ The state backend remains on Spaces; its backend blocks and Terraform version ar
    `/media/originals/...` stays inaccessible.
 4. Once copies and URLs are verified, manually delete the old Spaces media and ui-custom
    buckets and their CDN endpoints. Terraform's non-destructive removal blocks leave these
-   intact for copying. Keep `war-tfstate` and the Spaces state credentials until the separate
-   backend migration; Spaces billing continues while that bucket exists.
+   intact for copying.
 
 ### Workflows
 
@@ -265,7 +264,7 @@ environment must provide is in spec sections 11.1 and 11.2.
   with the run's built UI, once per environment (state key `ui/<env>/terraform.tfstate`).
 - `shared/`: the container registry, shared PostgreSQL cluster and its database firewall, and the Cloudflare zone-wide settings (zone settings, firewall, rate-limit and cache rulesets).
 - `envs/staging/`, `envs/production/`: the environment roots. Each `main.tf` configures the
-  providers and the remote state backend (Spaces, S3-compatible), instantiates the modules
+  providers and the remote state backend (the `war-tfstate` R2 bucket, S3-compatible, with lock files), instantiates the modules
   with environment values (node size, counts, hostnames) and handles async dependencies such
   as waiting for App Platform ingress to be ready.
 - `modules/`: `compute/` (the App Platform app and its initial spec), `data/` (logical database, credentials and pool), `storage/` (private R2 media bucket), `edge/` (Cloudflare DNS and the media
@@ -274,7 +273,9 @@ environment must provide is in spec sections 11.1 and 11.2.
 `infra.yml` is gated as spec section 11.5 describes; the shared apply waits on the
 `infra-shared` GitHub Environment's reviewer and the production apply on `production`'s. To
 validate locally, use the Terraform commands in "Build and test" in
-[`AGENTS.md`](AGENTS.md); repeat them with `envs/production` for production, as CI does.
+[`AGENTS.md`](AGENTS.md); repeat them with `envs/production` for production, as CI does. A local `terraform plan` needs the state
+backend's `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_ENDPOINT_URL_S3`
+(`https://<account id>.r2.cloudflarestorage.com`) set in the environment.
 
 ### Shared database cluster
 
@@ -478,7 +479,7 @@ Required GitHub Actions secrets (per repository):
 |---|---|---|
 | `DIGITALOCEAN_ACCESS_TOKEN` | terraform, doctl | DigitalOcean API access |
 | `CLOUDFLARE_API_TOKEN` | terraform | Cloudflare API access |
-| `SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY` | terraform state backend only | DigitalOcean Spaces (S3-compatible); retained until the backend move |
+| `TF_STATE_R2_SECRET_ACCESS_KEY` | terraform state backend only | Secret key of the R2 token for the `war-tfstate` bucket (its key ID is the `TF_STATE_R2_ACCESS_KEY_ID` variable) |
 | `R2_SECRET_ACCESS_KEY` | API config | R2 Object Read and Write secret key (its key ID is the `R2_ACCESS_KEY_ID` variable) |
 | `INTERNAL_TASK_TOKEN` | terraform scheduler, API config | Authorises internal endpoints |
 | `JWT_SECRET` | API config | Session token signing (substituted into the platform spec) |
@@ -509,6 +510,7 @@ Required GitHub Actions variables:
 | `CLOUDFLARE_ZONE_ID` | terraform | Cloudflare DNS zone ID |
 | `CLOUDFLARE_ACCOUNT_ID` | terraform, scheduler | Cloudflare account ID |
 | `R2_ACCESS_KEY_ID` | API config | R2 access key ID; it identifies the key and does not authenticate on its own |
+| `TF_STATE_R2_ACCESS_KEY_ID` | terraform state backend only | R2 access key ID for the `war-tfstate` bucket; the workflows also derive the state endpoint from `CLOUDFLARE_ACCOUNT_ID` |
 | `GOOGLE_CLIENT_ID`, `MICROSOFT_CLIENT_ID`, `FACEBOOK_CLIENT_ID`, `TWITTER_CLIENT_ID` | API config | OAuth provider client IDs |
 | `DO_APP_ID` | app pipeline | App Platform app ID, set once per GitHub environment (staging, production) from Terraform's `app_id` output |
 | `PUBLIC_BASE_URL` | app pipeline, API config | The environment's public URL (`https://staging.war.tmad.dev` or `https://war.tmad.dev`), set per GitHub environment |

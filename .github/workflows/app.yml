@@ -22,7 +22,7 @@
 #                      (the UI Worker's domain is this host without the scheme)
 #
 # Repository secrets/variables (UI Terraform root) — same names infra.yml uses:
-#   SPACES_ACCESS_KEY_ID, SPACES_SECRET_ACCESS_KEY   secrets (Terraform state)
+#   TF_STATE_R2_ACCESS_KEY_ID   variable; TF_STATE_R2_SECRET_ACCESS_KEY   secret (Terraform state)
 #   CLOUDFLARE_API_TOKEN   secret; CLOUDFLARE_ZONE_ID, CLOUDFLARE_ACCOUNT_ID   variables
 #
 # Repository secrets/variables — substituted into
@@ -90,7 +90,7 @@ env:
   IMAGE_NAME: war-api
   # The deployed runtime is 24.x.
   NODE_VERSION: '24'
-  TF_VERSION: '1.9.8'
+  TF_VERSION: '1.17.2'
 
 jobs:
   changes:
@@ -596,8 +596,9 @@ jobs:
     env:
       TF_IN_AUTOMATION: 'true'
       TF_INPUT: '0'
-      AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ vars.TF_STATE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TF_STATE_R2_SECRET_ACCESS_KEY }}
+      AWS_ENDPOINT_URL_S3: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
       TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
       TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -723,8 +724,9 @@ jobs:
     env:
       TF_IN_AUTOMATION: 'true'
       TF_INPUT: '0'
-      AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ vars.TF_STATE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TF_STATE_R2_SECRET_ACCESS_KEY }}
+      AWS_ENDPOINT_URL_S3: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
       TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
       TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
