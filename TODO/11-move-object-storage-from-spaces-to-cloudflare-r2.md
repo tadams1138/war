@@ -104,22 +104,22 @@ Risks:
 - The state backend moves last, in its own change, with the Terraform version bump.
 
 ## Progress
-- Code and Terraform now target private R2 media buckets; the API omits unsupported ACLs,
-  and the media Worker restricts reads to variants with conditional requests and edge caching.
-- Custom UI hosting, pipeline and smoke checks are removed; rebuild details are in #1.
-- App configuration uses R2 credentials and account endpoints. README includes the manual
-  copy, verification and cleanup runbook.
-- Local checks: API lint/typecheck and isolated storage unit test pass; edge, shell and
-  infrastructure regressions and all four Terraform validations pass. Standard API tests
-  cannot start because this session cannot access Docker's named pipe.
-- Still pending: infrastructure apply, R2 token/secrets, object copy and count verification,
-  app redeploy, live URL checks, manual deletion of old media/custom UI storage, and the
-  separate state-backend migration/version bump. No infrastructure or state was changed live.
+- Done: media is in private R2 buckets on staging and production, served by the media Worker
+  through its R2 binding (contestant variants and share images only). The API omits the
+  unsupported ACL. App configuration reads the `R2_ACCESS_KEY_ID` variable and the
+  `R2_SECRET_ACCESS_KEY` secret.
+- Done: all objects copied and verified (58 staging, 152 production; `rclone check` found no
+  differences). The Spaces media and custom UI buckets and all four DigitalOcean CDN
+  endpoints are deleted.
+- Done: custom UI hosting, pipeline and smoke checks are removed; rebuild details are in #1.
+- Remaining: move the Terraform state backend from the `war-tfstate` Spaces bucket to R2,
+  bump Terraform to >= 1.10 for `use_lockfile`, then delete `war-tfstate`. Spaces keeps
+  billing $5/month until that bucket is gone. The R2 token must then also cover the state
+  bucket (it currently applies to all buckets in the account).
 
 ## Open questions
-- Current total size of all buckets (decides whether R2 stays free). Check with
-  `aws s3 ls s3://<bucket> --recursive --summarize --endpoint-url https://nyc3.digitaloceanspaces.com`.
 - Does Terraform's S3 `use_lockfile` work on R2 in practice? Unverified; test on staging state.
+- Total media is about 61 MiB, far inside the R2 free tier.
 
 ## Out of scope
 - Moving the container registry (DOCR) or the database.
