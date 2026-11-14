@@ -35,7 +35,27 @@ test('media storage uses private R2 while retiring Spaces without destroying dat
     assert.doesNotMatch(root, /spaces_access|spaces_secret|cdn_host|ui_custom_bucket/);
   }
   assert.doesNotMatch(workflow, /TF_VAR_spaces_/);
-  assert.match(workflow, /AWS_ACCESS_KEY_ID:.*SPACES_ACCESS_KEY_ID/);
-  assert.match(workflow, /AWS_SECRET_ACCESS_KEY:.*SPACES_SECRET_ACCESS_KEY/);
+  assert.match(workflow, /AWS_ACCESS_KEY_ID:.*TF_STATE_R2_ACCESS_KEY_ID/);
+  assert.match(workflow, /AWS_SECRET_ACCESS_KEY:.*TF_STATE_R2_SECRET_ACCESS_KEY/);
 });
 
+test('Terraform state lives in R2 with lock files in every root and pipeline', () => {
+  // Arrange
+  const roots = ['shared', 'envs/staging', 'envs/production', 'ui'].map((dir) => read(`terraform/${dir}/main.tf`));
+  const workflows = ['infra', 'app'].map((name) => read(`../.github/workflows/${name}.yml`));
+
+  // Act
+  const backends = roots.map((root) => root.slice(root.indexOf('backend "s3"')));
+
+  // Assert
+  for (const backend of backends) {
+    assert.match(backend, /use_lockfile\s*= true/);
+    assert.match(backend, /region\s*= "auto"/);
+    assert.match(backend, /use_path_style\s*= true/);
+    assert.doesNotMatch(backend, /digitaloceanspaces\.com/);
+  }
+  for (const workflow of workflows) {
+    assert.doesNotMatch(workflow, /SPACES_ACCESS_KEY_ID/);
+    assert.match(workflow, /AWS_ENDPOINT_URL_S3:/);
+  }
+});

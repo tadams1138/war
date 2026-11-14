@@ -1235,7 +1235,7 @@ README's Tech stack section, and operational detail lives in its Deployment and 
 | **Edge function** | Small request-time compute, used only where routing requires it |
 | **Application platform** | Runs the API and hosts the default UI; owns path-based ingress |
 | **Database** | Managed relational database with a connection pooler and automated backups |
-| **Object storage** | Buckets for media and infrastructure state |
+| **Object storage** | Buckets for media and infrastructure state; state is locked while an operation runs |
 | **Container registry** | Stores API images |
 | **Scheduler** | Invokes endpoints on a recurring schedule |
 | **Observability** | Log aggregation, metric alerting |

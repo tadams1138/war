@@ -8,7 +8,7 @@
 # not infer a non-default-namespace provider's source for a child module from
 # the root's required_providers alone.
 terraform {
-  required_version = "~> 1.9"
+  required_version = ">= 1.10, < 2.0"
 
   required_providers {
     digitalocean = { source = "digitalocean/digitalocean", version = "~> 2.43" }

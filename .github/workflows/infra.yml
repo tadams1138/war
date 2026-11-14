@@ -1,7 +1,7 @@
 # war-infra pipeline
 #
-# Spaces provides no state locking, so the per-environment
-# concurrency groups on the apply jobs below are what prevent two applies
+# State lives in R2 with lock files, and the per-environment
+# concurrency groups on the apply jobs below remain a second guard against two applies
 # colliding. A workflow_dispatch run validates and plans (shared, staging and
 # production) only; applies need a push to master.
 #
@@ -70,13 +70,14 @@ defaults:
     working-directory: war-infra
 
 env:
-  TF_VERSION: '1.9.8'
+  TF_VERSION: '1.17.2'
   TF_IN_AUTOMATION: 'true'
   TF_INPUT: '0'
 
-  # Spaces credentials for the S3-compatible state backend
-  AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+  # R2 credentials and endpoint for the S3-compatible state backend
+  AWS_ACCESS_KEY_ID: ${{ vars.TF_STATE_R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.TF_STATE_R2_SECRET_ACCESS_KEY }}
+  AWS_ENDPOINT_URL_S3: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
 
   # Provider credentials
   TF_VAR_staging_app_id: ${{ vars.SHARED_DB_STAGING_APP_ID }}
