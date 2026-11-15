@@ -203,27 +203,20 @@ Section 11 of [`SPEC.md`](SPEC.md) says what the pipelines and infrastructure mu
 this section is how this repository does it and how to operate it. Every infrastructure
 change is applied through CI, never by hand.
 
-### Media storage cutover
+### Object storage
 
-Media storage is configured for private R2 buckets, served by the media-router binding.
-Terraform state lives in the `war-tfstate` R2 bucket, with S3 lock files.
+Everything lives in Cloudflare R2, account `CLOUDFLARE_ACCOUNT_ID`:
 
-1. Create an R2 API token with Object Read and Write access restricted to
-   `war-media-staging` and `war-media-production`. Set the GitHub variable
-   `R2_ACCESS_KEY_ID` and the secret `R2_SECRET_ACCESS_KEY`; ensure the repository variable
-   `CLOUDFLARE_ACCOUNT_ID` identifies the account.
-2. After the infrastructure pipeline apply creates the buckets, copy objects for each
-   environment, staging first. Configure rclone remotes `spaces` and `r2` with their
-   respective S3 endpoints and credentials, then run:
-   `rclone sync spaces:war-media-staging r2:war-media-staging` (repeat for production).
-   `aws s3 sync` via a local staging directory with the two endpoints is an alternative.
-   Compare source and destination object counts, including private originals, before proceeding.
-3. Redeploy the app to pick up the R2 endpoint, region `auto` and credentials.
-   Verify existing `/media/contestants/...` URLs, uploads and deletion, and confirm
-   `/media/originals/...` stays inaccessible.
-4. Once copies and URLs are verified, manually delete the old Spaces media and ui-custom
-   buckets and their CDN endpoints. Terraform's non-destructive removal blocks leave these
-   intact for copying.
+| Bucket | Holds | Access |
+|---|---|---|
+| `war-media-staging`, `war-media-production` | Contestant images (variants and private originals) and War share images | The API through the `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` token; the public through the media-router Worker, which serves only `contestants/*` and `share-images/*` |
+| `war-tfstate` | Terraform state for `shared`, `envs/<env>` and `ui/<env>`, with S3 lock files | The pipelines through the `TF_STATE_R2_*` token, scoped to this bucket only |
+
+R2 has no object versioning. `war-tfstate/backup/<timestamp>/` holds a full copy of the
+state taken when it moved from Spaces. To recover a damaged state file, copy a backup over
+the live key with rclone or `aws s3 cp` against the R2 endpoint, then run a plan and check
+it shows no unexpected changes. Take a fresh backup the same way before any risky state
+operation (`terraform state mv`, imports, provider upgrades).
 
 ### Workflows
 
