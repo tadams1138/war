@@ -19,6 +19,10 @@ API still serves Facebook sign-in (`war-api/src/auth/providers/facebook.ts`).
   `war-ui-default/tests/acceptance/support/providers.ts` also omits Facebook; add it there.
 - README "First-time setup of an environment" step 2 says Facebook verification is not done;
   update it when this ships.
+- `facebook.ts` pins Graph API v21.0, which Meta retires around January 2027 (current is
+  v26.0). Move the dialog, token and `/me` URLs to a current version, kept in one constant,
+  before re-enabling. Send the `/me` access token as a Bearer header instead of the query
+  string so it cannot reach URL logs.
 
 ## Dependencies
 - External: Meta business verification (owner).

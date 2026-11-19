@@ -21,8 +21,9 @@ export class MicrosoftProvider extends OpenIdBackedProvider {
   protected readonly scope = 'openid profile';
 
   protected buildConfiguration(): Promise<client.Configuration> {
-    // "consumers" (personal accounts only), not "common": the latter's discovery document advertises a templated
-    // issuer (`.../{tenantid}/v2.0`) that openid-client's strict issuer validation rejects.
+    // "consumers" admits personal accounts only. "common" or "organizations" would also work for work and school
+    // accounts: openid-client's discovery() recognises login.microsoftonline.com and checks each id_token against its
+    // templated `{tenantid}` issuer filled in from the token's tid claim.
     return client.discovery(new URL('https://login.microsoftonline.com/consumers/v2.0'), this.clientId, this.clientSecret);
   }
 

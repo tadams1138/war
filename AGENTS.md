@@ -112,6 +112,10 @@ every time.
 
 These commands mirror the pipelines in `.github/workflows/`, so local runs match CI.
 
+A script a workflow runs by path (`war-infra/scripts/smoke-test.sh`, not `bash <script>`)
+must be tracked executable: `git ls-files -s <file>` shows `100755`. Windows checkouts do not
+set the bit; fix it with `git update-index --chmod=+x <file>`.
+
 ## Working efficiently
 
 - **Scope test runs while iterating.** During a fix-verify loop, run only the affected spec
@@ -130,6 +134,15 @@ These commands mirror the pipelines in `.github/workflows/`, so local runs match
   run the checks and read the diff, and check a cheaper model's factual claims most closely.
 - **Close `claude-in-chrome` tabs as soon as a browser task finishes.** Don't leave automation
   tabs open across turns.
+
+## Lessons for shared skills
+
+When you resolve a non-obvious problem that other projects would also hit (provider, library
+or platform behaviour, not this repo's design), add a dated entry below naming the shared
+skill it belongs to and the evidence. Do not edit the plugin repository from here; the owner
+harvests entries locally with `harvest-lessons` and clears them. Rules specific to war go in
+the sections above.
+Format: `- YYYY-MM-DD · <skill> · <lesson>. Evidence: <file, commit or link>.`
 
 ## TODO
 
