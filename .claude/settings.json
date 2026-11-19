@@ -1,4 +1,15 @@
 {
+  "extraKnownMarketplaces": {
+    "tadams-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "tadams1138/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "todo@tadams-plugins": true
+  },
   "permissions": {
     "deny": [
       "Bash(sudo:*)",
