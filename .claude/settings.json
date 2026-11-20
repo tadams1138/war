@@ -15,9 +15,7 @@
     "facebook-oauth@tadams-plugins": true,
     "digitalocean-app-platform@tadams-plugins": true,
     "cloudflare-terraform@tadams-plugins": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "cloudflare@claude-plugins-official": true,
-    "terraform@claude-plugins-official": true
+    "cloudflare@claude-plugins-official": true
   },
   "permissions": {
     "deny": [
