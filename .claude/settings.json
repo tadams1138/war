@@ -8,7 +8,16 @@
     }
   },
   "enabledPlugins": {
-    "todo@tadams-plugins": true
+    "todo@tadams-plugins": true,
+    "google-oauth@tadams-plugins": true,
+    "microsoft-oauth@tadams-plugins": true,
+    "twitter-x-oauth@tadams-plugins": true,
+    "facebook-oauth@tadams-plugins": true,
+    "digitalocean-app-platform@tadams-plugins": true,
+    "cloudflare-terraform@tadams-plugins": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "cloudflare@claude-plugins-official": true,
+    "terraform@claude-plugins-official": true
   },
   "permissions": {
     "deny": [
